@@ -1,6 +1,7 @@
 """
 Bwin market adapter: parse Markets and optionMarkets from bwin feed events.
 """
+from __future__ import annotations
 
 from backend.markets.models import NormalizedMarket
 from backend.markets.integration.base import BaseMarketAdapter
