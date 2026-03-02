@@ -378,6 +378,15 @@
                 <input type="text" id="search-{{ key }}" placeholder="Search {{ key }}…" data-panel="{{ key }}"
                     class="entity-search bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full outline-none">
             </div>
+            {% if key == 'categories' %}
+            <select id="filter-categories-sport" class="filter-categories bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
+                <option value="">— Sport —</option>
+                {% for s in entities.sports %}
+                <option value="{{ s.domain_id }}">{{ s.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="button" onclick="clearCategoriesFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
+            {% endif %}
             {% if key == 'teams' %}
             <select id="filter-teams-sport" class="filter-teams bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
                 <option value="">— Sport —</option>
@@ -405,6 +414,12 @@
             <button type="button" onclick="clearTeamsFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
             {% endif %}
             {% if key == 'competitions' %}
+            <select id="filter-competitions-sport" class="filter-competitions bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
+                <option value="">— Sport —</option>
+                {% for s in entities.sports %}
+                <option value="{{ s.domain_id }}">{{ s.name }}</option>
+                {% endfor %}
+            </select>
             <select id="filter-competitions-amateur" class="filter-competitions bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by amateur">
                 <option value="">— Amateur —</option>
                 <option value="1">Yes</option>
@@ -449,7 +464,7 @@
                     {% set refs = entity_feed_refs_by_key.get(key ~ ':' ~ entity.domain_id, []) %}
                     {% set ns = namespace(parts=[entity.domain_id | string, entity.name, (entity.get('code') or ''), (sports_by_id.get(entity.get('sport_id'), '') or ''), (categories_by_id.get(entity.get('category_id'), '') or '')]) %}
                     {% for r in refs %}{% set ns.parts = ns.parts + [feeds_by_id.get(r.feed_provider_id, '') or '', r.feed_id] %}{% endfor %}
-                    <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ ns.parts | join(' ') | lower }}" data-entity-id="{{ entity.domain_id }}"{% if key == 'teams' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-participant-type-id="{{ entity.get('participant_type_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}{% if key == 'competitions' %} data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}>
+                    <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ ns.parts | join(' ') | lower }}" data-entity-id="{{ entity.domain_id }}"{% if key == 'categories' %} data-sport-id="{{ entity.get('sport_id') or '' }}"{% endif %}{% if key == 'teams' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-participant-type-id="{{ entity.get('participant_type_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}{% if key == 'competitions' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}>
                         <td class="px-4 py-2.5 font-mono text-slate-400">#{{ entity.domain_id }}</td>
                         <td class="px-4 py-2.5 text-white font-medium" data-entity-name="1">{{ entity.name }}</td>
                         {% if key in ('sports', 'categories', 'competitions', 'teams') %}
@@ -590,6 +605,7 @@
         document.getElementById('panel-' + key).classList.remove('hidden');
         const sel = document.getElementById('nef-type');
         if (sel) sel.value = key;
+        if (key === 'categories' && typeof applyCategoriesFilters === 'function') applyCategoriesFilters();
         if (key === 'teams' && typeof applyTeamsFilters === 'function') applyTeamsFilters();
         if (key === 'competitions' && typeof applyCompetitionsFilters === 'function') applyCompetitionsFilters();
     }
@@ -1135,20 +1151,18 @@
         applyTeamsFilters();
     }
 
-    function applyCompetitionsFilters() {
-        const panel = 'competitions';
-        const searchInput = document.getElementById('search-competitions');
-        const amateurSel = document.getElementById('filter-competitions-amateur');
-        const ageCatSel = document.getElementById('filter-competitions-age-category');
+    function applyCategoriesFilters() {
+        const panel = 'categories';
+        const searchInput = document.getElementById('search-categories');
+        const sportSel = document.getElementById('filter-categories-sport');
         const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
-        const amateurVal = (amateurSel && amateurSel.value ? amateurSel.value.trim() : '') || '';
-        const ageCatVal = (ageCatSel && ageCatSel.value ? ageCatSel.value.trim() : '') || '';
+        const sportVal = (sportSel && sportSel.value ? sportSel.value.trim() : '') || '';
         const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
         if (!tbody) return;
         const rows = tbody.querySelectorAll('.entity-row');
         let visible = 0;
         let total = 0;
-        const hasFilter = query || amateurVal || ageCatVal;
+        const hasFilter = query || sportVal;
         rows.forEach(function (tr) {
             if (tr.classList.contains('entity-empty-row')) {
                 tr.style.display = hasFilter ? 'none' : '';
@@ -1156,12 +1170,58 @@
             }
             total++;
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
+            const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
+            const matchSearch = !query || searchText.indexOf(query) !== -1;
+            const matchSport = !sportVal || rowSportId === sportVal;
+            const show = matchSearch && matchSport;
+            tr.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        const countEl = document.getElementById('count-categories');
+        if (countEl) {
+            countEl.textContent = hasFilter ? 'Showing ' + visible + ' of ' + total + ' categories' : 'Showing all categories';
+        }
+    }
+
+    function clearCategoriesFilters() {
+        const searchInput = document.getElementById('search-categories');
+        if (searchInput) searchInput.value = '';
+        const sportSel = document.getElementById('filter-categories-sport');
+        if (sportSel) sportSel.value = '';
+        applyCategoriesFilters();
+    }
+
+    function applyCompetitionsFilters() {
+        const panel = 'competitions';
+        const searchInput = document.getElementById('search-competitions');
+        const sportSel = document.getElementById('filter-competitions-sport');
+        const amateurSel = document.getElementById('filter-competitions-amateur');
+        const ageCatSel = document.getElementById('filter-competitions-age-category');
+        const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
+        const sportVal = (sportSel && sportSel.value ? sportSel.value.trim() : '') || '';
+        const amateurVal = (amateurSel && amateurSel.value ? amateurSel.value.trim() : '') || '';
+        const ageCatVal = (ageCatSel && ageCatSel.value ? ageCatSel.value.trim() : '') || '';
+        const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('.entity-row');
+        let visible = 0;
+        let total = 0;
+        const hasFilter = query || sportVal || amateurVal || ageCatVal;
+        rows.forEach(function (tr) {
+            if (tr.classList.contains('entity-empty-row')) {
+                tr.style.display = hasFilter ? 'none' : '';
+                return;
+            }
+            total++;
+            const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
+            const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
             const rowAmateur = (tr.getAttribute('data-is-amateur') || '').trim();
             const rowAgeCatId = (tr.getAttribute('data-underage-category-id') || '').trim();
             const matchSearch = !query || searchText.indexOf(query) !== -1;
+            const matchSport = !sportVal || rowSportId === sportVal;
             const matchAmateur = !amateurVal || rowAmateur === amateurVal;
             const matchAgeCat = !ageCatVal || rowAgeCatId === ageCatVal;
-            const show = matchSearch && matchAmateur && matchAgeCat;
+            const show = matchSearch && matchSport && matchAmateur && matchAgeCat;
             tr.style.display = show ? '' : 'none';
             if (show) visible++;
         });
@@ -1174,13 +1234,16 @@
     function clearCompetitionsFilters() {
         const searchInput = document.getElementById('search-competitions');
         if (searchInput) searchInput.value = '';
-        ['filter-competitions-amateur', 'filter-competitions-age-category'].forEach(function (id) {
+        ['filter-competitions-sport', 'filter-competitions-amateur', 'filter-competitions-age-category'].forEach(function (id) {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
         applyCompetitionsFilters();
     }
 
+    document.querySelectorAll('.filter-categories').forEach(function (el) {
+        el.addEventListener('change', applyCategoriesFilters);
+    });
     document.querySelectorAll('.filter-teams').forEach(function (el) {
         el.addEventListener('change', applyTeamsFilters);
     });
@@ -1192,6 +1255,10 @@
     document.querySelectorAll('.entity-search').forEach(function (input) {
         input.addEventListener('input', function () {
             const panel = this.getAttribute('data-panel');
+            if (panel === 'categories') {
+                applyCategoriesFilters();
+                return;
+            }
             if (panel === 'teams') {
                 applyTeamsFilters();
                 return;

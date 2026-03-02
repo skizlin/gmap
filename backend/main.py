@@ -2143,6 +2143,29 @@ def _domain_events_competitions(sports: list[str] | None, categories: list[str] 
     })
 
 
+def _domain_event_start_time_mismatch(domain_event_id: str, mappings: list[dict], feed_events: list[dict] | None = None) -> bool:
+    """True if mapped feed events have more than one distinct start time (easy to notice discrepancy).
+    Uses feed_events if provided (e.g. fresh load from JSON so edits are picked up without restart)."""
+    if len(mappings) < 2:
+        return False
+    source = feed_events if feed_events is not None else DUMMY_EVENTS
+    seen: set[str] = set()
+    for m in mappings:
+        feed_provider = (m.get("feed_provider") or "").strip()
+        feed_valid_id = (m.get("feed_valid_id") or "").strip()
+        feed_ev = next(
+            (e for e in source if (e.get("feed_provider") or "").strip() == feed_provider and str(e.get("valid_id") or "").strip() == feed_valid_id),
+            None,
+        )
+        if not feed_ev:
+            continue
+        st = (feed_ev.get("start_time") or "").strip()
+        dt = _parse_start_time(st) if st else None
+        key = dt.isoformat() if dt else "__none__"
+        seen.add(key)
+    return len(seen) > 1
+
+
 def _filter_domain_events(
     enriched: list[dict],
     date_str: str | None,
@@ -2200,11 +2223,14 @@ async def domain_events_view(
     mappings_by_event: dict[str, list[dict]] = {}
     for m in _load_event_mappings():
         mappings_by_event.setdefault(m["domain_event_id"], []).append(m)
+    # Fresh feed events from JSON so edits to bwin.json etc. are picked up without server restart
+    feed_events = load_all_mock_data()
     enriched = []
     for ev in DOMAIN_EVENTS:
         mappings = mappings_by_event.get(ev["id"], [])
         providers = ", ".join(sorted({m["feed_provider"] for m in mappings}))
-        enriched.append({**ev, "mapped_providers": providers, "mapped_feed_count": len(mappings)})
+        start_time_mismatch = _domain_event_start_time_mismatch(ev["id"], mappings, feed_events)
+        enriched.append({**ev, "mapped_providers": providers, "mapped_feed_count": len(mappings), "start_time_mismatch": start_time_mismatch})
     domain_sports = _domain_events_sports()
     selected_sports = sports if sports else domain_sports
     active_sports = selected_sports if sports else None
@@ -2249,11 +2275,14 @@ async def domain_events_table(
     mappings_by_event: dict[str, list[dict]] = {}
     for m in _load_event_mappings():
         mappings_by_event.setdefault(m["domain_event_id"], []).append(m)
+    # Fresh feed events from JSON so edits to bwin.json etc. are picked up without server restart
+    feed_events = load_all_mock_data()
     enriched = []
     for ev in DOMAIN_EVENTS:
         mappings = mappings_by_event.get(ev["id"], [])
         providers = ", ".join(sorted({m["feed_provider"] for m in mappings}))
-        enriched.append({**ev, "mapped_providers": providers, "mapped_feed_count": len(mappings)})
+        start_time_mismatch = _domain_event_start_time_mismatch(ev["id"], mappings, feed_events)
+        enriched.append({**ev, "mapped_providers": providers, "mapped_feed_count": len(mappings), "start_time_mismatch": start_time_mismatch})
     domain_sports = _domain_events_sports()
     selected_sports = sports if sports else domain_sports
     active_sports = selected_sports if sports else None
