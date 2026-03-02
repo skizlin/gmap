@@ -92,13 +92,17 @@
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'brands' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-building w-5 text-slate-500"></i> Brands
                         </a>
+                        <a href="/feeders"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'feeders' %}text-primary{% else %}text-slate-300{% endif %}">
+                            <i class="fa-solid fa-satellite-dish w-5 text-slate-500"></i> Feeder
+                        </a>
                     </div>
                 </div>
 
                 <!-- Betting Program (dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <button
-                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors gap-1.5 {% if section in ['domain', 'feeder'] %}text-primary{% endif %}">
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors gap-1.5 {% if section in ['domain', 'feeder', 'margin_config'] %}text-primary{% endif %}">
                         Betting Program
                         <i class="fa-solid fa-chevron-down text-xs opacity-50"></i>
                     </button>
@@ -111,6 +115,10 @@
                         <a href="/feeder-events"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'feeder' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-slate-500"></i> Feeder Events
+                        </a>
+                        <a href="/margin-config"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'margin_config' %}text-primary{% else %}text-slate-300{% endif %}">
+                            <i class="fa-solid fa-percent w-5 text-slate-500"></i> Margin Configuration
                         </a>
                     </div>
                 </div>

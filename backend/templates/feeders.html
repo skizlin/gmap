@@ -1,0 +1,225 @@
+{% extends "layout.html" %}
+
+{% block breadcrumbs %}
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Configuration</span>
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Feeder</span>
+{% endblock %}
+
+{% block title %}Feeder Configuration{% endblock %}
+
+{% block content %}
+<div class="flex flex-col space-y-4 pb-6">
+
+    <!-- Page header -->
+    <div>
+        <h1 class="text-lg font-bold text-white">Feeder Configuration</h1>
+        <p class="text-xs text-slate-500 mt-0.5">Configure automation of the mapping process per feed, per sport, category, and league.</p>
+    </div>
+
+    <!-- Filters -->
+    <form method="get" action="/feeders" id="feeder-filters-form" class="flex flex-wrap items-end gap-3 bg-cardbg/80 border border-slate-700/50 rounded-lg p-4">
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sport</label>
+            <select name="sport_id" id="feeder-filter-sport" onchange="this.form.submit()"
+                class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]">
+                <option value="">— select —</option>
+                {% for s in sports %}
+                <option value="{{ s.domain_id }}" {% if selected_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Category</label>
+            <select name="category_id" id="feeder-filter-category" onchange="this.form.submit()"
+                class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]"
+                {% if not selected_sport_id %}disabled{% endif %}>
+                <option value="">— select —</option>
+                {% for c in categories %}
+                {% if not selected_sport_id or c.sport_id == selected_sport_id %}
+                <option value="{{ c.domain_id }}" {% if selected_category_id == c.domain_id %}selected{% endif %}>{{ c.name }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">League</label>
+            <select name="league_id" id="feeder-filter-league" onchange="this.form.submit()"
+                class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]"
+                {% if not selected_category_id %}disabled{% endif %}>
+                <option value="">— select —</option>
+                {% for c in competitions %}
+                {% if selected_category_id and c.category_id == selected_category_id %}
+                <option value="{{ c.domain_id }}" {% if selected_league_id == c.domain_id %}selected{% endif %}>{{ c.name }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        <button type="button" onclick="document.getElementById('feeder-filter-sport').value=''; document.getElementById('feeder-filter-category').value=''; document.getElementById('feeder-filter-league').value=''; document.getElementById('feeder-filters-form').submit();"
+            class="text-slate-500 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
+    </form>
+
+    {% if not selected_sport_id %}
+    <div class="bg-cardbg/80 border border-slate-700/50 rounded-lg p-8 text-center text-slate-500 text-sm">
+        Select a <strong>Sport</strong> (and optionally Category and League) above to configure feeder settings for that level.
+    </div>
+    {% else %}
+
+    <!-- Feeder configuration grid (settings as rows, feeders as columns) -->
+    <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-hidden">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 border-b border-slate-700/50">Feeder configuration</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    <tr>
+                        <th class="px-3 py-2.5 font-semibold w-48 min-w-[12rem] sticky left-0 bg-slate-900/50 z-10">Setting</th>
+                        {% for feed in feeds %}
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">{{ feed.name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="text-slate-300">
+                    {% for key, label in system_actions %}
+                    <tr class="border-b border-slate-700/40 hover:bg-white/3">
+                        <td class="px-3 py-2 font-medium text-white sticky left-0 bg-cardbg/95 z-10">{{ label }}</td>
+                        {% for feed in feeds %}
+                        <td class="px-2 py-2">
+                            {% if key == 'market_mapping_behavior' %}
+                            <select name="fc_{{ feed.domain_id }}_{{ key }}" class="feeder-config-cell bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-[11px] w-full max-w-[140px]"
+                                data-feed-id="{{ feed.domain_id }}" data-setting="{{ key }}">
+                                <option value="Not set" {% if feeder_config_lookup.get((feed.domain_id, key), 'Not set') == 'Not set' %}selected{% endif %}>Not set</option>
+                                <option value="At least one active" {% if feeder_config_lookup.get((feed.domain_id, key)) == 'At least one active' %}selected{% endif %}>At least one active</option>
+                                <option value="All active" {% if feeder_config_lookup.get((feed.domain_id, key)) == 'All active' %}selected{% endif %}>All active</option>
+                            </select>
+                            {% elif key == 'automapping_start_time_threshold_hours' or key == 'auto_update_start_time_rank' %}
+                            <input type="number" name="fc_{{ feed.domain_id }}_{{ key }}" min="0" step="1" placeholder="—"
+                                value="{{ feeder_config_lookup.get((feed.domain_id, key), '') if feeder_config_lookup.get((feed.domain_id, key)) not in ('Not set', '', None) else '' }}"
+                                class="feeder-config-cell bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-[11px] w-16"
+                                data-feed-id="{{ feed.domain_id }}" data-setting="{{ key }}">
+                            {% else %}
+                            <select name="fc_{{ feed.domain_id }}_{{ key }}" class="feeder-config-cell bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-[11px] w-full max-w-[90px]"
+                                data-feed-id="{{ feed.domain_id }}" data-setting="{{ key }}">
+                                <option value="Not set" {% if feeder_config_lookup.get((feed.domain_id, key), 'Not set') == 'Not set' %}selected{% endif %}>Not set</option>
+                                <option value="Yes" {% if feeder_config_lookup.get((feed.domain_id, key)) == 'Yes' %}selected{% endif %}>Yes</option>
+                                <option value="No" {% if feeder_config_lookup.get((feed.domain_id, key)) == 'No' %}selected{% endif %}>No</option>
+                            </select>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="px-4 py-2 border-t border-slate-700/50 flex justify-end gap-2">
+            <button type="button" id="feeder-config-save" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded">Save</button>
+            <span id="feeder-config-status" class="text-xs text-slate-400"></span>
+        </div>
+    </div>
+
+    <!-- Feeder Incidents Configuration (only when sport selected) -->
+    <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-hidden">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 border-b border-slate-700/50">Feeder Incidents Configuration</h2>
+        <p class="text-[11px] text-slate-500 px-4 py-2">Configure which incident data each feeder provides for the selected sport.</p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    <tr>
+                        <th class="px-3 py-2.5 font-semibold w-40">Feeder</th>
+                        {% for key, label in incident_types %}
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">{{ label }}</th>
+                        {% endfor %}
+                        <th class="px-2 py-2.5 font-semibold">Enabled</th>
+                    </tr>
+                </thead>
+                <tbody class="text-slate-300">
+                    {% for feed in feeds %}
+                    <tr class="border-b border-slate-700/40 hover:bg-white/3">
+                        <td class="px-3 py-2 font-medium text-white">{{ feed.name }}</td>
+                        {% for key, label in incident_types %}
+                        <td class="px-2 py-2">
+                            <input type="checkbox" name="inc_{{ feed.domain_id }}_{{ key }}" class="feeder-incident-cell rounded border-slate-600 bg-slate-800 text-primary"
+                                {% if feeder_incident_lookup.get((feed.domain_id, key)) %}checked{% endif %}
+                                data-feed-id="{{ feed.domain_id }}" data-incident="{{ key }}">
+                        </td>
+                        {% endfor %}
+                        <td class="px-2 py-2">
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" class="feeder-source-enabled rounded border-slate-600 bg-slate-800 text-primary" data-feed-id="{{ feed.domain_id }}" checked>
+                                <span class="text-[11px]">On</span>
+                            </label>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="px-4 py-2 border-t border-slate-700/50 flex justify-between items-center">
+            <div class="flex gap-2">
+                <button type="button" class="text-slate-400 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-slate-700">Sort</button>
+                <button type="button" class="text-slate-400 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-slate-700">+ Add</button>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" id="feeder-incidents-save" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded">Save</button>
+                <button type="button" onclick="window.location.reload()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5 rounded">Cancel</button>
+                <span id="feeder-incidents-status" class="text-xs text-slate-400"></span>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+
+<script>
+(function () {
+    const level = {{ config_level | tojson if config_level else 'null' }};
+    const sportId = {{ selected_sport_id | tojson if selected_sport_id else 'null' }};
+    const categoryId = {{ selected_category_id | tojson if selected_category_id else 'null' }};
+    const leagueId = {{ selected_league_id | tojson if selected_league_id else 'null' }};
+
+    document.getElementById('feeder-config-save')?.addEventListener('click', async function () {
+        if (!level || !sportId) return;
+        const status = document.getElementById('feeder-config-status');
+        status.textContent = 'Saving…';
+        const payload = { level, sport_id: sportId, category_id: categoryId || null, league_id: leagueId || null, settings: [] };
+        document.querySelectorAll('.feeder-config-cell').forEach(function (el) {
+            const feedId = el.getAttribute('data-feed-id');
+            const setting = el.getAttribute('data-setting');
+            const value = el.tagName === 'SELECT' ? el.value : (el.value || '').trim() || null;
+            if (feedId && setting) payload.settings.push({ feed_provider_id: parseInt(feedId, 10), setting_key: setting, value: value || 'Not set' });
+        });
+        try {
+            const res = await fetch('/api/feeder-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const data = await res.json().catch(function () { return {}; });
+            status.textContent = res.ok ? 'Saved.' : (data.detail || 'Failed');
+            status.className = 'text-xs ' + (res.ok ? 'text-emerald-400' : 'text-red-400');
+        } catch (e) {
+            status.textContent = 'Error';
+            status.className = 'text-xs text-red-400';
+        }
+    });
+
+    document.getElementById('feeder-incidents-save')?.addEventListener('click', async function () {
+        if (!sportId) return;
+        const status = document.getElementById('feeder-incidents-status');
+        status.textContent = 'Saving…';
+        const payload = { sport_id: sportId, incidents: [] };
+        document.querySelectorAll('.feeder-incident-cell').forEach(function (el) {
+            const feedId = el.getAttribute('data-feed-id');
+            const incident = el.getAttribute('data-incident');
+            if (feedId && incident) payload.incidents.push({ feed_provider_id: parseInt(feedId, 10), incident_type: incident, enabled: el.checked });
+        });
+        try {
+            const res = await fetch('/api/feeder-incidents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const data = await res.json().catch(function () { return {}; });
+            status.textContent = res.ok ? 'Saved.' : (data.detail || 'Failed');
+            status.className = 'text-xs ' + (res.ok ? 'text-emerald-400' : 'text-red-400');
+        } catch (e) {
+            status.textContent = 'Error';
+            status.className = 'text-xs text-red-400';
+        }
+    });
+})();
+</script>
+{% endblock %}

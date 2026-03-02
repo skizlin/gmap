@@ -46,6 +46,10 @@ UNDERAGE_CATEGORIES_PATH = config.UNDERAGE_CATEGORIES_PATH
 LANGUAGES_PATH = config.LANGUAGES_PATH
 TRANSLATIONS_PATH = config.TRANSLATIONS_PATH
 BRANDS_PATH = config.BRANDS_PATH
+FEEDER_CONFIG_PATH = config.FEEDER_CONFIG_PATH
+FEEDER_INCIDENTS_PATH = config.FEEDER_INCIDENTS_PATH
+MARGIN_TEMPLATES_PATH = config.MARGIN_TEMPLATES_PATH
+MARGIN_TEMPLATE_COMPETITIONS_PATH = config.MARGIN_TEMPLATE_COMPETITIONS_PATH
 
 # Mount Static & Templates
 STATIC_DIR.mkdir(exist_ok=True)
@@ -147,6 +151,8 @@ from backend.schemas import (
     CountryUpsertRequest,
     LanguageUpsertRequest,
     TranslationUpsertRequest,
+    CreateMarginTemplateRequest,
+    UpdateMarginTemplateRequest,
 )
 
 
@@ -162,6 +168,168 @@ def _load_feeds() -> list[dict]:
     for r in rows:
         r["domain_id"] = int(r["domain_id"])
     return rows
+
+
+_FEEDER_CONFIG_FIELDS = ["level", "sport_id", "category_id", "league_id", "feed_provider_id", "setting_key", "value"]
+_FEEDER_INCIDENT_FIELDS = ["sport_id", "feed_provider_id", "incident_type", "enabled", "sort_order"]
+
+
+def _load_feeder_config() -> list[dict]:
+    """Load feeder_config.csv (level, sport_id, category_id, league_id, feed_provider_id, setting_key, value)."""
+    if not FEEDER_CONFIG_PATH.exists():
+        return []
+    rows = []
+    with open(FEEDER_CONFIG_PATH, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            for key in ("sport_id", "category_id", "league_id", "feed_provider_id"):
+                if r.get(key) and r[key].strip():
+                    try:
+                        r[key] = int(r[key])
+                    except (ValueError, TypeError):
+                        r[key] = None
+                else:
+                    r[key] = None
+            rows.append(r)
+    return rows
+
+
+def _load_feeder_incidents() -> list[dict]:
+    """Load feeder_incidents.csv (sport_id, feed_provider_id, incident_type, enabled, sort_order)."""
+    if not FEEDER_INCIDENTS_PATH.exists():
+        return []
+    rows = []
+    with open(FEEDER_INCIDENTS_PATH, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            for key in ("sport_id", "feed_provider_id", "sort_order"):
+                if r.get(key) and r[key].strip():
+                    try:
+                        r[key] = int(r[key])
+                    except (ValueError, TypeError):
+                        r[key] = None
+                else:
+                    r[key] = None if key != "sort_order" else 0
+            r["enabled"] = (r.get("enabled") or "").strip() in ("1", "true", "yes")
+            rows.append(r)
+    return rows
+
+
+def _save_feeder_config(rows: list[dict]) -> None:
+    """Overwrite feeder_config.csv with the given rows."""
+    with open(FEEDER_CONFIG_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_FEEDER_CONFIG_FIELDS)
+        w.writeheader()
+        for r in rows:
+            w.writerow({
+                "level": (r.get("level") or "").strip(),
+                "sport_id": r.get("sport_id") if r.get("sport_id") is not None else "",
+                "category_id": r.get("category_id") if r.get("category_id") is not None else "",
+                "league_id": r.get("league_id") if r.get("league_id") is not None else "",
+                "feed_provider_id": r.get("feed_provider_id") if r.get("feed_provider_id") is not None else "",
+                "setting_key": (r.get("setting_key") or "").strip(),
+                "value": (r.get("value") or "").strip(),
+            })
+
+
+def _save_feeder_incidents(rows: list[dict]) -> None:
+    """Overwrite feeder_incidents.csv with the given rows."""
+    with open(FEEDER_INCIDENTS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_FEEDER_INCIDENT_FIELDS)
+        w.writeheader()
+        for r in rows:
+            w.writerow({
+                "sport_id": r.get("sport_id") if r.get("sport_id") is not None else "",
+                "feed_provider_id": r.get("feed_provider_id") if r.get("feed_provider_id") is not None else "",
+                "incident_type": (r.get("incident_type") or "").strip(),
+                "enabled": "1" if r.get("enabled") else "0",
+                "sort_order": r.get("sort_order") if r.get("sort_order") is not None else "0",
+            })
+
+
+_MARGIN_TEMPLATE_FIELDS = [
+    "id", "name", "short_name", "pm_margin", "ip_margin",
+    "cashout", "betbuilder", "bet_delay", "leagues_count", "markets_count", "is_default",
+]
+
+
+def _load_margin_templates() -> list[dict]:
+    """Load margin_templates.csv. If missing or empty, returns default list with Uncategorized only."""
+    if not MARGIN_TEMPLATES_PATH.exists():
+        return [{"id": 1, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "", "cashout": "", "betbuilder": "", "bet_delay": "", "leagues_count": 0, "markets_count": 0, "is_default": 1}]
+    rows = []
+    with open(MARGIN_TEMPLATES_PATH, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            rid = r.get("id")
+            try:
+                r["id"] = int(rid) if rid and str(rid).strip() else None
+            except (TypeError, ValueError):
+                r["id"] = None
+            for k in ("leagues_count", "markets_count"):
+                try:
+                    r[k] = int(r.get(k) or 0)
+                except (TypeError, ValueError):
+                    r[k] = 0
+            r["is_default"] = (r.get("is_default") or "").strip() in ("1", "true", "yes")
+            rows.append(r)
+    if not rows:
+        return [{"id": 1, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "", "cashout": "", "betbuilder": "", "bet_delay": "", "leagues_count": 0, "markets_count": 0, "is_default": True}]
+    return rows
+
+
+def _save_margin_templates(rows: list[dict]) -> None:
+    """Overwrite margin_templates.csv."""
+    with open(MARGIN_TEMPLATES_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_MARGIN_TEMPLATE_FIELDS)
+        w.writeheader()
+        for r in rows:
+            w.writerow({
+                "id": r.get("id") or "",
+                "name": (r.get("name") or "").strip(),
+                "short_name": (r.get("short_name") or "").strip(),
+                "pm_margin": (r.get("pm_margin") or "").strip(),
+                "ip_margin": (r.get("ip_margin") or "").strip(),
+                "cashout": (r.get("cashout") or "").strip(),
+                "betbuilder": (r.get("betbuilder") or "").strip(),
+                "bet_delay": (r.get("bet_delay") or "").strip(),
+                "leagues_count": r.get("leagues_count") if r.get("leagues_count") is not None else 0,
+                "markets_count": r.get("markets_count") if r.get("markets_count") is not None else 0,
+                "is_default": "1" if r.get("is_default") else "0",
+            })
+
+
+def _load_margin_template_competitions() -> list[dict]:
+    """Load margin_template_competitions.csv (template_id, competition_id)."""
+    if not MARGIN_TEMPLATE_COMPETITIONS_PATH.exists():
+        return []
+    rows = []
+    with open(MARGIN_TEMPLATE_COMPETITIONS_PATH, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            try:
+                tid = int(r.get("template_id") or 0)
+                cid = int(r.get("competition_id") or 0)
+                if tid and cid:
+                    rows.append({"template_id": tid, "competition_id": cid})
+            except (TypeError, ValueError):
+                pass
+    return rows
+
+
+def _save_margin_template_competitions(rows: list[dict]) -> None:
+    """Overwrite margin_template_competitions.csv."""
+    with open(MARGIN_TEMPLATE_COMPETITIONS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=["template_id", "competition_id"])
+        w.writeheader()
+        for r in rows:
+            w.writerow({"template_id": r.get("template_id"), "competition_id": r.get("competition_id")})
+
+
+def _assign_competition_to_margin_template(competition_id: int, template_id: int = 1) -> None:
+    """Assign a domain competition to a margin template (default Uncategorized). Idempotent."""
+    rows = _load_margin_template_competitions()
+    if any(r.get("template_id") == template_id and r.get("competition_id") == competition_id for r in rows):
+        return
+    rows.append({"template_id": template_id, "competition_id": competition_id})
+    _save_margin_template_competitions(rows)
+
 
 def _load_market_templates() -> list[dict]:
     """
@@ -1361,6 +1529,10 @@ async def create_entity(body: CreateEntityRequest):
         save_row["participant_type_id"] = str(entity["participant_type_id"]) if entity.get("participant_type_id") else ""
         save_row["is_amateur"] = "1" if entity.get("is_amateur") else "0"
     _save_entity(body.entity_type, save_row)
+
+    # New competitions are automatically assigned to Uncategorized margin template
+    if body.entity_type == "competitions":
+        _assign_competition_to_margin_template(domain_id, 1)
 
     # Record feed → domain entity mapping (one row per feed reference)
     if body.entity_type in ("categories", "competitions", "teams", "markets") and body.feed_id and body.feed_provider_id:
@@ -2626,6 +2798,59 @@ async def update_brand(brand_id: int, body: UpdateBrandRequest):
     return {"ok": True, "brand": brand}
 
 
+@app.post("/api/margin-templates")
+async def create_margin_template(body: CreateMarginTemplateRequest):
+    """Create a new margin template. Name required; other fields optional."""
+    rows = _load_margin_templates()
+    next_id = max((r.get("id") or 0 for r in rows), default=0) + 1
+    name = (body.name or "").strip()
+    if not name:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Name is required")
+    new_template = {
+        "id": next_id,
+        "name": name,
+        "short_name": (body.short_name or "").strip(),
+        "pm_margin": (body.pm_margin or "").strip(),
+        "ip_margin": (body.ip_margin or "").strip(),
+        "cashout": (body.cashout or "").strip(),
+        "betbuilder": (body.betbuilder or "").strip(),
+        "bet_delay": (body.bet_delay or "").strip(),
+        "leagues_count": 0,
+        "markets_count": 0,
+        "is_default": False,
+    }
+    rows.append(new_template)
+    _save_margin_templates(rows)
+    return {"ok": True, "template": new_template}
+
+
+@app.patch("/api/margin-templates/{template_id:int}")
+async def update_margin_template(template_id: int, body: UpdateMarginTemplateRequest):
+    """Update a margin template (name, short_name, pm_margin, ip_margin, cashout, betbuilder, bet_delay)."""
+    from fastapi import HTTPException
+    rows = _load_margin_templates()
+    template = next((r for r in rows if r.get("id") == template_id), None)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if body.name is not None:
+        template["name"] = (body.name or "").strip()
+    if body.short_name is not None:
+        template["short_name"] = (body.short_name or "").strip()
+    if body.pm_margin is not None:
+        template["pm_margin"] = (body.pm_margin or "").strip()
+    if body.ip_margin is not None:
+        template["ip_margin"] = (body.ip_margin or "").strip()
+    if body.cashout is not None:
+        template["cashout"] = (body.cashout or "").strip()
+    if body.betbuilder is not None:
+        template["betbuilder"] = (body.betbuilder or "").strip()
+    if body.bet_delay is not None:
+        template["bet_delay"] = (body.bet_delay or "").strip()
+    _save_margin_templates(rows)
+    return {"ok": True, "template": template}
+
+
 @app.get("/entities", response_class=HTMLResponse)
 async def entities_view(request: Request):
     """
@@ -2686,6 +2911,342 @@ async def entities_view(request: Request):
         "market_score_types": market_score_types,
         "market_groups": market_groups,
         "participant_types_by_id": participant_types_by_id,
+    })
+
+
+# Feeder Configuration: system action keys (for grid columns)
+FEEDER_SYSTEM_ACTIONS = [
+    ("automapping_enabled", "Automapping enabled"),
+    ("automapping_teams_enabled", "Automapping teams enabled"),
+    ("automapping_start_time_threshold_hours", "Start time threshold (h)"),
+    ("auto_live_offer", "Auto live offer"),
+    ("automap_neutral_grounds", "Automap neutral grounds"),
+    ("auto_update_start_time_rank", "Start time rank"),
+    ("market_mapping_behavior", "Market mapping behavior"),
+    ("auto_create_domain_event", "Auto create domain event"),
+    ("auto_create_domain_player", "Auto create domain player"),
+    ("automap_market_type_enabled", "Automap market type enabled"),
+    ("auto_create_market_type_enabled", "Auto create market type enabled"),
+    ("settlement_enabled", "Settlement enabled"),
+    ("resettlement_enabled", "Resettlement enabled"),
+    ("bet_void_enabled", "Bet void enabled"),
+    ("bet_void_rollback_enabled", "Bet void rollback enabled"),
+    ("auto_map_one_to_many_enabled", "Auto map one to many enabled"),
+    ("external_trading_service_enabled", "External trading service enabled"),
+]
+FEEDER_INCIDENT_TYPES = [
+    ("score", "Score"),
+    ("time", "Time"),
+    ("live_state", "Live State"),
+    ("incidents", "Incidents"),
+    ("stats", "Stats"),
+    ("podcast", "Podcast"),
+    ("weather", "Weather"),
+    ("pitch", "Pitch"),
+    ("surface", "Surface"),
+    ("video", "Video"),
+]
+
+
+@app.get("/feeders", response_class=HTMLResponse)
+async def feeders_view(
+    request: Request,
+    sport_id: str | None = None,
+    category_id: str | None = None,
+    league_id: str | None = None,
+):
+    """
+    Configuration > Feeder page.
+    Filters: Sport, Category, League (cascading). Main grid: feeder config system actions per feed.
+    When sport selected: Feeder Incidents Configuration section at bottom.
+    """
+    sports = DOMAIN_ENTITIES["sports"]
+    categories = DOMAIN_ENTITIES["categories"]
+    competitions = DOMAIN_ENTITIES["competitions"]
+    sports_by_id = {s["domain_id"]: s["name"] for s in sports}
+    categories_by_id = {c["domain_id"]: c["name"] for c in categories}
+    competitions_by_id = {c["domain_id"]: c["name"] for c in competitions}
+    feeder_config_rows = _load_feeder_config()
+    feeder_incident_rows = _load_feeder_incidents()
+
+    sid_int = int(sport_id) if sport_id and sport_id.strip() else None
+    cid_int = int(category_id) if category_id and category_id.strip() else None
+    lid_int = int(league_id) if league_id and league_id.strip() else None
+    level = "league" if lid_int is not None else "category" if cid_int is not None else "sport" if sid_int is not None else None
+
+    config_lookup = {}
+    for r in feeder_config_rows:
+        rsid, rcid, rlid = r.get("sport_id"), r.get("category_id"), r.get("league_id")
+        if level == "sport" and rsid == sid_int and rcid is None and rlid is None:
+            fid, key = r.get("feed_provider_id"), r.get("setting_key")
+            if fid is not None and key:
+                config_lookup[(fid, key)] = (r.get("value") or "").strip() or "Not set"
+        elif level == "category" and rsid == sid_int and rcid == cid_int and rlid is None:
+            fid, key = r.get("feed_provider_id"), r.get("setting_key")
+            if fid is not None and key:
+                config_lookup[(fid, key)] = (r.get("value") or "").strip() or "Not set"
+        elif level == "league" and rsid == sid_int and rcid == cid_int and rlid == lid_int:
+            fid, key = r.get("feed_provider_id"), r.get("setting_key")
+            if fid is not None and key:
+                config_lookup[(fid, key)] = (r.get("value") or "").strip() or "Not set"
+
+    incident_lookup = {}
+    if sid_int is not None:
+        for r in feeder_incident_rows:
+            if r.get("sport_id") == sid_int:
+                fid, itype = r.get("feed_provider_id"), r.get("incident_type")
+                if fid is not None and itype:
+                    incident_lookup[(fid, itype)] = r.get("enabled", False)
+
+    return templates.TemplateResponse("feeders.html", {
+        "request": request,
+        "section": "feeders",
+        "feeds": FEEDS,
+        "sports": sports,
+        "categories": categories,
+        "competitions": competitions,
+        "sports_by_id": sports_by_id,
+        "categories_by_id": categories_by_id,
+        "competitions_by_id": competitions_by_id,
+        "feeder_config_lookup": config_lookup,
+        "feeder_incident_lookup": incident_lookup,
+        "system_actions": FEEDER_SYSTEM_ACTIONS,
+        "incident_types": FEEDER_INCIDENT_TYPES,
+        "selected_sport_id": sid_int,
+        "selected_category_id": cid_int,
+        "selected_league_id": lid_int,
+        "config_level": level,
+    })
+
+
+@app.post("/api/feeder-config")
+async def api_save_feeder_config(request: Request):
+    """Save feeder configuration for the given level (sport/category/league). Replaces existing rows for that level."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"detail": "Invalid JSON"}, status_code=400)
+    level = (body.get("level") or "").strip()
+    sport_id = body.get("sport_id")
+    category_id = body.get("category_id")
+    league_id = body.get("league_id")
+    settings = body.get("settings") or []
+    if level not in ("sport", "category", "league") or sport_id is None:
+        return JSONResponse({"detail": "level and sport_id required"}, status_code=400)
+    cid = int(category_id) if category_id is not None else None
+    lid = int(league_id) if league_id is not None else None
+    sid = int(sport_id)
+    if level == "category" and cid is None:
+        return JSONResponse({"detail": "category_id required for category level"}, status_code=400)
+    if level == "league" and (cid is None or lid is None):
+        return JSONResponse({"detail": "category_id and league_id required for league level"}, status_code=400)
+    existing = _load_feeder_config()
+    def match_row(r):
+        rsid, rcid, rlid = r.get("sport_id"), r.get("category_id"), r.get("league_id")
+        if level == "sport":
+            return rsid == sid and rcid is None and rlid is None
+        if level == "category":
+            return rsid == sid and rcid == cid and rlid is None
+        return rsid == sid and rcid == cid and rlid == lid
+    kept = [r for r in existing if not match_row(r)]
+    new_rows = []
+    for s in settings:
+        fid = s.get("feed_provider_id")
+        key = (s.get("setting_key") or "").strip()
+        val = (s.get("value") or "").strip()
+        if fid is None or not key:
+            continue
+        new_rows.append({
+            "level": level,
+            "sport_id": sid,
+            "category_id": cid,
+            "league_id": lid,
+            "feed_provider_id": int(fid),
+            "setting_key": key,
+            "value": val or "Not set",
+        })
+    all_rows = kept + new_rows
+    _save_feeder_config(all_rows)
+    return {"ok": True}
+
+
+@app.post("/api/feeder-incidents")
+async def api_save_feeder_incidents(request: Request):
+    """Save feeder incidents configuration for the given sport_id. Replaces existing rows for that sport."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"detail": "Invalid JSON"}, status_code=400)
+    sport_id = body.get("sport_id")
+    incidents = body.get("incidents") or []
+    if sport_id is None:
+        return JSONResponse({"detail": "sport_id required"}, status_code=400)
+    sid = int(sport_id)
+    existing = _load_feeder_incidents()
+    kept = [r for r in existing if r.get("sport_id") != sid]
+    new_rows = []
+    for i, inc in enumerate(incidents):
+        fid = inc.get("feed_provider_id")
+        itype = (inc.get("incident_type") or "").strip()
+        enabled = bool(inc.get("enabled"))
+        if fid is None or not itype:
+            continue
+        new_rows.append({
+            "sport_id": sid,
+            "feed_provider_id": int(fid),
+            "incident_type": itype,
+            "enabled": enabled,
+            "sort_order": i,
+        })
+    all_rows = kept + new_rows
+    _save_feeder_incidents(all_rows)
+    return {"ok": True}
+
+
+@app.get("/margin-config", response_class=HTMLResponse)
+async def margin_config_view(
+    request: Request,
+    brand_id: str | None = None,
+    sport_id: str | None = None,
+    template_id: str | None = None,
+):
+    """
+    Betting Program > Margin Configuration.
+    Top: Brand (Global level + brands), Sport (default Football), Apply. Tables shown only after Apply.
+    """
+    brands = _load_brands()
+    sports = DOMAIN_ENTITIES.get("sports", [])
+
+    # User must click Apply (sport_id in query) before we show tables or load table data
+    applied = sport_id is not None and str(sport_id).strip() != ""
+
+    selected_brand_id = None
+    if brand_id and str(brand_id).strip():
+        try:
+            selected_brand_id = int(brand_id)
+        except (TypeError, ValueError):
+            pass
+
+    # Default Sport to Football when not applied (for dropdown preload)
+    football = next((s for s in sports if (s.get("name") or "").strip().lower() == "football"), sports[0] if sports else None)
+    default_sport_id = int(football["domain_id"]) if football and football.get("domain_id") is not None else None
+
+    selected_sport_id = default_sport_id
+    if applied and sport_id and str(sport_id).strip():
+        try:
+            selected_sport_id = int(sport_id)
+        except (TypeError, ValueError):
+            selected_sport_id = default_sport_id
+
+    if not applied:
+        return templates.TemplateResponse("margin_config.html", {
+            "request": request,
+            "section": "margin_config",
+            "brands": brands,
+            "sports": sports,
+            "selected_brand_id": selected_brand_id,
+            "selected_sport_id": selected_sport_id,
+            "show_tables": False,
+            "margin_templates": [],
+            "market_groups_with_markets": [],
+            "selected_template_id": None,
+            "market_templates": [],
+            "period_types": [],
+            "score_types": [],
+        })
+
+    # Load table data only after Apply
+    margin_templates = _load_margin_templates()
+    template_competitions = _load_margin_template_competitions()
+    # Backfill: assign any domain competition not yet in mapping to Uncategorized (template_id=1)
+    domain_competition_ids = {int(c["domain_id"]) for c in DOMAIN_ENTITIES.get("competitions", []) if c.get("domain_id") is not None}
+    assigned_ids = {r["competition_id"] for r in template_competitions}
+    uncategorized_id = 1
+    added = 0
+    for cid in domain_competition_ids:
+        if cid not in assigned_ids:
+            template_competitions.append({"template_id": uncategorized_id, "competition_id": cid})
+            assigned_ids.add(cid)
+            added += 1
+    if added:
+        _save_margin_template_competitions(template_competitions)
+    # Competition count per template: only competitions for the selected sport
+    competition_ids_for_sport = {
+        int(c["domain_id"]) for c in DOMAIN_ENTITIES.get("competitions", [])
+        if c.get("domain_id") is not None and c.get("sport_id") == selected_sport_id
+    } if selected_sport_id else set()
+    for t in margin_templates:
+        tid = t.get("id")
+        t["leagues_count"] = sum(
+            1 for r in template_competitions
+            if r.get("template_id") == tid and r.get("competition_id") in competition_ids_for_sport
+        )
+    market_templates = _load_market_templates()
+    market_period_types = _load_market_period_types()
+    market_score_types = _load_market_score_types()
+
+    selected_template_id = None
+    if template_id and str(template_id).strip():
+        try:
+            selected_template_id = int(template_id)
+        except (TypeError, ValueError):
+            pass
+    if selected_template_id is None and margin_templates:
+        default_t = next((t for t in margin_templates if t.get("is_default")), margin_templates[0])
+        selected_template_id = default_t.get("id")
+
+    markets = DOMAIN_ENTITIES.get("markets", [])
+    market_groups_list = _load_market_groups()
+    if markets:
+        group_codes = {(g.get("code") or "").strip() for g in market_groups_list}
+        market_groups_with_markets: list[dict] = []
+        for g in market_groups_list:
+            code = (g.get("code") or "").strip()
+            group_markets = [{"domain_id": m.get("domain_id"), "code": m.get("code"), "name": m.get("name") or m.get("code"), "market_group": m.get("market_group")} for m in markets if (m.get("market_group") or "").strip() == code]
+            market_groups_with_markets.append({"group": g, "markets": group_markets})
+        orphan = [{"domain_id": m.get("domain_id"), "code": m.get("code"), "name": m.get("name") or m.get("code"), "market_group": m.get("market_group")} for m in markets if (m.get("market_group") or "").strip() not in group_codes]
+        if orphan:
+            market_groups_with_markets.append({"group": {"domain_id": 0, "code": "", "name": "Other"}, "markets": orphan})
+    else:
+        market_groups_with_markets = [{"group": {"domain_id": 0, "code": "", "name": "Main"}, "markets": [{"domain_id": t.get("domain_id"), "code": t.get("code"), "name": (t.get("name") or "").strip() or t.get("code")} for t in market_templates]}]
+
+    selected_template_name = ""
+    template_prematch_dyn = ""
+    template_inplay_dyn = ""
+    if selected_template_id and margin_templates:
+        sel = next((t for t in margin_templates if t.get("id") == selected_template_id), None)
+        if sel:
+            selected_template_name = (sel.get("name") or "").strip()
+            pm = (sel.get("pm_margin") or "").strip()
+            if pm:
+                try:
+                    template_prematch_dyn = f"{float(pm):.1f} DYN"
+                except (TypeError, ValueError):
+                    template_prematch_dyn = f"{pm} DYN"
+            ip = (sel.get("ip_margin") or "").strip()
+            if ip:
+                try:
+                    template_inplay_dyn = f"{float(ip):.1f} DYN"
+                except (TypeError, ValueError):
+                    template_inplay_dyn = f"{ip} DYN"
+
+    return templates.TemplateResponse("margin_config.html", {
+        "request": request,
+        "section": "margin_config",
+        "brands": brands,
+        "sports": sports,
+        "selected_brand_id": selected_brand_id,
+        "selected_sport_id": selected_sport_id,
+        "show_tables": True,
+        "margin_templates": margin_templates,
+        "market_groups_with_markets": market_groups_with_markets,
+        "selected_template_id": selected_template_id,
+        "selected_template_name": selected_template_name,
+        "template_prematch_dyn": template_prematch_dyn,
+        "template_inplay_dyn": template_inplay_dyn,
+        "market_templates": market_templates,
+        "period_types": market_period_types,
+        "score_types": market_score_types,
     })
 
 

@@ -1,0 +1,725 @@
+{% extends "layout.html" %}
+
+{% block breadcrumbs %}
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Betting Program</span>
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Margin Configuration</span>
+{% endblock %}
+
+{% block title %}Margin Configuration{% endblock %}
+
+{% block content %}
+<div class="flex flex-col space-y-4 pb-6">
+
+    <!-- Page header -->
+    <div>
+        <h1 class="text-lg font-bold text-white">Margin Configuration</h1>
+        <p class="text-xs text-slate-500 mt-0.5">Set margin rules on Global level, then inherit and override per brand. Configure templates and assign competitions.</p>
+    </div>
+
+    <!-- Top bar: Brand, Sport, Apply (left) | Placeholder buttons (right) -->
+    <div class="flex flex-wrap items-end justify-between gap-4 bg-cardbg/80 border border-slate-700/50 rounded-lg p-4">
+        <form method="get" action="/margin-config" class="flex flex-wrap items-end gap-4">
+            {% if show_tables and selected_template_id %}<input type="hidden" name="template_id" value="{{ selected_template_id }}">{% endif %}
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Brand</label>
+                <select name="brand_id" id="margin-brand"
+                    class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]">
+                    <option value="" {% if selected_brand_id is none %}selected{% endif %}>Global level</option>
+                    {% for b in brands %}
+                    <option value="{{ b.id }}" {% if selected_brand_id == b.id %}selected{% endif %}>{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sport</label>
+                <select name="sport_id" id="margin-sport"
+                    class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]">
+                    <option value="">— select —</option>
+                    {% for s in sports %}
+                    <option value="{{ s.domain_id }}" {% if selected_sport_id is not none and selected_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit"
+                class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded flex items-center gap-1.5">
+                <i class="fa-solid fa-filter"></i> Apply
+            </button>
+        </form>
+        <div class="flex items-center gap-2">
+            <button type="button" class="text-secondary hover:text-blue-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-secondary/50">* Margin</button>
+            <button type="button" class="text-purple-400 hover:text-purple-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-purple-500/50">+ Copy from</button>
+            <button type="button" class="text-purple-400 hover:text-purple-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-purple-500/50">+ Copy</button>
+            <button type="button" class="text-slate-400 hover:text-slate-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600">* Audit Log</button>
+        </div>
+    </div>
+
+    {% if show_tables %}
+    <!-- First table: Margin templates (Name, Short Name, PM Margin, IP Margin, Cashout, BetBuilder, BetDelay, Competitions, Markets, Action) -->
+    <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Templates</h2>
+            <button type="button" id="btn-add-template" class="text-primary hover:text-emerald-400 text-xs font-medium px-2.5 py-1.5 rounded border border-primary/50 hover:border-primary">
+                <i class="fa-solid fa-plus mr-1"></i> Add Template
+            </button>
+        </div>
+        <div class="overflow-x-auto overflow-y-visible">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    <tr>
+                        <th class="px-2 py-2.5 font-semibold w-10"></th>
+                        <th class="px-3 py-2.5 font-semibold min-w-[120px]">Name</th>
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">Short Name</th>
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">PM Margin</th>
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">IP Margin</th>
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">Cashout</th>
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">BetBuilder</th>
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">BetDelay</th>
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">Competitions</th>
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">Markets</th>
+                        <th class="px-2 py-2.5 font-semibold w-24 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="text-slate-300">
+                    {% for t in margin_templates %}
+                    <tr class="border-b border-slate-700/40 hover:bg-white/3">
+                        <td class="px-2 py-2">
+                            <input type="radio" name="margin_template" value="{{ t.id }}"
+                                {% if selected_template_id == t.id %}checked{% endif %}
+                                data-template-id="{{ t.id }}"
+                                class="margin-template-radio rounded-full border-slate-500 bg-slate-800 text-primary focus:ring-primary/30"
+                                title="Load this template">
+                        </td>
+                        <td class="px-3 py-2 font-medium text-white">{{ t.name }}</td>
+                        <td class="px-2 py-2">{{ t.short_name or '—' }}</td>
+                        <td class="px-2 py-2 text-slate-400">{{ t.pm_margin or '—' }}</td>
+                        <td class="px-2 py-2 text-slate-400">{{ t.ip_margin or '—' }}</td>
+                        <td class="px-2 py-2 text-slate-400">{{ t.cashout or '—' }}</td>
+                        <td class="px-2 py-2 text-slate-400">{{ t.betbuilder or '—' }}</td>
+                        <td class="px-2 py-2 text-slate-400">{{ t.bet_delay or '—' }}</td>
+                        <td class="px-2 py-2 text-slate-400">{{ t.leagues_count }}</td>
+                        <td class="px-2 py-2 text-slate-400">{{ t.markets_count }}</td>
+                        <td class="px-2 py-2 text-right align-top">
+                            {% set margin_tid = t.id if t.id is not none else loop.index %}
+                            <button type="button" class="margin-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                data-margin-dropdown-id="margin-action-{{ margin_tid }}"
+                                aria-haspopup="true" title="Actions">
+                                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <!-- Dropdowns rendered here; script moves them to body so no overflow can clip -->
+        <div id="margin-template-dropdowns" aria-hidden="true" style="position: absolute; left: -9999px; top: 0;">
+            {% for t in margin_templates %}
+            {% set margin_tid = t.id if t.id is not none else loop.index %}
+            <div id="margin-action-{{ margin_tid }}" class="margin-action-dropdown hidden fixed z-[9999] min-w-[180px] py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl">
+                <button type="button" data-template-id="{{ t.id }}" data-template-name="{{ t.name }}"
+                    data-short-name="{{ t.short_name or '' }}" data-pm-margin="{{ t.pm_margin or '' }}"
+                    data-ip-margin="{{ t.ip_margin or '' }}" data-cashout="{{ t.cashout or '' }}"
+                    data-betbuilder="{{ t.betbuilder or '' }}" data-bet-delay="{{ t.bet_delay or '' }}"
+                    class="margin-action-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square w-4 text-slate-400"></i> Edit Template
+                </button>
+                <button type="button" data-template-id="{{ t.id }}"
+                    class="margin-action-leagues w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2">
+                    <i class="fa-solid fa-trophy w-4 text-slate-400"></i> Add/Remove Competitions
+                </button>
+                <button type="button" data-template-id="{{ t.id }}"
+                    class="margin-action-markets w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line w-4 text-slate-400"></i> Add/Remove Markets
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Second table: template name - MARKET CONFIGURATION (view only; edit via row Action kebab) -->
+    <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-hidden">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 border-b border-slate-700/50">{% if selected_template_name %}{{ selected_template_name }} - {% endif %}MARKET CONFIGURATION</h2>
+        <p class="text-[11px] text-slate-500 px-4 py-1">View only. Use the Action menu on each row to edit settings.</p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs margin-sets-table">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    <tr class="border-b border-slate-600">
+                        <th class="px-3 py-2 font-semibold w-44 min-w-[11rem] sticky left-0 bg-slate-900/50 z-10 border-r border-slate-600"></th>
+                        <th colspan="4" class="px-2 py-1.5 font-semibold text-slate-300 border-r border-slate-600">Margin Configuration</th>
+                        <th colspan="4" class="px-2 py-1.5 font-semibold text-slate-300 border-r border-slate-600">Cashout By Sport</th>
+                        <th colspan="3" class="px-2 py-1.5 font-semibold text-slate-300 border-r border-slate-600">Pricing Margin Monitor</th>
+                        <th colspan="2" class="px-2 py-1.5 font-semibold text-slate-300 border-r border-slate-600">Minimum Price Suspension</th>
+                        <th class="px-2 py-1.5 font-semibold text-slate-300 border-r border-slate-600">Minim. Odds</th>
+                        <th colspan="2" class="px-2 py-1.5 font-semibold text-slate-300 border-r border-slate-600">Bet Builder</th>
+                        <th colspan="2" class="px-2 py-1.5 font-semibold text-slate-300 border-r border-slate-600">Brand Mapper</th>
+                        <th class="px-2 py-1.5 font-semibold w-14 border-l border-slate-600">Action</th>
+                    </tr>
+                    <tr class="text-[10px]">
+                        <th class="px-3 py-2 font-semibold sticky left-0 bg-slate-900/50 z-10 border-r border-slate-600"></th>
+                        <th class="px-1.5 py-2 font-semibold">#Lines</th>
+                        <th class="px-1.5 py-2 font-semibold">Use PL</th>
+                        <th class="px-1.5 py-2 font-semibold">PreMatch</th>
+                        <th class="px-1.5 py-2 font-semibold border-r border-slate-600">In Play</th>
+                        <th class="px-1.5 py-2 font-semibold">CO Formula</th>
+                        <th class="px-1.5 py-2 font-semibold">AddMFactor</th>
+                        <th class="px-1.5 py-2 font-semibold">Stk CO %</th>
+                        <th class="px-1.5 py-2 font-semibold border-r border-slate-600">PM CO%</th>
+                        <th class="px-1.5 py-2 font-semibold">Track Margin</th>
+                        <th class="px-1.5 py-2 font-semibold">Threshold</th>
+                        <th class="px-1.5 py-2 font-semibold border-r border-slate-600">Target Margin</th>
+                        <th class="px-1.5 py-2 font-semibold">Price</th>
+                        <th class="px-1.5 py-2 font-semibold border-r border-slate-600">Close Market</th>
+                        <th class="px-1.5 py-2 font-semibold border-r border-slate-600">Limit</th>
+                        <th class="px-1.5 py-2 font-semibold">Prematch</th>
+                        <th class="px-1.5 py-2 font-semibold border-r border-slate-600">In-Play</th>
+                        <th class="px-1.5 py-2 font-semibold">Bet Start Offs</th>
+                        <th class="px-1.5 py-2 font-semibold border-r border-slate-600">Bet Delay</th>
+                        <th class="px-2 py-2 font-semibold border-l border-slate-600">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="text-slate-300">
+                    {% set ns = namespace(market_idx=0) %}
+                    {% for group_data in market_groups_with_markets %}
+                    <tr class="bg-slate-700/70 border-b border-slate-600">
+                        <td class="px-3 py-2 font-semibold text-slate-200 sticky left-0 bg-slate-700/70 z-10 border-r border-slate-600">{{ group_data.group.name }}</td>
+                        <td class="px-1.5 py-2 border-r border-slate-600/50"></td>
+                        <td class="px-1.5 py-2"></td>
+                        <td class="px-1.5 py-2"></td>
+                        <td class="px-1.5 py-2 border-r border-slate-600"></td>
+                        <td class="px-1.5 py-2"></td>
+                        <td class="px-1.5 py-2"></td>
+                        <td class="px-1.5 py-2"></td>
+                        <td class="px-1.5 py-2 border-r border-slate-600"></td>
+                        <td class="px-1.5 py-2"></td>
+                        <td class="px-1.5 py-2"></td>
+                        <td class="px-1.5 py-2 border-r border-slate-600"></td>
+                        <td class="px-1.5 py-2"></td>
+                        <td class="px-1.5 py-2 border-r border-slate-600"></td>
+                        <td class="px-1.5 py-2 border-r border-slate-600"></td>
+                        <td class="px-1.5 py-2"></td>
+                        <td class="px-1.5 py-2 border-r border-slate-600"></td>
+                        <td class="px-1.5 py-2"></td>
+                        <td class="px-1.5 py-2 border-r border-slate-600"></td>
+                        <td class="px-2 py-2 border-l border-slate-600"></td>
+                    </tr>
+                    {% for m in group_data.markets %}
+                    {% set ns.market_idx = ns.market_idx + 1 %}
+                    <tr class="border-b border-slate-700/40 hover:bg-white/3">
+                        <td class="px-3 py-2 font-medium text-white sticky left-0 bg-cardbg/95 z-10 border-r border-slate-600">{{ m.name or m.code }}</td>
+                        <td class="px-1.5 py-2 text-slate-400">—</td>
+                        <td class="px-1.5 py-2 text-slate-400">—</td>
+                        <td class="px-1.5 py-2 text-slate-400">{% if template_prematch_dyn %}{{ template_prematch_dyn }}{% else %}—{% endif %}</td>
+                        <td class="px-1.5 py-2 text-slate-400 border-r border-slate-600">{% if template_inplay_dyn %}{{ template_inplay_dyn }}{% else %}—{% endif %}</td>
+                        <td class="px-1.5 py-2 text-slate-400">—</td>
+                        <td class="px-1.5 py-2 text-slate-400">—</td>
+                        <td class="px-1.5 py-2 text-slate-400">—</td>
+                        <td class="px-1.5 py-2 text-slate-400 border-r border-slate-600">—</td>
+                        <td class="px-1.5 py-2 text-slate-400">—</td>
+                        <td class="px-1.5 py-2 text-slate-400">—</td>
+                        <td class="px-1.5 py-2 text-slate-400 border-r border-slate-600">—</td>
+                        <td class="px-1.5 py-2 text-slate-400">—</td>
+                        <td class="px-1.5 py-2 text-slate-400 border-r border-slate-600">—</td>
+                        <td class="px-1.5 py-2 text-slate-400 border-r border-slate-600">—</td>
+                        <td class="px-1.5 py-2 text-slate-400">—</td>
+                        <td class="px-1.5 py-2 text-slate-400 border-r border-slate-600">—</td>
+                        <td class="px-1.5 py-2 text-slate-400">—</td>
+                        <td class="px-1.5 py-2 text-slate-400 border-r border-slate-600">—</td>
+                        <td class="px-2 py-2 text-right border-l border-slate-600">
+                            <button type="button" class="market-line-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10"
+                                data-market-line-dropdown-id="market-line-action-{{ m.domain_id }}-{{ ns.market_idx }}"
+                                title="Actions">
+                                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% set ns_total = namespace(count=0) %}
+        {% for g in market_groups_with_markets %}{% set ns_total.count = ns_total.count + g.markets|length %}{% endfor %}
+        {% if ns_total.count == 0 %}
+        <div class="px-4 py-8 text-center text-slate-500 text-sm">No market types defined. Add markets under Configuration &rarr; Entities.</div>
+        {% endif %}
+    </div>
+
+    {% else %}
+    <div class="bg-cardbg/80 border border-slate-700/50 rounded-lg p-8 text-center">
+        <p class="text-slate-400 text-sm">Select Brand and Sport, then click <strong>Apply</strong> to load templates and market type sets.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% if show_tables %}
+<!-- Dropdowns for market line Action menus (one per row; moved to body by script) -->
+<div id="market-line-dropdowns" aria-hidden="true" style="position: absolute; left: -9999px; top: 0;">
+    {% set ns_dd = namespace(idx=0) %}
+    {% for group_data in market_groups_with_markets %}
+    {% for m in group_data.markets %}
+    {% set ns_dd.idx = ns_dd.idx + 1 %}
+    <div id="market-line-action-{{ m.domain_id }}-{{ ns_dd.idx }}" class="market-line-action-dropdown hidden fixed z-[9999] min-w-[200px] py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl">
+        <span class="block px-3 py-2 text-[10px] uppercase text-slate-500 border-b border-slate-600">Edit</span>
+        <button type="button" class="market-line-edit margin-config-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}" data-market-name="{{ m.name or m.code }}">
+            <i class="fa-solid fa-sliders w-4 text-slate-400"></i> Margin Configuration
+        </button>
+        <button type="button" class="market-line-edit cashout-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+            <i class="fa-solid fa-percent w-4 text-slate-400"></i> Cashout By Sport
+        </button>
+        <button type="button" class="market-line-edit pricing-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+            <i class="fa-solid fa-chart-line w-4 text-slate-400"></i> Pricing Margin Monitor
+        </button>
+        <button type="button" class="market-line-edit min-price-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+            <i class="fa-solid fa-tag w-4 text-slate-400"></i> Minimum Price Suspension
+        </button>
+        <button type="button" class="market-line-edit minim-odds-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+            <i class="fa-solid fa-hashtag w-4 text-slate-400"></i> Minim. Odds
+        </button>
+        <button type="button" class="market-line-edit betbuilder-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+            <i class="fa-solid fa-puzzle-piece w-4 text-slate-400"></i> Bet Builder
+        </button>
+        <button type="button" class="market-line-edit brand-mapper-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+            <i class="fa-solid fa-map w-4 text-slate-400"></i> Brand Mapper
+        </button>
+    </div>
+    {% endfor %}
+    {% endfor %}
+</div>
+
+    <!-- Edit Template modal -->
+    <div id="edit-template-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+        <div class="absolute inset-0 bg-slate-900/80" id="edit-template-modal-backdrop"></div>
+        <div class="relative bg-cardbg border border-slate-600 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-cardbg border-b border-slate-700 px-4 py-3 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-white">Edit Template</h3>
+                <button type="button" id="edit-template-close" class="p-1.5 text-slate-400 hover:text-white rounded" aria-label="Close">&times;</button>
+            </div>
+            <form id="edit-template-form" class="p-4 space-y-4">
+                <input type="hidden" id="edit-template-id" name="template_id">
+                <div>
+                    <label for="edit-template-name" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+                    <input type="text" id="edit-template-name" name="name" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                </div>
+                <div>
+                    <label for="edit-template-short-name" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Short Name</label>
+                    <input type="text" id="edit-template-short-name" name="short_name" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                </div>
+                <div>
+                    <label for="edit-template-pm-margin" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">PM Margin</label>
+                    <input type="text" id="edit-template-pm-margin" name="pm_margin" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="—">
+                </div>
+                <div>
+                    <label for="edit-template-ip-margin" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">IP Margin</label>
+                    <input type="text" id="edit-template-ip-margin" name="ip_margin" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="—">
+                </div>
+                <div>
+                    <label for="edit-template-cashout" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Cashout</label>
+                    <select id="edit-template-cashout" name="cashout" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                        <option value="">—</option>
+                        <option value="Enabled">Enabled</option>
+                        <option value="Disabled">Disabled</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="edit-template-betbuilder" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">BetBuilder</label>
+                    <select id="edit-template-betbuilder" name="betbuilder" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                        <option value="">—</option>
+                        <option value="Enabled">Enabled</option>
+                        <option value="Disabled">Disabled</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="edit-template-bet-delay" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Bet Delay</label>
+                    <input type="text" id="edit-template-bet-delay" name="bet_delay" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="e.g. 5 s">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" id="edit-template-cancel" class="px-3 py-1.5 text-sm text-slate-300 hover:text-white border border-slate-600 rounded">Cancel</button>
+                    <button type="submit" id="edit-template-save" class="px-3 py-1.5 text-sm bg-primary hover:bg-emerald-600 text-white rounded">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Template modal -->
+    <div id="add-template-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+        <div class="absolute inset-0 bg-slate-900/80" id="add-template-modal-backdrop"></div>
+        <div class="relative bg-cardbg border border-slate-600 rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-cardbg border-b border-slate-700 px-4 py-3 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-white">Add Template</h3>
+                <button type="button" id="add-template-close" class="p-1.5 text-slate-400 hover:text-white rounded" aria-label="Close">&times;</button>
+            </div>
+            <form id="add-template-form" class="p-4 space-y-4">
+                <div>
+                    <label for="add-template-name" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name <span class="text-slate-400">(required)</span></label>
+                    <input type="text" id="add-template-name" name="name" required class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="e.g. Premium Leagues">
+                </div>
+                <div>
+                    <label for="add-template-short-name" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Short Name</label>
+                    <input type="text" id="add-template-short-name" name="short_name" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                </div>
+                <div>
+                    <label for="add-template-pm-margin" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">PM Margin</label>
+                    <input type="text" id="add-template-pm-margin" name="pm_margin" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="—">
+                </div>
+                <div>
+                    <label for="add-template-ip-margin" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">IP Margin</label>
+                    <input type="text" id="add-template-ip-margin" name="ip_margin" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="—">
+                </div>
+                <div>
+                    <label for="add-template-cashout" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Cashout</label>
+                    <select id="add-template-cashout" name="cashout" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                        <option value="">—</option>
+                        <option value="Enabled">Enabled</option>
+                        <option value="Disabled">Disabled</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="add-template-betbuilder" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">BetBuilder</label>
+                    <select id="add-template-betbuilder" name="betbuilder" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                        <option value="">—</option>
+                        <option value="Enabled">Enabled</option>
+                        <option value="Disabled">Disabled</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="add-template-bet-delay" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Bet Delay</label>
+                    <input type="text" id="add-template-bet-delay" name="bet_delay" class="w-full bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="e.g. 5 s">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" id="add-template-cancel" class="px-3 py-1.5 text-sm text-slate-300 hover:text-white border border-slate-600 rounded">Cancel</button>
+                    <button type="submit" id="add-template-save" class="px-3 py-1.5 text-sm bg-primary hover:bg-emerald-600 text-white rounded">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+<style>
+.margin-action-dropdown.margin-action-dropdown--open,
+.market-line-action-dropdown.market-line-action-dropdown--open {
+    display: block !important;
+}
+</style>
+
+<script>
+(function () {
+    // Move dropdowns to body so no overflow-hidden ancestor can clip them
+    var dropdownContainer = document.getElementById('margin-template-dropdowns');
+    if (dropdownContainer && document.body) {
+        document.body.appendChild(dropdownContainer);
+    }
+    var marketLineContainer = document.getElementById('market-line-dropdowns');
+    if (marketLineContainer && document.body) {
+        document.body.appendChild(marketLineContainer);
+    }
+
+    // ── Action dropdown: event delegation (no inline handlers) ─────────────────────────────
+    function closeAllMarginMenus() {
+        document.querySelectorAll('.margin-action-dropdown').forEach(function (el) {
+            el.classList.remove('margin-action-dropdown--open');
+            el.classList.add('hidden');
+            el.style.display = 'none';
+        });
+    }
+
+    document.addEventListener('click', function (ev) {
+        var kebab = ev.target.closest('.margin-kebab-btn');
+        if (kebab) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            closeAllMarginMenus();
+            var id = kebab.getAttribute('data-margin-dropdown-id');
+            var menu = id ? document.getElementById(id) : null;
+            if (menu) {
+                var rect = kebab.getBoundingClientRect();
+                menu.style.display = 'block';
+                menu.classList.remove('hidden');
+                menu.classList.add('margin-action-dropdown--open');
+                menu.style.left = '0';
+                menu.style.top = '0';
+                var menuRect = menu.getBoundingClientRect();
+                var vw = window.innerWidth;
+                var vh = window.innerHeight;
+                var gap = 8;
+                var left = rect.left;
+                var top = rect.bottom + gap;
+                if (top + menuRect.height > vh - gap) {
+                    top = rect.top - menuRect.height - gap;
+                }
+                if (top < gap) top = gap;
+                if (left + menuRect.width > vw - gap) {
+                    left = vw - menuRect.width - gap;
+                }
+                if (left < gap) left = gap;
+                menu.style.left = left + 'px';
+                menu.style.top = top + 'px';
+            }
+            return;
+        }
+        var editTemplateBtn = ev.target.closest('.margin-action-edit');
+        if (editTemplateBtn) {
+            closeAllMarginMenus();
+            var modal = document.getElementById('edit-template-modal');
+            if (modal) {
+                document.getElementById('edit-template-id').value = editTemplateBtn.getAttribute('data-template-id') || '';
+                document.getElementById('edit-template-name').value = editTemplateBtn.getAttribute('data-template-name') || '';
+                document.getElementById('edit-template-short-name').value = editTemplateBtn.getAttribute('data-short-name') || '';
+                document.getElementById('edit-template-pm-margin').value = editTemplateBtn.getAttribute('data-pm-margin') || '';
+                document.getElementById('edit-template-ip-margin').value = editTemplateBtn.getAttribute('data-ip-margin') || '';
+                document.getElementById('edit-template-cashout').value = editTemplateBtn.getAttribute('data-cashout') || '';
+                document.getElementById('edit-template-betbuilder').value = editTemplateBtn.getAttribute('data-betbuilder') || '';
+                document.getElementById('edit-template-bet-delay').value = editTemplateBtn.getAttribute('data-bet-delay') || '';
+                modal.classList.remove('hidden');
+            }
+            return;
+        }
+        if (ev.target.closest('.margin-action-dropdown')) {
+            return;
+        }
+        closeAllMarginMenus();
+
+        // Market line kebab: open dropdown for this row
+        var marketKebab = ev.target.closest('.market-line-kebab-btn');
+        if (marketKebab) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            closeAllMarginMenus();
+            closeAllMarketLineMenus();
+            var id = marketKebab.getAttribute('data-market-line-dropdown-id');
+            var menu = id ? document.getElementById(id) : null;
+            if (menu) {
+                menu.style.display = 'block';
+                menu.classList.remove('hidden');
+                menu.classList.add('market-line-action-dropdown--open');
+                menu.style.left = '0';
+                menu.style.top = '0';
+                var menuRect = menu.getBoundingClientRect();
+                var vw = window.innerWidth;
+                var vh = window.innerHeight;
+                var gap = 8;
+                var rect = marketKebab.getBoundingClientRect();
+                var left = rect.left;
+                var top = rect.bottom + gap;
+                if (top + menuRect.height > vh - gap) top = rect.top - menuRect.height - gap;
+                if (top < gap) top = gap;
+                if (left + menuRect.width > vw - gap) left = vw - menuRect.width - gap;
+                if (left < gap) left = gap;
+                menu.style.left = left + 'px';
+                menu.style.top = top + 'px';
+            }
+            return;
+        }
+        if (ev.target.closest('.market-line-action-dropdown')) {
+            return;
+        }
+        closeAllMarketLineMenus();
+    });
+
+    function closeAllMarketLineMenus() {
+        document.querySelectorAll('.market-line-action-dropdown').forEach(function (el) {
+            el.classList.remove('market-line-action-dropdown--open');
+            el.classList.add('hidden');
+            el.style.display = 'none';
+        });
+    }
+
+    // Edit Template modal: close on backdrop, close button, or Cancel
+    function closeEditTemplateModal() {
+        var modal = document.getElementById('edit-template-modal');
+        if (modal) modal.classList.add('hidden');
+    }
+    var editModalBackdrop = document.getElementById('edit-template-modal-backdrop');
+    if (editModalBackdrop) editModalBackdrop.addEventListener('click', closeEditTemplateModal);
+    var editModalCloseBtn = document.getElementById('edit-template-close');
+    if (editModalCloseBtn) editModalCloseBtn.addEventListener('click', closeEditTemplateModal);
+    var editModalCancelBtn = document.getElementById('edit-template-cancel');
+    if (editModalCancelBtn) editModalCancelBtn.addEventListener('click', closeEditTemplateModal);
+
+    // Edit Template form: save via PATCH then reload
+    var editTemplateForm = document.getElementById('edit-template-form');
+    if (editTemplateForm) {
+        editTemplateForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var idEl = document.getElementById('edit-template-id');
+            var templateId = idEl && idEl.value ? idEl.value.trim() : '';
+            if (!templateId) return;
+            var payload = {
+                name: (document.getElementById('edit-template-name') && document.getElementById('edit-template-name').value) || '',
+                short_name: (document.getElementById('edit-template-short-name') && document.getElementById('edit-template-short-name').value) || '',
+                pm_margin: (document.getElementById('edit-template-pm-margin') && document.getElementById('edit-template-pm-margin').value) || '',
+                ip_margin: (document.getElementById('edit-template-ip-margin') && document.getElementById('edit-template-ip-margin').value) || '',
+                cashout: (document.getElementById('edit-template-cashout') && document.getElementById('edit-template-cashout').value) || '',
+                betbuilder: (document.getElementById('edit-template-betbuilder') && document.getElementById('edit-template-betbuilder').value) || '',
+                bet_delay: (document.getElementById('edit-template-bet-delay') && document.getElementById('edit-template-bet-delay').value) || ''
+            };
+            var saveBtn = document.getElementById('edit-template-save');
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+            fetch('/api/margin-templates/' + templateId, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function (res) {
+                if (res.ok) {
+                    closeEditTemplateModal();
+                    window.location.reload();
+                } else {
+                    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+                    alert('Failed to save template.');
+                }
+            }).catch(function () {
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+                alert('Failed to save template.');
+            });
+        });
+    }
+
+    // Action menu options: Add/Remove Competitions, Add/Remove Markets (placeholders)
+    document.addEventListener('click', function (ev) {
+        var leaguesBtn = ev.target.closest('.margin-action-leagues');
+        if (leaguesBtn) {
+            closeAllMarginMenus();
+            console.log('Add/Remove Competitions for template', leaguesBtn.getAttribute('data-template-id'));
+            return;
+        }
+        var marketsBtn = ev.target.closest('.margin-action-markets');
+        if (marketsBtn) {
+            closeAllMarginMenus();
+            console.log('Add/Remove Markets for template', marketsBtn.getAttribute('data-template-id'));
+            return;
+        }
+
+        // Market line Edit options (placeholder: open modal per section later)
+        var editBtn = ev.target.closest('.market-line-edit');
+        if (editBtn) {
+            closeAllMarketLineMenus();
+            var mid = editBtn.getAttribute('data-market-id');
+            var name = editBtn.getAttribute('data-market-name') || '';
+            var section = editBtn.classList.contains('margin-config-edit') ? 'Margin Configuration' :
+                editBtn.classList.contains('cashout-edit') ? 'Cashout By Sport' :
+                editBtn.classList.contains('pricing-edit') ? 'Pricing Margin Monitor' :
+                editBtn.classList.contains('min-price-edit') ? 'Minimum Price Suspension' :
+                editBtn.classList.contains('minim-odds-edit') ? 'Minim. Odds' :
+                editBtn.classList.contains('betbuilder-edit') ? 'Bet Builder' :
+                editBtn.classList.contains('brand-mapper-edit') ? 'Brand Mapper' : 'Edit';
+            console.log('Edit', section, 'for market', mid, name);
+            return;
+        }
+    });
+
+    // Keep template_id when applying filters (hidden input is set from current selection)
+    var form = document.querySelector('form[action="/margin-config"]');
+    if (form) {
+        var radio = document.querySelector('input[name="margin_template"]:checked');
+        var hid = form.querySelector('input[name="template_id"]');
+        if (hid && radio) hid.value = radio.value;
+    }
+
+    // Radio change: load page with same brand/sport and selected template (loads second table for that template)
+    document.querySelectorAll('.margin-template-radio').forEach(function (el) {
+        el.addEventListener('change', function () {
+            var brandId = (document.getElementById('margin-brand') && document.getElementById('margin-brand').value) || '';
+            var sportId = (document.getElementById('margin-sport') && document.getElementById('margin-sport').value) || '';
+            var templateId = this.value;
+            var params = new URLSearchParams();
+            if (brandId) params.set('brand_id', brandId);
+            if (sportId) params.set('sport_id', sportId);
+            if (templateId) params.set('template_id', templateId);
+            window.location = '/margin-config' + (params.toString() ? '?' + params.toString() : '');
+        });
+    });
+
+    var saveBtn = document.getElementById('margin-config-save');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function () {
+            var status = document.getElementById('margin-config-status');
+            if (status) {
+                status.textContent = 'Saving…';
+                status.className = 'text-xs text-slate-400';
+                setTimeout(function () {
+                    status.textContent = 'Saved.';
+                    status.className = 'text-xs text-emerald-400';
+                }, 300);
+            }
+        });
+    }
+
+    // Add Template modal: open, close, submit
+    function closeAddTemplateModal() {
+        var modal = document.getElementById('add-template-modal');
+        if (modal) modal.classList.add('hidden');
+    }
+    function openAddTemplateModal() {
+        var modal = document.getElementById('add-template-modal');
+        if (!modal) return;
+        var nameEl = document.getElementById('add-template-name');
+        var shortEl = document.getElementById('add-template-short-name');
+        var pmEl = document.getElementById('add-template-pm-margin');
+        var ipEl = document.getElementById('add-template-ip-margin');
+        var cashEl = document.getElementById('add-template-cashout');
+        var bbEl = document.getElementById('add-template-betbuilder');
+        var delayEl = document.getElementById('add-template-bet-delay');
+        if (nameEl) nameEl.value = '';
+        if (shortEl) shortEl.value = '';
+        if (pmEl) pmEl.value = '';
+        if (ipEl) ipEl.value = '';
+        if (cashEl) cashEl.value = '';
+        if (bbEl) bbEl.value = '';
+        if (delayEl) delayEl.value = '';
+        modal.classList.remove('hidden');
+        if (nameEl) nameEl.focus();
+    }
+    var addModalBackdrop = document.getElementById('add-template-modal-backdrop');
+    if (addModalBackdrop) addModalBackdrop.addEventListener('click', closeAddTemplateModal);
+    var addModalCloseBtn = document.getElementById('add-template-close');
+    if (addModalCloseBtn) addModalCloseBtn.addEventListener('click', closeAddTemplateModal);
+    var addModalCancelBtn = document.getElementById('add-template-cancel');
+    if (addModalCancelBtn) addModalCancelBtn.addEventListener('click', closeAddTemplateModal);
+
+    var addTemplateForm = document.getElementById('add-template-form');
+    if (addTemplateForm) {
+        addTemplateForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var nameVal = (document.getElementById('add-template-name') && document.getElementById('add-template-name').value) || '';
+            if (!nameVal.trim()) {
+                alert('Name is required.');
+                return;
+            }
+            var payload = {
+                name: nameVal.trim(),
+                short_name: (document.getElementById('add-template-short-name') && document.getElementById('add-template-short-name').value) || '',
+                pm_margin: (document.getElementById('add-template-pm-margin') && document.getElementById('add-template-pm-margin').value) || '',
+                ip_margin: (document.getElementById('add-template-ip-margin') && document.getElementById('add-template-ip-margin').value) || '',
+                cashout: (document.getElementById('add-template-cashout') && document.getElementById('add-template-cashout').value) || '',
+                betbuilder: (document.getElementById('add-template-betbuilder') && document.getElementById('add-template-betbuilder').value) || '',
+                bet_delay: (document.getElementById('add-template-bet-delay') && document.getElementById('add-template-bet-delay').value) || ''
+            };
+            var saveBtn = document.getElementById('add-template-save');
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Adding…'; }
+            fetch('/api/margin-templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function (res) {
+                if (res.ok) {
+                    closeAddTemplateModal();
+                    window.location.reload();
+                } else {
+                    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Add'; }
+                    res.json().then(function (d) { alert(d.detail || 'Failed to add template.'); }).catch(function () { alert('Failed to add template.'); });
+                }
+            }).catch(function () {
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Add'; }
+                alert('Failed to add template.');
+            });
+        });
+    }
+
+    var addTplBtn = document.getElementById('btn-add-template');
+    if (addTplBtn) {
+        addTplBtn.addEventListener('click', openAddTemplateModal);
+    }
+})();
+</script>
+{% endblock %}

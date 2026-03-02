@@ -118,3 +118,23 @@ class TranslationUpsertRequest(BaseModel):
     language_id: int
     text: str
     brand_id: Optional[int] = None
+
+
+class CreateMarginTemplateRequest(BaseModel):
+    name: str
+    short_name: Optional[str] = None
+    pm_margin: Optional[str] = None
+    ip_margin: Optional[str] = None
+    cashout: Optional[str] = None
+    betbuilder: Optional[str] = None
+    bet_delay: Optional[str] = None
+
+
+class UpdateMarginTemplateRequest(BaseModel):
+    name: Optional[str] = None
+    short_name: Optional[str] = None
+    pm_margin: Optional[str] = None
+    ip_margin: Optional[str] = None
+    cashout: Optional[str] = None
+    betbuilder: Optional[str] = None
+    bet_delay: Optional[str] = None

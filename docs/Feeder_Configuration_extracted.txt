@@ -1,0 +1,161 @@
+--- Page 1 ---
+Feeder Configuration
+Feeder Configuration
+From the name itself “Feeder Configuration”, this is the part of the platform that is responsible for
+configuring the set-up of all the available Feed/Feeders. The main purpose of this is to enable
+automation of the “M apping” process in different aspects and circumstances. As could be seen in
+the Feeder Configuration, There are 3 filters that could be used to be more specific with setting up
+the automation of the mapping process from different feeds for specific leagues in different
+categories. 
+3/2/26, 5:59 PM QNX Admin Manual - Feeder Configuration
+https://sites.google.com/view/qnx-platform-manual/sport/feeder-configuration 1/7
+
+--- Page 2 ---
+Feeder Configuration on top has a Filter, which can be used by admin to filter feeder
+configuration by sport, category, and league:
+Sport - is where admin can choose which sports feeder configuration will be filtered below.
+Only one sport can be selected from the filter list. List is dynamic and expands how new
+sports are added by feeder providers.
+Category - is where admin can choose which category (under chosen sport) feeder
+configuration will be filtered below. To be able to choose a category, admins need to select a
+sport from the Sport filter. Only one category can be selected from the filter list. List is
+dynamic and expands how new categories under sport are mapped.
+League - is where admin can choose which league (under chosen category) feeder
+configuration will be filtered below. To be able to choose a league, admins need to select a
+category from the Category filter. Only one league can be selected from the filter list. List is
+dynamic and expands how new leagues under category and sport are mapped.
+3/2/26, 5:59 PM QNX Admin Manual - Feeder Configuration
+https://sites.google.com/view/qnx-platform-manual/sport/feeder-configuration 2/7
+
+--- Page 3 ---
+Feeder ConfigurationFeeder Incidents Configuration could only be seen once a specific kind
+of Sport is selected. It will appear at the bottom of the Feeder Configuration. While certain
+incidents that are provided by different feeds could be set up. It could be done specifically for
+each League or Category of a certain Sport. On top is a list of Feeder providers, where for each of
+them configuration for a different system action can be configured.
+NOTE: Setting that is set on a higher level is showing inside a ( ), for example, if "Automapping
+enabled" is set as "Yes" for Soccer sport, but inside Category "England" admin sets it to "No"
+setting will show as "(Yes) No". Higher level configuration will show just for 1 level above, so for
+Category configuration it will show setting for Sport and for League it will show for Category. If
+any setting for feeder configuration system action is "Not set", setting from higher level will apply.
+If the higher-level setting is "Not set" then it will be considered as feeder configuration system
+action is set to "No" or disabled.
+Feeder configuration system actions that feeder configuration can be applied to:
+Automapping enabled - if set to:
+Yes - will enable automapping of events that already have been mapped in the system:
+sport, category, league, and teams, in already created events.
+No - will disable automapping of events that already have been mapped in the system:
+sport, category, league, and teams, in already created events.
+Automapping teams enabled- if set to:
+Yes - will enable automapping of teams that are already mapped in the system.
+No - will disable automapping of teams that are already mapped in the system.
+Automappingstarttimethreshold(inhours) -settingiswhereadmincanseteventstart
+3/2/26, 5:59 PM QNX Admin Manual - Feeder Configuration
+https://sites.google.com/view/qnx-platform-manual/sport/feeder-configuration 3/7
+
+--- Page 4 ---
+utoappg stat te tesod ( ous)  settg s ee ad  ca set eet stat
+time threshold in hours. This setting will allow a new event (that can be automapped by the
+system) to automap an already created event if the start time difference/threshold is not
+longer than set here.
+Auto live offer - if set to:
+Yes - will enable the auto-live offer to be set by feeder for the event.
+No - will disable the auto-live offer to be set by feeder for the event.
+Automap neutral grounds- if set to:
+Yes - will enable automapping of events that are set as neutral ground in already created
+events.
+No - will disable automapping of events that are set as neutral ground in already created
+events.
+Auto update start time rank - setting is where admin can set priority between feeders.
+Feeders with a higher number set have a higher priority, feeders with a higher number will
+auto-set the start time of the event, if more feeders are mapped at the same time for the
+event.
+ M arket mapping behavior- if set to:
+At Least One Active - will enable automapping of eventswith at least one active market in
+an event that is already created in the system.
+All Active - will enable automapping of events only if all markets are active in an event
+that is already created in the system.
+Auto create domain event- if set to:
+Yes - will enable the auto-create of events that are already mapped in the system.
+No - will disable the auto-create of events that are already mapped in the system.
+Auto create domain player- if set to:
+Yes - will enable the auto-create of player/team that is not already mapped in the system.
+No - will disable the auto-create of player/team that are not already mapped in the
+system.
+Automap market type enabled- if set to:
+Yes - will enable automapping of market types that are already mapped in the system.
+No - will disable automapping of market types that are already mapped in the system.
+Auto create market type enabled- if set to:
+Yes - will enable the create of a market type that is not already mapped in the system.
+No - will disable the create of a market type that is not already mapped in the system.
+Settlement enabled- if set to:
+Yes - will enable auto-settlement of event marketsby the feeder.
+3/2/26, 5:59 PM QNX Admin Manual - Feeder Configuration
+https://sites.google.com/view/qnx-platform-manual/sport/feeder-configuration 4/7
+
+--- Page 5 ---
+No - will disable auto-settlement of event markets by the feeder.
+Resettlement enabled- if set to:
+Yes - will enable auto-resettlement of event markets by the feeder.
+No - will disable auto-resettlement of event markets by the feeder.
+Bet void enabled- if set to:
+Yes - will enable auto settlement to void the status of event markets by the feeder.
+No - will disable auto settlement to void the status of event markets by the feeder.
+Bet void rollback enabled- if set to:
+Yes - will enable autovoid status settlement rollback to initial settlement of event markets
+by the feeder.
+No - will disable autovoid status settlement rollback to initial settlement of event markets
+by the feeder.
+Auto map one to many enabled- if set to:
+Yes - will enable automapping of events that are already mapped in the system to already
+created events with the same opponents but with different start times for the same
+event.
+No - will disable automapping of events that are already mapped in the system to already
+created events with the same opponents but with different start times for the same
+event.
+External trading service enabled- if set to:
+Yes - will enable external trading service.
+No - will disable external trading services.
+3/2/26, 5:59 PM QNX Admin Manual - Feeder Configuration
+https://sites.google.com/view/qnx-platform-manual/sport/feeder-configuration 5/7
+
+--- Page 6 ---
+Feeder Incidents Configurationcould only be seen once a specific kind of Sport is selected.
+It will appear at the bottom of the Feeder Configuration. While certain incidents that are provided
+by different feeds could be set up. It could be done specifically for each League or Category of a
+certain Sport. On top is a list of Feeder providers, where for each of them configuration for a
+different system action can be configured.
+Feeder Incidents Configuration setting can be applied for:
+Score - it will load score data if the feeder provides it and if the setting is set to Yes.
+Time- it will loadtime data if the feeder provides it and if the setting is set to Yes.
+Live State - it will loadlive state if the feeder provides it and if the setting is set to Yes.
+Incidents - it will loadincident data if the feeder provides it and if the setting is set to Yes.
+Stats - it will load stats data if the feeder provides it and if the setting is set to Yes.
+Podcast - it will load podcast data if the feeder provides it and if the setting is set to Yes.
+Weather - it will load weather data if the feeder provides it and if the setting is set to Yes.
+Pitch - it will load pitch information data if the feeder provides it and if the setting is set to
+Yes.
+Surface - it will load surface information data if the feeder provides it and if the setting is set
+to Yes.
+Video - it will load the video URL if the feeder provides it and if the setting is set to Yes.
+Sort - button allows admin to sort Feed Sources. Feed Source that is placed higher will be
+prioritized if the system receives the same data from 2 or more feed sources.
+Add "+" - button allows admin to add new Feed Source in Feeder Incidents Configuration list.
+SwitchbuttonallowsadmintoEnable/DisableFeedSource
+3/2/26, 5:59 PM QNX Admin Manual - Feeder Configuration
+https://sites.google.com/view/qnx-platform-manual/sport/feeder-configuration 6/7
+
+--- Page 7 ---
+Switch - button allows admin to Enable/Disable Feed Source.
+Edit - button allows admins to configure which data Feed Source will provide.
+Save - button will save changes in Feeder Incidents Configuration setting.
+Cancel - button will cancel changes in Feeder Incidents Configuration setting and close it.
+QNX Admin
+QNX Admin Stage
+All rights reserved. No part of this publication may be reproduced, distributed, or transmitted in any form or
+by any means, including photocopying, recording, or other electronic or mechanical methods, without the
+prior written permission of the publisher.
+Copyright © 2024
+QNX Manual v.25092025
+3/2/26, 5:59 PM QNX Admin Manual - Feeder Configuration
+https://sites.google.com/view/qnx-platform-manual/sport/feeder-configuration 7/7
