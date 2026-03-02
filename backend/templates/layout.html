@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMP - Global Mapper Platform</title>
+
+    <!-- TailwindCSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#10b981',
+                        secondary: '#3b82f6',
+                        darkbg: '#0f172a',
+                        cardbg: '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+    <style>
+        /* Dropdown show/hide */
+        .nav-dropdown {
+            display: none;
+        }
+
+        .nav-item:hover .nav-dropdown {
+            display: block;
+        }
+
+        .nav-item:focus-within .nav-dropdown {
+            display: block;
+        }
+    </style>
+</head>
+
+<body class="bg-darkbg text-slate-200 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="bg-slate-900 border-b border-slate-800 flex-shrink-0 z-40">
+        <div class="flex items-center h-12 px-4">
+
+            <!-- Logo -->
+            <div class="flex items-center mr-8">
+                <a href="/" class="flex items-center">
+                    <span
+                        class="text-lg font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity">GMP</span>
+                </a>
+            </div>
+
+            <!-- Navigation Menu -->
+            <nav class="flex items-stretch h-full flex-1">
+
+                <!-- Admin (no dropdown) -->
+                <div class="nav-item relative flex items-center">
+                    <a href="#"
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                        Admin
+                    </a>
+                </div>
+
+                <!-- Configuration (dropdown) -->
+                <div class="nav-item relative flex items-center group">
+                    <button
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors gap-1.5">
+                        Configuration
+                        <i class="fa-solid fa-chevron-down text-xs opacity-50"></i>
+                    </button>
+                    <div
+                        class="nav-dropdown absolute top-full left-0 w-56 bg-slate-900 border border-slate-700 rounded-b shadow-xl z-50">
+                        <a href="/entities"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'entities' %}text-primary{% else %}text-slate-300{% endif %}">
+                            <i class="fa-solid fa-cubes w-5 text-slate-500"></i> Entities
+                        </a>
+                        <a href="/localization"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'localization' %}text-primary{% else %}text-slate-300{% endif %}">
+                            <i class="fa-solid fa-language w-5 text-slate-500"></i> Localization
+                        </a>
+                        <a href="/brands"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'brands' %}text-primary{% else %}text-slate-300{% endif %}">
+                            <i class="fa-solid fa-building w-5 text-slate-500"></i> Brands
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Betting Program (dropdown) -->
+                <div class="nav-item relative flex items-center">
+                    <button
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors gap-1.5 {% if section in ['domain', 'feeder'] %}text-primary{% endif %}">
+                        Betting Program
+                        <i class="fa-solid fa-chevron-down text-xs opacity-50"></i>
+                    </button>
+                    <div
+                        class="nav-dropdown absolute top-full left-0 w-52 bg-slate-900 border border-slate-700 rounded-b shadow-xl z-50">
+                        <a href="/domain-events"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'domain' %}text-primary{% else %}text-slate-300{% endif %}">
+                            <i class="fa-solid fa-trophy w-5 text-slate-500"></i> Domain Events
+                        </a>
+                        <a href="/feeder-events"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'feeder' %}text-primary{% else %}text-slate-300{% endif %}">
+                            <i class="fa-solid fa-satellite-dish w-5 text-slate-500"></i> Feeder Events
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Risk (no dropdown) -->
+                <div class="nav-item relative flex items-center">
+                    <a href="#"
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                        Risk
+                    </a>
+                </div>
+
+                <!-- Bets/PTLs (no dropdown) -->
+                <div class="nav-item relative flex items-center">
+                    <a href="#"
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                        Bets/PTLs
+                    </a>
+                </div>
+
+                <!-- Alerts (no dropdown) -->
+                <div class="nav-item relative flex items-center">
+                    <a href="#"
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                        Alerts
+                    </a>
+                </div>
+
+                <!-- Reports (no dropdown) -->
+                <div class="nav-item relative flex items-center">
+                    <a href="#"
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                        Reports
+                    </a>
+                </div>
+            </nav>
+
+            <!-- Right side: user avatar -->
+            <div class="flex items-center space-x-3 ml-auto">
+                <button
+                    class="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 text-xs">
+                    <i class="fa-regular fa-bell text-slate-400"></i>
+                </button>
+                <div
+                    class="w-7 h-7 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold border border-primary/50 text-xs">
+                    A
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content (full width) -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+
+        <!-- Breadcrumb Bar -->
+        <div
+            class="bg-slate-900/60 border-b border-slate-800 px-6 py-1.5 flex items-center text-xs text-slate-500 flex-shrink-0">
+            <a href="/" class="hover:text-slate-300 transition-colors">GMP</a>
+            {% block breadcrumbs %}{% endblock %}
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-auto p-6">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Modal Container -->
+    <div id="modal-container" class="relative z-50 hidden" aria-modal="true">
+        <!-- Background backdrop -->
+        <div class="fixed inset-0 bg-slate-900/90 transition-opacity" onclick="closeModal()"></div>
+        <!-- Modal panel -->
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto pointer-events-none">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div id="modal-content"
+                    class="relative pointer-events-auto transform overflow-hidden rounded-lg bg-slate-800 text-left shadow-xl transition-all w-full max-w-6xl border border-slate-700 min-h-[300px]">
+                    <!-- Content loaded dynamically via HTMX -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openModal() {
+            document.getElementById('modal-container').classList.remove('hidden');
+        }
+        function closeModal(reloadTable) {
+            document.getElementById('modal-container').classList.add('hidden');
+            var mc = document.getElementById('modal-content');
+            mc.innerHTML = '';
+            delete mc.dataset.modalScriptsRun;
+            if (reloadTable) {
+                // Re-fetch feeder table to show updated domain IDs
+                const tbody = document.getElementById('feeder-events-body');
+                if (tbody) htmx.trigger(tbody, 'reload');
+            }
+        }
+
+        document.body.addEventListener('htmx:responseError', function (evt) {
+            const status = evt.detail.xhr.status;
+            document.getElementById('modal-content').innerHTML = `
+                <div class="p-8 text-center text-red-400">
+                    <i class="fa-solid fa-circle-exclamation text-3xl mb-3"></i>
+                    <p class="font-medium">Server error (${status}). Please refresh and try again.</p>
+                </div>`;
+        });
+
+        // Run inline scripts whenever modal content is replaced (e.g. HTMX swap). innerHTML doesn't run scripts.
+        // Use eval() so scripts run every time (appending a script element with same content is not re-executed by browsers).
+        (function () {
+            var modalContent = document.getElementById('modal-content');
+            if (!modalContent) return;
+            window.__mapModalDebug = false;
+
+            function runModalScripts() {
+                if (modalContent.dataset.modalScriptsRun === '1') return;
+                var scripts = modalContent.querySelectorAll('script');
+                if (scripts.length === 0) return;
+                modalContent.dataset.modalScriptsRun = '1';
+                var runDelay = 50;
+                setTimeout(function () {
+                    var scriptsNow = modalContent.querySelectorAll('script');
+                    if (scriptsNow.length === 0) {
+                        delete modalContent.dataset.modalScriptsRun;
+                        return;
+                    }
+                    scriptsNow.forEach(function (script) {
+                        if (!script.textContent || !script.textContent.trim()) return;
+                        try {
+                            (0, eval)(script.textContent);
+                        } catch (err) {
+                            if (window.__mapModalDebug) console.error('[MapModal] script error', err);
+                        }
+                    });
+                }, runDelay);
+            }
+
+            document.addEventListener('htmx:afterSwap', function (e) {
+                var target = e.detail && e.detail.target;
+                var url = (e.detail && e.detail.xhr && e.detail.xhr.responseURL) || '';
+                if ((target && target.id === 'modal-content') || (url.indexOf('/modal/map-event') !== -1)) {
+                    runModalScripts();
+                }
+            });
+            document.addEventListener('htmx:afterSettle', function (e) {
+                if (modalContent.querySelectorAll('script').length > 0 && modalContent.dataset.modalScriptsRun !== '1') {
+                    runModalScripts();
+                }
+            });
+
+            var observer = new MutationObserver(function () {
+                var scriptCount = modalContent.querySelectorAll('script').length;
+                if (scriptCount > 0 && modalContent.dataset.modalScriptsRun !== '1') {
+                    runModalScripts();
+                } else if (scriptCount === 0) {
+                    delete modalContent.dataset.modalScriptsRun;
+                }
+            });
+            observer.observe(modalContent, { childList: true, subtree: true });
+        })();
+    </script>
+
+    {% block scripts %}{% endblock %}
+
+</body>
+
+</html>

@@ -1,0 +1,548 @@
+{% extends "layout.html" %}
+
+{% block breadcrumbs %}
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Configuration</span>
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Localization</span>
+{% endblock %}
+
+{% block title %}Localization{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full space-y-3">
+
+    <!-- Page header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-lg font-bold text-white">Localization</h1>
+            <p class="text-xs text-slate-500 mt-0.5">Manage languages and countries used across the platform.</p>
+        </div>
+    </div>
+
+    <!-- Localization tabs -->
+    <div class="flex border-b border-slate-700 gap-0">
+        <button onclick="locSwitchTab('translations')" id="loc-tab-translations"
+            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-primary border-primary">
+            <i class="fa-solid fa-table-list text-xs"></i>
+            Translations
+        </button>
+        <button onclick="locSwitchTab('languages')" id="loc-tab-languages"
+            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white">
+            <i class="fa-solid fa-language text-xs"></i>
+            Languages
+        </button>
+        <button onclick="locSwitchTab('countries')" id="loc-tab-countries"
+            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white">
+            <i class="fa-solid fa-flag text-xs"></i>
+            Countries
+        </button>
+    </div>
+
+    <!-- Translations panel -->
+    <div id="loc-panel-translations" class="flex flex-col flex-1 space-y-3 min-h-0">
+
+        <!-- Filters -->
+        <form method="get" action="/localization"
+            class="flex flex-wrap items-center gap-3 bg-cardbg/80 border border-slate-700/50 rounded-lg p-3">
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Type</label>
+                <select name="tr_type"
+                    class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none">
+                    {% set type_map = {
+                        'all': 'All',
+                        'sports': 'Sport',
+                        'categories': 'Category',
+                        'competitions': 'Competition',
+                        'teams': 'Team',
+                        'markets': 'Market',
+                        'countries': 'Country'
+                    } %}
+                    {% for key, label in type_map.items() %}
+                    <option value="{{ key }}" {% if translation_selected_type == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Language</label>
+                <select name="tr_language_id"
+                    class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none">
+                    {% for lang in languages %}
+                    <option value="{{ lang.id }}" {% if translation_selected_language_id == lang.id %}selected{% endif %}>
+                        {{ lang.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Brand</label>
+                <select name="tr_brand_id"
+                    class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none">
+                    <option value="" {% if translation_selected_brand_id is none %}selected{% endif %}>Global</option>
+                    {% for brand in brands %}
+                    <option value="{{ brand.id }}" {% if translation_selected_brand_id == brand.id %}selected{% endif %}>{{ brand.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                <input type="checkbox" name="tr_untranslated" value="1"
+                    class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/30"
+                    {% if translation_show_untranslated %}checked{% endif %}>
+                Show not translated only
+            </label>
+            <button type="submit"
+                class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded flex items-center gap-1.5">
+                <i class="fa-solid fa-filter"></i> Apply
+            </button>
+        </form>
+
+        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                    <tr>
+                        <th class="px-3 py-2 font-semibold w-32">Type</th>
+                        <th class="px-3 py-2 font-semibold w-24">Base ID</th>
+                        <th class="px-3 py-2 font-semibold min-w-[180px]">Source (English)</th>
+                        {% if translation_selected_brand_id is none %}
+                        <th class="px-3 py-2 font-semibold">Translation</th>
+                        {% else %}
+                        <th class="px-3 py-2 font-semibold min-w-[140px]">Global</th>
+                        <th class="px-3 py-2 font-semibold min-w-[140px]">Brand</th>
+                        {% endif %}
+                        <th class="px-3 py-2 font-semibold w-28 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if translation_rows and translation_rows|length > 0 %}
+                    {% for row in translation_rows %}
+                    <tr class="hover:bg-white/5 transition-colors">
+                        <td class="px-3 py-1.5 text-slate-400">{{ row.type_label }}</td>
+                        <td class="px-3 py-1.5 text-slate-500 font-mono text-[11px]">{{ row.baseid or '—' }}</td>
+                        <td class="px-3 py-1.5 text-slate-300">{{ row.source }}</td>
+                        {% if translation_selected_brand_id is none %}
+                        <td class="px-3 py-1.5">
+                            <input type="text" class="loc-translation-input w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white outline-none focus:border-primary"
+                                value="{{ row.translation }}">
+                        </td>
+                        <td class="px-3 py-1.5 text-right">
+                            <button type="button"
+                                data-entity-type="{{ row.entity_type }}"
+                                data-entity-id="{{ row.entity_id }}"
+                                data-field="{{ row.field }}"
+                                data-brand-id=""
+                                onclick="locSubmitTranslation(this)"
+                                class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium bg-primary text-white hover:bg-emerald-600">
+                                <i class="fa-solid fa-save text-[10px]"></i> Save
+                            </button>
+                        </td>
+                        {% else %}
+                        <td class="px-3 py-1.5 text-slate-400 bg-slate-800/50 rounded px-2 py-1">{{ row.translation_global or '—' }}</td>
+                        <td class="px-3 py-1.5">
+                            <input type="text" class="loc-translation-input loc-translation-brand w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white outline-none focus:border-primary"
+                                value="{{ row.translation_brand }}">
+                        </td>
+                        <td class="px-3 py-1.5 text-right">
+                            <button type="button"
+                                data-entity-type="{{ row.entity_type }}"
+                                data-entity-id="{{ row.entity_id }}"
+                                data-field="{{ row.field }}"
+                                data-brand-id="{{ translation_selected_brand_id }}"
+                                onclick="locSubmitTranslation(this)"
+                                class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium bg-primary text-white hover:bg-emerald-600">
+                                <i class="fa-solid fa-save text-[10px]"></i> Save
+                            </button>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="{{ 5 if translation_selected_brand_id is none else 6 }}" class="px-4 py-10 text-center text-slate-600 italic">
+                            No translation candidates for the selected filters.
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Languages panel -->
+    <div id="loc-panel-languages" class="hidden flex flex-col flex-1 space-y-3 min-h-0">
+
+        <!-- Quick-add / edit form for languages -->
+        <div id="loc-language-form"
+            class="bg-slate-900 border border-slate-700 rounded-lg px-5 py-4 flex items-end gap-3">
+            <input type="hidden" id="loc-language-id" value="">
+            <div class="flex-1">
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+                <input id="loc-language-name" type="text" placeholder="Language name (e.g. English)"
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-slate-600">
+            </div>
+            <div class="flex-1">
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Native name</label>
+                <input id="loc-language-native" type="text" placeholder="Native name (e.g. English, Français)"
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-slate-600">
+            </div>
+            <div class="w-32">
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Direction</label>
+                <select id="loc-language-direction"
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <option value="ltr">Left to right</option>
+                    <option value="rtl">Right to left</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                    <input type="checkbox" id="loc-language-active"
+                        class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/30" checked>
+                    Active
+                </label>
+            </div>
+            <button type="button" onclick="locSubmitLanguage()"
+                class="shrink-0 bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded transition-all">
+                <i class="fa-solid fa-save mr-1"></i> <span id="loc-language-submit-label">Add language</span>
+            </button>
+            <button type="button" onclick="locResetLanguageForm()"
+                class="shrink-0 text-slate-500 hover:text-white text-xs px-3 py-1.5">
+                Cancel
+            </button>
+            <span id="loc-language-status" class="text-xs shrink-0 text-slate-400"></span>
+        </div>
+
+        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                    <tr>
+                        <th class="px-3 py-2 font-semibold w-48">Name</th>
+                        <th class="px-3 py-2 font-semibold w-48">Native name</th>
+                        <th class="px-3 py-2 font-semibold w-24">Direction</th>
+                        <th class="px-3 py-2 font-semibold w-20">Active</th>
+                        <th class="px-3 py-2 font-semibold w-32">Created</th>
+                        <th class="px-3 py-2 font-semibold w-32">Last Edited</th>
+                        <th class="px-3 py-2 font-semibold w-24 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if languages %}
+                    {% for lang in languages %}
+                    <tr class="hover:bg-white/5 transition-colors">
+                        <td class="px-3 py-1.5 text-white">{{ lang.name }}</td>
+                        <td class="px-3 py-1.5 text-slate-300">{{ lang.native_name or '—' }}</td>
+                        <td class="px-3 py-1.5 text-slate-400 uppercase text-[11px]">{{ lang.direction or 'ltr' }}</td>
+                        <td class="px-3 py-1.5">
+                            {% if lang.active %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-600/30 text-emerald-300 border border-emerald-600/60">Active</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-1.5 text-slate-500 text-[11px]">{{ lang.created_at or '—' }}</td>
+                        <td class="px-3 py-1.5 text-slate-500 text-[11px]">{{ lang.updated_at or '—' }}</td>
+                        <td class="px-3 py-1.5 text-right">
+                            <button type="button"
+                                data-id="{{ lang.id }}"
+                                data-name="{{ lang.name }}"
+                                data-native-name="{{ lang.native_name or '' }}"
+                                data-direction="{{ lang.direction or 'ltr' }}"
+                                data-active="{{ '1' if lang.active else '0' }}"
+                                onclick="locStartEditLanguage(this)"
+                                class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium bg-slate-800 text-slate-200 border border-slate-600 hover:bg-slate-700">
+                                <i class="fa-solid fa-pen text-[10px]"></i> Edit
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="px-4 py-10 text-center text-slate-600 italic">
+                            No languages defined yet.
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Countries panel -->
+    <div id="loc-panel-countries" class="hidden flex flex-col flex-1 space-y-3 min-h-0">
+
+        <!-- Quick-add / edit form -->
+        <div id="loc-country-form"
+            class="bg-slate-900 border border-slate-700 rounded-lg px-5 py-4 flex items-end gap-3">
+            <input type="hidden" id="loc-country-original-cc" value="">
+            <div class="flex-1">
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+                <input id="loc-country-name" type="text" placeholder="Country name"
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-slate-600">
+            </div>
+            <div class="w-32">
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
+                <input id="loc-country-cc" type="text" placeholder="e.g. gb"
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-slate-600">
+            </div>
+            <button type="button" onclick="locSubmitCountry()"
+                class="shrink-0 bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded transition-all">
+                <i class="fa-solid fa-save mr-1"></i> <span id="loc-country-submit-label">Add country</span>
+            </button>
+            <button type="button" onclick="locResetCountryForm()"
+                class="shrink-0 text-slate-500 hover:text-white text-xs px-3 py-1.5">
+                Cancel
+            </button>
+            <span id="loc-country-status" class="text-xs shrink-0 text-slate-400"></span>
+        </div>
+
+        <!-- Countries table -->
+        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                    <tr>
+                        <th class="px-3 py-2 font-semibold w-2/3">Name</th>
+                        <th class="px-3 py-2 font-semibold w-32">Code</th>
+                        <th class="px-3 py-2 font-semibold w-24 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if countries %}
+                    {% for c in countries %}
+                    <tr class="hover:bg-white/5 transition-colors">
+                        <td class="px-3 py-1.5 text-white">{{ c.name }}</td>
+                        <td class="px-3 py-1.5 text-slate-400 font-mono">{{ c.cc }}</td>
+                        <td class="px-3 py-1.5 text-right">
+                            {% if c.cc == '-' %}
+                            <span class="text-slate-500 text-xs">—</span>
+                            {% else %}
+                            <button type="button"
+                                data-cc="{{ c.cc }}"
+                                data-name="{{ c.name }}"
+                                onclick="locStartEditCountry(this.getAttribute('data-cc'), this.getAttribute('data-name'))"
+                                class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium bg-slate-800 text-slate-200 border border-slate-600 hover:bg-slate-700">
+                                <i class="fa-solid fa-pen text-[10px]"></i> Edit
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="px-4 py-10 text-center text-slate-600 italic">
+                            No countries found in configuration.
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function locSwitchTab(key) {
+        const tabs = ['translations', 'languages', 'countries'];
+        tabs.forEach(function (t) {
+            const tabBtn = document.getElementById('loc-tab-' + t);
+            const panel = document.getElementById('loc-panel-' + t);
+            if (!tabBtn || !panel) return;
+            const active = (t === key);
+            panel.classList.toggle('hidden', !active);
+            if (active) {
+                tabBtn.classList.remove('text-slate-400', 'border-transparent');
+                tabBtn.classList.add('text-primary', 'border-primary');
+            } else {
+                tabBtn.classList.remove('text-primary', 'border-primary');
+                tabBtn.classList.add('text-slate-400', 'border-transparent');
+            }
+        });
+    }
+
+    function locResetCountryForm() {
+        document.getElementById('loc-country-original-cc').value = '';
+        document.getElementById('loc-country-name').value = '';
+        document.getElementById('loc-country-cc').value = '';
+        document.getElementById('loc-country-submit-label').textContent = 'Add country';
+        document.getElementById('loc-country-status').textContent = '';
+    }
+
+    function locStartEditCountry(cc, name) {
+        document.getElementById('loc-country-original-cc').value = cc;
+        document.getElementById('loc-country-name').value = name;
+        document.getElementById('loc-country-cc').value = cc;
+        document.getElementById('loc-country-submit-label').textContent = 'Update country';
+        document.getElementById('loc-country-status').textContent = '';
+        locSwitchTab('countries');
+    }
+
+    async function locSubmitCountry() {
+        const nameInput = document.getElementById('loc-country-name');
+        const ccInput = document.getElementById('loc-country-cc');
+        const originalCcInput = document.getElementById('loc-country-original-cc');
+        const statusEl = document.getElementById('loc-country-status');
+        const name = (nameInput.value || '').trim();
+        const cc = (ccInput.value || '').trim();
+        const originalCc = (originalCcInput.value || '').trim() || null;
+        if (!name || !cc) {
+            statusEl.textContent = 'Name and code are required.';
+            statusEl.classList.remove('text-slate-400');
+            statusEl.classList.add('text-amber-400');
+            return;
+        }
+        statusEl.textContent = 'Saving...';
+        statusEl.classList.remove('text-amber-400');
+        statusEl.classList.add('text-slate-400');
+        try {
+            const res = await fetch('/api/localization/countries', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, cc, original_cc: originalCc })
+            });
+            if (res.ok) {
+                statusEl.textContent = 'Saved.';
+                setTimeout(function () { window.location.reload(); }, 400);
+            } else {
+                const err = await res.json().catch(function () { return {}; });
+                statusEl.textContent = err.detail || 'Failed to save country.';
+                statusEl.classList.add('text-amber-400');
+            }
+        } catch (e) {
+            statusEl.textContent = 'Failed to save country.';
+            statusEl.classList.add('text-amber-400');
+        }
+    }
+
+    function locResetLanguageForm() {
+        const idInput = document.getElementById('loc-language-id');
+        const nameInput = document.getElementById('loc-language-name');
+        const nativeInput = document.getElementById('loc-language-native');
+        const dirSelect = document.getElementById('loc-language-direction');
+        const activeInput = document.getElementById('loc-language-active');
+        const label = document.getElementById('loc-language-submit-label');
+        const statusEl = document.getElementById('loc-language-status');
+        if (idInput) idInput.value = '';
+        if (nameInput) nameInput.value = '';
+        if (nativeInput) nativeInput.value = '';
+        if (dirSelect) dirSelect.value = 'ltr';
+        if (activeInput) activeInput.checked = true;
+        if (label) label.textContent = 'Add language';
+        if (statusEl) statusEl.textContent = '';
+    }
+
+    function locStartEditLanguage(btn) {
+        const idInput = document.getElementById('loc-language-id');
+        const nameInput = document.getElementById('loc-language-name');
+        const nativeInput = document.getElementById('loc-language-native');
+        const dirSelect = document.getElementById('loc-language-direction');
+        const activeInput = document.getElementById('loc-language-active');
+        const label = document.getElementById('loc-language-submit-label');
+        const statusEl = document.getElementById('loc-language-status');
+        if (!btn || !idInput || !nameInput || !dirSelect || !activeInput) return;
+        idInput.value = btn.getAttribute('data-id') || '';
+        nameInput.value = btn.getAttribute('data-name') || '';
+        if (nativeInput) nativeInput.value = btn.getAttribute('data-native-name') || '';
+        dirSelect.value = btn.getAttribute('data-direction') || 'ltr';
+        activeInput.checked = (btn.getAttribute('data-active') === '1');
+        if (label) label.textContent = 'Update language';
+        if (statusEl) statusEl.textContent = '';
+        locSwitchTab('languages');
+    }
+
+    async function locSubmitLanguage() {
+        const idInput = document.getElementById('loc-language-id');
+        const nameInput = document.getElementById('loc-language-name');
+        const nativeInput = document.getElementById('loc-language-native');
+        const dirSelect = document.getElementById('loc-language-direction');
+        const activeInput = document.getElementById('loc-language-active');
+        const statusEl = document.getElementById('loc-language-status');
+        if (!nameInput || !dirSelect || !activeInput || !statusEl) return;
+        const name = (nameInput.value || '').trim();
+        const nativeName = (nativeInput?.value || '').trim();
+        const direction = (dirSelect.value || 'ltr').trim().toLowerCase();
+        const active = !!activeInput.checked;
+        const idVal = (idInput?.value || '').trim();
+        if (!name) {
+            statusEl.textContent = 'Name is required.';
+            statusEl.classList.remove('text-slate-400');
+            statusEl.classList.add('text-amber-400');
+            return;
+        }
+        statusEl.textContent = 'Saving...';
+        statusEl.classList.remove('text-amber-400');
+        statusEl.classList.add('text-slate-400');
+        const payload = {
+            name: name,
+            native_name: nativeName,
+            direction: direction,
+            active: active
+        };
+        if (idVal) {
+            payload.id = parseInt(idVal, 10);
+        }
+        try {
+            const res = await fetch('/api/localization/languages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                statusEl.textContent = 'Saved.';
+                setTimeout(function () { window.location.reload(); }, 400);
+            } else {
+                const err = await res.json().catch(function () { return {}; });
+                statusEl.textContent = err.detail || 'Failed to save language.';
+                statusEl.classList.add('text-amber-400');
+            }
+        } catch (e) {
+            statusEl.textContent = 'Failed to save language.';
+            statusEl.classList.add('text-amber-400');
+        }
+    }
+
+    async function locSubmitTranslation(btn) {
+        const row = btn.closest('tr');
+        if (!row) return;
+        const input = row.querySelector('.loc-translation-input');
+        if (!input) return;
+        const text = (input.value || '').trim();
+        const entityType = btn.getAttribute('data-entity-type') || '';
+        const entityId = btn.getAttribute('data-entity-id') || '';
+        const field = btn.getAttribute('data-field') || 'name';
+        const langSelect = document.querySelector('select[name=\"tr_language_id\"]');
+        const langVal = langSelect ? (langSelect.value || '').trim() : '';
+        const langId = langVal ? parseInt(langVal, 10) : null;
+        const brandVal = (btn.getAttribute('data-brand-id') || '').trim();
+        const brandId = brandVal ? parseInt(brandVal, 10) : null;
+        if (!entityType || !entityId || !langId) {
+            alert('Missing entity or language context for translation.');
+            return;
+        }
+        btn.disabled = true;
+        try {
+            const payload = {
+                entity_type: entityType,
+                entity_id: entityId,
+                field: field,
+                language_id: langId,
+                text: text
+            };
+            if (brandId != null) payload.brand_id = brandId;
+            const res = await fetch('/api/localization/translations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(function () { return {}; });
+                alert(err.detail || 'Failed to save translation.');
+            }
+        } catch (e) {
+            alert('Failed to save translation.');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}
+

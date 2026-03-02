@@ -1,0 +1,1225 @@
+{% extends "layout.html" %}
+
+{% block breadcrumbs %}
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Configuration</span>
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Entities</span>
+{% endblock %}
+
+{% block title %}Entities{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full space-y-3">
+
+    <!-- Page header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-lg font-bold text-white">Entities</h1>
+            <p class="text-xs text-slate-500 mt-0.5">Manage canonical domain entities: sports, categories, competitions,
+                teams and markets.</p>
+        </div>
+        <button onclick="toggleNewEntityForm()"
+            class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-plus"></i> New Entity
+        </button>
+    </div>
+
+    <!-- Quick-add form (hidden by default) -->
+    <div id="new-entity-form"
+        class="hidden bg-slate-900 border border-slate-700 rounded-lg px-5 py-4 flex items-end gap-3">
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Type</label>
+            <select id="nef-type" onchange="onNefTypeChange()"
+                class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <option value="sports">Sport</option>
+                <option value="categories">Category</option>
+                <option value="competitions">Competition</option>
+                <option value="teams">Team</option>
+                <option value="markets">Market</option>
+            </select>
+        </div>
+
+        <!-- Sport parent: shown for categories, competitions, teams -->
+        <div id="nef-sport-wrap" class="hidden">
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sport <span
+                    class="text-red-500">*</span></label>
+            <select id="nef-sport" onchange="onNefSportChange()"
+                class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <option value="">— select —</option>
+                {% for s in entities.sports %}
+                <option value="{{ s.name }}">{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Category parent: shown only for competitions -->
+        <div id="nef-category-wrap" class="hidden">
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Category <span
+                    class="text-red-500">*</span></label>
+            <select id="nef-category"
+                class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <option value="">— select sport first —</option>
+            </select>
+        </div>
+        <!-- Jurisdiction: shown for categories, competitions, teams -->
+        <div id="nef-jurisdiction-wrap" class="hidden">
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Jurisdiction</label>
+            <select id="nef-jurisdiction"
+                class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-w-[140px]">
+                {% for c in countries %}
+                <option value="{{ c.cc }}">{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <!-- Base ID: shown for sports only (optional, from previous platform) -->
+        <div id="nef-baseid-wrap" class="hidden">
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Base ID <span class="text-slate-600 normal-case">(optional)</span></label>
+            <input type="text" id="nef-baseid" placeholder="e.g. 1"
+                class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-w-[100px]">
+        </div>
+        <div id="nef-code-wrap" class="hidden">
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
+            <input id="nef-code" type="text" placeholder="e.g. MR, OU"
+                class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-slate-600 max-w-[6rem]">
+        </div>
+        <div class="flex-1">
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+            <input id="nef-name" type="text" placeholder="e.g. England"
+                class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-slate-600">
+        </div>
+        <div id="nef-feedid-wrap" class="flex-1">
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Feed ID <span
+                    class="text-slate-600 normal-case">(blank = use name)</span></label>
+            <input id="nef-feedid" type="text" placeholder="e.g. 1, Soccer, FA Cup"
+                class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-slate-600">
+        </div>
+        <button onclick="submitNewEntity()"
+            class="shrink-0 bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded transition-all">
+            <i class="fa-solid fa-plus mr-1"></i> Create
+        </button>
+        <button onclick="toggleNewEntityForm()"
+            class="shrink-0 text-slate-500 hover:text-white text-xs px-2 py-1.5">Cancel</button>
+        <span id="nef-status" class="text-xs shrink-0"></span>
+    </div>
+
+    <!-- Entity type tabs -->
+    <div class="flex border-b border-slate-700 gap-0">
+        {% set tabs = [
+        ('sports', 'fa-futbol', 'Sports', stats.sports),
+        ('categories', 'fa-earth-europe', 'Categories', stats.categories),
+        ('competitions', 'fa-trophy', 'Competitions', stats.competitions),
+        ('teams', 'fa-users', 'Teams', stats.teams),
+        ('markets', 'fa-chart-line', 'Markets', stats.markets),
+        ] %}
+        {% for key, icon, label, count in tabs %}
+        <button onclick="switchEntityTab('{{ key }}')" id="tab-{{ key }}"
+            class="entity-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2
+                   {% if loop.first %}text-primary border-primary{% else %}text-slate-400 border-transparent hover:text-white{% endif %}">
+            <i class="fa-solid {{ icon }} text-xs"></i>
+            {{ label }}
+            <span class="text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-mono">{{ count
+                }}</span>
+        </button>
+        {% endfor %}
+    </div>
+
+    <!-- Panel container -->
+    {% set panels = ['sports', 'categories', 'competitions', 'teams', 'markets'] %}
+    {% for key in panels %}
+    <div id="panel-{{ key }}" class="{% if not loop.first %}hidden {% endif %}flex flex-col flex-1 space-y-3 min-h-0">
+
+        {% if key == 'markets' %}
+        {# ─── Market Types (QNX design from PDF) ─── #}
+        <!-- Top filters and actions -->
+        <div class="flex flex-wrap items-center gap-3 bg-cardbg/80 border border-slate-700/50 rounded-lg p-3">
+            <select id="mt-sport" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none">
+                <option value="">— Sport —</option>
+                {% for s in entities.sports %}
+                <option value="{{ s.name }}" data-domain-id="{{ s.domain_id }}">{{ s.name }}</option>
+                {% endfor %}
+            </select>
+            <div class="flex items-center bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 min-w-[160px]">
+                <i class="fa-solid fa-search text-slate-500 mr-2 text-xs"></i>
+                <input type="text" id="mt-name" placeholder="Name" class="bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full outline-none">
+            </div>
+            <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                <input type="checkbox" id="mt-active-only" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/30">
+                Active only
+            </label>
+            <button type="button" onclick="mtClearFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-slate-700" title="Clear">× Clear</button>
+            <button type="button" onclick="mtSort()" class="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-slate-500">Sort Market Types</button>
+            <button type="button" onclick="mtToggleCreateForm()" class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded flex items-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> create Market Type
+            </button>
+        </div>
+
+        <!-- Create / Edit Market Type form (hidden by default) — fields match table columns -->
+        <div id="mt-create-form" class="hidden bg-slate-900 border border-slate-700 rounded-lg p-5 space-y-4">
+            <h3 class="text-sm font-semibold text-white">Create Market Type</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+                    <input type="text" id="mt-form-name" placeholder="Market type name" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Abb.</label>
+                    <input type="text" id="mt-form-abb" placeholder="e.g. 3W, MR" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Market Type</label>
+                    <select id="mt-form-market-type" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="both">Both</option>
+                        <option value="prematch">PreMatch</option>
+                        <option value="live">Live</option>
+                    </select>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div class="flex-1">
+                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Market Group</label>
+                        <select id="mt-form-market-group" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                            <option value="">— select —</option>
+                            {% for g in market_groups %}
+                            <option value="{{ g.code }}">{{ g.name }} ({{ g.code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="button" onclick="openMarketGroupModal()" class="text-xs text-secondary hover:text-blue-300 shrink-0 pb-6" title="Create Market Group if it doesn't exist">Create Market Group</button>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Template</label>
+                    <select id="mt-form-template" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">— select —</option>
+                        {% for t in market_templates %}
+                        <option value="{{ t.code }}">{{ t.name }} ({{ t.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Period Type</label>
+                    <select id="mt-form-period-type" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">— select —</option>
+                        {% for p in market_period_types %}
+                        <option value="{{ p.code }}">{{ p.name }} ({{ p.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Score Type</label>
+                    <select id="mt-form-score-type" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">— select —</option>
+                        {% for s in market_score_types %}
+                        <option value="{{ s.code }}">{{ s.name }} ({{ s.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Side Type</label>
+                    <select id="mt-form-side-type" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="undefined">Undefined</option>
+                        <option value="home">Home</option>
+                        <option value="away">Away</option>
+                        <option value="player">Player</option>
+                        <option value="team">Team</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                        <input type="checkbox" id="mt-form-score-dependant" class="rounded border-slate-600 bg-slate-800 text-primary">
+                        Score Dependant
+                    </label>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" onclick="mtSaveMarketType()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                <button type="button" onclick="mtToggleCreateForm()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Market Mapper modal (Mapping [name] market type) -->
+        <div id="market-mapper-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 overflow-y-auto" aria-modal="true">
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-5xl my-8" onclick="event.stopPropagation()">
+                <div class="p-4 border-b border-slate-700">
+                    <h2 id="market-mapper-title" class="text-lg font-semibold text-white">Mapping <span id="market-mapper-name">—</span> market type</h2>
+                </div>
+                <div class="p-4 bg-slate-900/50 text-xs text-slate-400 border-b border-slate-700">
+                    <span id="market-mapper-details">Market type details row (name, group, template, period, etc.)</span>
+                </div>
+                <div class="p-4 flex gap-4 flex-col lg:flex-row">
+                    <div class="flex-1 space-y-4">
+                        <div>
+                            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Prematch</h3>
+                            <div id="market-mapper-prematch" class="min-h-[80px] bg-slate-900 border border-slate-700 rounded p-3 space-y-2">
+                                <p id="market-mapper-prematch-empty" class="text-slate-500 italic text-[11px]">No prematch mappings. Use + next to a market in Available markets to add.</p>
+                                <div id="market-mapper-prematch-list" class="space-y-1.5"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Live</h3>
+                            <div id="market-mapper-live" class="min-h-[80px] bg-slate-900 border border-slate-700 rounded p-3 space-y-2">
+                                <p id="market-mapper-live-empty" class="text-slate-500 italic text-[11px]">No live mappings. Use + next to a market in Available markets to add.</p>
+                                <div id="market-mapper-live-list" class="space-y-1.5"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="lg:w-80 flex-shrink-0 space-y-2">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Available markets</h3>
+                        <div class="flex flex-wrap gap-2">
+                            <select id="market-mapper-feed" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-primary outline-none">
+                                <option value="">— Feed —</option>
+                                {% for f in feeds %}
+                                <option value="{{ f.domain_id }}">{{ f.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" id="market-mapper-name-filter" placeholder="Name" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white flex-1 min-w-0" title="Filter list by market name">
+                        </div>
+                        <div id="market-mapper-available-list" class="border border-slate-700 rounded max-h-64 overflow-y-auto p-2 space-y-1">
+                            <p class="text-slate-500 italic text-[11px]">Select a feed to load its markets for the current sport (e.g. Football).</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-slate-700 flex justify-end gap-2">
+                    <button type="button" onclick="closeMarketMapper()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                    <button type="button" onclick="saveMarketMapper()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Market Group modal (hidden by default) -->
+        <div id="market-group-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80" aria-modal="true">
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-md p-5" onclick="event.stopPropagation()">
+                <h3 class="text-sm font-semibold text-white mb-4">Create Market Group</h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+                        <input type="text" id="mg-modal-name" placeholder="Market group name" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
+                        <input type="text" id="mg-modal-code" placeholder="e.g. main, outright" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button type="button" onclick="saveMarketGroup()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                    <button type="button" onclick="closeMarketGroupModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Market Types table (QNX columns) -->
+        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                    <tr>
+                        <th class="px-3 py-2 font-semibold">ID</th>
+                        <th class="px-3 py-2 font-semibold">Name</th>
+                        <th class="px-3 py-2 font-semibold">Abb.</th>
+                        <th class="px-3 py-2 font-semibold">Market Type</th>
+                        <th class="px-3 py-2 font-semibold">Market Group</th>
+                        <th class="px-3 py-2 font-semibold">Template</th>
+                        <th class="px-3 py-2 font-semibold">Period Type</th>
+                        <th class="px-3 py-2 font-semibold">Score Type</th>
+                        <th class="px-3 py-2 font-semibold">Side Type</th>
+                        <th class="px-3 py-2 font-semibold">Score Dependant</th>
+                        <th class="px-3 py-2 font-semibold">#Feeds</th>
+                        <th class="px-3 py-2 font-semibold">Created</th>
+                        <th class="px-3 py-2 font-semibold">Last edited</th>
+                        <th class="px-3 py-2 font-semibold text-right">MAP</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/40 entity-tbody" data-panel="markets">
+                    {% set entity_data = entities.markets %}
+                    {% if entity_data %}
+                    {% for entity in entity_data %}
+                    {% set refs = entity_feed_refs_by_key.get('markets:' ~ entity.domain_id, []) %}
+                    {% set _tpl = namespace(t=None) %}
+                    {% for t in market_templates %}{% if t.code == entity.get('template') %}{% set _tpl.t = t %}{% endif %}{% endfor %}
+                    {% set _per = namespace(p=None) %}
+                    {% for p in market_period_types %}{% if p.code == entity.get('period_type') %}{% set _per.p = p %}{% endif %}{% endfor %}
+                    {% set _scr = namespace(s=None) %}
+                    {% for s in market_score_types %}{% if s.code == entity.get('score_type') %}{% set _scr.s = s %}{% endif %}{% endfor %}
+                    {% set _grp = namespace(g=None) %}
+                    {% for g in market_groups %}{% if g.code == entity.get('market_group') %}{% set _grp.g = g %}{% endif %}{% endfor %}
+                    <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ (entity.name ~ ' ' ~ (entity.get('code') or '') ~ ' ' ~ (entity.get('abb') or '')) | lower }}">
+                        <td class="px-3 py-2 font-mono text-slate-400">#{{ entity.domain_id }}</td>
+                        <td class="px-3 py-2 text-white font-medium">{{ entity.name }}</td>
+                        <td class="px-3 py-2 text-slate-400">{{ entity.get('abb') or entity.get('code') or '—' }}</td>
+                        <td class="px-3 py-2 text-slate-400">{{ entity.get('market_type') or '—' }}</td>
+                        <td class="px-3 py-2 text-slate-400">{% if _grp.g %}{{ _grp.g.name }} ({{ _grp.g.code }}){% else %}—{% endif %}</td>
+                        <td class="px-3 py-2 text-slate-400">{% if _tpl.t %}{{ _tpl.t.name }} ({{ _tpl.t.code }}){% else %}—{% endif %}</td>
+                        <td class="px-3 py-2 text-slate-400">{% if _per.p %}{{ _per.p.name }} ({{ _per.p.code }}){% else %}—{% endif %}</td>
+                        <td class="px-3 py-2 text-slate-400">{% if _scr.s %}{{ _scr.s.name }} ({{ _scr.s.code }}){% else %}—{% endif %}</td>
+                        <td class="px-3 py-2 text-slate-400">{{ entity.get('side_type') or '—' }}</td>
+                        <td class="px-3 py-2 text-slate-400">{{ 'Yes' if entity.get('score_dependant') == '1' else '—' }}</td>
+                        <td class="px-3 py-2 text-slate-400">{{ refs | length }}</td>
+                        <td class="px-3 py-2 text-slate-400">{{ entity.get('created_at') | format_entity_date }}</td>
+                        <td class="px-3 py-2 text-slate-400">{{ entity.get('updated_at') | format_entity_date }}</td>
+                        <td class="px-3 py-2 text-right">
+                            <button type="button" onclick="openMarketMapper({{ entity.domain_id }}, '{{ entity.name | e }}')" class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium bg-secondary/20 text-secondary border border-secondary/40 hover:bg-secondary/30 transition-colors" title="Map this market type to feed markets">
+                                <i class="fa-solid fa-link"></i> Map
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr class="entity-empty-row">
+                        <td colspan="14" class="px-4 py-10 text-center text-slate-600 italic">No market types yet. Use “+ create Market Type” or add data when ready.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        {% else %}
+        <!-- Search + filter bar -->
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 flex-1 max-w-xs min-w-[140px]">
+                <i class="fa-solid fa-search text-slate-500 mr-2 text-xs"></i>
+                <input type="text" id="search-{{ key }}" placeholder="Search {{ key }}…" data-panel="{{ key }}"
+                    class="entity-search bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full outline-none">
+            </div>
+            {% if key == 'teams' %}
+            <select id="filter-teams-sport" class="filter-teams bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
+                <option value="">— Sport —</option>
+                {% for s in entities.sports %}
+                <option value="{{ s.domain_id }}">{{ s.name }}</option>
+                {% endfor %}
+            </select>
+            <select id="filter-teams-participant-type" class="filter-teams bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[140px]" title="Filter by type">
+                <option value="">— Type —</option>
+                {% for pt in participant_types %}
+                <option value="{{ pt.id }}">{{ pt.name }}</option>
+                {% endfor %}
+            </select>
+            <select id="filter-teams-amateur" class="filter-teams bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by amateur">
+                <option value="">— Amateur —</option>
+                <option value="1">Yes</option>
+                <option value="0">No</option>
+            </select>
+            <select id="filter-teams-age-category" class="filter-teams bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by age category">
+                <option value="">— Age category —</option>
+                {% for u in underage_categories %}
+                <option value="{{ u.id }}">{{ u.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="button" onclick="clearTeamsFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
+            {% endif %}
+            {% if key == 'competitions' %}
+            <select id="filter-competitions-amateur" class="filter-competitions bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by amateur">
+                <option value="">— Amateur —</option>
+                <option value="1">Yes</option>
+                <option value="0">No</option>
+            </select>
+            <select id="filter-competitions-age-category" class="filter-competitions bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by age category">
+                <option value="">— Age category —</option>
+                {% for u in underage_categories %}
+                <option value="{{ u.id }}">{{ u.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="button" onclick="clearCompetitionsFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
+            {% endif %}
+            <span id="count-{{ key }}" class="text-xs text-slate-500">Showing all {{ key }}</span>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-hidden flex-1">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr
+                        class="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                        <th class="px-4 py-2.5 font-semibold">Name</th>
+                        {% if key in ('sports', 'categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">Base ID</th>{% endif %}
+                        {% if key in ('categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">
+                            Sport</th>{% endif %}
+                        {% if key == 'competitions' %}<th class="px-4 py-2.5 font-semibold">Category</th>{% endif %}
+                        {% if key == 'teams' %}<th class="px-4 py-2.5 font-semibold">Type</th>{% endif %}
+                        {% if key in ('teams', 'competitions') %}<th class="px-4 py-2.5 font-semibold">Amateur</th><th class="px-4 py-2.5 font-semibold">Age category</th>{% endif %}
+                        {% if key in ('categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">Jurisdiction</th>{% endif %}
+                        <th class="px-4 py-2.5 font-semibold">Mapped feeds</th>
+                        <th class="px-4 py-2.5 font-semibold whitespace-nowrap">Created</th>
+                        <th class="px-4 py-2.5 font-semibold whitespace-nowrap">Last edited</th>
+                        <th class="px-4 py-2.5 font-semibold text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/40 text-xs entity-tbody" data-panel="{{ key }}">
+                    {% set entity_data = entities[key] %}
+                    {% if entity_data %}
+                    {% for entity in entity_data %}
+                    {% set refs = entity_feed_refs_by_key.get(key ~ ':' ~ entity.domain_id, []) %}
+                    {% set ns = namespace(parts=[entity.domain_id | string, entity.name, (entity.get('code') or ''), (sports_by_id.get(entity.get('sport_id'), '') or ''), (categories_by_id.get(entity.get('category_id'), '') or '')]) %}
+                    {% for r in refs %}{% set ns.parts = ns.parts + [feeds_by_id.get(r.feed_provider_id, '') or '', r.feed_id] %}{% endfor %}
+                    <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ ns.parts | join(' ') | lower }}" data-entity-id="{{ entity.domain_id }}"{% if key == 'teams' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-participant-type-id="{{ entity.get('participant_type_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}{% if key == 'competitions' %} data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}>
+                        <td class="px-4 py-2.5 font-mono text-slate-400">#{{ entity.domain_id }}</td>
+                        <td class="px-4 py-2.5 text-white font-medium" data-entity-name="1">{{ entity.name }}</td>
+                        {% if key in ('sports', 'categories', 'competitions', 'teams') %}
+                        <td class="px-4 py-2.5 text-slate-400 font-mono" data-entity-baseid="{{ entity.get('baseid') or '' }}">{{ entity.get('baseid') or '—' }}</td>
+                        {% endif %}
+                        {% if key in ('categories', 'competitions', 'teams') %}
+                        <td class="px-4 py-2.5 text-slate-400">{{ sports_by_id.get(entity.get('sport_id'), '—') }}</td>
+                        {% endif %}
+                        {% if key == 'competitions' %}
+                        <td class="px-4 py-2.5 text-slate-400">{{ categories_by_id.get(entity.get('category_id'), '—')
+                            }}</td>
+                        <td class="px-4 py-2.5 text-slate-400" data-entity-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}">{% if entity.get('is_amateur') %}Yes{% else %}—{% endif %}</td>
+                        <td class="px-4 py-2.5 text-slate-400" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
+                        {% endif %}
+                        {% if key == 'teams' %}
+                        <td class="px-4 py-2.5 text-slate-400" data-entity-participant-type-id="{{ entity.get('participant_type_id') or '' }}">{{ participant_types_by_id.get(entity.get('participant_type_id'), '—') }}</td>
+                        <td class="px-4 py-2.5 text-slate-400" data-entity-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}">{% if entity.get('is_amateur') %}Yes{% else %}—{% endif %}</td>
+                        <td class="px-4 py-2.5 text-slate-400" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
+                        {% endif %}
+                        {% if key in ('categories', 'competitions', 'teams') %}
+                        <td class="px-4 py-2.5 text-slate-400" data-entity-jurisdiction="{{ entity.get('jurisdiction') or '-' }}">{{ countries_by_cc.get(entity.get('jurisdiction') or '-', '—') }}</td>
+                        {% endif %}
+                        <td class="px-4 py-2.5">
+                            {# All entity types (sports, categories, competitions, teams, markets): feed refs from entity_feed_mappings #}
+                            {% if refs %}
+                            <div class="flex flex-wrap gap-1">
+                                    {% for r in refs %}
+                                    <span class="bg-slate-700/80 text-slate-200 px-2 py-1 rounded text-[10px] inline-flex items-center gap-1" title="Feed ID: {{ r.feed_id }}">
+                                        <i class="fa-solid fa-satellite-dish text-slate-500 text-[8px]"></i>
+                                        {{ feeds_by_id.get(r.feed_provider_id, 'Feed #' ~ r.feed_provider_id) }} <span class="text-slate-500">·</span> <span class="font-mono">{{ r.feed_id }}</span>
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span class="text-slate-600 italic text-[11px]">No feeds mapped</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">{{ entity.get('created_at') | format_entity_date }}</td>
+                        <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">{{ entity.get('updated_at') | format_entity_date }}</td>
+                        <td class="px-4 py-2.5 text-right">
+                            <button type="button"
+                                onclick="openEntityEditModal('{{ key }}', {{ entity.domain_id }})"
+                                class="text-slate-500 hover:text-primary transition-colors text-xs px-2 py-1 rounded hover:bg-primary/10">
+                                <i class="fa-solid fa-pen-to-square mr-1"></i>Edit
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr class="entity-row entity-empty-row">
+                        <td colspan="12" class="px-4 py-10 text-center text-slate-600 italic">
+                            No {{ key }} yet. Create them here or from the mapping modal.
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <!-- Edit entity modal (name + jurisdiction for cat/comp/team) -->
+    <div id="entity-edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" aria-modal="true" onclick="if (event.target === this) closeEntityEditModal()">
+        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-md p-5" onclick="event.stopPropagation()">
+            <h3 id="entity-edit-modal-title" class="text-sm font-semibold text-white mb-4">Edit</h3>
+            <input type="hidden" id="entity-edit-type" value="">
+            <input type="hidden" id="entity-edit-domain-id" value="">
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+                    <input type="text" id="entity-edit-name" placeholder="Name"
+                        class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+                <div id="entity-edit-jurisdiction-wrap" class="hidden">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Jurisdiction</label>
+                    <select id="entity-edit-jurisdiction"
+                        class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        {% for c in countries %}
+                        <option value="{{ c.cc }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="entity-edit-baseid-wrap" class="hidden">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Base ID <span class="text-slate-600 normal-case">(optional, from previous platform)</span></label>
+                    <input type="text" id="entity-edit-baseid" placeholder="e.g. 1 or legacy-id"
+                        class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+                <div id="entity-edit-type-wrap" class="hidden">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Type</label>
+                    <select id="entity-edit-participant-type"
+                        class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">—</option>
+                        {% for pt in participant_types %}
+                        <option value="{{ pt.id }}">{{ pt.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="entity-edit-amateur-wrap" class="hidden">
+                    <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="entity-edit-is-amateur" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/30">
+                        <span>Amateur</span>
+                    </label>
+                </div>
+                <div id="entity-edit-age-category-wrap" class="hidden">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Age category</label>
+                    <select id="entity-edit-underage-category"
+                        class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">—</option>
+                        {% for u in underage_categories %}
+                        <option value="{{ u.id }}">{{ u.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button type="button" id="entity-edit-save" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                <button type="button" onclick="closeEntityEditModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                <span id="entity-edit-status" class="text-xs text-slate-400 self-center"></span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function switchEntityTab(key) {
+        document.querySelectorAll('.entity-tab').forEach(t => {
+            t.classList.remove('text-primary', 'border-primary');
+            t.classList.add('text-slate-400', 'border-transparent');
+        });
+        document.querySelectorAll('[id^=panel-]').forEach(p => p.classList.add('hidden'));
+
+        const tab = document.getElementById('tab-' + key);
+        tab.classList.add('text-primary', 'border-primary');
+        tab.classList.remove('text-slate-400', 'border-transparent');
+        document.getElementById('panel-' + key).classList.remove('hidden');
+        const sel = document.getElementById('nef-type');
+        if (sel) sel.value = key;
+        if (key === 'teams' && typeof applyTeamsFilters === 'function') applyTeamsFilters();
+        if (key === 'competitions' && typeof applyCompetitionsFilters === 'function') applyCompetitionsFilters();
+    }
+
+    function toggleNewEntityForm() {
+        const form = document.getElementById('new-entity-form');
+        form.classList.toggle('hidden');
+        if (!form.classList.contains('hidden')) {
+            const activeTab = document.querySelector('.entity-tab.text-primary');
+            if (activeTab) {
+                document.getElementById('nef-type').value = activeTab.id.replace('tab-', '');
+                onNefTypeChange();
+            }
+            document.getElementById('nef-name').focus();
+        }
+    }
+
+    // All categories as flat array — JS filters by sport at runtime
+    const _allCategories = [
+        {% for cat in entities.categories %}
+    { name: "{{ cat.name }}", sport: "{{ sports_by_id.get(cat.sport_id, '') }}" },
+    {% endfor %}
+    ];
+
+    function onNefTypeChange() {
+        const type = document.getElementById('nef-type').value;
+        const needsSport = ['categories', 'competitions', 'teams'].includes(type);
+        const needsCategory = type === 'competitions';
+        const needsJurisdiction = ['categories', 'competitions', 'teams'].includes(type);
+        const needsBaseid = ['sports', 'categories', 'competitions', 'teams'].includes(type);
+        const needsFeedId = ['categories', 'competitions', 'teams', 'markets'].includes(type);
+        const needsCode = type === 'markets';
+        document.getElementById('nef-sport-wrap').classList.toggle('hidden', !needsSport);
+        document.getElementById('nef-category-wrap').classList.toggle('hidden', !needsCategory);
+        document.getElementById('nef-jurisdiction-wrap').classList.toggle('hidden', !needsJurisdiction);
+        document.getElementById('nef-baseid-wrap').classList.toggle('hidden', !needsBaseid);
+        document.getElementById('nef-feedid-wrap').classList.toggle('hidden', !needsFeedId);
+        document.getElementById('nef-code-wrap').classList.toggle('hidden', !needsCode);
+    }
+
+    function onNefSportChange() {
+        const sport = document.getElementById('nef-sport').value;
+        const catSel = document.getElementById('nef-category');
+        const cats = _allCategories.filter(c => c.sport === sport);
+        catSel.innerHTML = cats.length
+            ? cats.map(c => `<option value="${c.name}">${c.name}</option>`).join('')
+            : '<option value="">— no categories for this sport —</option>';
+    }
+
+    async function submitNewEntity() {
+        const name = document.getElementById('nef-name').value.trim();
+        const type = document.getElementById('nef-type').value;
+        const feedId = type === 'sports' ? '' : (document.getElementById('nef-feedid').value.trim() || name);
+        const statusEl = document.getElementById('nef-status');
+        if (!name) { statusEl.textContent = 'Name required.'; statusEl.className = 'text-xs text-red-400 shrink-0'; return; }
+        const sport = document.getElementById('nef-sport')?.value || null;
+        const category = document.getElementById('nef-category')?.value || null;
+        statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-slate-400"></i>';
+        const payload = { entity_type: type, feed_id: feedId, name, sport, category };
+        if (type === 'markets') payload.code = (document.getElementById('nef-code')?.value || '').trim() || null;
+        if (['categories', 'competitions', 'teams'].includes(type)) {
+            const jurSel = document.getElementById('nef-jurisdiction');
+            payload.jurisdiction = jurSel ? (jurSel.value || '').trim() || null : null;
+        }
+        if (['sports', 'categories', 'competitions', 'teams'].includes(type)) {
+            const baseidEl = document.getElementById('nef-baseid');
+            payload.baseid = baseidEl ? (baseidEl.value || '').trim() || null : null;
+        }
+        const res = await fetch('/api/entities', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.created) {
+            statusEl.textContent = `Created #${data.domain_id}`;
+            statusEl.className = 'text-xs text-emerald-400 shrink-0';
+            setTimeout(() => location.reload(), 600);
+        } else if (res.ok) {
+            statusEl.textContent = `Already exists #${data.domain_id}`;
+            statusEl.className = 'text-xs text-amber-400 shrink-0';
+        } else {
+            statusEl.textContent = 'Error.';
+            statusEl.className = 'text-xs text-red-400 shrink-0';
+        }
+    }
+
+    function openEntityEditModal(panelKey, domainId) {
+        const tbody = document.querySelector(`tbody[data-panel="${panelKey}"]`);
+        if (!tbody) return;
+        const row = tbody.querySelector(`tr[data-entity-id="${domainId}"]`);
+        if (!row) return;
+        const nameCell = row.querySelector('[data-entity-name]');
+        const currentName = (nameCell?.textContent || '').trim();
+        const jurisdictionCell = row.querySelector('[data-entity-jurisdiction]');
+        const currentJurisdiction = jurisdictionCell ? (jurisdictionCell.getAttribute('data-entity-jurisdiction') || '-') : '-';
+        const baseidCell = row.querySelector('[data-entity-baseid]');
+        const currentBaseid = baseidCell ? (baseidCell.getAttribute('data-entity-baseid') || '') : '';
+        const typeCell = row.querySelector('[data-entity-participant-type-id]');
+        const currentParticipantTypeId = typeCell ? (typeCell.getAttribute('data-entity-participant-type-id') || '') : '';
+
+        document.getElementById('entity-edit-type').value = panelKey;
+        document.getElementById('entity-edit-domain-id').value = domainId;
+        document.getElementById('entity-edit-name').value = currentName;
+        const singular = panelKey.endsWith('s') ? panelKey.slice(0, -1) : panelKey;
+        document.getElementById('entity-edit-modal-title').textContent = 'Edit ' + singular;
+        const jurWrap = document.getElementById('entity-edit-jurisdiction-wrap');
+        const jurSel = document.getElementById('entity-edit-jurisdiction');
+        if (['categories', 'competitions', 'teams'].includes(panelKey)) {
+            jurWrap.classList.remove('hidden');
+            if (jurSel) jurSel.value = currentJurisdiction;
+        } else {
+            jurWrap.classList.add('hidden');
+        }
+        const baseidWrap = document.getElementById('entity-edit-baseid-wrap');
+        const baseidInput = document.getElementById('entity-edit-baseid');
+        if (['sports', 'categories', 'competitions', 'teams'].includes(panelKey)) {
+            baseidWrap.classList.remove('hidden');
+            if (baseidInput) baseidInput.value = currentBaseid;
+        } else {
+            baseidWrap.classList.add('hidden');
+        }
+        const typeWrap = document.getElementById('entity-edit-type-wrap');
+        const typeSel = document.getElementById('entity-edit-participant-type');
+        const amateurWrap = document.getElementById('entity-edit-amateur-wrap');
+        const amateurCb = document.getElementById('entity-edit-is-amateur');
+        const ageCatWrap = document.getElementById('entity-edit-age-category-wrap');
+        const ageCatSel = document.getElementById('entity-edit-underage-category');
+        const currentIsAmateur = row ? (row.getAttribute('data-is-amateur') === '1') : false;
+        const currentUnderageCategoryId = row ? (row.getAttribute('data-underage-category-id') || '') : '';
+        if (panelKey === 'teams') {
+            typeWrap.classList.remove('hidden');
+            if (typeSel) typeSel.value = currentParticipantTypeId || '';
+            if (amateurWrap) amateurWrap.classList.remove('hidden');
+            if (amateurCb) amateurCb.checked = currentIsAmateur;
+            if (ageCatWrap) ageCatWrap.classList.remove('hidden');
+            if (ageCatSel) ageCatSel.value = currentUnderageCategoryId || '';
+        } else if (panelKey === 'competitions') {
+            typeWrap.classList.add('hidden');
+            if (amateurWrap) amateurWrap.classList.remove('hidden');
+            if (amateurCb) amateurCb.checked = currentIsAmateur;
+            if (ageCatWrap) ageCatWrap.classList.remove('hidden');
+            if (ageCatSel) ageCatSel.value = currentUnderageCategoryId || '';
+        } else {
+            typeWrap.classList.add('hidden');
+            if (amateurWrap) amateurWrap.classList.add('hidden');
+            if (ageCatWrap) ageCatWrap.classList.add('hidden');
+        }
+        document.getElementById('entity-edit-status').textContent = '';
+        document.getElementById('entity-edit-modal').classList.remove('hidden');
+    }
+
+    function closeEntityEditModal() {
+        document.getElementById('entity-edit-modal').classList.add('hidden');
+    }
+
+    document.getElementById('entity-edit-save').addEventListener('click', async function () {
+        const panelKey = document.getElementById('entity-edit-type').value;
+        const domainId = parseInt(document.getElementById('entity-edit-domain-id').value, 10);
+        const name = document.getElementById('entity-edit-name').value.trim();
+        const statusEl = document.getElementById('entity-edit-status');
+        if (!name) {
+            statusEl.textContent = 'Name is required.';
+            statusEl.className = 'text-xs text-amber-400 self-center';
+            return;
+        }
+        const payload = { entity_type: panelKey, domain_id: domainId, name };
+        if (['categories', 'competitions', 'teams'].includes(panelKey)) {
+            const jurSel = document.getElementById('entity-edit-jurisdiction');
+            payload.jurisdiction = jurSel ? (jurSel.value || '').trim() || null : null;
+        }
+        if (['sports', 'categories', 'competitions', 'teams'].includes(panelKey)) {
+            const baseidEl = document.getElementById('entity-edit-baseid');
+            payload.baseid = baseidEl ? (baseidEl.value || '').trim() || null : null;
+        }
+        if (panelKey === 'teams') {
+            const typeSel = document.getElementById('entity-edit-participant-type');
+            const typeVal = typeSel && typeSel.value ? typeSel.value.trim() : '';
+            payload.participant_type_id = typeVal ? parseInt(typeVal, 10) : null;
+            const amateurCb = document.getElementById('entity-edit-is-amateur');
+            payload.is_amateur = amateurCb ? amateurCb.checked : false;
+            const ageCatSel = document.getElementById('entity-edit-underage-category');
+            const ageCatVal = ageCatSel && ageCatSel.value ? ageCatSel.value.trim() : '';
+            payload.underage_category_id = ageCatVal ? parseInt(ageCatVal, 10) : null;
+        }
+        if (panelKey === 'competitions') {
+            const amateurCb = document.getElementById('entity-edit-is-amateur');
+            payload.is_amateur = amateurCb ? amateurCb.checked : false;
+            const ageCatSel = document.getElementById('entity-edit-underage-category');
+            const ageCatVal = ageCatSel && ageCatSel.value ? ageCatSel.value.trim() : '';
+            payload.underage_category_id = ageCatVal ? parseInt(ageCatVal, 10) : null;
+        }
+        statusEl.textContent = 'Saving…';
+        statusEl.className = 'text-xs text-slate-400 self-center';
+        document.getElementById('entity-edit-save').disabled = true;
+        try {
+            const res = await fetch('/api/entities/name', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                statusEl.textContent = data.detail || 'Failed to save.';
+                statusEl.className = 'text-xs text-red-400 self-center';
+                return;
+            }
+            statusEl.textContent = 'Saved.';
+            statusEl.className = 'text-xs text-primary self-center';
+            setTimeout(() => { closeEntityEditModal(); window.location.reload(); }, 400);
+        } catch (e) {
+            statusEl.textContent = 'Request failed.';
+            statusEl.className = 'text-xs text-red-400 self-center';
+        } finally {
+            document.getElementById('entity-edit-save').disabled = false;
+        }
+    });
+
+    async function editEntityName(panelKey, domainId) {
+        try {
+            openEntityEditModal(panelKey, domainId);
+        } catch (e) {
+            console.error(e);
+            alert('Error saving name.');
+        }
+    }
+
+    // ─── Market Types (QNX) ─────────────────────────────────────────────────
+    function mtClearFilters() {
+        const sport = document.getElementById('mt-sport');
+        const name = document.getElementById('mt-name');
+        const active = document.getElementById('mt-active-only');
+        if (sport) sport.value = '';
+        if (name) name.value = '';
+        if (active) active.checked = false;
+    }
+    function mtSort() {
+        alert('Sort Market Types: UI coming soon. Order will define display order on site.');
+    }
+    function mtToggleCreateForm() {
+        const form = document.getElementById('mt-create-form');
+        if (form) form.classList.toggle('hidden');
+    }
+    async function mtSaveMarketType() {
+        const name = document.getElementById('mt-form-name')?.value?.trim();
+        if (!name) { alert('Name required.'); return; }
+        const abb = document.getElementById('mt-form-abb')?.value?.trim() || null;
+        const code = abb || null;
+        const marketType = document.getElementById('mt-form-market-type')?.value?.trim() || null;
+        const marketGroup = document.getElementById('mt-form-market-group')?.value?.trim() || null;
+        const template = document.getElementById('mt-form-template')?.value?.trim() || null;
+        const periodType = document.getElementById('mt-form-period-type')?.value?.trim() || null;
+        const scoreType = document.getElementById('mt-form-score-type')?.value?.trim() || null;
+        const sideType = document.getElementById('mt-form-side-type')?.value?.trim() || null;
+        const scoreDependant = document.getElementById('mt-form-score-dependant')?.checked ?? false;
+        const payload = {
+            entity_type: 'markets',
+            name,
+            code,
+            abb,
+            market_type: marketType,
+            market_group: marketGroup,
+            template,
+            period_type: periodType,
+            score_type: scoreType,
+            side_type: sideType,
+            score_dependant: scoreDependant
+        };
+        try {
+            const res = await fetch('/api/entities', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (res.ok) {
+                mtToggleCreateForm();
+                if (data.created) location.reload();
+                else location.reload();
+            } else {
+                alert(data.detail || 'Error saving market type.');
+            }
+        } catch (e) {
+            alert('Error saving market type.');
+        }
+    }
+    function openMarketGroupModal() {
+        document.getElementById('market-group-modal').classList.remove('hidden');
+        document.getElementById('mg-modal-name').value = '';
+        document.getElementById('mg-modal-code').value = '';
+        document.getElementById('mg-modal-name').focus();
+    }
+    function closeMarketGroupModal() {
+        document.getElementById('market-group-modal').classList.add('hidden');
+    }
+    document.getElementById('market-group-modal')?.addEventListener('click', function (e) {
+        if (e.target === this) closeMarketGroupModal();
+    });
+    async function saveMarketGroup() {
+        const name = document.getElementById('mg-modal-name')?.value?.trim();
+        if (!name) { alert('Name is required.'); return; }
+        const code = document.getElementById('mg-modal-code')?.value?.trim() || name.toLowerCase().replace(/\s+/g, '_').slice(0, 32);
+        try {
+            const res = await fetch('/api/market-groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, name }) });
+            const data = await res.json();
+            if (res.ok) {
+                closeMarketGroupModal();
+                location.reload();
+            } else {
+                alert(data.detail || 'Error creating market group.');
+            }
+        } catch (e) {
+            alert('Error creating market group.');
+        }
+    }
+
+    // Market Mapper modal
+    let currentMarketMapperId = null;
+    let mapperPrematchList = [];
+    let mapperLiveList = [];
+    let currentMapperFeedName = '';
+
+    function renderMapperPrematchLive() {
+        const prematchListEl = document.getElementById('market-mapper-prematch-list');
+        const liveListEl = document.getElementById('market-mapper-live-list');
+        const prematchEmptyEl = document.getElementById('market-mapper-prematch-empty');
+        const liveEmptyEl = document.getElementById('market-mapper-live-empty');
+        if (!prematchListEl || !liveListEl) return;
+        prematchListEl.innerHTML = mapperPrematchList.map(function (m, idx) {
+            return '<div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-slate-800" data-idx="' + idx + '" data-phase="prematch">' +
+                '<span class="text-white text-xs truncate">' + (m.name || '—') + ' <span class="text-slate-500">(ID: ' + (m.id != null ? m.id : '') + ') (' + (m.feed_name || '') + ')</span></span>' +
+                '<button type="button" class="text-slate-400 hover:text-red-400 p-1 rounded remove-mapper-item" title="Remove"><i class="fa-solid fa-times"></i></button></div>';
+        }).join('');
+        liveListEl.innerHTML = mapperLiveList.map(function (m, idx) {
+            return '<div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-slate-800" data-idx="' + idx + '" data-phase="live">' +
+                '<span class="text-white text-xs truncate">' + (m.name || '—') + ' <span class="text-slate-500">(ID: ' + (m.id != null ? m.id : '') + ') (' + (m.feed_name || '') + ')</span></span>' +
+                '<button type="button" class="text-slate-400 hover:text-red-400 p-1 rounded remove-mapper-item" title="Remove"><i class="fa-solid fa-times"></i></button></div>';
+        }).join('');
+        if (prematchEmptyEl) prematchEmptyEl.style.display = mapperPrematchList.length ? 'none' : '';
+        if (liveEmptyEl) liveEmptyEl.style.display = mapperLiveList.length ? 'none' : '';
+        document.querySelectorAll('#market-mapper-prematch-list .remove-mapper-item, #market-mapper-live-list .remove-mapper-item').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const div = this.closest('[data-phase][data-idx]');
+                if (!div) return;
+                const phase = div.getAttribute('data-phase');
+                const idx = parseInt(div.getAttribute('data-idx'), 10);
+                if (phase === 'prematch') { mapperPrematchList.splice(idx, 1); } else { mapperLiveList.splice(idx, 1); }
+                renderMapperPrematchLive();
+            });
+        });
+    }
+
+    async function openMarketMapper(marketId, marketName) {
+        currentMarketMapperId = marketId;
+        document.getElementById('market-mapper-name').textContent = marketName || '—';
+        document.getElementById('market-mapper-details').textContent = 'Market type: ' + (marketName || '—') + ' (ID: ' + marketId + ')';
+        mapperPrematchList = [];
+        mapperLiveList = [];
+        try {
+            const res = await fetch('/api/market-type-mappings?domain_market_id=' + marketId);
+            const data = await res.json();
+            if (data.prematch) mapperPrematchList = data.prematch.slice();
+            if (data.live) mapperLiveList = data.live.slice();
+        } catch (e) { /* ignore */ }
+        renderMapperPrematchLive();
+        document.getElementById('market-mapper-modal').classList.remove('hidden');
+    }
+    function closeMarketMapper() {
+        document.getElementById('market-mapper-modal').classList.add('hidden');
+        currentMarketMapperId = null;
+        mapperPrematchList = [];
+        mapperLiveList = [];
+    }
+    async function saveMarketMapper() {
+        if (currentMarketMapperId == null) return;
+        const payload = {
+            domain_market_id: currentMarketMapperId,
+            prematch: mapperPrematchList.map(function (m) { return { feed_provider_id: m.feed_provider_id, id: m.id, name: m.name }; }),
+            live: mapperLiveList.map(function (m) { return { feed_provider_id: m.feed_provider_id, id: m.id, name: m.name }; })
+        };
+        try {
+            const res = await fetch('/api/market-type-mappings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (res.ok) {
+                closeMarketMapper();
+                location.reload();
+            } else {
+                const err = await res.json().catch(function () { return {}; });
+                alert(err.detail || 'Failed to save mappings.');
+            }
+        } catch (e) {
+            alert('Failed to save mappings.');
+        }
+    }
+    document.getElementById('market-mapper-modal')?.addEventListener('click', function (e) {
+        if (e.target === this) closeMarketMapper();
+    });
+
+    let marketMapperFeedMarkets = [];
+    function getMapperDomainSportId() {
+        const sel = document.getElementById('mt-sport');
+        if (!sel || sel.selectedIndex < 0) return 1;
+        const opt = sel.options[sel.selectedIndex];
+        const id = opt && opt.getAttribute('data-domain-id');
+        return id ? parseInt(id, 10) : 1;
+    }
+    async function loadFeedMarkets() {
+        const feedSelect = document.getElementById('market-mapper-feed');
+        const listEl = document.getElementById('market-mapper-available-list');
+        if (!feedSelect || !listEl) return;
+        const feedProviderId = feedSelect.value ? parseInt(feedSelect.value, 10) : null;
+        if (!feedProviderId) {
+            listEl.innerHTML = '<p class="text-slate-500 italic text-[11px]">Select a feed to load its markets for the current sport (e.g. Football).</p>';
+            marketMapperFeedMarkets = [];
+            return;
+        }
+        const domainSportId = getMapperDomainSportId();
+        listEl.innerHTML = '<p class="text-slate-500 italic text-[11px]">Loading…</p>';
+        try {
+            const res = await fetch('/api/feed-markets?feed_provider_id=' + feedProviderId + '&domain_sport_id=' + domainSportId);
+            const data = await res.json();
+            marketMapperFeedMarkets = data.markets || [];
+            currentMapperFeedName = data.feed_name || '';
+            renderMarketMapperAvailableList();
+        } catch (e) {
+            listEl.innerHTML = '<p class="text-amber-400 text-[11px]">Failed to load feed markets.</p>';
+            marketMapperFeedMarkets = [];
+        }
+    }
+    function renderMarketMapperAvailableList() {
+        const listEl = document.getElementById('market-mapper-available-list');
+        const nameFilter = (document.getElementById('market-mapper-name-filter')?.value || '').trim().toLowerCase();
+        if (!listEl) return;
+        let items = marketMapperFeedMarkets;
+        if (nameFilter) {
+            items = items.filter(function (m) { return (m.name || '').toLowerCase().indexOf(nameFilter) !== -1; });
+        }
+        if (items.length === 0) {
+            listEl.innerHTML = '<p class="text-slate-500 italic text-[11px]">No markets found.</p>';
+            return;
+        }
+        const feedName = marketMapperFeedMarkets[0] && marketMapperFeedMarkets[0].feed_name ? marketMapperFeedMarkets[0].feed_name : '';
+        listEl.innerHTML = items.map(function (m) {
+            const phase = m.is_prematch ? 'PreMatch' : 'Live';
+            const phaseCls = m.is_prematch ? 'bg-slate-600' : 'bg-emerald-600/80';
+            return '<div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-slate-700/50 mapper-available-row" data-market-id="' + (m.id != null ? m.id : '') + '" data-market-name="' + (m.name || '').replace(/"/g, '&quot;') + '" data-is-prematch="' + (m.is_prematch ? '1' : '0') + '">' +
+                '<div class="min-w-0 flex-1"><span class="text-white text-xs truncate block">' + (m.name || '—') + '</span>' +
+                '<span class="text-[10px] text-slate-500">' + (feedName ? feedName + ' · ' : '') + '<span class="' + phaseCls + ' text-white/90 px-1 rounded">' + phase + '</span></span></div>' +
+                '<button type="button" class="mapper-add-btn text-secondary hover:text-blue-300 p-1 rounded shrink-0" title="Add to ' + phase + ' mapping"><i class="fa-solid fa-plus"></i></button></div>';
+        }).join('');
+        listEl.querySelectorAll('.mapper-add-btn').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const row = this.closest('.mapper-available-row');
+                if (!row) return;
+                const feedSelect = document.getElementById('market-mapper-feed');
+                const feedProviderId = feedSelect && feedSelect.value ? parseInt(feedSelect.value, 10) : null;
+                if (feedProviderId == null) return;
+                const marketId = row.getAttribute('data-market-id');
+                const id = marketId === '' || marketId === null ? null : (isNaN(parseInt(marketId, 10)) ? marketId : parseInt(marketId, 10));
+                const name = (row.getAttribute('data-market-name') || '').replace(/&quot;/g, '"');
+                const isPrematch = row.getAttribute('data-is-prematch') === '1';
+                const item = { feed_provider_id: feedProviderId, id: id, name: name, feed_name: currentMapperFeedName };
+                if (isPrematch) {
+                    mapperPrematchList.push(item);
+                } else {
+                    mapperLiveList.push(item);
+                }
+                renderMapperPrematchLive();
+            });
+        });
+    }
+    document.getElementById('market-mapper-feed')?.addEventListener('change', loadFeedMarkets);
+    document.getElementById('market-mapper-name-filter')?.addEventListener('input', function () {
+        renderMarketMapperAvailableList();
+    });
+
+    function mtToggleActive(el) {
+        if (!el) return;
+        console.log('Activate/Deactivate:', el.checked ? 'active' : 'inactive');
+    }
+    function mtApplyFilters() {
+        const sport = (document.getElementById('mt-sport')?.value || '').trim().toLowerCase();
+        const nameQuery = (document.getElementById('mt-name')?.value || '').trim().toLowerCase();
+        const tbody = document.querySelector('.entity-tbody[data-panel="markets"]');
+        if (!tbody) return;
+        tbody.querySelectorAll('.entity-row').forEach(function (tr) {
+            if (tr.classList.contains('entity-empty-row')) {
+                tr.style.display = (nameQuery || sport) ? 'none' : '';
+                return;
+            }
+            const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
+            const matchName = !nameQuery || searchText.indexOf(nameQuery) !== -1;
+            tr.style.display = matchName ? '' : 'none';
+        });
+    }
+    document.getElementById('mt-sport')?.addEventListener('change', mtApplyFilters);
+    document.getElementById('mt-name')?.addEventListener('input', mtApplyFilters);
+
+    function applyTeamsFilters() {
+        const panel = 'teams';
+        const searchInput = document.getElementById('search-teams');
+        const sportSel = document.getElementById('filter-teams-sport');
+        const typeSel = document.getElementById('filter-teams-participant-type');
+        const amateurSel = document.getElementById('filter-teams-amateur');
+        const ageCatSel = document.getElementById('filter-teams-age-category');
+        const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
+        const sportVal = (sportSel && sportSel.value ? sportSel.value.trim() : '') || '';
+        const typeVal = (typeSel && typeSel.value ? typeSel.value.trim() : '') || '';
+        const amateurVal = (amateurSel && amateurSel.value ? amateurSel.value.trim() : '') || '';
+        const ageCatVal = (ageCatSel && ageCatSel.value ? ageCatSel.value.trim() : '') || '';
+        const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('.entity-row');
+        let visible = 0;
+        let total = 0;
+        const hasFilter = query || sportVal || typeVal || amateurVal || ageCatVal;
+        rows.forEach(function (tr) {
+            if (tr.classList.contains('entity-empty-row')) {
+                tr.style.display = hasFilter ? 'none' : '';
+                return;
+            }
+            total++;
+            const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
+            const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
+            const rowTypeId = (tr.getAttribute('data-participant-type-id') || '').trim();
+            const rowAmateur = (tr.getAttribute('data-is-amateur') || '').trim();
+            const rowAgeCatId = (tr.getAttribute('data-underage-category-id') || '').trim();
+            const matchSearch = !query || searchText.indexOf(query) !== -1;
+            const matchSport = !sportVal || rowSportId === sportVal;
+            const matchType = !typeVal || rowTypeId === typeVal;
+            const matchAmateur = !amateurVal || rowAmateur === amateurVal;
+            const matchAgeCat = !ageCatVal || rowAgeCatId === ageCatVal;
+            const show = matchSearch && matchSport && matchType && matchAmateur && matchAgeCat;
+            tr.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        const countEl = document.getElementById('count-teams');
+        if (countEl) {
+            countEl.textContent = hasFilter ? 'Showing ' + visible + ' of ' + total + ' teams' : 'Showing all teams';
+        }
+    }
+
+    function clearTeamsFilters() {
+        ['filter-teams-sport', 'filter-teams-participant-type', 'filter-teams-amateur', 'filter-teams-age-category'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        applyTeamsFilters();
+    }
+
+    function applyCompetitionsFilters() {
+        const panel = 'competitions';
+        const searchInput = document.getElementById('search-competitions');
+        const amateurSel = document.getElementById('filter-competitions-amateur');
+        const ageCatSel = document.getElementById('filter-competitions-age-category');
+        const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
+        const amateurVal = (amateurSel && amateurSel.value ? amateurSel.value.trim() : '') || '';
+        const ageCatVal = (ageCatSel && ageCatSel.value ? ageCatSel.value.trim() : '') || '';
+        const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('.entity-row');
+        let visible = 0;
+        let total = 0;
+        const hasFilter = query || amateurVal || ageCatVal;
+        rows.forEach(function (tr) {
+            if (tr.classList.contains('entity-empty-row')) {
+                tr.style.display = hasFilter ? 'none' : '';
+                return;
+            }
+            total++;
+            const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
+            const rowAmateur = (tr.getAttribute('data-is-amateur') || '').trim();
+            const rowAgeCatId = (tr.getAttribute('data-underage-category-id') || '').trim();
+            const matchSearch = !query || searchText.indexOf(query) !== -1;
+            const matchAmateur = !amateurVal || rowAmateur === amateurVal;
+            const matchAgeCat = !ageCatVal || rowAgeCatId === ageCatVal;
+            const show = matchSearch && matchAmateur && matchAgeCat;
+            tr.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        const countEl = document.getElementById('count-competitions');
+        if (countEl) {
+            countEl.textContent = hasFilter ? 'Showing ' + visible + ' of ' + total + ' competitions' : 'Showing all competitions';
+        }
+    }
+
+    function clearCompetitionsFilters() {
+        const searchInput = document.getElementById('search-competitions');
+        if (searchInput) searchInput.value = '';
+        ['filter-competitions-amateur', 'filter-competitions-age-category'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        applyCompetitionsFilters();
+    }
+
+    document.querySelectorAll('.filter-teams').forEach(function (el) {
+        el.addEventListener('change', applyTeamsFilters);
+    });
+    document.querySelectorAll('.filter-competitions').forEach(function (el) {
+        el.addEventListener('change', applyCompetitionsFilters);
+    });
+
+    // Search: filter entity rows by data-search (all entity tabs)
+    document.querySelectorAll('.entity-search').forEach(function (input) {
+        input.addEventListener('input', function () {
+            const panel = this.getAttribute('data-panel');
+            if (panel === 'teams') {
+                applyTeamsFilters();
+                return;
+            }
+            if (panel === 'competitions') {
+                applyCompetitionsFilters();
+                return;
+            }
+            const query = (this.value || '').trim().toLowerCase();
+            const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
+            if (!tbody) return;
+            const rows = tbody.querySelectorAll('.entity-row');
+            let visible = 0;
+            let total = 0;
+            rows.forEach(function (tr) {
+                if (tr.classList.contains('entity-empty-row')) {
+                    tr.style.display = query ? 'none' : '';
+                    return;
+                }
+                total++;
+                const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
+                const show = !query || searchText.indexOf(query) !== -1;
+                tr.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            const countEl = document.getElementById('count-' + panel);
+            if (countEl) countEl.textContent = query ? 'Showing ' + visible + ' of ' + total : 'Showing all ' + panel;
+        });
+    });
+</script>
+{% endblock %}

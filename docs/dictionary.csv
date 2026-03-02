@@ -1,0 +1,14 @@
+﻿lang,tid,sportid,brandid,translatedtext,objecttype,basetid,original,version
+de,daznbetde_SN_VDART,VDART,daznbetde,,sport,SN_VDART,Virtual Darts,0
+de,daznbetde_SN_VPSO,VPSO,daznbetde,,sport,SN_VPSO,Virtual Penalty Shootout,0
+de,daznbetde_SN_AUSR,AUSR,daznbetde,,sport,SN_AUSR,Aussie Rules,0
+de,daznbetde_SN_eBKB,eBKB,daznbetde,,sport,SN_eBKB,eBasketball,0
+de,daznbetde_SN_VALO,VALO,daznbetde,,sport,SN_VALO,Valorant,0
+de,daznbetde_SN_LOL,LOL,daznbetde,,sport,SN_LOL,League of Legends,0
+de,daznbetde_SN_DOTA2,DOTA2,daznbetde,,sport,SN_DOTA2,DOTA 2,0
+de,daznbetde_SN_ECS2,ECS2,daznbetde,,sport,SN_ECS2,Counter Strike,0
+de,daznbetde_SN_GHLG,GHLG,daznbetde,,sport,SN_GHLG,Gaelic Hurling,0
+de,daznbetde_SN_GFBL,GFBL,daznbetde,,sport,SN_GFBL,Gaelic Football,0
+de,daznbetde_SN_RGBL,RGBL,daznbetde,,sport,SN_RGBL,Rugby League,0
+de,daznbetde_SN_RGBU,RGBU,daznbetde,,sport,SN_RGBU,Rugby Union,0
+de,daznbetde_SN_GHR,GHR,daznbetde,,sport,SN_GHR,Greyhounds,0

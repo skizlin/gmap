@@ -1,0 +1,5 @@
+domain_id,code,name
+1,GL,Goal
+2,PTS,Point
+3,CORNER,Corner
+4,FOUL,Foul

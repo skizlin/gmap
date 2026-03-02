@@ -1,0 +1,10 @@
+domain_id,sport_id,category_id,name,baseid,jurisdiction,underage_category_id,participant_type_id,is_amateur,created_at,updated_at
+1,1,1,Liga Profesional,,ar,,,0,2026-02-27T19:50:50,2026-02-27T20:44:52
+2,1,4,Hong Kong U22 League,,hk,22,1,0,2026-02-27T21:03:44,2026-02-27T21:03:44
+3,1,5,U20 CONCACAF Championship,,-,20,1,0,2026-02-27T21:05:16,2026-02-27T21:05:16
+4,1,6,National League,,np,,1,0,2026-02-27T21:19:35,2026-02-27T21:19:35
+5,1,3,U19 League,,-,19,1,0,2026-02-27T21:20:11,2026-02-27T21:20:11
+6,2,7,Austin,,-,,5,0,2026-03-02T09:28:16,2026-03-02T09:28:16
+7,2,7,Austin - Doubles,,-,,1,0,2026-03-02T10:06:49,2026-03-02T10:06:49
+8,1,5,UEFA Youth League,,-,,1,0,2026-03-02T10:44:16,2026-03-02T10:44:16
+9,1,5,Copa Libertadores Qualification,,-,,1,0,2026-03-02T11:17:41,2026-03-02T11:17:41

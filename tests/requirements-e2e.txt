@@ -1,0 +1,5 @@
+# E2E tests: run with pytest tests/e2e/ -v -s
+# Install browser: playwright install chromium
+pytest>=7.0
+pytest-playwright>=0.4.0
+playwright>=1.40.0

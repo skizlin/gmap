@@ -1,0 +1,49 @@
+entity_type,domain_id,feed_provider_id,feed_id,domain_name
+sports,1,3,1,Football
+sports,1,2,4,Football
+sports,2,2,5,Tennis
+sports,1,1,1,Football
+categories,1,3,COMP:10070454,Argentina
+competitions,1,3,10070454,Liga Profesional
+teams,1,3,10406330,San Lorenzo
+teams,2,3,10365040,Instituto AC Cordoba
+teams,3,3,10400074,Central Cordoba SdE
+teams,4,3,11302098,Talleres Cordoba
+categories,2,2,33,Brazil
+categories,3,3,COMP:10084247,Turkey
+categories,4,3,COMP:10084001,Hong Kong SAR China
+competitions,2,3,10084001,Hong Kong U22 League
+teams,5,3,11216814,Eastern Football Team U22
+teams,6,3,11338410,Eastern District U22
+categories,5,2,233,International
+competitions,3,2,102885,U20 CONCACAF Championship
+teams,7,2,245819,Martinique (U20)
+teams,8,2,245809,US Virgin Islands U20
+categories,1,2,38,Argentina
+competitions,1,2,102540,Liga Profesional
+teams,1,2,207413,San Lorenzo
+teams,2,2,197011,Instituto AC Cordoba
+categories,6,3,COMP:10088042,Nepal
+competitions,4,3,10088042,National League
+teams,9,3,10446588,Manang Marshyangdi Club
+teams,10,3,10447568,Armed Police Force
+competitions,5,3,10084247,U19 League
+teams,11,3,11357279,Beyoglu Yeni Carsi FK U19
+teams,12,3,11341939,Inegol Kafkasspor U19
+categories,5,3,COMP:10046673,International
+competitions,3,3,10046673,U20 CONCACAF Championship
+teams,8,3,10460294,US Virgin Islands U20
+categories,7,2,6,WTA
+competitions,6,2,91413,Austin
+teams,13,2,2657647,Jessica Pegula
+teams,14,2,2676780,Rebecca Sramkova
+competitions,7,2,91411,Austin - Doubles
+teams,15,2,3012308,C. Harrison/D. Hewitt
+teams,16,2,2710639,A. Bondar/D. Galfi
+categories,5,1,COMP:3784863,International
+competitions,8,1,3784863,UEFA Youth League
+teams,17,1,85279,Paris St. Germain U19
+teams,18,1,132207,HJK Helsinki U19
+competitions,9,3,10077332,Copa Libertadores Qualification
+teams,19,3,10402971,Sporting Cristal
+teams,20,3,10727107,2 de Mayo

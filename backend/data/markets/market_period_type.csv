@@ -1,0 +1,7 @@
+domain_id,code,name
+1,FLGM,Regular Time
+2,1HLF,1st Half
+3,2HLF,2nd Half
+4,OT,Overtime
+5,PEN,Penalty
+6,SHOOTOUT,Shootout

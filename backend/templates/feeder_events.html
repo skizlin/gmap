@@ -1,0 +1,604 @@
+{% extends "layout.html" %}
+
+{% block breadcrumbs %}
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-400">Betting Program</span>
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Feeder Events</span>
+{% endblock %}
+
+{% block title %}Feeder Events{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full space-y-3">
+
+    <!-- TOP BAR FILTER -->
+    <div
+        class="relative z-10 bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg p-3 flex flex-wrap items-center gap-3">
+
+        <!-- 1. Date -->
+        <div class="flex items-center bg-slate-900 rounded border border-slate-700 px-2.5 py-1.5">
+            <i class="fa-regular fa-calendar text-slate-400 mr-2 text-xs"></i>
+            <input type="date" name="date" id="feeder-date-input" class="bg-transparent border-none text-xs text-white focus:ring-0 p-0"
+                value="2023-10-27">
+        </div>
+
+        <!-- 2. Feed filter -->
+        <div class="relative">
+            <select id="feed-filter" name="feed_provider" hx-get="/feeder-events/table" hx-target="#feeder-events-body"
+                hx-swap="innerHTML" hx-trigger="change"
+                hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='outright_filter'],[name='q']"
+                class="bg-slate-900 text-white text-xs rounded border border-secondary/60 px-3 py-1.5 pr-7 appearance-none ring-1 ring-secondary/30">
+                {% for feed in feeds %}
+                <option value="{{ feed }}" {% if feed==selected_feed %}selected{% endif %}>{{ feed }}</option>
+                {% endfor %}
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-secondary">
+                <i class="fa-solid fa-chevron-down text-xs"></i>
+            </div>
+        </div>
+
+        <!-- 3. Multi-Select Sport Filter -->
+        <div id="sport-hidden-inputs">
+            {% for sport in selected_sports %}
+            <input type="hidden" name="sports" value="{{ sport }}">
+            {% endfor %}
+        </div>
+        <div class="relative" id="sport-dropdown-wrap">
+            <button type="button" id="sport-trigger" onclick="toggleSportDropdown()"
+                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[130px] hover:border-slate-500 transition-colors">
+                <i class="fa-solid fa-futbol text-slate-400 text-[10px]"></i>
+                <span id="sport-label">
+                    {% if selected_sports | length == sports | length %}All Sports
+                    {% elif selected_sports | length == 0 %}No Sport
+                    {% elif selected_sports | length == 1 %}{{ selected_sports[0] }}
+                    {% else %}{{ selected_sports | length }} Sports
+                    {% endif %}
+                </span>
+                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+            </button>
+            <div id="sport-panel"
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-52 py-1">
+                <div class="flex items-center justify-between px-3 py-1.5 border-b border-slate-700 mb-1">
+                    <span class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Sport</span>
+                    <button type="button" id="sport-all-btn" onclick="selectAllSports()"
+                        class="text-[10px] text-secondary hover:text-blue-300 font-medium">Select All</button>
+                </div>
+                <div id="sport-checkboxes-container" hx-get="/feeder-events/sport-options"
+                    hx-trigger="change from:#feed-filter" hx-include="[name='feed_provider']" hx-swap="innerHTML">
+                    {% for sport in sports %}
+                    <label
+                        class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                        <input type="checkbox" value="{{ sport }}" {% if sport in selected_sports %}checked{% endif %}
+                            onchange="onSportChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
+                        <span class="text-xs text-slate-300">{{ sport }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Category multi-select (only after sport) -->
+        <div id="feeder-category-hidden-inputs">
+            {% for cat in selected_categories %}
+            <input type="hidden" name="categories" value="{{ cat | e }}">
+            {% endfor %}
+        </div>
+        <div class="relative" id="feeder-category-dropdown-wrap">
+            <button type="button" id="feeder-category-trigger" onclick="toggleFeederCategoryDropdown()"
+                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[130px] hover:border-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                {% if not selected_sports %}disabled{% endif %}
+                title="{% if not selected_sports %}Select sport first{% endif %}">
+                <i class="fa-solid fa-globe text-slate-400 text-[10px]"></i>
+                <span id="feeder-category-label">
+                    {% if not selected_categories %}All Categories
+                    {% elif selected_categories | length == 1 %}{{ selected_categories[0] }}
+                    {% else %}{{ selected_categories | length }} Categories
+                    {% endif %}
+                </span>
+                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+            </button>
+            <div id="feeder-category-panel"
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-52 py-1 max-h-[280px] overflow-y-auto">
+                <div id="feeder-category-checkboxes-container"
+                    hx-get="/feeder-events/category-options"
+                    hx-trigger="load, feederCategoriesRefresh from:body"
+                    hx-include="[name='feed_provider'],[name='sports'],[name='categories']"
+                    hx-swap="innerHTML">
+                    {% for cat in available_categories %}
+                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                        <input type="checkbox" value="{{ cat | e }}" {% if cat in selected_categories %}checked{% endif %}
+                            onchange="onFeederCategoryChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
+                        <span class="text-xs text-slate-300">{{ cat }}</span>
+                    </label>
+                    {% endfor %}
+                    {% if not available_categories %}
+                    <p class="text-[10px] text-slate-500 italic px-3 py-2">Select sport first</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Competition multi-select (only after sport and category) -->
+        <div id="feeder-competition-hidden-inputs">
+            {% for comp in selected_competitions %}
+            <input type="hidden" name="competitions" value="{{ comp | e }}">
+            {% endfor %}
+        </div>
+        <div class="relative" id="feeder-competition-dropdown-wrap">
+            <button type="button" id="feeder-competition-trigger" onclick="toggleFeederCompetitionDropdown()"
+                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[130px] hover:border-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                {% if not selected_sports or not selected_categories %}disabled{% endif %}
+                title="{% if not selected_sports or not selected_categories %}Select sport and category first{% endif %}">
+                <i class="fa-solid fa-trophy text-slate-400 text-[10px]"></i>
+                <span id="feeder-competition-label">
+                    {% if not selected_competitions %}All Competitions
+                    {% elif selected_competitions | length == 1 %}{{ selected_competitions[0] }}
+                    {% else %}{{ selected_competitions | length }} Competitions
+                    {% endif %}
+                </span>
+                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+            </button>
+            <div id="feeder-competition-panel"
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-52 py-1 max-h-[280px] overflow-y-auto">
+                <div id="feeder-competition-checkboxes-container"
+                    hx-get="/feeder-events/competition-options"
+                    hx-trigger="load, feederCompetitionsRefresh from:body"
+                    hx-include="[name='feed_provider'],[name='sports'],[name='categories'],[name='competitions']"
+                    hx-swap="innerHTML">
+                    {% for comp in available_competitions %}
+                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                        <input type="checkbox" value="{{ comp | e }}" {% if comp in selected_competitions %}checked{% endif %}
+                            onchange="onFeederCompetitionChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
+                        <span class="text-xs text-slate-300">{{ comp }}</span>
+                    </label>
+                    {% endfor %}
+                    {% if not available_competitions %}
+                    <p class="text-[10px] text-slate-500 italic px-3 py-2">Select sport and category first</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. IsOutright toggle -->
+        <input type="hidden" id="outright-input" name="outright_filter" value="">
+        <div class="flex bg-slate-900 rounded p-0.5 border border-slate-700" id="outright-toggle">
+            <button type="button" data-outright="" onclick="setOutrightFilter(this)"
+                class="px-3 py-1 rounded text-xs font-medium bg-slate-700 text-white shadow">All</button>
+            <button type="button" data-outright="outright" onclick="setOutrightFilter(this)"
+                class="px-3 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">Outright</button>
+            <button type="button" data-outright="regular" onclick="setOutrightFilter(this)"
+                class="px-3 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">Regular</button>
+        </div>
+
+        <div class="border-l border-slate-700 h-6 mx-1"></div>
+
+        <!-- 7. Mapping status toggle -->
+        <input type="hidden" id="mapping-status-input" name="mapping_status_filter" value="">
+        <div class="flex bg-slate-900 rounded p-0.5 border border-slate-700" id="mapping-toggle">
+            <button type="button" data-status="UNMAPPED" onclick="setMappingFilter(this)"
+                class="px-3 py-1 rounded text-xs font-medium bg-secondary text-white shadow">Unmapped</button>
+            <button type="button" data-status="MAPPED" onclick="setMappingFilter(this)"
+                class="px-3 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">Mapped</button>
+            <button type="button" data-status="" onclick="setMappingFilter(this)"
+                class="px-3 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">All</button>
+        </div>
+
+        <div class="border-l border-slate-700 h-6 mx-1"></div>
+
+        <!-- 8. Search -->
+        <div class="flex items-center bg-slate-900 rounded border border-slate-700 px-2.5 py-1.5 min-w-[200px]">
+            <i class="fa-solid fa-search text-slate-500 mr-2 text-xs"></i>
+            <input type="text" id="search-input" name="q" placeholder="Sport, category, competition, event…"
+                hx-get="/feeder-events/table" hx-target="#feeder-events-body" hx-swap="innerHTML"
+                hx-trigger="input changed delay:350ms"
+                hx-include="[name='feed_provider'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='outright_filter']"
+                class="bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full">
+        </div>
+
+        <button
+            class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center">
+            <i class="fa-solid fa-sync mr-1.5"></i> Sync Now
+        </button>
+    </div>
+
+    <!-- Active filter badges -->
+    <div id="feeder-active-filters" class="flex flex-wrap items-center gap-2 min-h-[28px]"></div>
+
+    <!-- MAIN TABLE -->
+    <div
+        class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg flex-1 overflow-hidden flex flex-col">
+        <div class="overflow-x-auto flex-1">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr
+                        class="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700 whitespace-nowrap">
+                        <th class="px-3 py-2 font-semibold">Feed Source</th>
+                        <th class="px-3 py-2 font-semibold">Feed ID</th>
+                        <th class="px-3 py-2 font-semibold">ID / Status</th>
+                        <th class="px-3 py-2 font-semibold">Start Time</th>
+                        <th class="px-3 py-2 font-semibold">Sport</th>
+                        <th class="px-3 py-2 font-semibold">Category</th>
+                        <th class="px-3 py-2 font-semibold">Competition</th>
+                        <th class="px-3 py-2 font-semibold">Event</th>
+                        <th class="px-3 py-2 font-semibold text-right w-14">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="feeder-events-body" class="divide-y divide-slate-700/40 text-xs"
+                    hx-get="/feeder-events/table" hx-trigger="reload" hx-swap="innerHTML"
+                    hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='outright_filter'],[name='q']">
+                    {% include '_feeder_events_rows.html' %}
+                </tbody>
+
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div
+            class="px-4 py-2 bg-slate-900/50 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500 flex-shrink-0">
+            <span>Showing {{ events|length }} events</span>
+            <div class="flex space-x-2">
+                <button class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700">Previous</button>
+                <button class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700">Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ── Sport multi-select ─────────────────────────────────────────
+    function getAllSports() {
+        return [...document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]')]
+            .map(cb => cb.value);
+    }
+
+    function toggleSportDropdown() {
+        document.getElementById('sport-panel').classList.toggle('hidden');
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function (e) {
+        const sportWrap = document.getElementById('sport-dropdown-wrap');
+        if (sportWrap && !sportWrap.contains(e.target)) document.getElementById('sport-panel').classList.add('hidden');
+        const catWrap = document.getElementById('feeder-category-dropdown-wrap');
+        if (catWrap && !catWrap.contains(e.target)) document.getElementById('feeder-category-panel').classList.add('hidden');
+        const compWrap = document.getElementById('feeder-competition-dropdown-wrap');
+        if (compWrap && !compWrap.contains(e.target)) document.getElementById('feeder-competition-panel').classList.add('hidden');
+    });
+
+    function getCheckedSports() {
+        return [...document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]:checked')]
+            .map(cb => cb.value);
+    }
+
+    function updateHiddenInputs(selected) {
+        const container = document.getElementById('sport-hidden-inputs');
+        container.innerHTML = selected.map(s =>
+            `<input type="hidden" name="sports" value="${String(s).replace(/"/g, '&quot;')}">`
+        ).join('');
+    }
+
+    function updateLabel(selected) {
+        const total = getAllSports().length;
+        const label = document.getElementById('sport-label');
+        const allBtn = document.getElementById('sport-all-btn');
+        if (selected.length === 0) {
+            label.textContent = 'No Sport';
+        } else if (selected.length === total) {
+            label.textContent = 'All Sports';
+        } else if (selected.length === 1) {
+            label.textContent = selected[0];
+        } else {
+            label.textContent = selected.length + ' Sports';
+        }
+        allBtn.textContent = selected.length === total ? 'Deselect All' : 'Select All';
+    }
+
+    function triggerTableRefresh() {
+        htmx.trigger('#feeder-events-body', 'reload');
+    }
+
+    function onSportChange() {
+        const selected = getCheckedSports();
+        updateHiddenInputs(selected);
+        updateLabel(selected);
+        updateFeederCategoryButtonState();
+        updateFeederCompetitionButtonState();
+        triggerTableRefresh();
+    }
+
+    // ── Feeder Category multi-select ───────────────────────────────
+    function toggleFeederCategoryDropdown() {
+        document.getElementById('feeder-category-panel').classList.toggle('hidden');
+    }
+
+    function getCheckedFeederCategories() {
+        return [...document.querySelectorAll('#feeder-category-checkboxes-container input[type=checkbox]:checked')]
+            .map(cb => cb.value);
+    }
+
+    function updateFeederCategoryHiddenInputs(selected) {
+        const container = document.getElementById('feeder-category-hidden-inputs');
+        container.innerHTML = selected.map(c =>
+            `<input type="hidden" name="categories" value="${String(c).replace(/"/g, '&quot;')}">`
+        ).join('');
+    }
+
+    function updateFeederCategoryLabel(selected) {
+        const label = document.getElementById('feeder-category-label');
+        if (!label) return;
+        if (selected.length === 0) label.textContent = 'All Categories';
+        else if (selected.length === 1) label.textContent = selected[0];
+        else label.textContent = selected.length + ' Categories';
+    }
+
+    function onFeederCategoryChange() {
+        const selected = getCheckedFeederCategories();
+        updateFeederCategoryHiddenInputs(selected);
+        updateFeederCategoryLabel(selected);
+        updateFeederCompetitionButtonState();
+        triggerTableRefresh();
+        htmx.trigger(document.body, 'feederCompetitionsRefresh');
+    }
+
+    function updateFeederCategoryButtonState() {
+        const sports = getCheckedSports();
+        const btn = document.getElementById('feeder-category-trigger');
+        if (btn) btn.disabled = sports.length === 0;
+    }
+
+    // ── Feeder Competition multi-select ───────────────────────────
+    function toggleFeederCompetitionDropdown() {
+        document.getElementById('feeder-competition-panel').classList.toggle('hidden');
+    }
+
+    function getCheckedFeederCompetitions() {
+        return [...document.querySelectorAll('#feeder-competition-checkboxes-container input[type=checkbox]:checked')]
+            .map(cb => cb.value);
+    }
+
+    function updateFeederCompetitionHiddenInputs(selected) {
+        const container = document.getElementById('feeder-competition-hidden-inputs');
+        container.innerHTML = selected.map(c =>
+            `<input type="hidden" name="competitions" value="${String(c).replace(/"/g, '&quot;')}">`
+        ).join('');
+    }
+
+    function updateFeederCompetitionLabel(selected) {
+        const label = document.getElementById('feeder-competition-label');
+        if (!label) return;
+        if (selected.length === 0) label.textContent = 'All Competitions';
+        else if (selected.length === 1) label.textContent = selected[0];
+        else label.textContent = selected.length + ' Competitions';
+    }
+
+    function onFeederCompetitionChange() {
+        const selected = getCheckedFeederCompetitions();
+        updateFeederCompetitionHiddenInputs(selected);
+        updateFeederCompetitionLabel(selected);
+        triggerTableRefresh();
+    }
+
+    function updateFeederCompetitionButtonState() {
+        const sports = getCheckedSports();
+        const categories = getCheckedFeederCategories();
+        const btn = document.getElementById('feeder-competition-trigger');
+        if (btn) btn.disabled = sports.length === 0 || categories.length === 0;
+    }
+
+    function clearFeederCategoryAndCompetition() {
+        document.getElementById('feeder-category-hidden-inputs').innerHTML = '';
+        document.getElementById('feeder-competition-hidden-inputs').innerHTML = '';
+        const catLabel = document.getElementById('feeder-category-label');
+        if (catLabel) catLabel.textContent = 'All Categories';
+        const compLabel = document.getElementById('feeder-competition-label');
+        if (compLabel) compLabel.textContent = 'All Competitions';
+        document.querySelectorAll('#feeder-category-checkboxes-container input[type=checkbox]').forEach(cb => { cb.checked = false; });
+        document.querySelectorAll('#feeder-competition-checkboxes-container input[type=checkbox]').forEach(cb => { cb.checked = false; });
+    }
+
+    function selectAllSports() {
+        const allSports = getAllSports();
+        const checked = getCheckedSports().length === allSports.length;
+        document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]').forEach(cb => {
+            cb.checked = !checked;
+        });
+        onSportChange();
+    }
+
+    // When feed changes and sport checkboxes are refreshed by HTMX,
+    // reset hidden inputs + label to "all sports"; clear category/competition and refresh option panels.
+    document.addEventListener('htmx:afterSettle', function (e) {
+        if (e.target && e.target.id === 'sport-checkboxes-container') {
+            document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]').forEach(cb => {
+                cb.checked = true;
+                cb.addEventListener('change', onSportChange);
+            });
+            const selected = getCheckedSports();
+            updateHiddenInputs(selected);
+            updateLabel(selected);
+            clearFeederCategoryAndCompetition();
+            htmx.trigger(document.body, 'feederCategoriesRefresh');
+            htmx.trigger(document.body, 'feederCompetitionsRefresh');
+            updateFeederCategoryButtonState();
+            updateFeederCompetitionButtonState();
+        }
+        if (e.detail && e.detail.target && e.detail.target.id === 'feeder-events-body') {
+            updateFeederActiveFilterBadges();
+        }
+    });
+
+    // ── Click-to-filter (click sport/category/competition in table) ──
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.feeder-filter-shortcut');
+        if (!btn) return;
+        e.preventDefault();
+        const type = btn.getAttribute('data-feeder-filter');
+        const value = btn.getAttribute('data-feeder-value');
+        if (type && value !== null && value !== undefined) applyFeederFilterShortcut(type, value);
+    });
+
+    function applyFeederFilterShortcut(type, value) {
+        if (type === 'sport') {
+            updateHiddenInputs([value]);
+            updateLabel([value]);
+            document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]').forEach(cb => {
+                cb.checked = (cb.value === value);
+            });
+            clearFeederCategoryAndCompetition();
+            htmx.trigger(document.body, 'feederCategoriesRefresh');
+            htmx.trigger(document.body, 'feederCompetitionsRefresh');
+        } else if (type === 'category') {
+            updateFeederCategoryHiddenInputs([value]);
+            updateFeederCategoryLabel([value]);
+            document.querySelectorAll('#feeder-category-checkboxes-container input[type=checkbox]').forEach(cb => {
+                cb.checked = (cb.value === value);
+            });
+            document.getElementById('feeder-competition-hidden-inputs').innerHTML = '';
+            const compLabel = document.getElementById('feeder-competition-label');
+            if (compLabel) compLabel.textContent = 'All Competitions';
+            document.querySelectorAll('#feeder-competition-checkboxes-container input[type=checkbox]').forEach(cb => { cb.checked = false; });
+            htmx.trigger(document.body, 'feederCompetitionsRefresh');
+        } else if (type === 'competition') {
+            updateFeederCompetitionHiddenInputs([value]);
+            updateFeederCompetitionLabel([value]);
+            document.querySelectorAll('#feeder-competition-checkboxes-container input[type=checkbox]').forEach(cb => {
+                cb.checked = (cb.value === value);
+            });
+        }
+        updateFeederCategoryButtonState();
+        updateFeederCompetitionButtonState();
+        triggerTableRefresh();
+        updateFeederActiveFilterBadges();
+    }
+
+    // ── Active filter badges ───────────────────────────────────────
+    function updateFeederActiveFilterBadges() {
+        const container = document.getElementById('feeder-active-filters');
+        if (!container) return;
+        const sports = getCheckedSports();
+        const allSports = getAllSports();
+        const categories = getCheckedFeederCategories();
+        const competitions = getCheckedFeederCompetitions();
+        const outrightEl = document.getElementById('outright-input');
+        const outrightVal = outrightEl ? outrightEl.value : '';
+        const mappingEl = document.getElementById('mapping-status-input');
+        const mappingVal = mappingEl ? mappingEl.value : '';
+        const searchEl = document.getElementById('search-input');
+        const q = searchEl ? searchEl.value.trim() : '';
+        const badges = [];
+        if (sports.length > 0 && sports.length < allSports.length) {
+            sports.forEach(s => badges.push({ type: 'sport', label: 'Sport: ' + s, value: s }));
+        }
+        categories.forEach(c => badges.push({ type: 'category', label: 'Category: ' + c, value: c }));
+        competitions.forEach(c => badges.push({ type: 'competition', label: 'Competition: ' + c, value: c }));
+        if (outrightVal === 'outright') badges.push({ type: 'outright', label: 'Outright', value: 'outright' });
+        if (outrightVal === 'regular') badges.push({ type: 'outright', label: 'Regular', value: 'regular' });
+        if (mappingVal === 'UNMAPPED') badges.push({ type: 'mapping_status', label: 'Unmapped', value: 'UNMAPPED' });
+        if (mappingVal === 'MAPPED') badges.push({ type: 'mapping_status', label: 'Mapped', value: 'MAPPED' });
+        if (q) badges.push({ type: 'search', label: 'Search: "' + q + '"', value: q });
+        const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        container.innerHTML = badges.map(b =>
+            `<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-slate-700/80 border border-slate-600 text-slate-200">
+                ${esc(b.label)}
+                <button type="button" class="remove-feeder-filter-badge hover:bg-slate-600 rounded p-0.5 transition-colors" data-filter-type="${esc(b.type)}" data-filter-value="${esc(b.value)}" aria-label="Remove filter">
+                    <i class="fa-solid fa-times text-[10px]"></i>
+                </button>
+            </span>`
+        ).join('');
+        container.querySelectorAll('.remove-feeder-filter-badge').forEach(btn => {
+            btn.addEventListener('click', function () {
+                removeFeederFilterBadge(this.getAttribute('data-filter-type'), this.getAttribute('data-filter-value'));
+            });
+        });
+    }
+
+    function removeFeederFilterBadge(type, value) {
+        if (type === 'sport') {
+            document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]').forEach(cb => {
+                if (cb.value === value) cb.checked = false;
+            });
+            onSportChange();
+        } else if (type === 'category') {
+            document.querySelectorAll('#feeder-category-checkboxes-container input[type=checkbox]').forEach(cb => {
+                if (cb.value === value) cb.checked = false;
+            });
+            onFeederCategoryChange();
+        } else if (type === 'competition') {
+            document.querySelectorAll('#feeder-competition-checkboxes-container input[type=checkbox]').forEach(cb => {
+                if (cb.value === value) cb.checked = false;
+            });
+            onFeederCompetitionChange();
+        } else if (type === 'outright') {
+            document.getElementById('outright-input').value = '';
+            document.querySelectorAll('#outright-toggle button').forEach(b => {
+                b.classList.remove('bg-slate-700', 'text-white', 'shadow');
+                b.classList.add('text-slate-400', 'hover:text-white');
+            });
+            document.querySelector('#outright-toggle button[data-outright=""]').classList.add('bg-slate-700', 'text-white', 'shadow');
+            triggerTableRefresh();
+        } else if (type === 'mapping_status') {
+            document.getElementById('mapping-status-input').value = '';
+            document.querySelectorAll('#mapping-toggle button').forEach(b => {
+                b.classList.remove('bg-secondary', 'text-white', 'shadow');
+                b.classList.add('text-slate-400', 'hover:text-white');
+            });
+            const allBtn = document.querySelector('#mapping-toggle button[data-status=""]');
+            if (allBtn) allBtn.classList.add('bg-secondary', 'text-white', 'shadow');
+            triggerTableRefresh();
+        } else if (type === 'search') {
+            const el = document.getElementById('search-input');
+            if (el) { el.value = ''; htmx.trigger(el, 'input'); triggerTableRefresh(); }
+        }
+        updateFeederActiveFilterBadges();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        updateFeederCategoryButtonState();
+        updateFeederCompetitionButtonState();
+        updateFeederActiveFilterBadges();
+    });
+
+    // ── Outright filter ────────────────────────────────────────────
+    function setOutrightFilter(btn) {
+        document.getElementById('outright-input').value = btn.dataset.outright;
+        document.querySelectorAll('#outright-toggle button').forEach(b => {
+            b.classList.remove('bg-slate-700', 'text-white', 'shadow');
+            b.classList.add('text-slate-400', 'hover:text-white');
+        });
+        btn.classList.add('bg-slate-700', 'text-white', 'shadow');
+        btn.classList.remove('text-slate-400', 'hover:text-white');
+        triggerTableRefresh();
+    }
+
+    // ── Mapping status toggle ──────────────────────────────────────
+    function setMappingFilter(btn) {
+        document.getElementById('mapping-status-input').value = btn.dataset.status;
+        document.querySelectorAll('#mapping-toggle button').forEach(b => {
+            b.classList.remove('bg-secondary', 'text-white', 'shadow');
+            b.classList.add('text-slate-400', 'hover:text-white');
+        });
+        btn.classList.add('bg-secondary', 'text-white', 'shadow');
+        btn.classList.remove('text-slate-400', 'hover:text-white');
+        triggerTableRefresh();
+    }
+
+    // ── Action column: 3-dot kebab menu ─────────────────────────────
+    function toggleActionMenu(menuId, ev) {
+        ev.stopPropagation();
+        const menu = document.getElementById(menuId);
+        if (!menu) return;
+        const isHidden = menu.classList.contains('hidden');
+        closeActionMenus();
+        if (isHidden) menu.classList.remove('hidden');
+    }
+    function closeActionMenus() {
+        document.querySelectorAll('.action-dropdown').forEach(el => el.classList.add('hidden'));
+    }
+    document.addEventListener('click', function () {
+        closeActionMenus();
+    });
+</script>
+{% endblock %}

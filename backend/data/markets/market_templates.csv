@@ -1,0 +1,5 @@
+domain_id,code,name,params
+1,WINNER2,2Way,
+2,WINNER2D,Match Betting,
+3,HANDICAP2,Handicap,
+4,OVERUNDER,Total,

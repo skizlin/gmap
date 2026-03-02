@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Stat Card 1 -->
+    <div class="glass-panel p-6 rounded-lg relative overflow-hidden group">
+        <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <i class="fa-solid fa-satellite-dish text-6xl text-primary"></i>
+        </div>
+        <h3 class="text-slate-400 text-sm font-medium uppercase">Incoming Events</h3>
+        <p class="text-3xl font-bold text-white mt-2">1,248</p>
+        <p class="text-xs text-primary mt-2 flex items-center">
+            <i class="fa-solid fa-arrow-up mr-1"></i> +120 new today
+        </p>
+    </div>
+
+    <!-- Stat Card 2 -->
+    <div class="glass-panel p-6 rounded-lg relative overflow-hidden group">
+        <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <i class="fa-solid fa-link text-6xl text-secondary"></i>
+        </div>
+        <h3 class="text-slate-400 text-sm font-medium uppercase">Mapped Successfully</h3>
+        <p class="text-3xl font-bold text-white mt-2">845</p>
+        <p class="text-xs text-slate-500 mt-2">67% Coverage</p>
+    </div>
+
+    <!-- Stat Card 3 -->
+    <div class="glass-panel p-6 rounded-lg relative overflow-hidden group">
+        <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <i class="fa-solid fa-triangle-exclamation text-6xl text-red-500"></i>
+        </div>
+        <h3 class="text-slate-400 text-sm font-medium uppercase">Pending Action</h3>
+        <p class="text-3xl font-bold text-white mt-2">403</p>
+        <p class="text-xs text-red-400 mt-2">Needs Manual Review</p>
+    </div>
+</div>
+
+<div class="glass-panel rounded-lg p-8 text-center border-dashed border-2 border-slate-700 bg-transparent">
+    <h2 class="text-xl font-semibold text-white mb-2">Welcome to the Global Map Prototype</h2>
+    <p class="text-slate-400 max-w-lg mx-auto mb-6">
+        This system demonstrates the normalization pipeline. Go to <strong>Feeder Events</strong> to start mapping raw
+        data to the Domain Model.
+    </p>
+    <div class="flex flex-wrap items-center justify-center gap-4">
+        <a href="/feeder-events"
+            class="inline-flex items-center px-6 py-3 bg-primary hover:bg-emerald-600 text-white rounded-lg transition-all font-medium">
+            Go to Mapping Tool <i class="fa-solid fa-arrow-right ml-2"></i>
+        </a>
+        <form method="post" action="/api/dump-csv-data" class="inline"
+            onsubmit="return confirm('This will delete all data in entities and mappings (sports, categories, competitions, teams, domain events, event mappings, entity feed mappings). feeds.csv will not be changed. Continue?');">
+            <button type="submit"
+                class="inline-flex items-center px-6 py-3 bg-slate-700 hover:bg-red-900/50 text-slate-300 hover:text-red-300 border border-slate-600 rounded-lg transition-all font-medium">
+                <i class="fa-solid fa-trash-can mr-2"></i> Dump CSV data
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

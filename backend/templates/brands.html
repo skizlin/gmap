@@ -1,0 +1,353 @@
+{% extends "layout.html" %}
+
+{% block breadcrumbs %}
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Configuration</span>
+<span class="mx-2 text-slate-700">/</span>
+<span class="text-slate-300">Brands</span>
+{% endblock %}
+
+{% block title %}Brands{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full space-y-3">
+
+    <!-- Page header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-lg font-bold text-white">Brands</h1>
+            <p class="text-xs text-slate-500 mt-0.5">Global level includes all brand settings; add and configure brands below.</p>
+        </div>
+        <button type="button" onclick="brandsShowAddForm()"
+            class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-plus"></i> Add brand
+        </button>
+    </div>
+
+    <!-- Add brand form (hidden by default) -->
+    <div id="brand-add-form" class="hidden bg-cardbg/80 border border-slate-700 rounded-lg p-5 space-y-4">
+        <h3 class="text-sm font-semibold text-white">Add brand</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name <span class="text-red-500">*</span></label>
+                <input type="text" id="brand-form-name" placeholder="Brand name"
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
+                <input type="text" id="brand-form-code" placeholder="e.g. brand_uk (optional)"
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Jurisdiction</label>
+                <select id="brand-form-jurisdiction" multiple
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    {% for c in countries %}
+                    <option value="{{ c.cc }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="text-[10px] text-slate-500">Ctrl+click to select multiple</span>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Languages</label>
+                <select id="brand-form-language-ids" multiple
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    {% for lang in languages %}
+                    <option value="{{ lang.id }}">{{ lang.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="text-[10px] text-slate-500">Ctrl+click to select multiple</span>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Currencies</label>
+                <select id="brand-form-currencies" multiple
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    {% for curr in currencies %}
+                    <option value="{{ curr }}">{{ curr }}</option>
+                    {% endfor %}
+                </select>
+                <span class="text-[10px] text-slate-500">Ctrl+click to select multiple</span>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Odds formats</label>
+                <select id="brand-form-odds-formats" multiple
+                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    {% for fmt in odds_formats %}
+                    <option value="{{ fmt }}">{{ fmt }}</option>
+                    {% endfor %}
+                </select>
+                <span class="text-[10px] text-slate-500">Ctrl+click to select multiple</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="brandsSubmitAdd()"
+                class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">
+                Save
+            </button>
+            <button type="button" onclick="brandsHideAddForm()"
+                class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <span id="brand-form-status" class="text-xs text-slate-400"></span>
+        </div>
+    </div>
+
+    <!-- Brands table -->
+    <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+        <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+            <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                <tr>
+                    <th class="px-3 py-2 font-semibold w-40">Name</th>
+                    <th class="px-3 py-2 font-semibold w-28">Code</th>
+                    <th class="px-3 py-2 font-semibold min-w-[140px]">Jurisdiction</th>
+                    <th class="px-3 py-2 font-semibold min-w-[120px]">Languages</th>
+                    <th class="px-3 py-2 font-semibold min-w-[100px]">Currencies</th>
+                    <th class="px-3 py-2 font-semibold min-w-[100px]">Odds formats</th>
+                    <th class="px-3 py-2 font-semibold w-24 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Global row (read-only) -->
+                <tr class="bg-slate-800/50 border-b border-slate-700/50">
+                    <td class="px-3 py-2 font-medium text-white">Global</td>
+                    <td class="px-3 py-2 text-slate-500">—</td>
+                    <td class="px-3 py-2 text-slate-400">All</td>
+                    <td class="px-3 py-2 text-slate-400">All</td>
+                    <td class="px-3 py-2 text-slate-400">All</td>
+                    <td class="px-3 py-2 text-slate-400">All</td>
+                    <td class="px-3 py-2 text-right text-slate-500">—</td>
+                </tr>
+                {% for brand in brands %}
+                <tr class="hover:bg-white/5 transition-colors border-b border-slate-700/30" data-brand-id="{{ brand.id }}">
+                    <td class="px-3 py-2 text-white">{{ brand.name }}</td>
+                    <td class="px-3 py-2 text-slate-400 font-mono">{{ brand.code }}</td>
+                    <td class="px-3 py-2 text-slate-300">{{ brand.jurisdiction_display }}</td>
+                    <td class="px-3 py-2 text-slate-300">{{ brand.language_display }}</td>
+                    <td class="px-3 py-2 text-slate-300">{{ brand.currencies or '—' }}</td>
+                    <td class="px-3 py-2 text-slate-300">{{ brand.odds_formats or '—' }}</td>
+                    <td class="px-3 py-2 text-right">
+                        <button type="button" onclick="brandsEdit({{ brand.id }})"
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-slate-700 text-slate-200 hover:bg-slate-600">
+                            Edit
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Edit brand modal (hidden by default) -->
+<div id="brand-edit-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white">Edit brand</h3>
+            <button type="button" onclick="brandsCloseEditModal()" class="text-slate-400 hover:text-white p-1">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+        <input type="hidden" id="brand-edit-id" value="">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+                <input type="text" id="brand-edit-name" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
+                <input type="text" id="brand-edit-code" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Jurisdiction</label>
+                <select id="brand-edit-jurisdiction" multiple class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    {% for c in countries %}
+                    <option value="{{ c.cc }}">{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Languages</label>
+                <select id="brand-edit-language-ids" multiple class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    {% for lang in languages %}
+                    <option value="{{ lang.id }}">{{ lang.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Currencies</label>
+                <select id="brand-edit-currencies" multiple class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    {% for curr in currencies %}
+                    <option value="{{ curr }}">{{ curr }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Odds formats</label>
+                <select id="brand-edit-odds-formats" multiple class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    {% for fmt in odds_formats %}
+                    <option value="{{ fmt }}">{{ fmt }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="brandsSubmitEdit()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+            <button type="button" onclick="brandsCloseEditModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <span id="brand-edit-status" class="text-xs text-slate-400"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+    const BRAND_COUNTRIES = {{ countries | tojson }};
+    const BRAND_LANGUAGES = {{ languages | tojson }};
+    const BRAND_CURRENCIES = {{ currencies | tojson }};
+    const BRAND_ODDS_FORMATS = {{ odds_formats | tojson }};
+
+    function brandsShowAddForm() {
+        document.getElementById('brand-add-form').classList.remove('hidden');
+        document.getElementById('brand-form-name').value = '';
+        document.getElementById('brand-form-code').value = '';
+        document.getElementById('brand-form-jurisdiction').selectedIndex = -1;
+        document.getElementById('brand-form-language-ids').selectedIndex = -1;
+        document.getElementById('brand-form-currencies').selectedIndex = -1;
+        document.getElementById('brand-form-odds-formats').selectedIndex = -1;
+        document.getElementById('brand-form-status').textContent = '';
+    }
+
+    function brandsHideAddForm() {
+        document.getElementById('brand-add-form').classList.add('hidden');
+    }
+
+    function getSelectedOptions(sel) {
+        return Array.from(sel.selectedOptions).map(o => o.value);
+    }
+
+    async function brandsSubmitAdd() {
+        const name = document.getElementById('brand-form-name').value.trim();
+        if (!name) {
+            document.getElementById('brand-form-status').textContent = 'Name is required.';
+            document.getElementById('brand-form-status').className = 'text-xs text-amber-400';
+            return;
+        }
+        const code = document.getElementById('brand-form-code').value.trim();
+        const jurisdiction = getSelectedOptions(document.getElementById('brand-form-jurisdiction'));
+        const language_ids = getSelectedOptions(document.getElementById('brand-form-language-ids')).map(x => parseInt(x, 10)).filter(n => !isNaN(n));
+        const currencies = getSelectedOptions(document.getElementById('brand-form-currencies'));
+        const odds_formats = getSelectedOptions(document.getElementById('brand-form-odds-formats'));
+
+        const statusEl = document.getElementById('brand-form-status');
+        statusEl.textContent = 'Saving…';
+        statusEl.className = 'text-xs text-slate-400';
+        try {
+            const r = await fetch('/api/brands', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    code: code || undefined,
+                    jurisdiction: jurisdiction.length ? jurisdiction : undefined,
+                    language_ids: language_ids.length ? language_ids : undefined,
+                    currencies: currencies.length ? currencies : undefined,
+                    odds_formats: odds_formats.length ? odds_formats : undefined,
+                }),
+            });
+            const data = await r.json();
+            if (!r.ok) {
+                statusEl.textContent = data.detail || 'Failed to create brand';
+                statusEl.className = 'text-xs text-red-400';
+                return;
+            }
+            statusEl.textContent = 'Saved. Reloading…';
+            statusEl.className = 'text-xs text-primary';
+            window.location.reload();
+        } catch (e) {
+            statusEl.textContent = 'Request failed: ' + e.message;
+            statusEl.className = 'text-xs text-red-400';
+        }
+    }
+
+    function brandsEdit(brandId) {
+        const row = document.querySelector(`tr[data-brand-id="${brandId}"]`);
+        if (!row) return;
+        const cells = row.querySelectorAll('td');
+        const name = cells[0].textContent.trim();
+        const code = cells[1].textContent.trim();
+        document.getElementById('brand-edit-id').value = brandId;
+        document.getElementById('brand-edit-name').value = name;
+        document.getElementById('brand-edit-code').value = code;
+        // We need to set multi-select from current brand data; pass from server in data attributes
+        const jurisdictionEl = document.getElementById('brand-edit-jurisdiction');
+        const langEl = document.getElementById('brand-edit-language-ids');
+        const currEl = document.getElementById('brand-edit-currencies');
+        const oddsEl = document.getElementById('brand-edit-odds-formats');
+        Array.from(jurisdictionEl.options).forEach(o => { o.selected = false; });
+        Array.from(langEl.options).forEach(o => { o.selected = false; });
+        Array.from(currEl.options).forEach(o => { o.selected = false; });
+        Array.from(oddsEl.options).forEach(o => { o.selected = false; });
+        const brandData = window.__brandsData ? window.__brandsData.find(b => b.id === brandId) : null;
+        if (brandData) {
+            const jCodes = (brandData.jurisdiction || '').split(',').map(s => s.trim()).filter(Boolean);
+            const lIds = (brandData.language_ids || '').split(',').map(s => s.trim()).filter(Boolean);
+            const currs = (brandData.currencies || '').split(',').map(s => s.trim()).filter(Boolean);
+            const odds = (brandData.odds_formats || '').split(',').map(s => s.trim()).filter(Boolean);
+            Array.from(jurisdictionEl.options).forEach(o => { if (jCodes.includes(o.value)) o.selected = true; });
+            Array.from(langEl.options).forEach(o => { if (lIds.includes(String(o.value))) o.selected = true; });
+            Array.from(currEl.options).forEach(o => { if (currs.includes(o.value)) o.selected = true; });
+            Array.from(oddsEl.options).forEach(o => { if (odds.includes(o.value)) o.selected = true; });
+        }
+        document.getElementById('brand-edit-status').textContent = '';
+        document.getElementById('brand-edit-modal').classList.remove('hidden');
+    }
+
+    function brandsCloseEditModal() {
+        document.getElementById('brand-edit-modal').classList.add('hidden');
+    }
+
+    async function brandsSubmitEdit() {
+        const id = document.getElementById('brand-edit-id').value;
+        if (!id) return;
+        const name = document.getElementById('brand-edit-name').value.trim();
+        const code = document.getElementById('brand-edit-code').value.trim();
+        const jurisdiction = getSelectedOptions(document.getElementById('brand-edit-jurisdiction'));
+        const language_ids = getSelectedOptions(document.getElementById('brand-edit-language-ids')).map(x => parseInt(x, 10)).filter(n => !isNaN(n));
+        const currencies = getSelectedOptions(document.getElementById('brand-edit-currencies'));
+        const odds_formats = getSelectedOptions(document.getElementById('brand-edit-odds-formats'));
+
+        const statusEl = document.getElementById('brand-edit-status');
+        statusEl.textContent = 'Saving…';
+        statusEl.className = 'text-xs text-slate-400';
+        try {
+            const r = await fetch('/api/brands/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name || undefined,
+                    code: code || undefined,
+                    jurisdiction: jurisdiction.length ? jurisdiction : [],
+                    language_ids: language_ids.length ? language_ids : [],
+                    currencies: currencies.length ? currencies : [],
+                    odds_formats: odds_formats.length ? odds_formats : [],
+                }),
+            });
+            const data = await r.json();
+            if (!r.ok) {
+                statusEl.textContent = data.detail || 'Failed to update brand';
+                statusEl.className = 'text-xs text-red-400';
+                return;
+            }
+            statusEl.textContent = 'Saved. Reloading…';
+            statusEl.className = 'text-xs text-primary';
+            window.location.reload();
+        } catch (e) {
+            statusEl.textContent = 'Request failed: ' + e.message;
+            statusEl.className = 'text-xs text-red-400';
+        }
+    }
+</script>
+<script>
+    window.__brandsData = {{ brands | tojson }};
+</script>
+{% endblock %}

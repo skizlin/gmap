@@ -1,0 +1,69 @@
+{% for ev in domain_events %}
+<tr class="hover:bg-white/3 transition-colors">
+    <td class="px-3 py-2 align-middle">
+        <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" aria-label="Select row {{ loop.index }}">
+    </td>
+    <td class="px-3 py-2 font-mono text-secondary text-xs">{{ ev.id }}</td>
+    <td class="px-3 py-2 font-mono text-xs {% if ev.start_time | start_time_past %}text-red-400{% else %}text-slate-400{% endif %}">
+        {{ ev.start_time | format_start_time or '—' }}
+    </td>
+    <td class="px-3 py-2">
+        {% if ev.sport %}
+        <button type="button" class="domain-filter-shortcut text-slate-300 hover:text-primary transition-colors cursor-pointer text-left w-full"
+            data-domain-filter="sport" data-domain-value="{{ ev.sport | e }}" title="Filter by this sport">
+            {{ ev.sport }}
+        </button>
+        {% else %}
+        <span class="text-slate-300">—</span>
+        {% endif %}
+    </td>
+    <td class="px-3 py-2">
+        {% if ev.category %}
+        <button type="button" class="domain-filter-shortcut text-slate-300 hover:text-primary transition-colors cursor-pointer text-left w-full"
+            data-domain-filter="category" data-domain-value="{{ ev.category | e }}" title="Filter by this category">
+            {{ ev.category }}
+        </button>
+        {% else %}
+        <span class="text-slate-300">—</span>
+        {% endif %}
+    </td>
+    <td class="px-3 py-2">
+        {% if ev.competition %}
+        <button type="button" class="domain-filter-shortcut text-slate-300 hover:text-primary transition-colors cursor-pointer text-left w-full"
+            data-domain-filter="competition" data-domain-value="{{ ev.competition | e }}" title="Filter by this competition">
+            {{ ev.competition }}
+        </button>
+        {% else %}
+        <span class="text-slate-300">—</span>
+        {% endif %}
+    </td>
+    <td class="px-3 py-2">
+        <a href="/domain-events/event_details/{{ ev.id }}" target="_blank" rel="noopener noreferrer"
+            class="text-white hover:text-primary transition-colors cursor-pointer">
+            {% if ev.home or ev.away %}{{ ev.home or '—' }} v {{ ev.away or '—' }}{% else %}—{% endif %}
+        </a>
+    </td>
+    <td class="px-3 py-2 text-slate-400 text-xs">Not Started</td>
+    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2 text-slate-400 text-xs font-mono">{{ ev.mapped_feed_count | default(0) }}</td>
+    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2 align-middle">
+        <button type="button" class="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors" aria-label="Actions for event {{ ev.id }}">
+            <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+        </button>
+    </td>
+</tr>
+{% else %}
+<tr>
+    <td colspan="19" class="p-10 text-center text-slate-500 italic">
+        No domain events yet. Start mapping from the Feeder Events page!
+    </td>
+</tr>
+{% endfor %}

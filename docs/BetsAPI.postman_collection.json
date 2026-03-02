@@ -1,0 +1,211 @@
+{
+  "info": {
+    "_postman_id": "5f372362-69c1-40eb-955b-28ac402dfd42",
+    "name": "BetsAPI",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "3024052"
+  },
+  "item": [
+    {
+      "name": "Events Bet365",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://api.b365api.com/v1/bet365/upcoming?sport_id=1&token=YOUR-TOKEN",
+          "protocol": "https",
+          "host": [
+            "api",
+            "b365api",
+            "com"
+          ],
+          "path": [
+            "v1",
+            "bet365",
+            "upcoming"
+          ],
+          "query": [
+            {
+              "key": "sport_id",
+              "value": "1"
+            },
+            {
+              "key": "token",
+              "value": "YOUR-TOKEN"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Events bwin",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://api.b365api.com/v1/bwin/prematch?token=YOUR_TOKEN",
+          "protocol": "https",
+          "host": [
+            "api",
+            "b365api",
+            "com"
+          ],
+          "path": [
+            "v1",
+            "bwin",
+            "prematch"
+          ],
+          "query": [
+            {
+              "key": "token",
+              "value": "YOUR_TOKEN"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Events BetFairSB",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://api.b365api.com/v1/betfair/sb/upcoming?sport_id=1&token=YOUR-TOKEN",
+          "protocol": "https",
+          "host": [
+            "api",
+            "b365api",
+            "com"
+          ],
+          "path": [
+            "v1",
+            "betfair",
+            "sb",
+            "upcoming"
+          ],
+          "query": [
+            {
+              "key": "sport_id",
+              "value": "1"
+            },
+            {
+              "key": "token",
+              "value": "YOUR-TOKEN"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Events SBObet",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://api.b365api.com/v1/sbobet/upcoming?sport_id=1&token=YOUR-TOKEN",
+          "protocol": "https",
+          "host": [
+            "api",
+            "b365api",
+            "com"
+          ],
+          "path": [
+            "v1",
+            "sbobet",
+            "upcoming"
+          ],
+          "query": [
+            {
+              "key": "sport_id",
+              "value": "1"
+            },
+            {
+              "key": "token",
+              "value": "YOUR-TOKEN"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Events 1xBet",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://api.b365api.com/v1/1xbet/upcoming?sport_id=1&token=YOUR-TOKEN",
+          "protocol": "https",
+          "host": [
+            "api",
+            "b365api",
+            "com"
+          ],
+          "path": [
+            "v1",
+            "1xbet",
+            "upcoming"
+          ],
+          "query": [
+            {
+              "key": "sport_id",
+              "value": "1"
+            },
+            {
+              "key": "token",
+              "value": "YOUR-TOKEN"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "in",
+        "value": "query",
+        "type": "string"
+      },
+      {
+        "key": "key",
+        "value": "token",
+        "type": "string"
+      },
+      {
+        "key": "value",
+        "value": "2884-3WOhLNfN7tspe4",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ]
+}

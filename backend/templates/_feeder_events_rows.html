@@ -1,0 +1,121 @@
+{% for event in events %}
+<tr class="hover:bg-white/5 transition-colors cursor-pointer">
+    <!-- Feed Source -->
+    <td class="px-3 py-1.5">
+        <span class="bg-slate-800 text-slate-300 border border-slate-600 px-1.5 py-0.5 rounded">{{ event.feed_provider
+            }}</span>
+    </td>
+    <!-- Feed ID (native provider ID) -->
+    <td class="px-3 py-1.5 font-mono">
+        <span class="text-slate-500">{{ event.valid_id }}</span>
+        {% if event.betradar_id %}
+        <span title="BetRadar ID: {{ event.betradar_id }}"
+            class="ml-1 text-[10px] text-indigo-400 border border-indigo-500/30 px-1 rounded">BR</span>
+        {% endif %}
+    </td>
+    <!-- ID / Status: domain ID if mapped, else Unmapped / Ignored -->
+    <td class="px-3 py-1.5 font-mono">
+        {% if event.domain_id and event.domain_id != '0' %}
+        <span class="text-primary">{{ event.domain_id }}</span>
+        {% elif event.mapping_status == 'IGNORED' %}
+        <span class="inline-flex px-1.5 py-0.5 rounded font-medium text-slate-400 text-[11px] bg-slate-500/10 border border-slate-500/20">Ignored</span>
+        {% else %}
+        <span class="inline-flex px-1.5 py-0.5 rounded font-medium text-red-400 text-[11px] bg-red-400/10 border border-red-400/20">Unmapped</span>
+        {% endif %}
+    </td>
+    <!-- Start Time -->
+    <td class="px-3 py-1.5 text-slate-300 whitespace-nowrap font-mono">{{ event.start_time }}</td>
+    <!-- Sport: clickable filter shortcut -->
+    {% set sport_key = (event.sport_id | string or event.sport or '') | lower %}
+    {% set sport_mapped = sport_key and selected_feed_pid is not none and (selected_feed_pid, sport_key) in mapped_sport_feed_ids %}
+    <td class="px-3 py-1.5 {{ 'text-emerald-300' if sport_mapped else 'text-slate-300' }}">
+        {% if event.sport %}
+        <button type="button" class="feeder-filter-shortcut text-left w-full hover:underline" data-feeder-filter="sport" data-feeder-value="{{ event.sport | e }}">{{ event.sport }}</button>
+        {% else %}
+        —
+        {% endif %}
+    </td>
+    <!-- Category: clickable filter shortcut (canonical value for filter = category or category_id) -->
+    {% set cat_display = event.category or (event.category_id | string) or '' %}
+    {% set cat_id = event.category_id | string if event.category_id else event.category %}
+    {% set cat_mapped = cat_id and selected_feed_pid is not none and (selected_feed_pid, cat_id) in mapped_category_feed_ids %}
+    <td class="px-3 py-1.5 {{ 'text-emerald-300' if cat_mapped else 'text-slate-400' }}">
+        {% if cat_display %}
+        <button type="button" class="feeder-filter-shortcut text-left w-full hover:underline" data-feeder-filter="category" data-feeder-value="{{ cat_display | e }}">{{ event.category or event.category_id or '—' }}</button>
+        {% else %}
+        <span class="text-slate-600">—</span>
+        {% endif %}
+    </td>
+    <!-- Competition: clickable filter shortcut (canonical value = raw_league_name or raw_league_id) -->
+    {% set comp_display = event.raw_league_name or (event.raw_league_id | string) or '' %}
+    {% set comp_id = event.raw_league_id | string if event.raw_league_id else event.raw_league_name %}
+    {% set comp_mapped = comp_id and selected_feed_pid is not none and (selected_feed_pid, comp_id) in mapped_comp_feed_ids %}
+    <td class="px-3 py-1.5 max-w-[150px] truncate {{ 'text-emerald-300' if comp_mapped else 'text-slate-300' }}"
+        title="{{ event.raw_league_name or '—' }}">
+        {% if comp_display %}
+        <button type="button" class="feeder-filter-shortcut text-left w-full truncate hover:underline" data-feeder-filter="competition" data-feeder-value="{{ comp_display | e }}">{{ event.raw_league_name or event.raw_league_id or '—' }}</button>
+        {% else %}
+        —
+        {% endif %}
+    </td>
+    <!-- Event (Home vs Away) -->
+    <td class="px-3 py-1.5 text-white font-medium whitespace-nowrap max-w-[250px] overflow-hidden text-ellipsis">
+        {% if event.is_outright %}
+        <span class="text-yellow-500/70 text-[10px] mr-1 border border-yellow-500/20 px-1 rounded">OUTRIGHT</span>
+        {% if event.is_mainbook %}
+        <span class="text-emerald-400 text-[10px] mr-1 border border-emerald-500/30 px-1 rounded"
+            title="Main Market">M-BOOK</span>
+        {% endif %}
+        <span class="text-primary" title="{{ event.market_name }}">{{ event.market_name }}</span>
+        {% else %}
+        {% set home_id = event.raw_home_id | string if event.raw_home_id else event.raw_home_name %}
+        {% set away_id = event.raw_away_id | string if event.raw_away_id else event.raw_away_name %}
+        <span class="{{ 'text-emerald-300' if home_id and selected_feed_pid is not none and (selected_feed_pid, home_id) in mapped_team_feed_ids else 'text-white' }}">{{
+            event.raw_home_name }}</span>
+        <span class="text-slate-500 mx-1">vs</span>
+        <span class="{{ 'text-emerald-300' if away_id and selected_feed_pid is not none and (selected_feed_pid, away_id) in mapped_team_feed_ids else 'text-white' }}">{{
+            event.raw_away_name }}</span>
+        {% endif %}
+    </td>
+    <!-- Action: 3-dot kebab menu -->
+    <td class="px-3 py-1.5 text-right">
+        <div class="relative inline-block action-menu-wrap" data-menu-id="action-{{ event.valid_id }}">
+            <button type="button" onclick="toggleActionMenu('action-{{ event.valid_id }}', event)"
+                class="p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                aria-haspopup="true" aria-expanded="false" title="Actions">
+                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+            </button>
+            <div id="action-{{ event.valid_id }}" class="action-dropdown hidden absolute right-0 top-full mt-0.5 z-50 min-w-[180px] py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-[70vh] overflow-y-auto" onclick="event.stopPropagation()">
+                <button type="button" hx-get="/modal/map-event/{{ event.valid_id }}" hx-target="#modal-content" hx-swap="innerHTML"
+                    onclick="openModal(); closeActionMenus();"
+                    class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2">
+                    <i class="fa-solid fa-link w-4 text-secondary"></i> Map Event
+                </button>
+                <button type="button" onclick="closeActionMenus();"
+                    class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2">
+                    <i class="fa-solid fa-eye-slash w-4 text-slate-500"></i> Ignore Mapping
+                </button>
+                <hr class="my-1 border-slate-600">
+                <span class="block px-3 py-1.5 text-[10px] uppercase tracking-wider text-slate-500">Event actions</span>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">View Event</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Edit Event</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Close Event</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Abandon Event</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Takeover Event</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Release Event</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Disable CO</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Release CO</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Copy Event ID</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">View Bets</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Event Log</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Dynamic Templates</div>
+                <div class="px-3 py-1.5 text-xs text-slate-500 cursor-default">Notes</div>
+            </div>
+        </div>
+    </td>
+</tr>
+{% else %}
+<tr>
+    <td colspan="9" class="px-3 py-8 text-center text-slate-500">No events found for this feed.</td>
+</tr>
+{% endfor %}
