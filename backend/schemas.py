@@ -2,7 +2,7 @@
 API request/response models (Pydantic). Used by FastAPI routes in main.py.
 """
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 
 
 class CreateDomainEventRequest(BaseModel):
@@ -63,19 +63,19 @@ class UpdateEntityJurisdictionRequest(BaseModel):
 class CreateBrandRequest(BaseModel):
     name: str
     code: Optional[str] = None
-    jurisdiction: Optional[list[str]] = None
-    language_ids: Optional[list[int]] = None
-    currencies: Optional[list[str]] = None
-    odds_formats: Optional[list[str]] = None
+    jurisdiction: Optional[List[str]] = None
+    language_ids: Optional[List[int]] = None
+    currencies: Optional[List[str]] = None
+    odds_formats: Optional[List[str]] = None
 
 
 class UpdateBrandRequest(BaseModel):
     name: Optional[str] = None
     code: Optional[str] = None
-    jurisdiction: Optional[list[str]] = None
-    language_ids: Optional[list[int]] = None
-    currencies: Optional[list[str]] = None
-    odds_formats: Optional[list[str]] = None
+    jurisdiction: Optional[List[str]] = None
+    language_ids: Optional[List[int]] = None
+    currencies: Optional[List[str]] = None
+    odds_formats: Optional[List[str]] = None
 
 
 class CreateMarketGroupRequest(BaseModel):
@@ -93,8 +93,8 @@ class MarketTypeMappingItem(BaseModel):
 
 class SaveMarketTypeMappingsRequest(BaseModel):
     domain_market_id: int
-    prematch: list[MarketTypeMappingItem] = []
-    live: list[MarketTypeMappingItem] = []
+    prematch: List[MarketTypeMappingItem] = []
+    live: List[MarketTypeMappingItem] = []
 
 
 class CountryUpsertRequest(BaseModel):
