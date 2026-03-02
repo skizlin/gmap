@@ -732,17 +732,23 @@ def _migrate_entity_underage_participant_amateur_if_needed() -> None:
 
 
 def _load_entities() -> dict:
-    """Load all entity CSVs into memory with int FKs."""
+    """Load all entity CSVs into memory with int FKs. Skips rows with invalid domain_id (e.g. merge conflict markers)."""
     store: dict[str, list[dict]] = {k: [] for k in _ENTITY_FIELDS if k != "feeds"}
     for etype in store:
         path = DATA_DIR / f"{etype}.csv"
         if path.exists():
             with open(path, newline="", encoding="utf-8") as f:
                 for row in csv.DictReader(f):
-                    row["domain_id"] = int(row["domain_id"])
+                    try:
+                        row["domain_id"] = int(row["domain_id"])
+                    except (TypeError, ValueError):
+                        continue  # skip rows with non-numeric domain_id (e.g. merge conflict markers)
                     for fk in ("sport_id", "category_id"):
                         if fk in row and row[fk]:
-                            row[fk] = int(row[fk])
+                            try:
+                                row[fk] = int(row[fk])
+                            except (TypeError, ValueError):
+                                row[fk] = None
                     if etype == "competitions":
                         for fk in ("underage_category_id", "participant_type_id"):
                             if fk in row and row.get(fk):
