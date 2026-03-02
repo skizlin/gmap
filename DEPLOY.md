@@ -12,6 +12,57 @@ The app reads CSVs on demand; no separate database process is needed. Just deplo
 
 ---
 
+## Docker (Python 3.11 – recommended when the host has Docker)
+
+Uses the repo’s `Dockerfile`. No need to install Python 3.11 on the host.
+
+**1. On the server – clone (if not already) and build:**
+
+```bash
+cd /var/www/gmap
+git pull origin main
+docker build -t gmap .
+```
+
+**2. Run the container** (mount `backend/data` so CSV changes persist):
+
+```bash
+docker run -d \
+  --name gmap \
+  -p 8001:8001 \
+  -v /var/www/gmap/backend/data:/app/backend/data \
+  --restart unless-stopped \
+  gmap
+```
+
+- **-d** = run in background  
+- **-p 8001:8001** = host port 8001 → app in container  
+- **-v ...** = host `backend/data` mounted so edits/writes stay on disk  
+- **--restart unless-stopped** = start again after reboot  
+
+**3. Check it’s running:**
+
+```bash
+docker ps
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/
+```
+
+**4. Nginx** – same as below: proxy `gmap.nomaths.com` to `http://127.0.0.1:8001`.
+
+**Useful commands:**
+
+```bash
+docker logs gmap          # view logs
+docker stop gmap          # stop
+docker start gmap         # start again
+docker rm -f gmap         # remove container (data in /var/www/gmap/backend/data is safe)
+# Then run the `docker run` again to recreate.
+```
+
+After code changes: `git pull`, `docker build -t gmap .`, `docker rm -f gmap`, then run the same `docker run` again.
+
+---
+
 ## Option A: Deploy on a cloud VM (VPS)
 
 Good for: full control, internal or public access, low cost.
