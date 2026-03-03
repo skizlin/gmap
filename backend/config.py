@@ -70,6 +70,7 @@ TRANSLATIONS_PATH = DATA_DIR / "translations.csv"
 BRANDS_PATH = DATA_DIR / "brands.csv"
 BRANDS_FIELDS = ["id", "name", "code", "jurisdiction", "language_ids", "currencies", "odds_formats", "created_at", "updated_at"]
 FEEDS_PATH = DATA_DIR / "feeds.csv"
+FEED_SPORTS_PATH = DATA_DIR / "feed_sports.csv"
 FEEDER_CONFIG_PATH = DATA_DIR / "feeder_config.csv"
 FEEDER_INCIDENTS_PATH = DATA_DIR / "feeder_incidents.csv"
 MARGIN_TEMPLATES_PATH = DATA_DIR / "margin_templates.csv"

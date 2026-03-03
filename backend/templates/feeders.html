@@ -18,6 +18,23 @@
         <p class="text-xs text-slate-500 mt-0.5">Configure automation of the mapping process per feed, per sport, category, and league.</p>
     </div>
 
+    <!-- Tabs: Configuration | Feed Sports -->
+    <div class="flex border-b border-slate-700 gap-0">
+        <button type="button" id="feeder-tab-config" onclick="switchFeederTab('config')"
+            class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-primary border-primary">
+            <i class="fa-solid fa-sliders text-xs"></i>
+            Configuration
+        </button>
+        <button type="button" id="feeder-tab-feed_sports" onclick="switchFeederTab('feed_sports')"
+            class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white">
+            <i class="fa-solid fa-satellite-dish text-xs"></i>
+            Feed Sports
+            <span class="text-slate-500 text-xs">({{ feed_sports_count|default(0) }})</span>
+        </button>
+    </div>
+
+    <!-- Panel: Configuration (feeder settings + incidents) -->
+    <div id="feeder-panel-config" class="feeder-panel flex flex-col space-y-4">
     <!-- Filters -->
     <form method="get" action="/feeders" id="feeder-filters-form" class="flex flex-wrap items-end gap-3 bg-cardbg/80 border border-slate-700/50 rounded-lg p-4">
         <div>
@@ -169,14 +186,116 @@
     </div>
 
     {% endif %}
+    </div>
+    <!-- /feeder-panel-config -->
+
+    <!-- Panel: Feed Sports (feed_sports.csv) -->
+    <div id="feeder-panel-feed_sports" class="feeder-panel hidden flex flex-col space-y-4">
+        <p class="text-xs text-slate-500">Per-feed sport IDs and display names. Used in Feeder Events and mapping. Add rows so events with different <code class="text-slate-400">sport_id</code> show the correct name.</p>
+        <div class="flex flex-wrap items-end gap-3 bg-cardbg/80 border border-slate-700/50 rounded-lg p-3">
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Feed</label>
+                <select id="fs-feed" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[120px]">
+                    <option value="">— select —</option>
+                    {% for f in feeds %}
+                    <option value="{{ f.code }}">{{ f.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Feed sport ID</label>
+                <input type="text" id="fs-sport-id" placeholder="e.g. 1, 2, 13" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary w-28">
+            </div>
+            <div class="flex-1 min-w-[140px]">
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Feed sport name</label>
+                <input type="text" id="fs-sport-name" placeholder="e.g. Soccer, Tennis" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary w-full">
+            </div>
+            <button type="button" id="fs-add-btn" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Add</button>
+            <span id="fs-status" class="text-xs text-slate-500"></span>
+        </div>
+        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    <tr>
+                        <th class="px-4 py-2.5 font-semibold">Feed</th>
+                        <th class="px-4 py-2.5 font-semibold">Feed sport ID</th>
+                        <th class="px-4 py-2.5 font-semibold">Feed sport name</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-700/40">
+                    {% for row in feed_sports %}
+                    <tr class="hover:bg-white/3">
+                        <td class="px-4 py-2.5 text-slate-300">{{ row.feed_provider }}</td>
+                        <td class="px-4 py-2.5 font-mono text-slate-400">{{ row.feed_sport_id }}</td>
+                        <td class="px-4 py-2.5 text-white">{{ row.feed_sport_name or '—' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" class="px-4 py-8 text-center text-slate-500 italic">No feed sports yet. Add rows above.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- /feeder-panel-feed_sports -->
+
 </div>
 
 <script>
+function switchFeederTab(tabKey) {
+    document.querySelectorAll('.feeder-tab').forEach(function (btn) {
+        btn.classList.remove('text-primary', 'border-primary');
+        btn.classList.add('text-slate-400', 'border-transparent');
+    });
+    document.querySelectorAll('.feeder-panel').forEach(function (panel) {
+        panel.classList.add('hidden');
+    });
+    var tabBtn = document.getElementById('feeder-tab-' + tabKey);
+    var panel = document.getElementById('feeder-panel-' + tabKey);
+    if (tabBtn) {
+        tabBtn.classList.remove('text-slate-400', 'border-transparent');
+        tabBtn.classList.add('text-primary', 'border-primary');
+    }
+    if (panel) panel.classList.remove('hidden');
+}
+
 (function () {
     const level = {{ config_level | tojson if config_level else 'null' }};
     const sportId = {{ selected_sport_id | tojson if selected_sport_id else 'null' }};
     const categoryId = {{ selected_category_id | tojson if selected_category_id else 'null' }};
     const leagueId = {{ selected_league_id | tojson if selected_league_id else 'null' }};
+
+    document.getElementById('fs-add-btn')?.addEventListener('click', async function () {
+        var feed = document.getElementById('fs-feed').value.trim();
+        var sportIdInput = document.getElementById('fs-sport-id').value.trim();
+        var sportName = document.getElementById('fs-sport-name').value.trim();
+        var statusEl = document.getElementById('fs-status');
+        if (!feed || !sportIdInput) {
+            statusEl.textContent = 'Feed and Feed sport ID required.';
+            statusEl.className = 'text-xs text-amber-400';
+            return;
+        }
+        statusEl.textContent = 'Adding…';
+        statusEl.className = 'text-xs text-slate-400';
+        var formData = new FormData();
+        formData.set('feed_provider', feed);
+        formData.set('feed_sport_id', sportIdInput);
+        formData.set('feed_sport_name', sportName);
+        try {
+            var res = await fetch('/api/feed-sports', { method: 'POST', body: formData });
+            var data = await res.json().catch(function () { return {}; });
+            if (res.ok) {
+                statusEl.textContent = data.created ? 'Added.' : 'Already exists.';
+                statusEl.className = 'text-xs text-emerald-400';
+                setTimeout(function () { window.location.reload(); }, 500);
+            } else {
+                statusEl.textContent = data.detail || 'Failed.';
+                statusEl.className = 'text-xs text-red-400';
+            }
+        } catch (e) {
+            statusEl.textContent = 'Request failed.';
+            statusEl.className = 'text-xs text-red-400';
+        }
+    });
 
     document.getElementById('feeder-config-save')?.addEventListener('click', async function () {
         if (!level || !sportId) return;

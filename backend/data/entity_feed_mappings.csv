@@ -62,3 +62,17 @@ teams,26,3,10401357,CSA
 competitions,11,3,10046181,Campeonato Acreano
 teams,27,3,10461680,Humaita
 teams,28,3,10456658,Sao Francisco AC
+sports,5,3,151,Esports
+categories,8,3,COMP:10084993,CS2
+competitions,12,3,10084993,ESL Pro League Stage 1
+teams,29,3,10963853,3DMAX
+teams,30,3,10823911,Gaimin Gladiators
+sports,4,1,7522,Basketball
+categories,9,1,COMP:12114078,Sweden
+competitions,13,1,12114078,Ligan
+teams,31,1,83318,Uppsala Basket
+teams,32,1,220251,Soedertaelje BBK
+categories,10,1,COMP:10949622,Slovakia
+competitions,14,1,10949622,Extraliga Women
+teams,33,1,99550,Piestanske Cajky Women
+teams,34,1,221683,Slavia Banska Bystrica Women

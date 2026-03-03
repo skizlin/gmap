@@ -209,20 +209,8 @@ def parse_unified(file_path, provider):
         # Category for unified feeds: use league id, present/store as COMP:<league_id>
         comp_category_id = ("COMP:" + str(league_id)) if league_id is not None and str(league_id).strip() else None
 
-        # Feed (e.g. bet365.json) sends only sport_id, not sport name. We derive "sport" for display only.
-        # sport_id 1=Soccer, 2=Horse Racing, 13=Tennis, 18=Basketball
+        # Feed sends sport_id; display name comes from feed_sports.csv (see main._enrich_feed_events_sport_names).
         sport_id = item.get("sport_id")
-        if sport_id == "1":
-            sport = "Soccer"
-        elif sport_id == "2":
-            sport = "Horse Racing"
-        elif sport_id == "13":
-            sport = "Tennis"
-        elif sport_id == "18":
-            sport = "Basketball"
-        else:
-            sport = "Soccer"  # default for display when unknown
-        # Pass through feed's sport_id so entity_feed_mappings stores ID (e.g. "1"), not our display name
         events.append({
             "feed_provider": provider,
             "valid_id": item.get("id"),
@@ -237,8 +225,8 @@ def parse_unified(file_path, provider):
             "category_id": comp_category_id,
             "start_time": start_time,
             "time_status": item.get("time_status", "0"),
-            "sport": sport,  # display only (we derive from sport_id; feed does not send sport name)
-            "sport_id": sport_id if sport_id not in (None, "") else None,  # from feed (e.g. bet365 "1"); used as mapped feed id
+            "sport": None,  # filled from feed_sports.csv in main._enrich_feed_events_sport_names()
+            "sport_id": sport_id if sport_id not in (None, "") else None,  # from feed; used for lookup in feed_sports and entity_feed_mappings
             "betradar_id": None,
             "is_outright": False,
             "market_name": None,

@@ -42829,6 +42829,1169 @@
                 }
             ],
             "optionMarkets": []
+        },
+        {
+            "Id": 500740197,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 6,
+            "RegionName": "World",
+            "LeagueId": 106752,
+            "LeagueName": "T20 Series West Indies vs Sri Lanka, Women",
+            "BetRadarId": 68319442,
+            "our_event_id": 11355001,
+            "IsPreMatch": true,
+            "Date": "2026-03-03T17:00:00Z",
+            "updated_at": "1772543139",
+            "HomeTeam": "West Indies (Women)",
+            "HomeTeamId": 587088,
+            "AwayTeam": "Sri Lanka Women (Women)",
+            "AwayTeamId": 606644,
+            "Markets": [],
+            "optionMarkets": [
+                {
+                    "minCombo": 1,
+                    "templateCategory": {
+                        "dynamicCategories": [],
+                        "category": "Gridable",
+                        "id": 0
+                    },
+                    "source": "V2",
+                    "parameters": [
+                        {
+                            "key": "Happening",
+                            "value": "Run",
+                            "type": "String"
+                        },
+                        {
+                            "type": "String",
+                            "value": "2way",
+                            "key": "MarketType"
+                        },
+                        {
+                            "type": "String",
+                            "key": "Period",
+                            "value": "SuperOver"
+                        }
+                    ],
+                    "isMain": true,
+                    "name": {
+                        "value": "Match Betting (incl. super over)"
+                    },
+                    "comboPrevention": "NoFixtureCombo",
+                    "isEachWay": false,
+                    "options": [
+                        {
+                            "name": {
+                                "value": "West Indies"
+                            },
+                            "parameters": {
+                                "fixtureParticipant": 2780705,
+                                "optionTypes": [
+                                    "Max"
+                                ]
+                            },
+                            "status": "Visible",
+                            "price": {
+                                "americanOdds": -185,
+                                "denominator": 20,
+                                "numerator": 11,
+                                "odds": 1.55,
+                                "id": 178894900
+                            },
+                            "id": 62977568,
+                            "sourceName": {
+                                "value": "1"
+                            }
+                        },
+                        {
+                            "sourceName": {
+                                "value": "2"
+                            },
+                            "price": {
+                                "odds": 2.25,
+                                "id": 178894901,
+                                "americanOdds": 125,
+                                "numerator": 5,
+                                "denominator": 4
+                            },
+                            "id": 62977569,
+                            "status": "Visible",
+                            "parameters": {
+                                "optionTypes": [
+                                    "Max"
+                                ],
+                                "fixtureParticipant": 2780706
+                            },
+                            "name": {
+                                "value": "Sri Lanka"
+                            }
+                        }
+                    ],
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "marketGroupId": "7259184f-e175-44cb-b143-ab9f3f00b74e",
+                                "marketGroupItemId": "fb2fcb7c-2107-4d88-b1ba-e147256c7685",
+                                "displayType": "Regular",
+                                "orderType": "None"
+                            }
+                        ],
+                        "gridGroups": [
+                            "6m055au47"
+                        ]
+                    },
+                    "isBetBuilder": false,
+                    "id": 22325979,
+                    "status": "Visible"
+                }
+            ]
+        },
+        {
+            "Id": 500794843,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 134,
+            "RegionName": "India",
+            "LeagueId": 106935,
+            "LeagueName": "T20 DY Patil Trophy",
+            "BetRadarId": null,
+            "our_event_id": 0,
+            "IsPreMatch": true,
+            "Date": "2026-03-04T05:30:00Z",
+            "updated_at": "1772543139",
+            "HomeTeam": "Mumbai Customs",
+            "HomeTeamId": 638940,
+            "AwayTeam": "Jain Irrigation",
+            "AwayTeamId": 587194,
+            "Markets": [],
+            "optionMarkets": [
+                {
+                    "comboPrevention": "NoFixtureCombo",
+                    "isEachWay": false,
+                    "minCombo": 1,
+                    "templateCategory": {
+                        "id": 0,
+                        "category": "Gridable",
+                        "dynamicCategories": []
+                    },
+                    "source": "V2",
+                    "parameters": [
+                        {
+                            "value": "Run",
+                            "key": "Happening",
+                            "type": "String"
+                        },
+                        {
+                            "type": "String",
+                            "key": "MarketType",
+                            "value": "2way"
+                        },
+                        {
+                            "type": "String",
+                            "key": "Period",
+                            "value": "SuperOver"
+                        }
+                    ],
+                    "isMain": true,
+                    "name": {
+                        "value": "Match Betting (incl. super over)"
+                    },
+                    "isBetBuilder": false,
+                    "grouping": {
+                        "gridGroups": [
+                            "6m055au47"
+                        ],
+                        "detailed": [
+                            {
+                                "marketGroupId": "7259184f-e175-44cb-b143-ab9f3f00b74e",
+                                "displayType": "Regular",
+                                "marketGroupItemId": "fb2fcb7c-2107-4d88-b1ba-e147256c7685",
+                                "orderType": "None"
+                            }
+                        ]
+                    },
+                    "id": 22384607,
+                    "status": "Visible",
+                    "options": [
+                        {
+                            "sourceName": {
+                                "value": "1"
+                            },
+                            "price": {
+                                "americanOdds": -155,
+                                "numerator": 13,
+                                "denominator": 20,
+                                "id": 179081995,
+                                "odds": 1.65
+                            },
+                            "id": 63130265,
+                            "parameters": {
+                                "fixtureParticipant": 3009120,
+                                "optionTypes": [
+                                    "Max"
+                                ]
+                            },
+                            "status": "Visible",
+                            "name": {
+                                "value": "Mumbai Customs"
+                            }
+                        },
+                        {
+                            "status": "Visible",
+                            "parameters": {
+                                "fixtureParticipant": 3009121,
+                                "optionTypes": [
+                                    "Max"
+                                ]
+                            },
+                            "name": {
+                                "value": "Jain Irrigation"
+                            },
+                            "sourceName": {
+                                "value": "2"
+                            },
+                            "price": {
+                                "id": 179081996,
+                                "odds": 2.1,
+                                "americanOdds": 110,
+                                "denominator": 10,
+                                "numerator": 11
+                            },
+                            "id": 63130266
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "Id": 500794848,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 134,
+            "RegionName": "India",
+            "LeagueId": 106935,
+            "LeagueName": "T20 DY Patil Trophy",
+            "BetRadarId": null,
+            "our_event_id": 0,
+            "IsPreMatch": true,
+            "Date": "2026-03-04T05:30:00Z",
+            "updated_at": "1772543139",
+            "HomeTeam": "Dtdc",
+            "HomeTeamId": 795676,
+            "AwayTeam": "Ty Patil Red",
+            "AwayTeamId": 795644,
+            "Markets": [],
+            "optionMarkets": [
+                {
+                    "comboPrevention": "NoFixtureCombo",
+                    "isEachWay": false,
+                    "source": "V2",
+                    "templateCategory": {
+                        "category": "Gridable",
+                        "dynamicCategories": [],
+                        "id": 0
+                    },
+                    "minCombo": 1,
+                    "name": {
+                        "value": "Match Betting (incl. super over)"
+                    },
+                    "isMain": true,
+                    "parameters": [
+                        {
+                            "value": "Run",
+                            "key": "Happening",
+                            "type": "String"
+                        },
+                        {
+                            "type": "String",
+                            "key": "MarketType",
+                            "value": "2way"
+                        },
+                        {
+                            "type": "String",
+                            "value": "SuperOver",
+                            "key": "Period"
+                        }
+                    ],
+                    "id": 22381516,
+                    "isBetBuilder": false,
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "marketGroupId": "7259184f-e175-44cb-b143-ab9f3f00b74e",
+                                "displayType": "Regular",
+                                "marketGroupItemId": "fb2fcb7c-2107-4d88-b1ba-e147256c7685",
+                                "orderType": "None"
+                            }
+                        ],
+                        "gridGroups": [
+                            "6m055au47"
+                        ]
+                    },
+                    "status": "Visible",
+                    "options": [
+                        {
+                            "name": {
+                                "value": "Dtdc"
+                            },
+                            "status": "Visible",
+                            "parameters": {
+                                "fixtureParticipant": 3009142,
+                                "optionTypes": [
+                                    "Max"
+                                ]
+                            },
+                            "price": {
+                                "numerator": 39,
+                                "denominator": 20,
+                                "americanOdds": 195,
+                                "id": 179073308,
+                                "odds": 2.95
+                            },
+                            "id": 63122646,
+                            "sourceName": {
+                                "value": "1"
+                            }
+                        },
+                        {
+                            "price": {
+                                "numerator": 7,
+                                "denominator": 20,
+                                "americanOdds": -285,
+                                "id": 179073309,
+                                "odds": 1.35
+                            },
+                            "id": 63122647,
+                            "sourceName": {
+                                "value": "2"
+                            },
+                            "name": {
+                                "value": "Ty Patil Red"
+                            },
+                            "status": "Visible",
+                            "parameters": {
+                                "optionTypes": [
+                                    "Max"
+                                ],
+                                "fixtureParticipant": 3009143
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "Id": 500685932,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 197,
+            "RegionName": "South Africa",
+            "LeagueId": 104375,
+            "LeagueName": "List-A CSA One Day Cup Division 2",
+            "BetRadarId": 67432910,
+            "our_event_id": 0,
+            "IsPreMatch": true,
+            "Date": "2026-03-04T08:00:00Z",
+            "updated_at": "1772543139",
+            "HomeTeam": "Eastern Cape Linyathi",
+            "HomeTeamId": 587112,
+            "AwayTeam": "Eastern Storm",
+            "AwayTeamId": 586858,
+            "Markets": [],
+            "optionMarkets": [
+                {
+                    "name": {
+                        "value": "Match Betting (incl. super over)"
+                    },
+                    "isMain": true,
+                    "parameters": [
+                        {
+                            "type": "String",
+                            "value": "Run",
+                            "key": "Happening"
+                        },
+                        {
+                            "type": "String",
+                            "value": "2way",
+                            "key": "MarketType"
+                        },
+                        {
+                            "type": "String",
+                            "value": "SuperOver",
+                            "key": "Period"
+                        }
+                    ],
+                    "source": "V2",
+                    "templateCategory": {
+                        "category": "Gridable",
+                        "dynamicCategories": [],
+                        "id": 0
+                    },
+                    "minCombo": 1,
+                    "isEachWay": false,
+                    "comboPrevention": "NoFixtureCombo",
+                    "options": [
+                        {
+                            "id": 63253403,
+                            "price": {
+                                "numerator": 11,
+                                "denominator": 8,
+                                "americanOdds": 138,
+                                "odds": 2.37,
+                                "id": 179219725
+                            },
+                            "sourceName": {
+                                "value": "1"
+                            },
+                            "name": {
+                                "value": "Eastern Cape Linyathi"
+                            },
+                            "parameters": {
+                                "optionTypes": [
+                                    "Max"
+                                ],
+                                "fixtureParticipant": 2564393
+                            },
+                            "status": "Visible"
+                        },
+                        {
+                            "sourceName": {
+                                "value": "2"
+                            },
+                            "price": {
+                                "americanOdds": -200,
+                                "denominator": 2,
+                                "numerator": 1,
+                                "odds": 1.5,
+                                "id": 179219726
+                            },
+                            "id": 63253404,
+                            "status": "Visible",
+                            "parameters": {
+                                "optionTypes": [
+                                    "Max"
+                                ],
+                                "fixtureParticipant": 2564394
+                            },
+                            "name": {
+                                "value": "Eastern Storm"
+                            }
+                        }
+                    ],
+                    "status": "Visible",
+                    "id": 22428803,
+                    "isBetBuilder": false,
+                    "grouping": {
+                        "gridGroups": [
+                            "6m055au47"
+                        ],
+                        "detailed": [
+                            {
+                                "displayType": "Regular",
+                                "marketGroupItemId": "fb2fcb7c-2107-4d88-b1ba-e147256c7685",
+                                "marketGroupId": "7259184f-e175-44cb-b143-ab9f3f00b74e",
+                                "orderType": "None"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "Id": 500794854,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 134,
+            "RegionName": "India",
+            "LeagueId": 106935,
+            "LeagueName": "T20 DY Patil Trophy",
+            "BetRadarId": null,
+            "our_event_id": 0,
+            "IsPreMatch": true,
+            "Date": "2026-03-04T10:30:00Z",
+            "updated_at": "1772543139",
+            "HomeTeam": "Canara Bank",
+            "HomeTeamId": 635198,
+            "AwayTeam": "Reliance 1",
+            "AwayTeamId": 639589,
+            "Markets": [],
+            "optionMarkets": [
+                {
+                    "minCombo": 1,
+                    "templateCategory": {
+                        "category": "Gridable",
+                        "dynamicCategories": [],
+                        "id": 0
+                    },
+                    "source": "V2",
+                    "parameters": [
+                        {
+                            "type": "String",
+                            "value": "Run",
+                            "key": "Happening"
+                        },
+                        {
+                            "type": "String",
+                            "value": "2way",
+                            "key": "MarketType"
+                        },
+                        {
+                            "value": "SuperOver",
+                            "key": "Period",
+                            "type": "String"
+                        }
+                    ],
+                    "isMain": true,
+                    "name": {
+                        "value": "Match Betting (incl. super over)"
+                    },
+                    "comboPrevention": "NoFixtureCombo",
+                    "isEachWay": false,
+                    "options": [
+                        {
+                            "id": 63125245,
+                            "price": {
+                                "denominator": 4,
+                                "numerator": 5,
+                                "americanOdds": 125,
+                                "odds": 2.25,
+                                "id": 179075907
+                            },
+                            "sourceName": {
+                                "value": "1"
+                            },
+                            "name": {
+                                "value": "Canara Bank"
+                            },
+                            "parameters": {
+                                "optionTypes": [
+                                    "Max"
+                                ],
+                                "fixtureParticipant": 3009154
+                            },
+                            "status": "Visible"
+                        },
+                        {
+                            "name": {
+                                "value": "Reliance 1"
+                            },
+                            "status": "Visible",
+                            "parameters": {
+                                "optionTypes": [
+                                    "Max"
+                                ],
+                                "fixtureParticipant": 3009155
+                            },
+                            "id": 63125246,
+                            "price": {
+                                "numerator": 4,
+                                "denominator": 7,
+                                "americanOdds": -175,
+                                "id": 179075908,
+                                "odds": 1.57
+                            },
+                            "sourceName": {
+                                "value": "2"
+                            }
+                        }
+                    ],
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "marketGroupId": "7259184f-e175-44cb-b143-ab9f3f00b74e",
+                                "displayType": "Regular",
+                                "marketGroupItemId": "fb2fcb7c-2107-4d88-b1ba-e147256c7685",
+                                "orderType": "None"
+                            }
+                        ],
+                        "gridGroups": [
+                            "6m055au47"
+                        ]
+                    },
+                    "isBetBuilder": false,
+                    "id": 22382571,
+                    "status": "Visible"
+                }
+            ]
+        },
+        {
+            "Id": 500794857,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 134,
+            "RegionName": "India",
+            "LeagueId": 106935,
+            "LeagueName": "T20 DY Patil Trophy",
+            "BetRadarId": null,
+            "our_event_id": 0,
+            "IsPreMatch": true,
+            "Date": "2026-03-04T10:30:00Z",
+            "updated_at": "1772543139",
+            "HomeTeam": "Income Tax",
+            "HomeTeamId": 635423,
+            "AwayTeam": "Dy Patil Blue",
+            "AwayTeamId": 795645,
+            "Markets": [],
+            "optionMarkets": [
+                {
+                    "status": "Visible",
+                    "id": 22384469,
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "orderType": "None",
+                                "marketGroupId": "7259184f-e175-44cb-b143-ab9f3f00b74e",
+                                "marketGroupItemId": "fb2fcb7c-2107-4d88-b1ba-e147256c7685",
+                                "displayType": "Regular"
+                            }
+                        ],
+                        "gridGroups": [
+                            "6m055au47"
+                        ]
+                    },
+                    "isBetBuilder": false,
+                    "options": [
+                        {
+                            "name": {
+                                "value": "Income Tax"
+                            },
+                            "status": "Visible",
+                            "parameters": {
+                                "optionTypes": [
+                                    "Max"
+                                ],
+                                "fixtureParticipant": 3009160
+                            },
+                            "price": {
+                                "id": 179081635,
+                                "odds": 1.66,
+                                "numerator": 4,
+                                "denominator": 6,
+                                "americanOdds": -150
+                            },
+                            "id": 63129977,
+                            "sourceName": {
+                                "value": "1"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "Dy Patil Blue"
+                            },
+                            "parameters": {
+                                "fixtureParticipant": 3009161,
+                                "optionTypes": [
+                                    "Max"
+                                ]
+                            },
+                            "status": "Visible",
+                            "price": {
+                                "americanOdds": 105,
+                                "numerator": 21,
+                                "denominator": 20,
+                                "odds": 2.05,
+                                "id": 179081636
+                            },
+                            "id": 63129978,
+                            "sourceName": {
+                                "value": "2"
+                            }
+                        }
+                    ],
+                    "isEachWay": false,
+                    "comboPrevention": "NoFixtureCombo",
+                    "name": {
+                        "value": "Match Betting (incl. super over)"
+                    },
+                    "isMain": true,
+                    "parameters": [
+                        {
+                            "type": "String",
+                            "value": "Run",
+                            "key": "Happening"
+                        },
+                        {
+                            "type": "String",
+                            "value": "2way",
+                            "key": "MarketType"
+                        },
+                        {
+                            "key": "Period",
+                            "value": "SuperOver",
+                            "type": "String"
+                        }
+                    ],
+                    "source": "V2",
+                    "templateCategory": {
+                        "id": 0,
+                        "category": "Gridable",
+                        "dynamicCategories": []
+                    },
+                    "minCombo": 1
+                }
+            ]
+        },
+        {
+            "Id": 500792672,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 6,
+            "RegionName": "World",
+            "LeagueId": 104952,
+            "LeagueName": "T20 World Cup",
+            "BetRadarId": 66187938,
+            "our_event_id": 11525489,
+            "IsPreMatch": true,
+            "Date": "2026-03-04T13:30:00Z",
+            "updated_at": "1772543139",
+            "HomeTeam": "South Africa",
+            "HomeTeamId": 586594,
+            "AwayTeam": "New Zealand",
+            "AwayTeamId": 585078,
+            "Markets": [],
+            "optionMarkets": [
+                {
+                    "isMain": true,
+                    "parameters": [
+                        {
+                            "type": "String",
+                            "key": "Happening",
+                            "value": "Run"
+                        },
+                        {
+                            "type": "String",
+                            "key": "MarketType",
+                            "value": "2way"
+                        },
+                        {
+                            "value": "SuperOver",
+                            "key": "Period",
+                            "type": "String"
+                        }
+                    ],
+                    "name": {
+                        "value": "Match Betting (incl. super over)"
+                    },
+                    "minCombo": 1,
+                    "templateCategory": {
+                        "category": "Gridable",
+                        "dynamicCategories": [],
+                        "id": 0
+                    },
+                    "source": "V2",
+                    "isEachWay": false,
+                    "comboPrevention": "NoFixtureCombo",
+                    "options": [
+                        {
+                            "price": {
+                                "odds": 1.57,
+                                "id": 178815803,
+                                "denominator": 7,
+                                "numerator": 4,
+                                "americanOdds": -175
+                            },
+                            "id": 62910061,
+                            "sourceName": {
+                                "value": "1"
+                            },
+                            "name": {
+                                "value": "South Africa"
+                            },
+                            "parameters": {
+                                "fixtureParticipant": 3001326,
+                                "optionTypes": [
+                                    "Max"
+                                ]
+                            },
+                            "status": "Visible"
+                        },
+                        {
+                            "parameters": {
+                                "optionTypes": [
+                                    "Max"
+                                ],
+                                "fixtureParticipant": 3001327
+                            },
+                            "status": "Visible",
+                            "name": {
+                                "value": "New Zealand"
+                            },
+                            "sourceName": {
+                                "value": "2"
+                            },
+                            "id": 62910062,
+                            "price": {
+                                "numerator": 11,
+                                "denominator": 8,
+                                "americanOdds": 138,
+                                "odds": 2.37,
+                                "id": 178815806
+                            }
+                        }
+                    ],
+                    "status": "Visible",
+                    "isBetBuilder": false,
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "orderType": "None",
+                                "marketGroupId": "7259184f-e175-44cb-b143-ab9f3f00b74e",
+                                "marketGroupItemId": "fb2fcb7c-2107-4d88-b1ba-e147256c7685",
+                                "displayType": "Regular"
+                            }
+                        ],
+                        "gridGroups": [
+                            "6m055au47"
+                        ]
+                    },
+                    "id": 22299452
+                }
+            ]
+        },
+        {
+            "Id": 500540510,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 6,
+            "RegionName": "World",
+            "LeagueId": 105906,
+            "LeagueName": "ODI Series New Zealand vs Zimbabwe, Women",
+            "BetRadarId": 63405945,
+            "our_event_id": 0,
+            "IsPreMatch": true,
+            "Date": "2026-03-04T22:00:00Z",
+            "updated_at": "1772543139",
+            "HomeTeam": "New Zealand (Women)",
+            "HomeTeamId": 587093,
+            "AwayTeam": "Zimbabwe (Women)",
+            "AwayTeamId": 587190,
+            "Markets": [],
+            "optionMarkets": [
+                {
+                    "source": "V2",
+                    "minCombo": 1,
+                    "templateCategory": {
+                        "id": 0,
+                        "dynamicCategories": [],
+                        "category": "Gridable"
+                    },
+                    "name": {
+                        "value": "Match Betting (incl. super over)"
+                    },
+                    "isMain": true,
+                    "parameters": [
+                        {
+                            "type": "String",
+                            "key": "Happening",
+                            "value": "Run"
+                        },
+                        {
+                            "key": "MarketType",
+                            "value": "2way",
+                            "type": "String"
+                        },
+                        {
+                            "key": "Period",
+                            "value": "SuperOver",
+                            "type": "String"
+                        }
+                    ],
+                    "comboPrevention": "NoFixtureCombo",
+                    "isEachWay": false,
+                    "options": [
+                        {
+                            "sourceName": {
+                                "value": "2"
+                            },
+                            "id": 63132140,
+                            "price": {
+                                "odds": 41,
+                                "id": 179084138,
+                                "americanOdds": 4000,
+                                "denominator": 1,
+                                "numerator": 40
+                            },
+                            "parameters": {
+                                "optionTypes": [
+                                    "Max"
+                                ],
+                                "fixtureParticipant": 1848163
+                            },
+                            "status": "Visible",
+                            "name": {
+                                "value": "Zimbabwe"
+                            }
+                        }
+                    ],
+                    "id": 22385307,
+                    "grouping": {
+                        "gridGroups": [
+                            "6m055au47"
+                        ],
+                        "detailed": [
+                            {
+                                "orderType": "None",
+                                "displayType": "Regular",
+                                "marketGroupItemId": "fb2fcb7c-2107-4d88-b1ba-e147256c7685",
+                                "marketGroupId": "7259184f-e175-44cb-b143-ab9f3f00b74e"
+                            }
+                        ]
+                    },
+                    "isBetBuilder": false,
+                    "status": "Visible"
+                }
+            ]
+        },
+        {
+            "Id": 500793197,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 6,
+            "RegionName": "World",
+            "LeagueId": 104952,
+            "LeagueName": "T20 World Cup",
+            "BetRadarId": 66187940,
+            "our_event_id": 11526847,
+            "IsPreMatch": true,
+            "Date": "2026-03-05T13:30:00Z",
+            "updated_at": "1772543139",
+            "HomeTeam": "England",
+            "HomeTeamId": 585296,
+            "AwayTeam": "India",
+            "AwayTeamId": 586692,
+            "Markets": [],
+            "optionMarkets": [
+                {
+                    "parameters": [
+                        {
+                            "type": "String",
+                            "value": "Run",
+                            "key": "Happening"
+                        },
+                        {
+                            "type": "String",
+                            "value": "2way",
+                            "key": "MarketType"
+                        },
+                        {
+                            "key": "Period",
+                            "value": "SuperOver",
+                            "type": "String"
+                        }
+                    ],
+                    "isMain": true,
+                    "name": {
+                        "value": "Match Betting (incl. super over)"
+                    },
+                    "templateCategory": {
+                        "category": "Gridable",
+                        "dynamicCategories": [],
+                        "id": 0
+                    },
+                    "minCombo": 1,
+                    "source": "V2",
+                    "isEachWay": false,
+                    "comboPrevention": "NoFixtureCombo",
+                    "options": [
+                        {
+                            "sourceName": {
+                                "value": "1"
+                            },
+                            "id": 62946534,
+                            "price": {
+                                "id": 178858852,
+                                "odds": 2.7,
+                                "denominator": 10,
+                                "numerator": 17,
+                                "americanOdds": 170
+                            },
+                            "status": "Visible",
+                            "parameters": {
+                                "fixtureParticipant": 3003562,
+                                "optionTypes": [
+                                    "Max"
+                                ]
+                            },
+                            "name": {
+                                "value": "England"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "India"
+                            },
+                            "parameters": {
+                                "fixtureParticipant": 3003563,
+                                "optionTypes": [
+                                    "Max"
+                                ]
+                            },
+                            "status": "Visible",
+                            "id": 62946535,
+                            "price": {
+                                "numerator": 46,
+                                "denominator": 100,
+                                "americanOdds": -220,
+                                "id": 178858855,
+                                "odds": 1.46
+                            },
+                            "sourceName": {
+                                "value": "2"
+                            }
+                        }
+                    ],
+                    "status": "Visible",
+                    "grouping": {
+                        "gridGroups": [
+                            "6m055au47"
+                        ],
+                        "detailed": [
+                            {
+                                "orderType": "None",
+                                "marketGroupId": "7259184f-e175-44cb-b143-ab9f3f00b74e",
+                                "displayType": "Regular",
+                                "marketGroupItemId": "fb2fcb7c-2107-4d88-b1ba-e147256c7685"
+                            }
+                        ]
+                    },
+                    "isBetBuilder": false,
+                    "id": 22313684
+                }
+            ]
+        },
+        {
+            "Id": 500543184,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 6,
+            "RegionName": "World",
+            "LeagueId": 104936,
+            "LeagueName": "Test Series Australia vs. India, Women",
+            "BetRadarId": 63522349,
+            "our_event_id": 0,
+            "IsPreMatch": true,
+            "Date": "2026-03-06T05:20:00Z",
+            "updated_at": "1772543139",
+            "HomeTeam": "Australia (Women)",
+            "HomeTeamId": 587090,
+            "AwayTeam": "India (Women)",
+            "AwayTeamId": 587115,
+            "Markets": [],
+            "optionMarkets": [
+                {
+                    "id": 22282742,
+                    "grouping": {
+                        "gridGroups": [
+                            "txdpygzjk"
+                        ],
+                        "detailed": [
+                            {
+                                "displayType": "Regular",
+                                "marketGroupItemId": "39f465a4-d38f-47a5-8ce5-b634cecdded9",
+                                "marketGroupId": "7259184f-e175-44cb-b143-ab9f3f00b74e",
+                                "orderType": "None"
+                            }
+                        ]
+                    },
+                    "isBetBuilder": false,
+                    "status": "Visible",
+                    "options": [
+                        {
+                            "sourceName": {
+                                "value": "1"
+                            },
+                            "price": {
+                                "numerator": 23,
+                                "denominator": 100,
+                                "americanOdds": -450,
+                                "id": 178752950,
+                                "odds": 1.23
+                            },
+                            "id": 62870039,
+                            "parameters": {
+                                "optionTypes": [
+                                    "Max"
+                                ],
+                                "fixtureParticipant": 1862330
+                            },
+                            "status": "Visible",
+                            "name": {
+                                "value": "Australia"
+                            }
+                        },
+                        {
+                            "sourceName": {
+                                "value": "2"
+                            },
+                            "id": 62870040,
+                            "price": {
+                                "numerator": 31,
+                                "denominator": 10,
+                                "americanOdds": 310,
+                                "id": 178752951,
+                                "odds": 4.1
+                            },
+                            "parameters": {
+                                "fixtureParticipant": 1862331,
+                                "optionTypes": [
+                                    "Max"
+                                ]
+                            },
+                            "status": "Visible",
+                            "name": {
+                                "value": "India"
+                            }
+                        }
+                    ],
+                    "comboPrevention": "NoFixtureCombo",
+                    "isEachWay": false,
+                    "source": "V2",
+                    "templateCategory": {
+                        "id": 0,
+                        "dynamicCategories": [],
+                        "category": "Gridable"
+                    },
+                    "minCombo": 1,
+                    "name": {
+                        "value": "Draw No Bet"
+                    },
+                    "isMain": true,
+                    "parameters": [
+                        {
+                            "type": "String",
+                            "key": "Happening",
+                            "value": "Run"
+                        },
+                        {
+                            "value": "DrawNoBet",
+                            "key": "MarketType",
+                            "type": "String"
+                        },
+                        {
+                            "type": "String",
+                            "key": "Period",
+                            "value": "FullTime"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "Id": 18369059,
+            "SportId": 22,
+            "SportName": "Cricket",
+            "RegionId": 6,
+            "RegionName": "World",
+            "LeagueId": 38397,
+            "LeagueName": "T20 World Cup - Outrights",
+            "BetRadarId": null,
+            "our_event_id": 0,
+            "IsPreMatch": true,
+            "Date": "2026-03-08T13:30:00Z",
+            "updated_at": "1772543139",
+            "Markets": [],
+            "optionMarkets": []
         }
     ]
 }

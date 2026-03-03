@@ -10,3 +10,6 @@ domain_id,sport_id,category_id,name,baseid,jurisdiction,underage_category_id,par
 9,1,5,Copa Libertadores Qualification,,-,,1,0,2026-03-02T11:17:41,2026-03-02T11:17:41
 10,1,2,Copa do Brasil,,br,,1,0,2026-03-03T09:17:32,2026-03-03T09:17:32
 11,1,2,Campeonato Acreano,,br,,1,0,2026-03-03T09:19:45,2026-03-03T09:19:45
+12,5,8,ESL Pro League Stage 1,,-,,1,0,2026-03-03T13:39:14,2026-03-03T13:39:14
+13,4,9,Ligan,,se,,1,0,2026-03-03T13:43:45,2026-03-03T13:43:45
+14,4,10,Extraliga Women,,sk,,2,0,2026-03-03T13:45:25,2026-03-03T13:45:25

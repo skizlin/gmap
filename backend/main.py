@@ -46,6 +46,7 @@ UNDERAGE_CATEGORIES_PATH = config.UNDERAGE_CATEGORIES_PATH
 LANGUAGES_PATH = config.LANGUAGES_PATH
 TRANSLATIONS_PATH = config.TRANSLATIONS_PATH
 BRANDS_PATH = config.BRANDS_PATH
+FEED_SPORTS_PATH = config.FEED_SPORTS_PATH
 FEEDER_CONFIG_PATH = config.FEEDER_CONFIG_PATH
 FEEDER_INCIDENTS_PATH = config.FEEDER_INCIDENTS_PATH
 MARGIN_TEMPLATES_PATH = config.MARGIN_TEMPLATES_PATH
@@ -124,7 +125,90 @@ KNOWN_FEEDS = ["bet365", "betfair", "sbobet", "1xbet", "bwin"]
 from backend.mock_data import load_all_mock_data
 DUMMY_EVENTS = load_all_mock_data()
 
-# Derive per-feed sport lists (sorted, unique)
+# Feed sports: loaded from feed_sports.csv; (feed_code, feed_sport_id) -> name; feed_code -> list of {id, name}
+_FEED_SPORTS_LOOKUP: dict[tuple[str, str], str] = {}
+_FEED_SPORTS_BY_FEED: dict[str, list[dict]] = {}
+def _load_feed_sports() -> None:
+    """Load feed_sports.csv into _FEED_SPORTS_LOOKUP and _FEED_SPORTS_BY_FEED."""
+    global _FEED_SPORTS_LOOKUP, _FEED_SPORTS_BY_FEED
+    _FEED_SPORTS_LOOKUP = {}
+    _FEED_SPORTS_BY_FEED = {f: [] for f in KNOWN_FEEDS}
+    if not FEED_SPORTS_PATH.exists():
+        return
+    with open(FEED_SPORTS_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            feed = (row.get("feed_provider") or "").strip().lower()
+            raw_sid = row.get("feed_sport_id")
+            sid = str(int(raw_sid)).strip() if isinstance(raw_sid, (int, float)) else (raw_sid or "").strip()
+            name = (row.get("feed_sport_name") or "").strip()
+            if not feed:
+                continue
+            key = (feed, sid)
+            _FEED_SPORTS_LOOKUP[key] = name or sid or "—"
+            if feed not in _FEED_SPORTS_BY_FEED:
+                _FEED_SPORTS_BY_FEED[feed] = []
+            if not any(x.get("id") == sid for x in _FEED_SPORTS_BY_FEED[feed]):
+                _FEED_SPORTS_BY_FEED[feed].append({"id": sid, "name": name or sid or "—"})
+    for feed in _FEED_SPORTS_BY_FEED:
+        _FEED_SPORTS_BY_FEED[feed].sort(key=lambda x: (x["name"].lower(), x["id"]))
+
+def _get_feed_sport_name(feed_provider: str, sport_id: str | int | None, fallback_name: str | None = None) -> str:
+    """Resolve display name for (feed, feed_sport_id) from feed_sports.csv. Fallback: fallback_name, else 'Sport {id}'."""
+    if not _FEED_SPORTS_LOOKUP:
+        _load_feed_sports()
+    if sport_id is None or (isinstance(sport_id, str) and not sport_id.strip()):
+        sid_str = ""
+    else:
+        sid_str = str(int(sport_id)) if isinstance(sport_id, (int, float)) else str(sport_id).strip()
+    feed = (feed_provider or "").strip().lower()
+    if feed and sid_str:
+        key = (feed, sid_str)
+        if key in _FEED_SPORTS_LOOKUP:
+            return _FEED_SPORTS_LOOKUP[key]
+    if fallback_name and (fallback_name or "").strip():
+        return (fallback_name or "").strip()
+    return f"Sport {sid_str}" if sid_str else "—"
+
+def _get_sports_for_feed(feed_provider: str, events_for_feed: list[dict] | None = None) -> list[str]:
+    """Return sorted list of sport names for this feed: from feed_sports.csv, or distinct from events if CSV empty."""
+    if not _FEED_SPORTS_BY_FEED:
+        _load_feed_sports()
+    feed = (feed_provider or "").strip().lower()
+    if feed and _FEED_SPORTS_BY_FEED.get(feed):
+        return [x["name"] for x in _FEED_SPORTS_BY_FEED[feed]]
+    if events_for_feed:
+        return sorted({e.get("sport") or "" for e in events_for_feed if e.get("sport")})
+    return []
+
+
+def _enrich_feed_events_sport_names() -> None:
+    """Fill event['sport'] from feed_sports.csv (or keep existing / 'Sport {id}'). Call before using DUMMY_EVENTS in feeder views."""
+    _load_feed_sports()
+    for e in DUMMY_EVENTS:
+        e["sport"] = _get_feed_sport_name(e.get("feed_provider") or "", e.get("sport_id"), e.get("sport"))
+
+
+def _load_feed_sports_rows() -> list[dict]:
+    """Load feed_sports.csv as list of dicts (feed_provider, feed_sport_id, feed_sport_name) for Entities UI."""
+    if not FEED_SPORTS_PATH.exists():
+        return []
+    with open(FEED_SPORTS_PATH, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+def _save_feed_sports(rows: list[dict]) -> None:
+    """Overwrite feed_sports.csv with rows. Each row: feed_provider, feed_sport_id, feed_sport_name."""
+    fieldnames = ["feed_provider", "feed_sport_id", "feed_sport_name"]
+    with open(FEED_SPORTS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+    global _FEED_SPORTS_LOOKUP, _FEED_SPORTS_BY_FEED
+    _FEED_SPORTS_LOOKUP = {}
+    _FEED_SPORTS_BY_FEED = {}
+    _load_feed_sports()
+
+# Derive per-feed sport lists (fallback when feed_sports empty); will be overridden by feed_sports when loaded
 KNOWN_SPORTS = sorted({e["sport"] for e in DUMMY_EVENTS if e.get("sport")})
 SPORTS_BY_FEED = {
     feed: sorted({e["sport"] for e in DUMMY_EVENTS if e["feed_provider"] == feed and e.get("sport")})
@@ -2065,16 +2149,19 @@ async def feeder_events_view(
     competitions: List[str] = Query(default=None),
 ):
     _sync_feeder_events_mapping_status()
-    selected_feed = feed_provider or KNOWN_FEEDS[0]
-    selected_feed_pid = next((f["domain_id"] for f in FEEDS if f["code"] == selected_feed), None)
-    feed_sports = SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
-    feed_sports_live = sorted({e["sport"] for e in DUMMY_EVENTS if e.get("feed_provider") == selected_feed and e.get("sport")}) or feed_sports
+    _enrich_feed_events_sport_names()
+    selected_feed = (feed_provider or KNOWN_FEEDS[0]).strip().lower()
+    selected_feed_pid = next((f["domain_id"] for f in FEEDS if (f.get("code") or "").strip().lower() == selected_feed), None)
+    events_for_feed = [e for e in DUMMY_EVENTS if (e.get("feed_provider") or "").strip().lower() == selected_feed]
+    csv_sports = _get_sports_for_feed(selected_feed, events_for_feed) or []
+    event_sports = sorted({e.get("sport") for e in events_for_feed if e.get("sport")})
+    feed_sports_live = sorted(set(csv_sports + event_sports)) if (csv_sports or event_sports) else SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
     selected_sports = sports if sports else feed_sports_live
     selected_categories = categories or []
     selected_competitions = competitions or []
     filtered = [
         e for e in DUMMY_EVENTS
-        if e["feed_provider"] == selected_feed
+        if (e.get("feed_provider") or "").strip().lower() == selected_feed
         and e.get("sport") in selected_sports
     ]
     if selected_categories:
@@ -2114,8 +2201,10 @@ async def feeder_events_sport_options(request: Request, feed_provider: str = Non
     HTMX Endpoint: Returns sport checkboxes (all checked) for the given feed.
     Called when the feed filter changes so the sport list updates.
     """
+    _enrich_feed_events_sport_names()
     selected_feed = feed_provider or KNOWN_FEEDS[0]
-    feed_sports = SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
+    events_for_feed = [e for e in DUMMY_EVENTS if e.get("feed_provider") == selected_feed]
+    feed_sports = _get_sports_for_feed(selected_feed, events_for_feed) or SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
     return templates.TemplateResponse("_sport_checkboxes.html", {
         "request": request,
         "sports": feed_sports
@@ -2137,8 +2226,12 @@ async def feeder_events_table(
     Supports: feed, sports, categories, competitions, mapping status, outright, and text search.
     """
     _sync_feeder_events_mapping_status()
-    selected_feed = feed_provider or KNOWN_FEEDS[0]
-    feed_sports = sorted({e["sport"] for e in DUMMY_EVENTS if e.get("feed_provider") == selected_feed and e.get("sport")})
+    _enrich_feed_events_sport_names()
+    selected_feed = (feed_provider or KNOWN_FEEDS[0]).strip().lower()
+    events_for_feed = [e for e in DUMMY_EVENTS if (e.get("feed_provider") or "").strip().lower() == selected_feed]
+    csv_sports = _get_sports_for_feed(selected_feed, events_for_feed) or []
+    event_sports = sorted({e.get("sport") for e in events_for_feed if e.get("sport")})
+    feed_sports = sorted(set(csv_sports + event_sports)) if (csv_sports or event_sports) else SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
     if not feed_sports:
         feed_sports = SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
     requested_set = set(sports or [])
@@ -2152,7 +2245,7 @@ async def feeder_events_table(
 
     filtered = []
     for e in DUMMY_EVENTS:
-        if e["feed_provider"] != selected_feed:
+        if (e.get("feed_provider") or "").strip().lower() != selected_feed:
             continue
         if e.get("sport") not in active_sports:
             continue
@@ -3093,6 +3186,27 @@ async def entities_view(request: Request):
     })
 
 
+@app.post("/api/feed-sports")
+async def api_add_feed_sport(
+    feed_provider: str = Form(...),
+    feed_sport_id: str = Form(...),
+    feed_sport_name: str = Form(""),
+):
+    """Add a row to feed_sports.csv. feed_provider = feed code (e.g. betfair), feed_sport_id = feed's sport id, feed_sport_name = display name."""
+    feed_provider = (feed_provider or "").strip()
+    feed_sport_id = (feed_sport_id or "").strip()
+    feed_sport_name = (feed_sport_name or "").strip()
+    if not feed_provider or not feed_sport_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="feed_provider and feed_sport_id are required.")
+    rows = _load_feed_sports_rows()
+    if any((r.get("feed_provider") or "").strip() == feed_provider and (r.get("feed_sport_id") or "").strip() == feed_sport_id for r in rows):
+        return {"ok": True, "message": "Already exists"}
+    rows.append({"feed_provider": feed_provider, "feed_sport_id": feed_sport_id, "feed_sport_name": feed_sport_name or feed_sport_id})
+    _save_feed_sports(rows)
+    return {"ok": True, "created": True}
+
+
 # Feeder Configuration: system action keys (for grid columns)
 FEEDER_SYSTEM_ACTIONS = [
     ("automapping_enabled", "Automapping enabled"),
@@ -3177,6 +3291,9 @@ async def feeders_view(
                 if fid is not None and itype:
                     incident_lookup[(fid, itype)] = r.get("enabled", False)
 
+    feed_sports = _load_feed_sports_rows()
+    feed_sports_count = len(feed_sports)
+
     return templates.TemplateResponse("feeders.html", {
         "request": request,
         "section": "feeders",
@@ -3195,6 +3312,8 @@ async def feeders_view(
         "selected_category_id": cid_int,
         "selected_league_id": lid_int,
         "config_level": level,
+        "feed_sports": feed_sports,
+        "feed_sports_count": feed_sports_count,
     })
 
 
