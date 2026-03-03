@@ -946,22 +946,24 @@ def _update_entity_market(domain_id: int, updated_at: str, **kwargs: str | bool 
 
 # In-memory stores — initialised from CSV on startup
 def _load_domain_events() -> list[dict]:
-    """Load domain_events.csv into memory on startup."""
+    """Load domain_events.csv into memory on startup. Skips rows missing domain_id."""
     if not DOMAIN_EVENTS_PATH.exists():
         return []
     with open(DOMAIN_EVENTS_PATH, newline="", encoding="utf-8") as f:
         rows = []
         for row in csv.DictReader(f):
+            if "domain_id" not in row or not str(row.get("domain_id", "")).strip():
+                continue
             rows.append({
                 "id":          row["domain_id"],
-                "sport":       row["sport"],
-                "category":    row["category"],
-                "competition": row["competition"],
-                "home":        row["home"],
-                "home_id":     row["home_id"],
-                "away":        row["away"],
-                "away_id":     row["away_id"],
-                "start_time":  row["start_time"],
+                "sport":       row.get("sport", ""),
+                "category":    row.get("category", ""),
+                "competition": row.get("competition", ""),
+                "home":        row.get("home", ""),
+                "home_id":     row.get("home_id", ""),
+                "away":        row.get("away", ""),
+                "away_id":     row.get("away_id", ""),
+                "start_time":  row.get("start_time", ""),
             })
         return rows
 
