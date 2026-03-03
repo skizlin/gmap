@@ -143,6 +143,7 @@ from backend.schemas import (
     CreateEntityRequest,
     UpdateEntityNameRequest,
     UpdateEntityJurisdictionRequest,
+    UpdateMarketRequest,
     CreateBrandRequest,
     UpdateBrandRequest,
     CreateMarketGroupRequest,
@@ -872,6 +873,76 @@ def _update_entity_jurisdiction(etype: str, domain_id: int, jurisdiction: str, u
         writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _update_entity_market(domain_id: int, updated_at: str, **kwargs: str | bool | None) -> None:
+    """Update a single market row in markets.csv and in DOMAIN_ENTITIES. kwargs: name, code, abb, market_type, market_group, template, period_type, score_type, side_type, score_dependant."""
+    path = DATA_DIR / "markets.csv"
+    if not path.exists():
+        return
+    fields = _ENTITY_FIELDS["markets"]
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+    for row in rows:
+        try:
+            row_id = int(row.get("domain_id", 0))
+        except (TypeError, ValueError):
+            continue
+        if row_id == domain_id:
+            if "name" in kwargs and kwargs["name"] is not None:
+                row["name"] = (kwargs["name"] or "").strip()
+            if "code" in kwargs and kwargs["code"] is not None:
+                row["code"] = (kwargs["code"] or "").strip()
+            if "abb" in kwargs and kwargs["abb"] is not None:
+                row["abb"] = (kwargs["abb"] or "").strip()
+            if "market_type" in kwargs and kwargs["market_type"] is not None:
+                row["market_type"] = (kwargs["market_type"] or "").strip()
+            if "market_group" in kwargs and kwargs["market_group"] is not None:
+                row["market_group"] = (kwargs["market_group"] or "").strip()
+            if "template" in kwargs and kwargs["template"] is not None:
+                row["template"] = (kwargs["template"] or "").strip()
+            if "period_type" in kwargs and kwargs["period_type"] is not None:
+                row["period_type"] = (kwargs["period_type"] or "").strip()
+            if "score_type" in kwargs and kwargs["score_type"] is not None:
+                row["score_type"] = (kwargs["score_type"] or "").strip()
+            if "side_type" in kwargs and kwargs["side_type"] is not None:
+                row["side_type"] = (kwargs["side_type"] or "").strip()
+            if "score_dependant" in kwargs and kwargs["score_dependant"] is not None:
+                row["score_dependant"] = "1" if kwargs["score_dependant"] else "0"
+            row["updated_at"] = updated_at
+            break
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+    # Update in-memory
+    bucket = DOMAIN_ENTITIES.get("markets") or []
+    for m in bucket:
+        if m.get("domain_id") == domain_id:
+            m["updated_at"] = updated_at
+            if "name" in kwargs and kwargs["name"] is not None:
+                m["name"] = (kwargs["name"] or "").strip()
+            if "code" in kwargs and kwargs["code"] is not None:
+                m["code"] = (kwargs["code"] or "").strip()
+            if "abb" in kwargs and kwargs["abb"] is not None:
+                m["abb"] = (kwargs["abb"] or "").strip()
+            if "market_type" in kwargs and kwargs["market_type"] is not None:
+                m["market_type"] = (kwargs["market_type"] or "").strip()
+            if "market_group" in kwargs and kwargs["market_group"] is not None:
+                m["market_group"] = (kwargs["market_group"] or "").strip()
+            if "template" in kwargs and kwargs["template"] is not None:
+                m["template"] = (kwargs["template"] or "").strip()
+            if "period_type" in kwargs and kwargs["period_type"] is not None:
+                m["period_type"] = (kwargs["period_type"] or "").strip()
+            if "score_type" in kwargs and kwargs["score_type"] is not None:
+                m["score_type"] = (kwargs["score_type"] or "").strip()
+            if "side_type" in kwargs and kwargs["side_type"] is not None:
+                m["side_type"] = (kwargs["side_type"] or "").strip()
+            if "score_dependant" in kwargs and kwargs["score_dependant"] is not None:
+                m["score_dependant"] = "1" if kwargs["score_dependant"] else "0"
+            break
+
 
 # In-memory stores — initialised from CSV on startup
 def _load_domain_events() -> list[dict]:
@@ -1653,6 +1724,55 @@ async def update_entity_jurisdiction(body: UpdateEntityJurisdictionRequest):
     return {"domain_id": body.domain_id, "jurisdiction": jurisdiction}
 
 
+@app.get("/api/entities/markets/{domain_id:int}")
+async def get_market(domain_id: int):
+    """Return a single market by domain_id for edit form."""
+    from fastapi import HTTPException
+
+    bucket = DOMAIN_ENTITIES.get("markets") or []
+    entity = next((e for e in bucket if e["domain_id"] == domain_id), None)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Market not found.")
+    return entity
+
+
+@app.patch("/api/entities/markets/{domain_id:int}")
+async def update_market(domain_id: int, body: UpdateMarketRequest):
+    """Update a market type by domain_id. All fields optional."""
+    from fastapi import HTTPException
+
+    bucket = DOMAIN_ENTITIES.get("markets") or []
+    entity = next((e for e in bucket if e["domain_id"] == domain_id), None)
+    if not entity:
+        raise HTTPException(status_code=404, detail="Market not found.")
+
+    _now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    kwargs = {}
+    if body.name is not None:
+        kwargs["name"] = body.name
+    if body.code is not None:
+        kwargs["code"] = body.code
+    if body.abb is not None:
+        kwargs["abb"] = body.abb
+    if body.market_type is not None:
+        kwargs["market_type"] = body.market_type
+    if body.market_group is not None:
+        kwargs["market_group"] = body.market_group
+    if body.template is not None:
+        kwargs["template"] = body.template
+    if body.period_type is not None:
+        kwargs["period_type"] = body.period_type
+    if body.score_type is not None:
+        kwargs["score_type"] = body.score_type
+    if body.side_type is not None:
+        kwargs["side_type"] = body.side_type
+    if body.score_dependant is not None:
+        kwargs["score_dependant"] = body.score_dependant
+
+    _update_entity_market(domain_id, _now, **kwargs)
+    return {"domain_id": domain_id, "updated_at": _now}
+
+
 @app.post("/api/domain-events")
 async def create_domain_event(body: CreateDomainEventRequest):
     """
@@ -2166,6 +2286,26 @@ def _domain_event_start_time_mismatch(domain_event_id: str, mappings: list[dict]
     return len(seen) > 1
 
 
+def _domain_event_feed_start_times(mappings: list[dict], feed_events: list[dict] | None = None) -> list[dict]:
+    """Return list of {feed, start_time} for each mapped feed event (start_time formatted for display)."""
+    source = feed_events if feed_events is not None else DUMMY_EVENTS
+    out: list[dict] = []
+    for m in mappings:
+        feed_provider = (m.get("feed_provider") or "").strip()
+        feed_valid_id = (m.get("feed_valid_id") or "").strip()
+        feed_ev = next(
+            (e for e in source if (e.get("feed_provider") or "").strip() == feed_provider and str(e.get("valid_id") or "").strip() == feed_valid_id),
+            None,
+        )
+        feed_label = feed_provider or "—"
+        if not feed_ev:
+            out.append({"feed": feed_label, "start_time": "—"})
+            continue
+        st = (feed_ev.get("start_time") or "").strip()
+        out.append({"feed": feed_label, "start_time": _format_start_time(st) or "—"})
+    return out
+
+
 def _filter_domain_events(
     enriched: list[dict],
     date_str: str | None,
@@ -2230,7 +2370,8 @@ async def domain_events_view(
         mappings = mappings_by_event.get(ev["id"], [])
         providers = ", ".join(sorted({m["feed_provider"] for m in mappings}))
         start_time_mismatch = _domain_event_start_time_mismatch(ev["id"], mappings, feed_events)
-        enriched.append({**ev, "mapped_providers": providers, "mapped_feed_count": len(mappings), "start_time_mismatch": start_time_mismatch})
+        feed_start_times = _domain_event_feed_start_times(mappings, feed_events)
+        enriched.append({**ev, "mapped_providers": providers, "mapped_feed_count": len(mappings), "start_time_mismatch": start_time_mismatch, "feed_start_times": feed_start_times})
     domain_sports = _domain_events_sports()
     selected_sports = sports if sports else domain_sports
     active_sports = selected_sports if sports else None
@@ -2282,7 +2423,8 @@ async def domain_events_table(
         mappings = mappings_by_event.get(ev["id"], [])
         providers = ", ".join(sorted({m["feed_provider"] for m in mappings}))
         start_time_mismatch = _domain_event_start_time_mismatch(ev["id"], mappings, feed_events)
-        enriched.append({**ev, "mapped_providers": providers, "mapped_feed_count": len(mappings), "start_time_mismatch": start_time_mismatch})
+        feed_start_times = _domain_event_feed_start_times(mappings, feed_events)
+        enriched.append({**ev, "mapped_providers": providers, "mapped_feed_count": len(mappings), "start_time_mismatch": start_time_mismatch, "feed_start_times": feed_start_times})
     domain_sports = _domain_events_sports()
     selected_sports = sports if sports else domain_sports
     active_sports = selected_sports if sports else None

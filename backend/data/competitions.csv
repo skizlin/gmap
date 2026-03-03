@@ -8,3 +8,5 @@ domain_id,sport_id,category_id,name,baseid,jurisdiction,underage_category_id,par
 7,2,7,Austin - Doubles,,-,,1,0,2026-03-02T10:06:49,2026-03-02T10:06:49
 8,1,5,UEFA Youth League,,-,,1,0,2026-03-02T10:44:16,2026-03-02T10:44:16
 9,1,5,Copa Libertadores Qualification,,-,,1,0,2026-03-02T11:17:41,2026-03-02T11:17:41
+10,1,2,Copa do Brasil,,br,,1,0,2026-03-03T09:17:32,2026-03-03T09:17:32
+11,1,2,Campeonato Acreano,,br,,1,0,2026-03-03T09:19:45,2026-03-03T09:19:45

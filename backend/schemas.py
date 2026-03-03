@@ -60,6 +60,19 @@ class UpdateEntityJurisdictionRequest(BaseModel):
     jurisdiction: str
 
 
+class UpdateMarketRequest(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    abb: Optional[str] = None
+    market_type: Optional[str] = None
+    market_group: Optional[str] = None
+    template: Optional[str] = None
+    period_type: Optional[str] = None
+    score_type: Optional[str] = None
+    side_type: Optional[str] = None
+    score_dependant: Optional[bool] = None
+
+
 class CreateBrandRequest(BaseModel):
     name: str
     code: Optional[str] = None

@@ -324,7 +324,7 @@
                         <th class="px-3 py-2 font-semibold">#Feeds</th>
                         <th class="px-3 py-2 font-semibold">Created</th>
                         <th class="px-3 py-2 font-semibold">Last edited</th>
-                        <th class="px-3 py-2 font-semibold text-right">MAP</th>
+                        <th class="px-3 py-2 font-semibold text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-700/40 entity-tbody" data-panel="markets">
@@ -354,9 +354,12 @@
                         <td class="px-3 py-2 text-slate-400">{{ refs | length }}</td>
                         <td class="px-3 py-2 text-slate-400">{{ entity.get('created_at') | format_entity_date }}</td>
                         <td class="px-3 py-2 text-slate-400">{{ entity.get('updated_at') | format_entity_date }}</td>
-                        <td class="px-3 py-2 text-right">
-                            <button type="button" onclick="openMarketMapper({{ entity.domain_id }}, '{{ entity.name | e }}')" class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium bg-secondary/20 text-secondary border border-secondary/40 hover:bg-secondary/30 transition-colors" title="Map this market type to feed markets">
-                                <i class="fa-solid fa-link"></i> Map
+                        <td class="px-3 py-2 text-right align-top">
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                data-entity-panel="markets" data-entity-id="{{ entity.domain_id }}"
+                                data-entity-name="{{ entity.name | e }}"
+                                aria-haspopup="true" title="Actions">
+                                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                             </button>
                         </td>
                     </tr>
@@ -437,7 +440,7 @@
         </div>
 
         <!-- Table -->
-        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-hidden flex-1">
+        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr
@@ -504,11 +507,11 @@
                         </td>
                         <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">{{ entity.get('created_at') | format_entity_date }}</td>
                         <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">{{ entity.get('updated_at') | format_entity_date }}</td>
-                        <td class="px-4 py-2.5 text-right">
-                            <button type="button"
-                                onclick="openEntityEditModal('{{ key }}', {{ entity.domain_id }})"
-                                class="text-slate-500 hover:text-primary transition-colors text-xs px-2 py-1 rounded hover:bg-primary/10">
-                                <i class="fa-solid fa-pen-to-square mr-1"></i>Edit
+                        <td class="px-4 py-2.5 text-right align-top">
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
+                                aria-haspopup="true" title="Actions">
+                                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                             </button>
                         </td>
                     </tr>
@@ -587,10 +590,116 @@
             </div>
         </div>
     </div>
+
+    <!-- Entity row kebab dropdown (single floating menu; content toggled by data-entity-panel) -->
+    <div id="entity-kebab-dropdown" class="entity-kebab-dropdown hidden fixed z-[9999] min-w-[180px] py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl" role="menu" aria-hidden="true">
+        <button type="button" class="entity-action-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="edit">
+            <i class="fa-solid fa-pen-to-square w-4 text-slate-400"></i> Edit
+        </button>
+        <button type="button" class="entity-action-remove-mappings w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="remove-mappings" title="Placeholder – behaviour to be implemented">
+            <i class="fa-solid fa-unlink w-4 text-slate-400"></i> Remove Mappings
+        </button>
+        <button type="button" class="entity-action-map w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="map" title="Map this market type to feed markets">
+            <i class="fa-solid fa-link w-4 text-slate-400"></i> Map
+        </button>
+        <button type="button" class="entity-action-active-inactive w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="active-inactive" title="Placeholder – behaviour to be implemented">
+            <i class="fa-solid fa-toggle-on w-4 text-slate-400"></i> Active/Inactive
+        </button>
+    </div>
+
+    <!-- Edit Market Type modal (same fields as create; loaded from entity, saved via PATCH) -->
+    <div id="market-edit-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60" aria-modal="true" onclick="if (event.target === this) closeMarketEditModal()">
+        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5" onclick="event.stopPropagation()">
+            <h3 class="text-sm font-semibold text-white mb-4">Edit Market Type</h3>
+            <input type="hidden" id="market-edit-domain-id" value="">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+                    <input type="text" id="market-edit-name" placeholder="Market type name" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Abb.</label>
+                    <input type="text" id="market-edit-abb" placeholder="e.g. 3W, MR" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Market Type</label>
+                    <select id="market-edit-market-type" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="both">Both</option>
+                        <option value="prematch">PreMatch</option>
+                        <option value="live">Live</option>
+                    </select>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div class="flex-1">
+                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Market Group</label>
+                        <select id="market-edit-market-group" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                            <option value="">— select —</option>
+                            {% for g in market_groups %}
+                            <option value="{{ g.code }}">{{ g.name }} ({{ g.code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Template</label>
+                    <select id="market-edit-template" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">— select —</option>
+                        {% for t in market_templates %}
+                        <option value="{{ t.code }}">{{ t.name }} ({{ t.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Period Type</label>
+                    <select id="market-edit-period-type" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">— select —</option>
+                        {% for p in market_period_types %}
+                        <option value="{{ p.code }}">{{ p.name }} ({{ p.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Score Type</label>
+                    <select id="market-edit-score-type" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">— select —</option>
+                        {% for s in market_score_types %}
+                        <option value="{{ s.code }}">{{ s.name }} ({{ s.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Side Type</label>
+                    <select id="market-edit-side-type" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="undefined">Undefined</option>
+                        <option value="home">Home</option>
+                        <option value="away">Away</option>
+                        <option value="player">Player</option>
+                        <option value="team">Team</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                        <input type="checkbox" id="market-edit-score-dependant" class="rounded border-slate-600 bg-slate-800 text-primary">
+                        Score Dependant
+                    </label>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-4">
+                <button type="button" id="market-edit-save" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                <button type="button" onclick="closeMarketEditModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                <span id="market-edit-status" class="text-xs text-slate-400 self-center"></span>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<style>
+    .entity-kebab-dropdown.entity-kebab-dropdown--open { display: block !important; }
+    .entity-kebab-dropdown[data-entity-panel="markets"] .entity-action-remove-mappings { display: none; }
+    .entity-kebab-dropdown:not([data-entity-panel="markets"]) .entity-action-map { display: none; }
+</style>
 <script>
     function switchEntityTab(key) {
         document.querySelectorAll('.entity-tab').forEach(t => {
@@ -831,6 +940,148 @@
             alert('Error saving name.');
         }
     }
+
+    // ─── Entity row kebab dropdown ───────────────────────────────────────────
+    (function () {
+        var dropdown = document.getElementById('entity-kebab-dropdown');
+        if (!dropdown) return;
+        if (document.body) document.body.appendChild(dropdown);
+
+        function closeEntityKebab() {
+            dropdown.classList.remove('entity-kebab-dropdown--open');
+            dropdown.setAttribute('aria-hidden', 'true');
+        }
+
+        function positionDropdown(btn) {
+            var rect = btn.getBoundingClientRect();
+            var viewportW = window.innerWidth;
+            var viewportH = window.innerHeight;
+            var pad = 8;
+            dropdown.style.visibility = 'hidden';
+            dropdown.style.left = '0';
+            dropdown.style.top = '0';
+            dropdown.offsetHeight;
+            var menuW = dropdown.offsetWidth;
+            var menuH = dropdown.offsetHeight;
+            dropdown.style.visibility = '';
+            var left = rect.left;
+            var top = rect.bottom + 4;
+            if (top + menuH > viewportH - pad)
+                top = rect.top - menuH - 4;
+            if (top < pad) top = pad;
+            if (left + menuW > viewportW - pad)
+                left = viewportW - menuW - pad;
+            if (left < pad) left = pad;
+            dropdown.style.left = left + 'px';
+            dropdown.style.top = top + 'px';
+        }
+
+        document.addEventListener('click', function (ev) {
+            var kebabBtn = ev.target.closest('.entity-kebab-btn');
+            if (kebabBtn) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                var panel = kebabBtn.getAttribute('data-entity-panel') || '';
+                var id = kebabBtn.getAttribute('data-entity-id') || '';
+                var name = kebabBtn.getAttribute('data-entity-name') || '';
+                dropdown.setAttribute('data-entity-panel', panel);
+                dropdown.setAttribute('data-entity-id', id);
+                dropdown.setAttribute('data-entity-name', name);
+                dropdown.classList.add('entity-kebab-dropdown--open');
+                dropdown.setAttribute('aria-hidden', 'false');
+                positionDropdown(kebabBtn);
+                return;
+            }
+            if (ev.target.closest('.entity-kebab-dropdown')) {
+                var action = ev.target.closest('[data-action]');
+                if (action) {
+                    var actionType = action.getAttribute('data-action');
+                    var panel = dropdown.getAttribute('data-entity-panel') || '';
+                    var id = parseInt(dropdown.getAttribute('data-entity-id'), 10);
+                    var name = dropdown.getAttribute('data-entity-name') || '';
+                    closeEntityKebab();
+                    if (actionType === 'edit') {
+                        if (panel === 'markets') openMarketEditModal(id);
+                        else openEntityEditModal(panel, id);
+                    } else if (actionType === 'map') {
+                        if (typeof openMarketMapper === 'function') openMarketMapper(id, name);
+                    } else if (actionType === 'remove-mappings') {
+                        console.log('Remove Mappings – placeholder for', panel, id);
+                    } else if (actionType === 'active-inactive') {
+                        console.log('Active/Inactive – placeholder for', panel, id);
+                    }
+                }
+                return;
+            }
+            closeEntityKebab();
+        });
+    })();
+
+    // ─── Edit Market Type modal ─────────────────────────────────────────────
+    function closeMarketEditModal() {
+        document.getElementById('market-edit-modal').classList.add('hidden');
+    }
+    async function openMarketEditModal(domainId) {
+        var statusEl = document.getElementById('market-edit-status');
+        statusEl.textContent = 'Loading…';
+        document.getElementById('market-edit-domain-id').value = domainId;
+        document.getElementById('market-edit-modal').classList.remove('hidden');
+        try {
+            var res = await fetch('/api/entities/markets/' + domainId);
+            if (!res.ok) { statusEl.textContent = 'Market not found.'; return; }
+            var m = await res.json();
+            document.getElementById('market-edit-name').value = m.name || '';
+            document.getElementById('market-edit-abb').value = m.abb || m.code || '';
+            document.getElementById('market-edit-market-type').value = (m.market_type || 'both').toLowerCase();
+            document.getElementById('market-edit-market-group').value = m.market_group || '';
+            document.getElementById('market-edit-template').value = m.template || '';
+            document.getElementById('market-edit-period-type').value = m.period_type || '';
+            document.getElementById('market-edit-score-type').value = m.score_type || '';
+            document.getElementById('market-edit-side-type').value = m.side_type || 'undefined';
+            document.getElementById('market-edit-score-dependant').checked = (m.score_dependant === '1' || m.score_dependant === true);
+            statusEl.textContent = '';
+        } catch (e) {
+            statusEl.textContent = 'Failed to load market.';
+        }
+    }
+    document.getElementById('market-edit-save').addEventListener('click', async function () {
+        var domainId = parseInt(document.getElementById('market-edit-domain-id').value, 10);
+        var statusEl = document.getElementById('market-edit-status');
+        var name = document.getElementById('market-edit-name').value.trim();
+        if (!name) { statusEl.textContent = 'Name is required.'; return; }
+        var payload = {
+            name: name,
+            abb: document.getElementById('market-edit-abb').value.trim() || null,
+            market_type: document.getElementById('market-edit-market-type').value.trim() || null,
+            market_group: document.getElementById('market-edit-market-group').value.trim() || null,
+            template: document.getElementById('market-edit-template').value.trim() || null,
+            period_type: document.getElementById('market-edit-period-type').value.trim() || null,
+            score_type: document.getElementById('market-edit-score-type').value.trim() || null,
+            side_type: document.getElementById('market-edit-side-type').value.trim() || null,
+            score_dependant: document.getElementById('market-edit-score-dependant').checked
+        };
+        payload.code = payload.abb;
+        statusEl.textContent = 'Saving…';
+        this.disabled = true;
+        try {
+            var res = await fetch('/api/entities/markets/' + domainId, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            var data = await res.json().catch(function () { return {}; });
+            if (!res.ok) {
+                statusEl.textContent = data.detail || 'Failed to save.';
+                return;
+            }
+            statusEl.textContent = 'Saved.';
+            setTimeout(function () { closeMarketEditModal(); location.reload(); }, 400);
+        } catch (e) {
+            statusEl.textContent = 'Request failed.';
+        } finally {
+            this.disabled = false;
+        }
+    });
 
     // ─── Market Types (QNX) ─────────────────────────────────────────────────
     function mtClearFilters() {
