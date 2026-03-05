@@ -332,14 +332,16 @@ def _save_feeder_incidents(rows: list[dict]) -> None:
 
 _MARGIN_TEMPLATE_FIELDS = [
     "id", "name", "short_name", "pm_margin", "ip_margin",
-    "cashout", "betbuilder", "bet_delay", "leagues_count", "markets_count", "is_default",
+    "cashout", "betbuilder", "bet_delay", "risk_class_id", "leagues_count", "markets_count", "is_default",
 ]
 
 
 def _load_margin_templates() -> list[dict]:
-    """Load margin_templates.csv. If missing or empty, returns default list with Uncategorized only."""
+    """Load margin_templates.csv. If missing or empty, returns default list with Uncategorized only. Enriches with risk_class from RISK_CLASSES."""
+    default_one = {"id": 1, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "", "cashout": "", "betbuilder": "", "bet_delay": "", "risk_class_id": None, "leagues_count": 0, "markets_count": 0, "is_default": True}
     if not MARGIN_TEMPLATES_PATH.exists():
-        return [{"id": 1, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "", "cashout": "", "betbuilder": "", "bet_delay": "", "leagues_count": 0, "markets_count": 0, "is_default": 1}]
+        default_one["is_default"] = 1
+        return [_enrich_margin_template_risk_class(default_one)]
     rows = []
     with open(MARGIN_TEMPLATES_PATH, newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
@@ -348,16 +350,32 @@ def _load_margin_templates() -> list[dict]:
                 r["id"] = int(rid) if rid and str(rid).strip() else None
             except (TypeError, ValueError):
                 r["id"] = None
+            rc = (r.get("risk_class_id") or "").strip()
+            try:
+                r["risk_class_id"] = int(rc) if rc else None
+            except (TypeError, ValueError):
+                r["risk_class_id"] = None
             for k in ("leagues_count", "markets_count"):
                 try:
                     r[k] = int(r.get(k) or 0)
                 except (TypeError, ValueError):
                     r[k] = 0
             r["is_default"] = (r.get("is_default") or "").strip() in ("1", "true", "yes")
-            rows.append(r)
+            rows.append(_enrich_margin_template_risk_class(r))
     if not rows:
-        return [{"id": 1, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "", "cashout": "", "betbuilder": "", "bet_delay": "", "leagues_count": 0, "markets_count": 0, "is_default": True}]
+        return [_enrich_margin_template_risk_class(default_one)]
     return rows
+
+
+def _enrich_margin_template_risk_class(t: dict) -> dict:
+    """Set t['risk_class'] from RISK_CLASSES by t.get('risk_class_id'). Call after loading templates."""
+    rc_id = t.get("risk_class_id")
+    if rc_id is None:
+        t["risk_class"] = None
+        return t
+    rc = next((c for c in RISK_CLASSES if c.get("id") == rc_id), None)
+    t["risk_class"] = {"id": rc["id"], "letter": rc["letter"], "name": rc["name"], "circle_color": rc["circle_color"]} if rc else None
+    return t
 
 
 def _save_margin_templates(rows: list[dict]) -> None:
@@ -375,6 +393,7 @@ def _save_margin_templates(rows: list[dict]) -> None:
                 "cashout": (r.get("cashout") or "").strip(),
                 "betbuilder": (r.get("betbuilder") or "").strip(),
                 "bet_delay": (r.get("bet_delay") or "").strip(),
+                "risk_class_id": r.get("risk_class_id") if r.get("risk_class_id") is not None else "",
                 "leagues_count": r.get("leagues_count") if r.get("leagues_count") is not None else 0,
                 "markets_count": r.get("markets_count") if r.get("markets_count") is not None else 0,
                 "is_default": "1" if r.get("is_default") else "0",
@@ -3119,6 +3138,13 @@ async def update_margin_template(template_id: int, body: UpdateMarginTemplateReq
         template["betbuilder"] = (body.betbuilder or "").strip()
     if body.bet_delay is not None:
         template["bet_delay"] = (body.bet_delay or "").strip()
+    if body.risk_class_id is not None:
+        template["risk_class_id"] = body.risk_class_id if body.risk_class_id else None
+        rc = next((c for c in RISK_CLASSES if c.get("id") == template["risk_class_id"]), None)
+        template["risk_class"] = (
+            {"id": rc["id"], "letter": rc["letter"], "name": rc["name"], "circle_color": rc["circle_color"]}
+            if rc else None
+        )
     _save_margin_templates(rows)
     return {"ok": True, "template": template}
 
@@ -3239,6 +3265,115 @@ FEEDER_INCIDENT_TYPES = [
     ("surface", "Surface"),
     ("video", "Video"),
 ]
+
+# Risk Rules Configuration: rule name -> list of {name, type} (type: text, checkbox, number)
+RISK_RULES_CONFIG = [
+    {"rule": "Betting Function", "params": [
+        {"name": "Active", "type": "checkbox"},
+        {"name": "Lower limit", "type": "number"},
+        {"name": "Upper limit", "type": "number"},
+    ]},
+    {"rule": "Night Switch Factor", "params": [
+        {"name": "Factor", "type": "number"},
+        {"name": "Sign Period", "type": "text"},
+    ]},
+    {"rule": "Always Lay", "params": [
+        {"name": "Active", "type": "checkbox"},
+        {"name": "Limit", "type": "number"},
+    ]},
+    {"rule": "Simple Max Bet Stake", "params": [
+        {"name": "Limit", "type": "number"},
+    ]},
+    {"rule": "Simple Max Bet Win", "params": [
+        {"name": "Limit", "type": "number"},
+    ]},
+    {"rule": "Max Accumulated Open Stake", "params": [
+        {"name": "Limit", "type": "number"},
+    ]},
+    {"rule": "Max Accumulated Open Win", "params": [
+        {"name": "Limit", "type": "number"},
+    ]},
+    {"rule": "Max Same Single Bet Win", "params": [
+        {"name": "Limit", "type": "number"},
+    ]},
+    {"rule": "Max Book Loss", "params": [
+        {"name": "Limit", "type": "number"},
+    ]},
+    {"rule": "Max Same Multiple Bet Win", "params": [
+        {"name": "Limit", "type": "number"},
+    ]},
+    {"rule": "Max Repeated Bet Frequency", "params": [
+        {"name": "By Bet", "type": "checkbox"},
+        {"name": "By Bet limit", "type": "number"},
+        {"name": "By POS", "type": "checkbox"},
+        {"name": "By POS limit", "type": "number"},
+        {"name": "By Agent", "type": "checkbox"},
+        {"name": "By Agent limit", "type": "number"},
+        {"name": "By Player", "type": "checkbox"},
+        {"name": "By Player limit", "type": "number"},
+        {"name": "Time frame (sec)", "type": "number"},
+    ]},
+]
+
+
+def _risk_rules_config_rows() -> list[dict]:
+    """Flatten RISK_RULES_CONFIG into one row per parameter for the config table."""
+    rows: list[dict] = []
+    for block in RISK_RULES_CONFIG:
+        rule = block["rule"]
+        for p in block["params"]:
+            rows.append({"risk_rule": rule, "param_name": p["name"], "param_type": p["type"]})
+    return rows
+
+
+# Risk Classes: id, letter, name, description, active, mbl_pct, msw_pct, mmw_pct, circle_color (Tailwind-style)
+RISK_CLASSES = [
+    {"id": 1, "letter": "A", "name": "A", "description": "", "active": True, "mbl_pct": 100, "msw_pct": 100, "mmw_pct": 100, "circle_color": "bg-emerald-500"},
+    {"id": 2, "letter": "B", "name": "B", "description": "", "active": True, "mbl_pct": 100, "msw_pct": 100, "mmw_pct": 100, "circle_color": "bg-lime-500"},
+    {"id": 3, "letter": "C", "name": "C", "description": "", "active": True, "mbl_pct": 60, "msw_pct": 60, "mmw_pct": 60, "circle_color": "bg-sky-400"},
+    {"id": 4, "letter": "D", "name": "D", "description": "", "active": True, "mbl_pct": 40, "msw_pct": 40, "mmw_pct": 40, "circle_color": "bg-blue-600"},
+    {"id": 5, "letter": "E", "name": "E", "description": "", "active": True, "mbl_pct": 25, "msw_pct": 25, "mmw_pct": 30, "circle_color": "bg-violet-500"},
+    {"id": 6, "letter": "F", "name": "F", "description": "", "active": True, "mbl_pct": 15, "msw_pct": 15, "mmw_pct": 30, "circle_color": "bg-pink-500"},
+    {"id": 7, "letter": "G", "name": "G", "description": "", "active": True, "mbl_pct": 10, "msw_pct": 10, "mmw_pct": 30, "circle_color": "bg-red-500"},
+    {"id": 8, "letter": "H", "name": "H", "description": "", "active": True, "mbl_pct": 5, "msw_pct": 5, "mmw_pct": 30, "circle_color": "bg-slate-500"},
+    {"id": 9, "letter": "I", "name": "I", "description": "", "active": True, "mbl_pct": 3, "msw_pct": 3, "mmw_pct": 3, "circle_color": "bg-slate-700"},
+    {"id": 10, "letter": "N", "name": "Default", "description": "", "active": True, "mbl_pct": 100, "msw_pct": 100, "mmw_pct": 100, "circle_color": "bg-red-500"},
+]
+
+# Risk Categories: id, name, colour (hex), factor, description, updated
+RISK_CATEGORIES = [
+    {"id": "rc001", "name": "VIP", "colour": "#22c55e", "factor": "2", "description": "VIP", "updated": "31/07/25 11:04"},
+    {"id": "rc002", "name": "Core", "colour": "#ef4444", "factor": "1.01", "description": "Core Business", "updated": "06/01/25 09:31"},
+    {"id": "rc003", "name": "Square", "colour": "#94a3b8", "factor": "1", "description": "Normal unclassified account that requires larger sample of bets before being moved", "updated": "01/10/25 15:20"},
+    {"id": "rc004", "name": "OpPolicy", "colour": "#06b6d4", "factor": "0.99", "description": "Operator Policy", "updated": "27/02/24 10:07"},
+    {"id": "rc005", "name": "Unclass", "colour": "#a855f7", "factor": "0.5", "description": "Unclassified Players", "updated": "18/12/23 14:11"},
+    {"id": "rc006", "name": "SpainClos", "colour": "#f97316", "factor": "0.49", "description": "Spanish Legal Closure", "updated": "21/08/23 18:13"},
+    {"id": "rc007", "name": "Review", "colour": "#eab308", "factor": "0.1", "description": "Review Business", "updated": "26/01/26 09:14"},
+    {"id": "rc008", "name": "PPTR", "colour": "#84cc16", "factor": "0.01", "description": "PP Management Review", "updated": "15/03/25 12:00"},
+    {"id": "rc009", "name": "Wise", "colour": "#78716c", "factor": "0", "description": "Wise/Syndicates", "updated": "10/02/25 08:45"},
+    {"id": "rc010", "name": "BonusAbuse", "colour": "#000000", "factor": "10", "description": "Bonus abusers", "updated": "05/11/24 16:30"},
+    {"id": "rc011", "name": "Arbs", "colour": "#22c55e", "factor": "1", "description": "Arber", "updated": "20/09/24 11:20"},
+    {"id": "rc012", "name": "Palps", "colour": "#ef4444", "factor": "1", "description": "Palps/Errors", "updated": "12/07/24 14:15"},
+    {"id": "rc024", "name": "Exchange", "colour": "#06b6d4", "factor": "0.5", "description": "Exchange Driven Business", "updated": "01/05/25 09:00"},
+    {"id": "123654", "name": "teor ★", "colour": "#a855f7", "factor": "1", "description": "jygckhgv", "updated": "03/04/25 17:22"},
+]
+
+
+@app.get("/risk-rules", response_class=HTMLResponse)
+async def risk_rules_view(request: Request):
+    """Configuration > Risk Rules page. Tabs: Configurations, Classes, Categories."""
+    brands = _load_brands()
+    risk_config_rows = _risk_rules_config_rows()
+    risk_classes = RISK_CLASSES
+    risk_categories = RISK_CATEGORIES
+    return templates.TemplateResponse("risk_rules.html", {
+        "request": request,
+        "section": "risk_rules",
+        "brands": brands,
+        "risk_config_rows": risk_config_rows,
+        "risk_classes": risk_classes,
+        "risk_categories": risk_categories,
+    })
 
 
 @app.get("/feeders", response_class=HTMLResponse)
@@ -3446,6 +3581,7 @@ async def margin_config_view(
             "selected_sport_id": selected_sport_id,
             "show_tables": False,
             "margin_templates": [],
+            "risk_classes": RISK_CLASSES,
             "market_groups_with_markets": [],
             "selected_template_id": None,
             "market_templates": [],
@@ -3511,6 +3647,7 @@ async def margin_config_view(
     selected_template_name = ""
     template_prematch_dyn = ""
     template_inplay_dyn = ""
+    template_risk_class = None
     if selected_template_id and margin_templates:
         sel = next((t for t in margin_templates if t.get("id") == selected_template_id), None)
         if sel:
@@ -3527,6 +3664,7 @@ async def margin_config_view(
                     template_inplay_dyn = f"{float(ip):.1f} DYN"
                 except (TypeError, ValueError):
                     template_inplay_dyn = f"{ip} DYN"
+            template_risk_class = sel.get("risk_class")
 
     return templates.TemplateResponse("margin_config.html", {
         "request": request,
@@ -3537,11 +3675,13 @@ async def margin_config_view(
         "selected_sport_id": selected_sport_id,
         "show_tables": True,
         "margin_templates": margin_templates,
+        "risk_classes": RISK_CLASSES,
         "market_groups_with_markets": market_groups_with_markets,
         "selected_template_id": selected_template_id,
         "selected_template_name": selected_template_name,
         "template_prematch_dyn": template_prematch_dyn,
         "template_inplay_dyn": template_inplay_dyn,
+        "template_risk_class": template_risk_class,
         "market_templates": market_templates,
         "period_types": market_period_types,
         "score_types": market_score_types,

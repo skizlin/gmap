@@ -64,10 +64,30 @@
     <td class="px-3 py-2 text-slate-600 text-xs">—</td>
     <td class="px-3 py-2 text-slate-400 text-xs font-mono">{{ ev.mapped_feed_count | default(0) }}</td>
     <td class="px-3 py-2 text-slate-600 text-xs">—</td>
-    <td class="px-3 py-2 align-middle">
-        <button type="button" class="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors" aria-label="Actions for event {{ ev.id }}">
-            <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
-        </button>
+    <td class="px-3 py-2 align-middle text-right">
+        <div class="relative inline-block domain-action-menu-wrap" data-menu-id="domain-action-{{ ev.id }}">
+            <button type="button" onclick="toggleDomainActionMenu('domain-action-{{ ev.id }}', event)"
+                class="p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                aria-haspopup="true" aria-expanded="false" aria-label="Actions for event {{ ev.id }}">
+                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+            </button>
+            <div id="domain-action-{{ ev.id }}" class="domain-event-action-dropdown hidden absolute right-0 top-full mt-0.5 z-50 min-w-[180px] py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-[70vh] overflow-y-auto" onclick="event.stopPropagation()">
+                <span class="block px-3 py-1.5 text-[10px] uppercase tracking-wider text-slate-500">Event actions</span>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="view-event">View Event</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="edit-event">Edit Event</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="close-event">Close Event</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="abandon-event">Abandon Event</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="takeover-event">Takeover Event</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="release-event">Release Event</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="disable-co">Disable CO</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="release-co">Release CO</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="copy-event-id">Copy Event ID</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="view-bets">View Bets</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="event-log">Event Log</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="dynamic-templates">Dynamic Templates</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="notes">Notes</button>
+            </div>
+        </div>
     </td>
 </tr>
 {% else %}

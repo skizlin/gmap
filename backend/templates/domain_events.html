@@ -225,6 +225,31 @@
 
 {% block scripts %}
 <script>
+    // ── Domain Events: Action (kebab) menu ──────────────────────────
+    function toggleDomainActionMenu(menuId, ev) {
+        if (ev) ev.stopPropagation();
+        const menu = document.getElementById(menuId);
+        if (!menu) return;
+        const isHidden = menu.classList.contains('hidden');
+        closeDomainActionMenus();
+        if (isHidden) menu.classList.remove('hidden');
+    }
+    function closeDomainActionMenus() {
+        document.querySelectorAll('.domain-event-action-dropdown').forEach(el => el.classList.add('hidden'));
+    }
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.domain-action-menu-wrap')) closeDomainActionMenus();
+    });
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.domain-event-action');
+        if (btn) {
+            closeDomainActionMenus();
+            // Behavior for each action to be defined later
+            const action = btn.getAttribute('data-action');
+            if (action) console.log('Domain event action:', action);
+        }
+    });
+
     // ── Domain Events: Sport multi-select ─────────────────────────
     function getAllDomainSports() {
         return [...document.querySelectorAll('#domain-sport-checkboxes-container input[type=checkbox]')]

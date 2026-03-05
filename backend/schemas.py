@@ -151,3 +151,4 @@ class UpdateMarginTemplateRequest(BaseModel):
     cashout: Optional[str] = None
     betbuilder: Optional[str] = None
     bet_delay: Optional[str] = None
+    risk_class_id: Optional[int] = None
