@@ -330,21 +330,35 @@ def _save_feeder_incidents(rows: list[dict]) -> None:
             })
 
 
+# Margin config: templates are per (brand_id, sport_id). Global = brand_id empty.
+# Uncategorized template is always present per scope. See docs/MARGIN_CONFIG_SPEC.md.
 _MARGIN_TEMPLATE_FIELDS = [
     "id", "name", "short_name", "pm_margin", "ip_margin",
     "cashout", "betbuilder", "bet_delay", "risk_class_id", "leagues_count", "markets_count", "is_default",
+    "brand_id", "sport_id",
 ]
 
 
-def _load_margin_templates() -> list[dict]:
-    """Load margin_templates.csv. If missing or empty, returns default list with Uncategorized only. Enriches with risk_class from RISK_CLASSES."""
-    default_one = {"id": 1, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "", "cashout": "", "betbuilder": "", "bet_delay": "", "risk_class_id": None, "leagues_count": 0, "markets_count": 0, "is_default": True}
+def _load_margin_templates(brand_id=None, sport_id=None) -> list[dict]:
+    """
+    Load margin_templates.csv, optionally filtered by (brand_id, sport_id).
+    When scope is given, only templates for that scope are returned, and an Uncategorized
+    template is ensured to exist for that scope (created and persisted if missing).
+    Enriches with risk_class from RISK_CLASSES.
+    """
+    default_one = {
+        "id": 1, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "",
+        "cashout": "", "betbuilder": "", "bet_delay": "", "risk_class_id": None,
+        "leagues_count": 0, "markets_count": 0, "is_default": True,
+        "brand_id": "", "sport_id": "",
+    }
     if not MARGIN_TEMPLATES_PATH.exists():
         default_one["is_default"] = 1
         return [_enrich_margin_template_risk_class(default_one)]
     rows = []
     with open(MARGIN_TEMPLATES_PATH, newline="", encoding="utf-8") as f:
-        for r in csv.DictReader(f):
+        reader = csv.DictReader(f)
+        for r in reader:
             rid = r.get("id")
             try:
                 r["id"] = int(rid) if rid and str(rid).strip() else None
@@ -361,9 +375,39 @@ def _load_margin_templates() -> list[dict]:
                 except (TypeError, ValueError):
                     r[k] = 0
             r["is_default"] = (r.get("is_default") or "").strip() in ("1", "true", "yes")
+            # Backward compat: missing columns => Global / any sport
+            r["brand_id"] = (r.get("brand_id") or "").strip()
+            r["sport_id"] = (r.get("sport_id") or "").strip()
             rows.append(_enrich_margin_template_risk_class(r))
     if not rows:
         return [_enrich_margin_template_risk_class(default_one)]
+
+    # Filter by scope when (brand_id, sport_id) provided
+    b_key = str(brand_id).strip() if brand_id is not None else ""
+    s_key = str(sport_id).strip() if sport_id is not None else ""
+    if b_key != "" or s_key != "":
+        def _matches_scope(t: dict) -> bool:
+            rb, rs = (t.get("brand_id") or "").strip(), (t.get("sport_id") or "").strip()
+            brand_ok = rb == b_key
+            # Legacy: empty sport_id at Global matches any sport
+            sport_ok = rs == s_key or (rs == "" and b_key == "")
+            return brand_ok and sport_ok
+
+        filtered = [t for t in rows if _matches_scope(t)]
+        # Ensure Uncategorized exists for this scope (spec: always present per brand × sport)
+        uncat = next((t for t in filtered if (t.get("name") or "").strip().lower() == "uncategorized"), None)
+        if not uncat:
+            next_id = max((r.get("id") or 0 for r in rows), default=0) + 1
+            new_uncat = {
+                "id": next_id, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "",
+                "cashout": "", "betbuilder": "", "bet_delay": "", "risk_class_id": None,
+                "leagues_count": 0, "markets_count": 0, "is_default": True,
+                "brand_id": b_key, "sport_id": s_key,
+            }
+            rows.append(_enrich_margin_template_risk_class(new_uncat))
+            _save_margin_templates(rows)
+            filtered.append(new_uncat)
+        return filtered
     return rows
 
 
@@ -379,7 +423,7 @@ def _enrich_margin_template_risk_class(t: dict) -> dict:
 
 
 def _save_margin_templates(rows: list[dict]) -> None:
-    """Overwrite margin_templates.csv."""
+    """Overwrite margin_templates.csv (includes brand_id, sport_id for per brand×sport scoping)."""
     with open(MARGIN_TEMPLATES_PATH, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=_MARGIN_TEMPLATE_FIELDS)
         w.writeheader()
@@ -397,6 +441,8 @@ def _save_margin_templates(rows: list[dict]) -> None:
                 "leagues_count": r.get("leagues_count") if r.get("leagues_count") is not None else 0,
                 "markets_count": r.get("markets_count") if r.get("markets_count") is not None else 0,
                 "is_default": "1" if r.get("is_default") else "0",
+                "brand_id": (r.get("brand_id") or "").strip(),
+                "sport_id": (r.get("sport_id") or "").strip(),
             })
 
 
@@ -427,7 +473,7 @@ def _save_margin_template_competitions(rows: list[dict]) -> None:
 
 
 def _assign_competition_to_margin_template(competition_id: int, template_id: int = 1) -> None:
-    """Assign a domain competition to a margin template (default Uncategorized). Idempotent."""
+    """Assign a domain competition to a margin template (default Uncategorized). Idempotent. Use the scope's Uncategorized template_id when assigning new competitions per (brand, sport)."""
     rows = _load_margin_template_competitions()
     if any(r.get("template_id") == template_id and r.get("competition_id") == competition_id for r in rows):
         return
@@ -2195,7 +2241,7 @@ async def feeder_events_view(
     mapped_category_feed_ids = _mk("categories")
     mapped_comp_feed_ids     = _mk("competitions")
     mapped_team_feed_ids     = _mk("teams")
-    return templates.TemplateResponse("feeder_events.html", {
+    return templates.TemplateResponse("feeder_events/feeder_events.html", {
         "request": request,
         "section": "feeder",
         "feeds": KNOWN_FEEDS,
@@ -2224,7 +2270,7 @@ async def feeder_events_sport_options(request: Request, feed_provider: str = Non
     selected_feed = feed_provider or KNOWN_FEEDS[0]
     events_for_feed = [e for e in DUMMY_EVENTS if e.get("feed_provider") == selected_feed]
     feed_sports = _get_sports_for_feed(selected_feed, events_for_feed) or SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
-    return templates.TemplateResponse("_sport_checkboxes.html", {
+    return templates.TemplateResponse("feeder_events/_sport_checkboxes.html", {
         "request": request,
         "sports": feed_sports
     })
@@ -2297,7 +2343,7 @@ async def feeder_events_table(
     mapped_category_feed_ids = _mk("categories")
     mapped_comp_feed_ids    = _mk("competitions")
     mapped_team_feed_ids    = _mk("teams")
-    return templates.TemplateResponse("_feeder_events_rows.html", {
+    return templates.TemplateResponse("feeder_events/_rows.html", {
         "request": request,
         "events": filtered,
         "selected_feed_pid": selected_feed_pid,
@@ -2319,7 +2365,7 @@ async def feeder_events_category_options(
     feed = feed_provider or KNOWN_FEEDS[0]
     cat_list = _feeder_categories(feed, sports) if sports else []
     selected = categories or []
-    return templates.TemplateResponse("_feeder_category_checkboxes.html", {
+    return templates.TemplateResponse("feeder_events/_category_checkboxes.html", {
         "request": request,
         "categories": cat_list,
         "selected_categories": selected,
@@ -2338,7 +2384,7 @@ async def feeder_events_competition_options(
     feed = feed_provider or KNOWN_FEEDS[0]
     comp_list = _feeder_competitions(feed, sports, categories) if (sports and categories) else []
     selected = competitions or []
-    return templates.TemplateResponse("_feeder_competition_checkboxes.html", {
+    return templates.TemplateResponse("feeder_events/_competition_checkboxes.html", {
         "request": request,
         "competitions": comp_list,
         "selected_competitions": selected,
@@ -2462,8 +2508,8 @@ def _filter_domain_events(
     return out
 
 
-@app.get("/domain-events", response_class=HTMLResponse)
-async def domain_events_view(
+@app.get("/event-navigator", response_class=HTMLResponse)
+async def event_navigator_view(
     request: Request,
     date: str | None = None,
     sports: List[str] = Query(default=None),
@@ -2498,7 +2544,7 @@ async def domain_events_view(
         selected_categories if selected_categories else None,
         selected_competitions if selected_competitions else None,
     )
-    return templates.TemplateResponse("domain_events.html", {
+    return templates.TemplateResponse("event_navigator/event_navigator.html", {
         "request": request,
         "section": "domain",
         "domain_events": filtered,
@@ -2514,8 +2560,8 @@ async def domain_events_view(
     })
 
 
-@app.get("/domain-events/table", response_class=HTMLResponse)
-async def domain_events_table(
+@app.get("/event-navigator/table", response_class=HTMLResponse)
+async def event_navigator_table(
     request: Request,
     date: str | None = None,
     sports: List[str] = Query(default=None),
@@ -2547,7 +2593,7 @@ async def domain_events_table(
         categories if categories else None,
         competitions if competitions else None,
     )
-    return templates.TemplateResponse("_domain_events_rows.html", {
+    return templates.TemplateResponse("event_navigator/_rows.html", {
         "request": request,
         "domain_events": filtered,
     })
@@ -2569,8 +2615,8 @@ def _markets_by_group() -> list[dict]:
     return result
 
 
-@app.get("/domain-events/event_details/{domain_id}", response_class=HTMLResponse)
-async def domain_event_details(request: Request, domain_id: str):
+@app.get("/event-navigator/event_details/{domain_id}", response_class=HTMLResponse)
+async def event_navigator_event_details(request: Request, domain_id: str):
     """Event details page for a single domain event. Opens in new tab from Event column."""
     from fastapi import HTTPException
     ev = next((e for e in DOMAIN_EVENTS if e.get("id") == domain_id), None)
@@ -2589,8 +2635,8 @@ async def domain_event_details(request: Request, domain_id: str):
     })
 
 
-@app.get("/domain-events/category-options", response_class=HTMLResponse)
-async def domain_events_category_options(
+@app.get("/event-navigator/category-options", response_class=HTMLResponse)
+async def event_navigator_category_options(
     request: Request,
     sports: List[str] = Query(default=None),
     categories: List[str] = Query(default=None),
@@ -2598,15 +2644,15 @@ async def domain_events_category_options(
     """HTMX: Category checkboxes for domain events filter. Only categories for the given sports."""
     cat_list = _domain_events_categories(sports) if sports else []
     selected = categories or []
-    return templates.TemplateResponse("_domain_category_checkboxes.html", {
+    return templates.TemplateResponse("event_navigator/_category_checkboxes.html", {
         "request": request,
         "categories": cat_list,
         "selected_categories": selected,
     })
 
 
-@app.get("/domain-events/competition-options", response_class=HTMLResponse)
-async def domain_events_competition_options(
+@app.get("/event-navigator/competition-options", response_class=HTMLResponse)
+async def event_navigator_competition_options(
     request: Request,
     sports: List[str] = Query(default=None),
     categories: List[str] = Query(default=None),
@@ -2615,10 +2661,19 @@ async def domain_events_competition_options(
     """HTMX: Competition checkboxes for domain events filter. Only competitions for given sports and categories."""
     comp_list = _domain_events_competitions(sports, categories) if (sports and categories) else []
     selected = competitions or []
-    return templates.TemplateResponse("_domain_competition_checkboxes.html", {
+    return templates.TemplateResponse("event_navigator/_competition_checkboxes.html", {
         "request": request,
         "competitions": comp_list,
         "selected_competitions": selected,
+    })
+
+
+@app.get("/archived-events", response_class=HTMLResponse)
+async def archived_events_view(request: Request):
+    """Betting Program > Archived Events. Placeholder page; full functionality to be added later."""
+    return templates.TemplateResponse("archived_events/archived_events.html", {
+        "request": request,
+        "section": "archived_events",
     })
 
 
@@ -3091,13 +3146,17 @@ async def update_brand(brand_id: int, body: UpdateBrandRequest):
 
 @app.post("/api/margin-templates")
 async def create_margin_template(body: CreateMarginTemplateRequest):
-    """Create a new margin template. Name required; other fields optional."""
-    rows = _load_margin_templates()
+    """Create a new margin template for the given (brand_id, sport_id) scope. Name required; 'Uncategorized' is reserved."""
+    from fastapi import HTTPException
+    rows = _load_margin_templates()  # all rows for next_id
     next_id = max((r.get("id") or 0 for r in rows), default=0) + 1
     name = (body.name or "").strip()
     if not name:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Name is required")
+    if name.lower() == "uncategorized":
+        raise HTTPException(status_code=400, detail="Name 'Uncategorized' is reserved")
+    b_key = str(body.brand_id).strip() if body.brand_id is not None else ""
+    s_key = str(body.sport_id).strip() if body.sport_id is not None else ""
     new_template = {
         "id": next_id,
         "name": name,
@@ -3110,8 +3169,10 @@ async def create_margin_template(body: CreateMarginTemplateRequest):
         "leagues_count": 0,
         "markets_count": 0,
         "is_default": False,
+        "brand_id": b_key,
+        "sport_id": s_key,
     }
-    rows.append(new_template)
+    rows.append(_enrich_margin_template_risk_class(new_template))
     _save_margin_templates(rows)
     return {"ok": True, "template": new_template}
 
@@ -3189,7 +3250,7 @@ async def entities_view(request: Request):
     underage_categories = _load_underage_categories()
     underage_categories_by_id = {u["id"]: u["name"] for u in underage_categories}
 
-    return templates.TemplateResponse("entities.html", {
+    return templates.TemplateResponse("configuration/entities.html", {
         "participant_types": participant_types,
         "underage_categories": underage_categories,
         "underage_categories_by_id": underage_categories_by_id,
@@ -3366,7 +3427,7 @@ async def risk_rules_view(request: Request):
     risk_config_rows = _risk_rules_config_rows()
     risk_classes = RISK_CLASSES
     risk_categories = RISK_CATEGORIES
-    return templates.TemplateResponse("risk_rules.html", {
+    return templates.TemplateResponse("configuration/risk_rules.html", {
         "request": request,
         "section": "risk_rules",
         "brands": brands,
@@ -3429,7 +3490,7 @@ async def feeders_view(
     feed_sports = _load_feed_sports_rows()
     feed_sports_count = len(feed_sports)
 
-    return templates.TemplateResponse("feeders.html", {
+    return templates.TemplateResponse("configuration/feeders.html", {
         "request": request,
         "section": "feeders",
         "feeds": FEEDS,
@@ -3536,8 +3597,8 @@ async def api_save_feeder_incidents(request: Request):
     return {"ok": True}
 
 
-@app.get("/margin-config", response_class=HTMLResponse)
-async def margin_config_view(
+@app.get("/margin", response_class=HTMLResponse)
+async def margin_view(
     request: Request,
     brand_id: str | None = None,
     sport_id: str | None = None,
@@ -3545,7 +3606,9 @@ async def margin_config_view(
 ):
     """
     Betting Program > Margin Configuration.
-    Top: Brand (Global level + brands), Sport (default Football), Apply. Tables shown only after Apply.
+    Templates are per (brand × sport). Global = no brand. Uncategorized is always present per scope.
+    Top: Brand (Global level + brands), Sport, Apply. Tables shown only after Apply.
+    See docs/MARGIN_CONFIG_SPEC.md.
     """
     brands = _load_brands()
     sports = DOMAIN_ENTITIES.get("sports", [])
@@ -3572,7 +3635,7 @@ async def margin_config_view(
             selected_sport_id = default_sport_id
 
     if not applied:
-        return templates.TemplateResponse("margin_config.html", {
+        return templates.TemplateResponse("margin/margin.html", {
             "request": request,
             "section": "margin_config",
             "brands": brands,
@@ -3589,18 +3652,22 @@ async def margin_config_view(
             "score_types": [],
         })
 
-    # Load table data only after Apply
-    margin_templates = _load_margin_templates()
+    # Load templates for this (brand, sport) scope; ensures Uncategorized exists per scope (see MARGIN_CONFIG_SPEC)
+    margin_templates = _load_margin_templates(selected_brand_id, selected_sport_id)
     template_competitions = _load_margin_template_competitions()
-    # Backfill: assign any domain competition not yet in mapping to Uncategorized (template_id=1)
-    domain_competition_ids = {int(c["domain_id"]) for c in DOMAIN_ENTITIES.get("competitions", []) if c.get("domain_id") is not None}
-    assigned_ids = {r["competition_id"] for r in template_competitions}
-    uncategorized_id = 1
+    # Backfill: assign competitions of the selected sport not yet in this scope's Uncategorized to it
+    uncat = next((t for t in margin_templates if (t.get("name") or "").strip().lower() == "uncategorized"), None)
+    uncategorized_id = int(uncat["id"]) if uncat and uncat.get("id") else 1
+    competition_ids_for_sport_set = {
+        int(c["domain_id"]) for c in DOMAIN_ENTITIES.get("competitions", [])
+        if c.get("domain_id") is not None and c.get("sport_id") == selected_sport_id
+    } if selected_sport_id else set()
+    assigned_to_scope_uncat = {r["competition_id"] for r in template_competitions if r.get("template_id") == uncategorized_id}
     added = 0
-    for cid in domain_competition_ids:
-        if cid not in assigned_ids:
+    for cid in competition_ids_for_sport_set:
+        if cid not in assigned_to_scope_uncat:
             template_competitions.append({"template_id": uncategorized_id, "competition_id": cid})
-            assigned_ids.add(cid)
+            assigned_to_scope_uncat.add(cid)
             added += 1
     if added:
         _save_margin_template_competitions(template_competitions)
@@ -3666,7 +3733,7 @@ async def margin_config_view(
                     template_inplay_dyn = f"{ip} DYN"
             template_risk_class = sel.get("risk_class")
 
-    return templates.TemplateResponse("margin_config.html", {
+    return templates.TemplateResponse("margin/margin.html", {
         "request": request,
         "section": "margin_config",
         "brands": brands,
@@ -3823,7 +3890,7 @@ async def localization_view(request: Request):
                         "translation_brand": tr_brand.get("text") if tr_brand else "",
                     })
 
-    return templates.TemplateResponse("localization.html", {
+    return templates.TemplateResponse("configuration/localization.html", {
         "request": request,
         "section": "localization",
         "countries": countries,
@@ -3860,7 +3927,7 @@ async def brands_view(request: Request):
         b["jurisdiction_display"] = ", ".join(countries_by_cc.get(cc, cc) for cc in j_codes) or "—"
         l_ids = [x.strip() for x in (b.get("language_ids") or "").split(",") if x.strip()]
         b["language_display"] = ", ".join(languages_by_id.get(lid, lid) for lid in l_ids) or "—"
-    return templates.TemplateResponse("brands.html", {
+    return templates.TemplateResponse("configuration/brands.html", {
         "request": request,
         "section": "brands",
         "brands": brands,

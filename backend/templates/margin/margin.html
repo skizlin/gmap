@@ -1,26 +1,16 @@
 {% extends "layout.html" %}
 
-{% block breadcrumbs %}
-<span class="mx-2 text-slate-700">/</span>
-<span class="text-slate-300">Betting Program</span>
-<span class="mx-2 text-slate-700">/</span>
-<span class="text-slate-300">Margin Configuration</span>
-{% endblock %}
+{% block page_heading %}Margin{% endblock %}
+{% block page_description %}Templates are per brand × sport; Global is the default to copy from. Uncategorized is always present. Configure templates and assign competitions.{% endblock %}
 
-{% block title %}Margin Configuration{% endblock %}
+{% block title %}Margin{% endblock %}
 
 {% block content %}
 <div class="flex flex-col space-y-4 pb-6">
 
-    <!-- Page header -->
-    <div>
-        <h1 class="text-lg font-bold text-white">Margin Configuration</h1>
-        <p class="text-xs text-slate-500 mt-0.5">Set margin rules on Global level, then inherit and override per brand. Configure templates and assign competitions.</p>
-    </div>
-
     <!-- Top bar: Brand, Sport, Apply (left) | Placeholder buttons (right) -->
     <div class="flex flex-wrap items-end justify-between gap-4 bg-cardbg/80 border border-slate-700/50 rounded-lg p-4">
-        <form method="get" action="/margin-config" class="flex flex-wrap items-end gap-4">
+        <form method="get" action="/margin" class="flex flex-wrap items-end gap-4">
             {% if show_tables and selected_template_id %}<input type="hidden" name="template_id" value="{{ selected_template_id }}">{% endif %}
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Brand</label>
@@ -50,7 +40,7 @@
         <div class="flex items-center gap-2">
             <button type="button" class="text-secondary hover:text-blue-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-secondary/50">* Margin</button>
             <button type="button" class="text-purple-400 hover:text-purple-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-purple-500/50">+ Copy from</button>
-            <button type="button" class="text-purple-400 hover:text-purple-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-purple-500/50">+ Copy</button>
+            <button type="button" class="text-purple-400 hover:text-purple-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-purple-500/50">+ Copy To</button>
             <button type="button" class="text-slate-400 hover:text-slate-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600">* Audit Log</button>
         </div>
     </div>
@@ -696,7 +686,7 @@
             closeAllMarketLineMenus();
             var mid = editBtn.getAttribute('data-market-id');
             var name = editBtn.getAttribute('data-market-name') || '';
-            var section = editBtn.classList.contains('margin-config-edit') ? 'Margin Configuration' :
+            var section = editBtn.classList.contains('margin-config-edit') ? 'Margin' :
                 editBtn.classList.contains('cashout-edit') ? 'Cashout By Sport' :
                 editBtn.classList.contains('pricing-edit') ? 'Pricing Margin Monitor' :
                 editBtn.classList.contains('min-price-edit') ? 'Minimum Price Suspension' :
@@ -709,7 +699,7 @@
     });
 
     // Keep template_id when applying filters (hidden input is set from current selection)
-    var form = document.querySelector('form[action="/margin-config"]');
+    var form = document.querySelector('form[action="/margin"]');
     if (form) {
         var radio = document.querySelector('input[name="margin_template"]:checked');
         var hid = form.querySelector('input[name="template_id"]');
@@ -726,7 +716,7 @@
             if (brandId) params.set('brand_id', brandId);
             if (sportId) params.set('sport_id', sportId);
             if (templateId) params.set('template_id', templateId);
-            window.location = '/margin-config' + (params.toString() ? '?' + params.toString() : '');
+            window.location = '/margin' + (params.toString() ? '?' + params.toString() : '');
         });
     });
 
@@ -786,6 +776,10 @@
                 alert('Name is required.');
                 return;
             }
+            var brandEl = document.getElementById('margin-brand');
+            var sportEl = document.getElementById('margin-sport');
+            var brandVal = brandEl ? brandEl.value : '';
+            var sportVal = sportEl ? sportEl.value : '';
             var payload = {
                 name: nameVal.trim(),
                 short_name: (document.getElementById('add-template-short-name') && document.getElementById('add-template-short-name').value) || '',
@@ -793,7 +787,9 @@
                 ip_margin: (document.getElementById('add-template-ip-margin') && document.getElementById('add-template-ip-margin').value) || '',
                 cashout: (document.getElementById('add-template-cashout') && document.getElementById('add-template-cashout').value) || '',
                 betbuilder: (document.getElementById('add-template-betbuilder') && document.getElementById('add-template-betbuilder').value) || '',
-                bet_delay: (document.getElementById('add-template-bet-delay') && document.getElementById('add-template-bet-delay').value) || ''
+                bet_delay: (document.getElementById('add-template-bet-delay') && document.getElementById('add-template-bet-delay').value) || '',
+                brand_id: brandVal === '' ? null : parseInt(brandVal, 10),
+                sport_id: sportVal === '' ? null : parseInt(sportVal, 10)
             };
             var saveBtn = document.getElementById('add-template-save');
             if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Adding…'; }

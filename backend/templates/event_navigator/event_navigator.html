@@ -1,13 +1,9 @@
 {% extends "layout.html" %}
 
-{% block breadcrumbs %}
-<span class="mx-2 text-slate-700">/</span>
-<span class="text-slate-400">Betting Program</span>
-<span class="mx-2 text-slate-700">/</span>
-<span class="text-slate-300">Domain Events</span>
-{% endblock %}
+{% block page_heading %}Event Navigator{% endblock %}
+{% block page_description %}Canonical events built from mapped feed data. Filter by date, sport, category and competition.{% endblock %}
 
-{% block title %}Domain Events{% endblock %}
+{% block title %}Event Navigator{% endblock %}
 
 {% block content %}
 <div class="flex flex-col h-full space-y-3">
@@ -20,7 +16,7 @@
         <div class="flex items-center bg-slate-900 rounded border border-slate-700 px-2.5 py-1.5">
             <i class="fa-regular fa-calendar text-slate-400 mr-2 text-xs"></i>
             <input type="date" id="domain-date-filter" name="date" value="{{ selected_date }}"
-                hx-get="/domain-events/table" hx-target="#domain-events-body" hx-swap="innerHTML"
+                hx-get="/event-navigator/table" hx-target="#domain-events-body" hx-swap="innerHTML"
                 hx-trigger="change" hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions'],[name='q']"
                 class="bg-transparent border-none text-xs text-white focus:ring-0 p-0">
         </div>
@@ -93,7 +89,7 @@
                         class="text-[10px] text-secondary hover:text-blue-300 font-medium">Select All</button>
                 </div>
                 <div id="domain-category-checkboxes-container"
-                    hx-get="/domain-events/category-options"
+                    hx-get="/event-navigator/category-options"
                     hx-trigger="load, domainCategoriesRefresh from:body"
                     hx-include="[name='sports'],[name='categories']"
                     hx-swap="innerHTML">
@@ -111,7 +107,7 @@
             </div>
         </div>
 
-        <!-- 4. Competition multi-select (only after sport and category selected) -->
+        <!-- 4. Competition multi-select (always available; options load when sport+category selected) -->
         <div id="domain-competition-hidden-inputs">
             {% for comp in selected_competitions %}
             <input type="hidden" name="competitions" value="{{ comp }}">
@@ -119,8 +115,8 @@
         </div>
         <div class="relative" id="domain-competition-dropdown-wrap">
             <button type="button" id="domain-competition-trigger" onclick="toggleDomainCompetitionDropdown()"
-                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[130px] hover:border-slate-500 transition-colors {% if not available_competitions %}opacity-60 cursor-not-allowed{% endif %}"
-                {% if not available_competitions %}disabled title="Select sport and category first"{% endif %}>
+                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[130px] hover:border-slate-500 transition-colors"
+                title="Filter by competition">
                 <i class="fa-solid fa-trophy text-slate-400 text-[10px]"></i>
                 <span id="domain-competition-label">
                     {% if not available_competitions %}Select competition
@@ -140,7 +136,7 @@
                         class="text-[10px] text-secondary hover:text-blue-300 font-medium">Select All</button>
                 </div>
                 <div id="domain-competition-checkboxes-container"
-                    hx-get="/domain-events/competition-options"
+                    hx-get="/event-navigator/competition-options"
                     hx-trigger="load, domainCompetitionsRefresh from:body"
                     hx-include="[name='sports'],[name='categories'],[name='competitions']"
                     hx-swap="innerHTML">
@@ -163,7 +159,7 @@
             <i class="fa-solid fa-search text-slate-500 mr-2 text-xs"></i>
             <input type="text" id="domain-search-input" name="q" value="{{ search_q }}"
                 placeholder="Sport, category, competition, event…"
-                hx-get="/domain-events/table" hx-target="#domain-events-body" hx-swap="innerHTML"
+                hx-get="/event-navigator/table" hx-target="#domain-events-body" hx-swap="innerHTML"
                 hx-trigger="input changed delay:350ms"
                 hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions']"
                 class="bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full">
@@ -207,9 +203,9 @@
                     </tr>
                 </thead>
                 <tbody id="domain-events-body" class="divide-y divide-slate-700/40 text-xs"
-                    hx-get="/domain-events/table" hx-trigger="load, domainEventsReload from:body"
+                    hx-get="/event-navigator/table" hx-trigger="load, domainEventsReload from:body"
                     hx-swap="innerHTML" hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions'],[name='q']">
-                    {% include '_domain_events_rows.html' %}
+                    {% include 'event_navigator/_rows.html' %}
                 </tbody>
             </table>
         </div>
@@ -344,15 +340,22 @@
         triggerDomainEventsTableRefresh();
     }
 
-    // ── Active filter badges (show active filters, X to remove) ─────
+    // ── Active filter badges (use hidden inputs so chips show when filter set by table click) ─────
+    function getDomainCategoriesFromHiddenInputs() {
+        return [...document.querySelectorAll('#domain-category-hidden-inputs input[name="categories"]')].map(i => i.value);
+    }
+    function getDomainCompetitionsFromHiddenInputs() {
+        return [...document.querySelectorAll('#domain-competition-hidden-inputs input[name="competitions"]')].map(i => i.value);
+    }
+
     function updateActiveFilterBadges() {
         const container = document.getElementById('domain-active-filters');
         if (!container) return;
         const dateVal = (document.getElementById('domain-date-filter') || {}).value || '';
         const sports = getCheckedDomainSports ? getCheckedDomainSports() : [];
         const allSports = getAllDomainSports ? getAllDomainSports() : [];
-        const categories = getCheckedDomainCategories ? getCheckedDomainCategories() : [];
-        const competitions = getCheckedDomainCompetitions ? getCheckedDomainCompetitions() : [];
+        const categories = getDomainCategoriesFromHiddenInputs();
+        const competitions = getDomainCompetitionsFromHiddenInputs();
         const q = (document.getElementById('domain-search-input') || {}).value || '';
         const badges = [];
         if (dateVal) {
@@ -364,20 +367,43 @@
         categories.forEach(c => badges.push({ type: 'category', label: 'Category: ' + c, value: c }));
         competitions.forEach(c => badges.push({ type: 'competition', label: 'Competition: ' + c, value: c }));
         if (q.trim()) badges.push({ type: 'search', label: 'Search: "' + q.trim() + '"', value: q.trim() });
-        container.innerHTML = badges.map(b => {
-            const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-            return `<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-slate-700/80 border border-slate-600 text-slate-200">
+        const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        let html = badges.map(b =>
+            `<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-slate-700/80 border border-slate-600 text-slate-200">
                 ${esc(b.label)}
                 <button type="button" class="remove-filter-badge hover:bg-slate-600 rounded p-0.5 transition-colors" data-filter-type="${esc(b.type)}" data-filter-value="${esc(b.value)}" aria-label="Remove filter">
                     <i class="fa-solid fa-times text-[10px]"></i>
                 </button>
-            </span>`;
-        }).join('');
+            </span>`
+        ).join('');
+        if (badges.length > 0) {
+            html += `<button type="button" id="domain-clear-all-filters" class="text-xs text-slate-400 hover:text-primary transition-colors ml-1">Clear all</button>`;
+        }
+        container.innerHTML = html;
         container.querySelectorAll('.remove-filter-badge').forEach(btn => {
             btn.addEventListener('click', function () {
                 removeFilterBadge(this.getAttribute('data-filter-type'), this.getAttribute('data-filter-value'));
             });
         });
+        const clearAllBtn = document.getElementById('domain-clear-all-filters');
+        if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllDomainFilters);
+    }
+
+    function clearAllDomainFilters() {
+        const el = document.getElementById('domain-date-filter');
+        if (el) el.value = '';
+        const allSports = getAllDomainSports();
+        document.querySelectorAll('#domain-sport-checkboxes-container input[type=checkbox]').forEach(cb => { cb.checked = true; });
+        updateDomainSportHiddenInputs(allSports);
+        updateDomainSportLabel(allSports);
+        clearDomainCategoryAndCompetition();
+        htmx.trigger(document.body, 'domainCategoriesRefresh');
+        htmx.trigger(document.body, 'domainCompetitionsRefresh');
+        const searchEl = document.getElementById('domain-search-input');
+        if (searchEl) searchEl.value = '';
+        updateDomainCategoryButtonState();
+        updateDomainCompetitionButtonState();
+        triggerDomainEventsTableRefresh();
     }
 
     function removeFilterBadge(type, value) {
@@ -393,12 +419,19 @@
             document.querySelectorAll('#domain-category-checkboxes-container input[type=checkbox]').forEach(cb => {
                 if (cb.value === value) cb.checked = false;
             });
-            onDomainCategoryChange();
+            const remaining = getDomainCategoriesFromHiddenInputs().filter(v => v !== value);
+            updateDomainCategoryHiddenInputs(remaining);
+            updateDomainCategoryLabel(remaining);
+            htmx.trigger(document.body, 'domainCompetitionsRefresh');
+            triggerDomainEventsTableRefresh();
         } else if (type === 'competition') {
             document.querySelectorAll('#domain-competition-checkboxes-container input[type=checkbox]').forEach(cb => {
                 if (cb.value === value) cb.checked = false;
             });
-            onDomainCompetitionChange();
+            const remaining = getDomainCompetitionsFromHiddenInputs().filter(v => v !== value);
+            updateDomainCompetitionHiddenInputs(remaining);
+            updateDomainCompetitionLabel(remaining);
+            triggerDomainEventsTableRefresh();
         } else if (type === 'search') {
             const el = document.getElementById('domain-search-input');
             if (el) { el.value = ''; htmx.trigger(el, 'input'); triggerDomainEventsTableRefresh(); }
@@ -498,21 +531,13 @@
         onDomainCategoryChange();
     }
 
-    // ── Competition multi-select (enabled only when sport and category selected) ─────
+    // ── Competition multi-select (always enabled so filter chip shows when set via table click) ─────
     function updateDomainCompetitionButtonState() {
-        const hasSports = getCheckedDomainSports().length > 0;
-        const hasCategories = getCheckedDomainCategories().length > 0;
-        const enabled = hasSports && hasCategories;
         const btn = document.getElementById('domain-competition-trigger');
-        if (!btn) return;
-        btn.disabled = !enabled;
-        btn.classList.toggle('opacity-60', !enabled);
-        btn.classList.toggle('cursor-not-allowed', !enabled);
-        btn.title = enabled ? '' : 'Select sport and category first';
+        if (btn) { btn.disabled = false; btn.classList.remove('opacity-60', 'cursor-not-allowed'); }
     }
 
     function toggleDomainCompetitionDropdown() {
-        if (document.getElementById('domain-competition-trigger').disabled) return;
         document.getElementById('domain-competition-panel').classList.toggle('hidden');
     }
 

@@ -1,12 +1,6 @@
 {% extends "layout.html" %}
 
-{% block breadcrumbs %}
-<span class="mx-2 text-slate-700">/</span>
-<a href="/domain-events" class="hover:text-slate-300 transition-colors">Domain Events</a>
-<span class="mx-2 text-slate-700">/</span>
-<span class="text-slate-300">Event Details</span>
-<span class="mx-2 text-slate-600">({{ event.id }})</span>
-{% endblock %}
+{% block page_header %}{% endblock %}
 
 {% block title %}Event Details — {{ event.id }}{% endblock %}
 

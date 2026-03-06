@@ -1,24 +1,12 @@
 {% extends "layout.html" %}
 
-{% block breadcrumbs %}
-<span class="mx-2 text-slate-700">/</span>
-<span class="text-slate-300">Configuration</span>
-<span class="mx-2 text-slate-700">/</span>
-<span class="text-slate-300">Localization</span>
-{% endblock %}
+{% block page_heading %}Localization{% endblock %}
+{% block page_description %}Manage languages and countries used across the platform.{% endblock %}
 
 {% block title %}Localization{% endblock %}
 
 {% block content %}
 <div class="flex flex-col h-full space-y-3">
-
-    <!-- Page header -->
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-lg font-bold text-white">Localization</h1>
-            <p class="text-xs text-slate-500 mt-0.5">Manage languages and countries used across the platform.</p>
-        </div>
-    </div>
 
     <!-- Localization tabs -->
     <div class="flex border-b border-slate-700 gap-0">

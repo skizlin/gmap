@@ -1,3 +1,5 @@
-id,name,short_name,pm_margin,ip_margin,cashout,betbuilder,bet_delay,risk_class_id,leagues_count,markets_count,is_default
-1,Uncategorized,,109,109,Disabled,Disabled,8,10,0,0,1
-2,Tier 1,T1,105,105,Enabled,Enabled,5,1,0,0,0
+id,name,short_name,pm_margin,ip_margin,cashout,betbuilder,bet_delay,risk_class_id,leagues_count,markets_count,is_default,brand_id,sport_id
+1,Uncategorized,,109,109,Disabled,Disabled,8,10,0,0,1,,
+2,Tier 1,T1,105,105,Enabled,Enabled,5,1,0,0,0,,
+3,Uncategorized,,,,,,,,0,0,1,1,2
+4,Uncategorized,,,,,,,,0,0,1,1,1

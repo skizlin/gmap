@@ -141,6 +141,8 @@ class CreateMarginTemplateRequest(BaseModel):
     cashout: Optional[str] = None
     betbuilder: Optional[str] = None
     bet_delay: Optional[str] = None
+    brand_id: Optional[int] = None  # None/empty = Global
+    sport_id: Optional[int] = None
 
 
 class UpdateMarginTemplateRequest(BaseModel):

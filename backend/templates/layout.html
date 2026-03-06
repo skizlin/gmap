@@ -74,7 +74,7 @@
                 <!-- Configuration (dropdown) -->
                 <div class="nav-item relative flex items-center group">
                     <button
-                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors gap-1.5">
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors gap-1.5 {% if section in ['entities', 'localization', 'brands', 'feeders', 'margin_config', 'risk_rules'] %}text-primary{% endif %}">
                         Configuration
                         <i class="fa-solid fa-chevron-down text-xs opacity-50"></i>
                     </button>
@@ -96,6 +96,10 @@
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'feeders' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-slate-500"></i> Feeder
                         </a>
+                        <a href="/margin"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'margin_config' %}text-primary{% else %}text-slate-300{% endif %}">
+                            <i class="fa-solid fa-percent w-5 text-slate-500"></i> Margin
+                        </a>
                         <a href="/risk-rules"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'risk_rules' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-shield-halved w-5 text-slate-500"></i> Risk Rules
@@ -106,23 +110,23 @@
                 <!-- Betting Program (dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <button
-                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors gap-1.5 {% if section in ['domain', 'feeder', 'margin_config'] %}text-primary{% endif %}">
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors gap-1.5 {% if section in ['domain', 'feeder', 'archived_events'] %}text-primary{% endif %}">
                         Betting Program
                         <i class="fa-solid fa-chevron-down text-xs opacity-50"></i>
                     </button>
                     <div
                         class="nav-dropdown absolute top-full left-0 w-52 bg-slate-900 border border-slate-700 rounded-b shadow-xl z-50">
-                        <a href="/domain-events"
+                        <a href="/event-navigator"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'domain' %}text-primary{% else %}text-slate-300{% endif %}">
-                            <i class="fa-solid fa-trophy w-5 text-slate-500"></i> Domain Events
+                            <i class="fa-solid fa-compass w-5 text-slate-500"></i> Event Navigator
                         </a>
                         <a href="/feeder-events"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'feeder' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-slate-500"></i> Feeder Events
                         </a>
-                        <a href="/margin-config"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'margin_config' %}text-primary{% else %}text-slate-300{% endif %}">
-                            <i class="fa-solid fa-percent w-5 text-slate-500"></i> Margin Configuration
+                        <a href="/archived-events"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'archived_events' %}text-primary{% else %}text-slate-300{% endif %}">
+                            <i class="fa-solid fa-box-archive w-5 text-slate-500"></i> Archived Events
                         </a>
                     </div>
                 </div>
@@ -177,12 +181,13 @@
     <!-- Main Content (full width) -->
     <main class="flex-1 flex flex-col overflow-hidden">
 
-        <!-- Breadcrumb Bar -->
-        <div
-            class="bg-slate-900/60 border-b border-slate-800 px-6 py-1.5 flex items-center text-xs text-slate-500 flex-shrink-0">
-            <a href="/" class="hover:text-slate-300 transition-colors">GMP</a>
-            {% block breadcrumbs %}{% endblock %}
+        <!-- Page header: title + short description (override page_header with empty to hide, e.g. Event details) -->
+        {% block page_header %}
+        <div class="bg-slate-900/60 border-b border-slate-800 px-6 py-4 flex-shrink-0">
+            <h1 class="text-lg font-bold text-white">{% block page_heading %}Page{% endblock %}</h1>
+            <p class="text-sm text-slate-500 mt-1">{% block page_description %}{% endblock %}</p>
         </div>
+        {% endblock %}
 
         <!-- Scrollable Content -->
         <div class="flex-1 overflow-auto p-6">
