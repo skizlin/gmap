@@ -23,7 +23,7 @@
         <div class="relative">
             <select id="feed-filter" name="feed_provider" hx-get="/feeder-events/table" hx-target="#feeder-events-body"
                 hx-swap="innerHTML" hx-trigger="change"
-                hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='outright_filter'],[name='q']"
+                hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q']"
                 class="bg-slate-900 text-white text-xs rounded border border-secondary/60 px-3 py-1.5 pr-7 appearance-none ring-1 ring-secondary/30">
                 {% for feed in feeds %}
                 <option value="{{ feed }}" {% if feed==selected_feed %}selected{% endif %}>{{ feed }}</option>
@@ -155,7 +155,54 @@
             </div>
         </div>
 
-        <!-- 6. IsOutright toggle -->
+        <!-- 6. Status multi-select (feed event status) -->
+        <div id="feeder-status-hidden-inputs">
+            {% for st in selected_statuses %}
+            <input type="hidden" name="statuses" value="{{ st | e }}">
+            {% endfor %}
+        </div>
+        <div class="relative" id="feeder-status-dropdown-wrap">
+            <button type="button" id="feeder-status-trigger" onclick="toggleFeederStatusDropdown()"
+                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[120px] hover:border-slate-500 transition-colors"
+                title="Filter by event status">
+                <i class="fa-solid fa-circle-dot text-slate-400 text-[10px]"></i>
+                <span id="feeder-status-label">
+                    {% if not selected_statuses %}All Statuses
+                    {% elif selected_statuses | length == 1 %}{{ selected_statuses[0] }}
+                    {% else %}{{ selected_statuses | length }} Statuses
+                    {% endif %}
+                </span>
+                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+            </button>
+            <div id="feeder-status-panel"
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-44 py-1 max-h-[240px] overflow-y-auto">
+                {% for st in available_statuses %}
+                <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                    <input type="checkbox" name="status_check" value="{{ st | e }}" {% if st in selected_statuses %}checked{% endif %}
+                        onchange="onFeederStatusChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
+                    <span class="text-xs text-slate-300">{{ st }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 7. Live match status (pre-match vs live) – icon toggle, default off = show all -->
+        <input type="hidden" id="live-only-input" name="live_only" value="{{ live_only | default('0') }}">
+        <button type="button" id="live-only-btn" onclick="setLiveOnlyFilter(this)" title="Show all (deselected) or live only (selected)"
+            class="feeder-filter-icon inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-slate-700 bg-slate-900 transition-colors hover:border-slate-500">
+            <i id="live-only-icon" class="fa-solid fa-tower-broadcast text-sm {{ 'text-red-500' if live_only == '1' else 'text-slate-400' }}" aria-hidden="true"></i>
+        </button>
+
+        <!-- 8. Notes filter – icon toggle, default off = show all; on = only events with notes -->
+        <input type="hidden" id="notes-only-input" name="notes_only" value="{{ notes_only | default('0') }}">
+        <button type="button" id="notes-only-btn" onclick="setNotesOnlyFilter(this)" title="Show all (deselected) or only with notes (selected)"
+            class="feeder-filter-icon inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-slate-700 bg-slate-900 transition-colors hover:border-slate-500">
+            <i id="notes-only-icon" class="fa-solid fa-note-sticky text-sm {{ 'text-amber-400' if notes_only == '1' else 'text-slate-400' }}" aria-hidden="true"></i>
+        </button>
+
+        <div class="border-l border-slate-700 h-6 mx-1"></div>
+
+        <!-- 9. IsOutright toggle -->
         <input type="hidden" id="outright-input" name="outright_filter" value="">
         <div class="flex bg-slate-900 rounded p-0.5 border border-slate-700" id="outright-toggle">
             <button type="button" data-outright="" onclick="setOutrightFilter(this)"
@@ -187,14 +234,9 @@
             <input type="text" id="search-input" name="q" placeholder="Sport, category, competition, event…"
                 hx-get="/feeder-events/table" hx-target="#feeder-events-body" hx-swap="innerHTML"
                 hx-trigger="input changed delay:350ms"
-                hx-include="[name='feed_provider'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='outright_filter']"
+                hx-include="[name='feed_provider'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter']"
                 class="bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full">
         </div>
-
-        <button
-            class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center">
-            <i class="fa-solid fa-sync mr-1.5"></i> Sync Now
-        </button>
     </div>
 
     <!-- Active filter badges -->
@@ -208,6 +250,9 @@
                 <thead>
                     <tr
                         class="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700 whitespace-nowrap">
+                        <th class="px-3 py-2 font-semibold w-10 align-middle">
+                            <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" aria-label="Bulk select all" id="feeder-events-bulk-select">
+                        </th>
                         <th class="px-3 py-2 font-semibold">Feed Source</th>
                         <th class="px-3 py-2 font-semibold">Feed ID</th>
                         <th class="px-3 py-2 font-semibold">ID / Status</th>
@@ -216,12 +261,15 @@
                         <th class="px-3 py-2 font-semibold">Category</th>
                         <th class="px-3 py-2 font-semibold">Competition</th>
                         <th class="px-3 py-2 font-semibold">Event</th>
+                        <th class="px-3 py-2 font-semibold w-20">Status</th>
+                        <th class="px-3 py-2 font-semibold w-14 text-center">#MKT</th>
+                        <th class="px-3 py-2 font-semibold w-12 text-center">Notes</th>
                         <th class="px-3 py-2 font-semibold text-right w-14">Action</th>
                     </tr>
                 </thead>
                 <tbody id="feeder-events-body" class="divide-y divide-slate-700/40 text-xs"
                     hx-get="/feeder-events/table" hx-trigger="reload" hx-swap="innerHTML"
-                    hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='outright_filter'],[name='q']">
+                    hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q']">
                     {% include 'feeder_events/_rows.html' %}
                 </tbody>
 
@@ -231,7 +279,10 @@
         <!-- Pagination -->
         <div
             class="px-4 py-2 bg-slate-900/50 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500 flex-shrink-0">
-            <span>Showing {{ events|length }} events</span>
+            <div class="flex items-center gap-3">
+                <button type="button" class="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 border border-slate-600" disabled title="Bulk update – coming soon">Bulk Update</button>
+                <span>Showing {{ events|length }} events</span>
+            </div>
             <div class="flex space-x-2">
                 <button class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700">Previous</button>
                 <button class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700">Next</button>
@@ -261,6 +312,8 @@
         if (catWrap && !catWrap.contains(e.target)) document.getElementById('feeder-category-panel').classList.add('hidden');
         const compWrap = document.getElementById('feeder-competition-dropdown-wrap');
         if (compWrap && !compWrap.contains(e.target)) document.getElementById('feeder-competition-panel').classList.add('hidden');
+        const statusWrap = document.getElementById('feeder-status-dropdown-wrap');
+        if (statusWrap && !statusWrap.contains(e.target)) document.getElementById('feeder-status-panel').classList.add('hidden');
     });
 
     function getCheckedSports() {
@@ -382,6 +435,39 @@
         if (btn) btn.disabled = false;
     }
 
+    // ── Feeder Status multi-select ───────────────────────────────────
+    function toggleFeederStatusDropdown() {
+        document.getElementById('feeder-status-panel').classList.toggle('hidden');
+    }
+
+    function getCheckedFeederStatuses() {
+        return [...document.querySelectorAll('#feeder-status-panel input[name="status_check"]:checked')]
+            .map(cb => cb.value);
+    }
+
+    function updateFeederStatusHiddenInputs(selected) {
+        const container = document.getElementById('feeder-status-hidden-inputs');
+        container.innerHTML = selected.map(s =>
+            `<input type="hidden" name="statuses" value="${String(s).replace(/"/g, '&quot;')}">`
+        ).join('');
+    }
+
+    function updateFeederStatusLabel(selected) {
+        const label = document.getElementById('feeder-status-label');
+        if (!label) return;
+        if (selected.length === 0) label.textContent = 'All Statuses';
+        else if (selected.length === 1) label.textContent = selected[0];
+        else label.textContent = selected.length + ' Statuses';
+    }
+
+    function onFeederStatusChange() {
+        const selected = getCheckedFeederStatuses();
+        updateFeederStatusHiddenInputs(selected);
+        updateFeederStatusLabel(selected);
+        triggerTableRefresh();
+        updateFeederActiveFilterBadges();
+    }
+
     function clearFeederCategoryAndCompetition() {
         document.getElementById('feeder-category-hidden-inputs').innerHTML = '';
         document.getElementById('feeder-competition-hidden-inputs').innerHTML = '';
@@ -475,6 +561,9 @@
     function getFeederCompetitionsFromHiddenInputs() {
         return [...document.querySelectorAll('#feeder-competition-hidden-inputs input[name="competitions"]')].map(i => i.value);
     }
+    function getFeederStatusesFromHiddenInputs() {
+        return [...document.querySelectorAll('#feeder-status-hidden-inputs input[name="statuses"]')].map(i => i.value);
+    }
 
     function updateFeederActiveFilterBadges() {
         const container = document.getElementById('feeder-active-filters');
@@ -483,6 +572,7 @@
         const allSports = getAllSports();
         const categories = getFeederCategoriesFromHiddenInputs();
         const competitions = getFeederCompetitionsFromHiddenInputs();
+        const statuses = getFeederStatusesFromHiddenInputs();
         const searchEl = document.getElementById('search-input');
         const q = searchEl ? searchEl.value.trim() : '';
         const badges = [];
@@ -492,6 +582,7 @@
         }
         categories.forEach(c => badges.push({ type: 'category', label: 'Category: ' + c, value: c }));
         competitions.forEach(c => badges.push({ type: 'competition', label: 'Competition: ' + c, value: c }));
+        statuses.forEach(s => badges.push({ type: 'status', label: 'Status: ' + s, value: s }));
         if (q) badges.push({ type: 'search', label: 'Search: "' + q + '"', value: q });
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
         let html = badges.map(b =>
@@ -523,6 +614,9 @@
         clearFeederCategoryAndCompetition();
         htmx.trigger(document.body, 'feederCategoriesRefresh');
         htmx.trigger(document.body, 'feederCompetitionsRefresh');
+        document.getElementById('feeder-status-hidden-inputs').innerHTML = '';
+        document.getElementById('feeder-status-label').textContent = 'All Statuses';
+        document.querySelectorAll('#feeder-status-panel input[name="status_check"]').forEach(cb => { cb.checked = false; });
         const searchEl = document.getElementById('search-input');
         if (searchEl) { searchEl.value = ''; }
         document.getElementById('outright-input').value = '';
@@ -538,6 +632,14 @@
         });
         const allMappingBtn = document.querySelector('#mapping-toggle button[data-status=""]');
         if (allMappingBtn) allMappingBtn.classList.add('bg-secondary', 'text-white', 'shadow');
+        var liveInput = document.getElementById('live-only-input');
+        if (liveInput) liveInput.value = '0';
+        var liveIcon = document.getElementById('live-only-icon');
+        if (liveIcon) { liveIcon.classList.add('text-slate-400'); liveIcon.classList.remove('text-red-500'); }
+        var notesInput = document.getElementById('notes-only-input');
+        if (notesInput) notesInput.value = '0';
+        var notesIcon = document.getElementById('notes-only-icon');
+        if (notesIcon) { notesIcon.classList.add('text-slate-400'); notesIcon.classList.remove('text-amber-400'); }
         updateFeederCategoryButtonState();
         updateFeederCompetitionButtonState();
         triggerTableRefresh();
@@ -566,6 +668,14 @@
             const remaining = getFeederCompetitionsFromHiddenInputs().filter(v => v !== value);
             updateFeederCompetitionHiddenInputs(remaining);
             updateFeederCompetitionLabel(remaining);
+            triggerTableRefresh();
+        } else if (type === 'status') {
+            document.querySelectorAll('#feeder-status-panel input[name="status_check"]').forEach(cb => {
+                if (cb.value === value) cb.checked = false;
+            });
+            const remaining = getFeederStatusesFromHiddenInputs().filter(v => v !== value);
+            updateFeederStatusHiddenInputs(remaining);
+            updateFeederStatusLabel(remaining);
             triggerTableRefresh();
         } else if (type === 'outright') {
             document.getElementById('outright-input').value = '';
@@ -621,6 +731,24 @@
         triggerTableRefresh();
     }
 
+    // ── Live / Notes icon toggles (icon color only when ON: live=red, notes=amber) ──
+    function setLiveOnlyFilter(btn) {
+        var input = document.getElementById('live-only-input');
+        var on = input && input.value === '1';
+        if (input) input.value = on ? '0' : '1';
+        var icon = document.getElementById('live-only-icon');
+        if (icon) { icon.classList.toggle('text-red-500', !on); icon.classList.toggle('text-slate-400', on); }
+        triggerTableRefresh();
+    }
+    function setNotesOnlyFilter(btn) {
+        var input = document.getElementById('notes-only-input');
+        var on = input && input.value === '1';
+        if (input) input.value = on ? '0' : '1';
+        var icon = document.getElementById('notes-only-icon');
+        if (icon) { icon.classList.toggle('text-amber-400', !on); icon.classList.toggle('text-slate-400', on); }
+        triggerTableRefresh();
+    }
+
     // ── Action column: 3-dot kebab menu ─────────────────────────────
     function toggleActionMenu(menuId, ev) {
         ev.stopPropagation();
@@ -636,5 +764,56 @@
     document.addEventListener('click', function () {
         closeActionMenus();
     });
+
+    // ── Ignore / Un-ignore feeder event (called from button onclick; delegation fails due to dropdown stopPropagation) ──
+    window.feederSetIgnored = function (btn) {
+        if (!btn) return;
+        var provider = btn.getAttribute('data-feed-provider') || '';
+        var validId = btn.getAttribute('data-feed-valid-id') || '';
+        var currentlyIgnored = btn.getAttribute('data-ignored') === '1';
+        var form = new FormData();
+        form.append('feed_provider', provider);
+        form.append('feed_valid_id', validId);
+        form.append('ignored', currentlyIgnored ? '0' : '1');
+        fetch('/api/feeder-events/set-ignored', { method: 'POST', body: form })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data && data.ok) {
+                    closeActionMenus();
+                    htmx.trigger('#feeder-events-body', 'reload');
+                }
+            });
+    };
+
+    // ── Bulk select: header checkbox selects all visible row checkboxes ─────
+    function updateFeederBulkSelectHeader() {
+        const header = document.getElementById('feeder-events-bulk-select');
+        const body = document.getElementById('feeder-events-body');
+        if (!header || !body) return;
+        const rowCheckboxes = body.querySelectorAll('.feeder-event-row-checkbox');
+        const checked = body.querySelectorAll('.feeder-event-row-checkbox:checked');
+        const n = rowCheckboxes.length;
+        const c = checked.length;
+        header.checked = n > 0 && c === n;
+        header.indeterminate = n > 0 && c > 0 && c < n;
+    }
+
+    document.getElementById('feeder-events-bulk-select')?.addEventListener('change', function () {
+        const body = document.getElementById('feeder-events-body');
+        if (!body) return;
+        body.querySelectorAll('.feeder-event-row-checkbox').forEach(function (cb) {
+            cb.checked = this.checked;
+        }, this);
+    });
+
+    document.getElementById('feeder-events-body')?.addEventListener('change', function (e) {
+        if (e.target.classList.contains('feeder-event-row-checkbox')) updateFeederBulkSelectHeader();
+    });
+
+    document.body.addEventListener('htmx:afterSwap', function (e) {
+        if (e.detail.target.id === 'feeder-events-body') updateFeederBulkSelectHeader();
+    });
+
+    document.addEventListener('DOMContentLoaded', updateFeederBulkSelectHeader);
 </script>
 {% endblock %}

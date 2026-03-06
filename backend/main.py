@@ -35,6 +35,7 @@ _BRANDS_FIELDS = config.BRANDS_FIELDS
 DOMAIN_EVENTS_PATH = config.DOMAIN_EVENTS_PATH
 EVENT_MAPPINGS_PATH = config.EVENT_MAPPINGS_PATH
 ENTITY_FEED_MAPPINGS_PATH = config.ENTITY_FEED_MAPPINGS_PATH
+SPORT_FEED_MAPPINGS_PATH = config.SPORT_FEED_MAPPINGS_PATH
 MARKET_TEMPLATES_PATH = config.MARKET_TEMPLATES_PATH
 MARKET_PERIOD_TYPE_PATH = config.MARKET_PERIOD_TYPE_PATH
 MARKET_SCORE_TYPE_PATH = config.MARKET_SCORE_TYPE_PATH
@@ -49,6 +50,12 @@ BRANDS_PATH = config.BRANDS_PATH
 FEED_SPORTS_PATH = config.FEED_SPORTS_PATH
 FEEDER_CONFIG_PATH = config.FEEDER_CONFIG_PATH
 FEEDER_INCIDENTS_PATH = config.FEEDER_INCIDENTS_PATH
+FEEDER_EVENT_NOTES_PATH = config.FEEDER_EVENT_NOTES_PATH
+FEEDER_IGNORED_EVENTS_PATH = getattr(config, "FEEDER_IGNORED_EVENTS_PATH", None)
+FEEDER_EVENT_LOG_PATH = getattr(config, "FEEDER_EVENT_LOG_PATH", None)
+NOTES_PATH = config.NOTES_PATH
+NOTES_PATH_LEGACY = getattr(config, "NOTES_PATH_LEGACY", None)  # optional one-time move from data/ to data/notes/
+NOTIFICATIONS_PATH = getattr(config, "NOTIFICATIONS_PATH", None)
 MARGIN_TEMPLATES_PATH = config.MARGIN_TEMPLATES_PATH
 MARGIN_TEMPLATE_COMPETITIONS_PATH = config.MARGIN_TEMPLATE_COMPETITIONS_PATH
 
@@ -1144,22 +1151,33 @@ def _load_event_mappings() -> list[dict]:
         return list(csv.DictReader(f))
 
 def _load_entity_feed_mappings() -> list[dict]:
-    """Load entity_feed_mappings.csv — feed IDs map to domain entities (sports, categories, competitions, teams)."""
-    if not ENTITY_FEED_MAPPINGS_PATH.exists():
-        return []
+    """Load entity_feed_mappings.csv (non-sport only) + sport_feed_mappings.csv (sports). Sport mappings are developer-controlled and never dumped."""
+    def _parse_row(row: dict) -> dict:
+        row["domain_id"] = int(row["domain_id"])
+        row["feed_provider_id"] = int(row["feed_provider_id"])
+        if not (row.get("domain_name") or str(row.get("domain_name", "")).strip()):
+            try:
+                bucket = DOMAIN_ENTITIES.get(row["entity_type"], [])
+                ent = next((e for e in bucket if e["domain_id"] == row["domain_id"]), None)
+                row["domain_name"] = (ent.get("name") or "").strip() if ent else ""
+            except NameError:
+                row["domain_name"] = ""
+        return row
+
     rows = []
-    with open(ENTITY_FEED_MAPPINGS_PATH, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            row["domain_id"] = int(row["domain_id"])
-            row["feed_provider_id"] = int(row["feed_provider_id"])
-            if not (row.get("domain_name") or str(row.get("domain_name", "")).strip()):
-                try:
-                    bucket = DOMAIN_ENTITIES.get(row["entity_type"], [])
-                    ent = next((e for e in bucket if e["domain_id"] == row["domain_id"]), None)
-                    row["domain_name"] = (ent.get("name") or "").strip() if ent else ""
-                except NameError:
-                    row["domain_name"] = ""
-            rows.append(row)
+    if ENTITY_FEED_MAPPINGS_PATH.exists():
+        with open(ENTITY_FEED_MAPPINGS_PATH, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if (row.get("entity_type") or "").strip().lower() == "sports":
+                    continue
+                rows.append(_parse_row(row))
+
+    if SPORT_FEED_MAPPINGS_PATH.exists():
+        with open(SPORT_FEED_MAPPINGS_PATH, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if (row.get("entity_type") or "").strip().lower() != "sports":
+                    continue
+                rows.append(_parse_row(row))
     return rows
 
 def _domain_entity_name(entity_type: str, domain_id: int) -> str:
@@ -1172,7 +1190,9 @@ def _domain_entity_name(entity_type: str, domain_id: int) -> str:
         return ""
 
 def _save_entity_feed_mapping(entity_type: str, domain_id: int, feed_provider_id: int, feed_id: str, domain_name: str | None = None) -> None:
-    """Append one row to entity_feed_mappings.csv (one feed reference per domain entity)."""
+    """Append one row to entity_feed_mappings.csv (one feed reference per domain entity). Sport mappings are not written (they live in sport_feed_mappings.csv, developer-controlled)."""
+    if (entity_type or "").strip().lower() == "sports":
+        return
     if domain_name is None:
         try:
             domain_name = _domain_entity_name(entity_type, domain_id)
@@ -1205,11 +1225,13 @@ def _feed_id_looks_numeric(feed_id: str) -> bool:
 
 
 def _persist_entity_feed_mappings() -> None:
-    """Rewrite entity_feed_mappings.csv from current ENTITY_FEED_MAPPINGS in memory."""
+    """Rewrite entity_feed_mappings.csv from current ENTITY_FEED_MAPPINGS (non-sport rows only). Sport mappings stay in sport_feed_mappings.csv and are not written here."""
     with open(ENTITY_FEED_MAPPINGS_PATH, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=_ENTITY_FEED_MAPPING_FIELDS)
         writer.writeheader()
         for m in ENTITY_FEED_MAPPINGS:
+            if (m.get("entity_type") or "").strip().lower() == "sports":
+                continue
             writer.writerow({
                 "entity_type": m["entity_type"],
                 "domain_id": m["domain_id"],
@@ -1367,7 +1389,8 @@ _deduplicate_sport_feed_mappings()
 
 def _dump_entity_and_relation_csvs() -> None:
     """
-    Clear all entity and relation CSV files (header-only). Does not touch feeds.csv.
+    Clear entity and relation CSV files (header-only). Does not touch feeds.csv, sports.csv, or sport_feed_mappings.csv
+    (sports and sport–feed mappings are developer-controlled, same on local and server via git).
     Caller must reload DOMAIN_EVENTS, DOMAIN_ENTITIES, ENTITY_FEED_MAPPINGS after.
     """
     with open(DOMAIN_EVENTS_PATH, "w", newline="", encoding="utf-8") as f:
@@ -1377,7 +1400,7 @@ def _dump_entity_and_relation_csvs() -> None:
     with open(ENTITY_FEED_MAPPINGS_PATH, "w", newline="", encoding="utf-8") as f:
         csv.DictWriter(f, fieldnames=_ENTITY_FEED_MAPPING_FIELDS).writeheader()
     for etype in _ENTITY_FIELDS:
-        if etype == "feeds":
+        if etype in ("feeds", "sports"):
             continue
         path = DATA_DIR / f"{etype}.csv"
         with open(path, "w", newline="", encoding="utf-8") as f:
@@ -1385,7 +1408,7 @@ def _dump_entity_and_relation_csvs() -> None:
 
 
 def _rewrite_entity_feed_mappings_with_domain_name() -> None:
-    """If CSV has no domain_name column, rewrite it with new schema and backfilled domain_name."""
+    """If CSV has no domain_name column, rewrite it with new schema and backfilled domain_name. Only non-sport rows go to entity_feed_mappings.csv."""
     if not ENTITY_FEED_MAPPINGS_PATH.exists():
         return
     with open(ENTITY_FEED_MAPPINGS_PATH, newline="", encoding="utf-8") as f:
@@ -1394,6 +1417,8 @@ def _rewrite_entity_feed_mappings_with_domain_name() -> None:
         return
     rows = []
     for m in ENTITY_FEED_MAPPINGS:
+        if (m.get("entity_type") or "").strip().lower() == "sports":
+            continue
         name = m.get("domain_name") or _domain_entity_name(m["entity_type"], m["domain_id"])
         rows.append({
             "entity_type": m["entity_type"],
@@ -1410,15 +1435,57 @@ def _rewrite_entity_feed_mappings_with_domain_name() -> None:
 
 _rewrite_entity_feed_mappings_with_domain_name()
 
+_FEEDER_IGNORED_FIELDS = ["feed_provider", "feed_valid_id"]
+
+
+def _load_feeder_ignored_set() -> set[tuple[str, str]]:
+    """Set of (feed_provider, feed_valid_id) that are ignored (bad/wrong events; not deleted, just hidden from mapping)."""
+    if not FEEDER_IGNORED_EVENTS_PATH or not FEEDER_IGNORED_EVENTS_PATH.exists():
+        return set()
+    out = set()
+    with open(FEEDER_IGNORED_EVENTS_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            p = (row.get("feed_provider") or "").strip()
+            v = (row.get("feed_valid_id") or "").strip()
+            if p or v:
+                out.add((p, v))
+    return out
+
+
+def _set_feeder_event_ignored(feed_provider: str, feed_valid_id: str, ignored: bool) -> None:
+    """Add or remove (feed_provider, feed_valid_id) from feeder_ignored_events.csv."""
+    if not FEEDER_IGNORED_EVENTS_PATH:
+        return
+    feed_provider = (feed_provider or "").strip()
+    feed_valid_id = (feed_valid_id or "").strip()
+    current = _load_feeder_ignored_set()
+    key = (feed_provider, feed_valid_id)
+    if ignored:
+        current.add(key)
+    else:
+        current.discard(key)
+    FEEDER_IGNORED_EVENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(FEEDER_IGNORED_EVENTS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_FEEDER_IGNORED_FIELDS)
+        w.writeheader()
+        for (p, v) in sorted(current):
+            w.writerow({"feed_provider": p, "feed_valid_id": v})
+    _sync_feeder_events_mapping_status()
+
+
 def _sync_feeder_events_mapping_status() -> None:
-    """Re-sync DUMMY_EVENTS mapping_status and domain_id from current event_mappings.csv (single source of truth)."""
+    """Re-sync DUMMY_EVENTS mapping_status and domain_id from event_mappings.csv; override to IGNORED if in feeder_ignored_events."""
+    ignored_set = _load_feeder_ignored_set() if FEEDER_IGNORED_EVENTS_PATH else set()
     mapped_index = {
         (_m["feed_provider"], _m["feed_valid_id"]): _m["domain_event_id"]
         for _m in _load_event_mappings()
     }
     for _e in DUMMY_EVENTS:
-        _key = (_e.get("feed_provider", ""), _e.get("valid_id", ""))
-        if _key in mapped_index:
+        _key = (_e.get("feed_provider", ""), str(_e.get("valid_id", "")))
+        if _key in ignored_set:
+            _e["mapping_status"] = "IGNORED"
+            _e.pop("domain_id", None)
+        elif _key in mapped_index:
             _e["mapping_status"] = "MAPPED"
             _e["domain_id"] = mapped_index[_key]
         else:
@@ -1639,17 +1706,22 @@ async def create_entity(body: CreateEntityRequest):
     bucket = DOMAIN_ENTITIES.get(body.entity_type)
     if bucket is None:
         raise HTTPException(status_code=400, detail=f"Unknown entity type: {body.entity_type}")
+    if body.entity_type == "sports":
+        raise HTTPException(status_code=400, detail="Sports cannot be created from backoffice. Add them in code/data and map in entity feed mappings.")
 
     # Resolve parent FKs from names ─────────────────────────────────────────
     sport_id: Optional[int] = None
     category_id: Optional[int] = None
 
     if body.entity_type in ("categories", "competitions", "teams") and body.sport:  # markets need no sport
-        sp = next((s for s in DOMAIN_ENTITIES["sports"] if s["name"].lower() == body.sport.lower()), None)
+        sport_key = (body.sport or "").strip().lower()
+        sp = next((s for s in DOMAIN_ENTITIES["sports"] if (s.get("name") or "").strip().lower() == sport_key), None)
         if sp:
             sport_id = sp["domain_id"]
         else:
             raise HTTPException(status_code=400, detail=f"Sport '{body.sport}' not found. Create it in Entities first.")
+    if body.entity_type == "categories" and (not body.sport or not str(body.sport).strip()):
+        raise HTTPException(status_code=400, detail="Sport is required to create a category. Ensure the feed's sport is mapped by the developer.")
 
     if body.entity_type == "competitions" and body.category:
         cp = next((c for c in DOMAIN_ENTITIES["categories"]
@@ -2009,6 +2081,7 @@ async def map_event_to_domain(
     )
     if not already:
         _save_event_mapping(domain_id_selected, feeder_provider, feeder_valid_id)
+    _append_feeder_event_log(feeder_provider, feeder_valid_id, "mapped", details=domain_id_selected)
 
     # Mark feeder event as MAPPED in memory
     feeder_ev = None
@@ -2205,6 +2278,286 @@ def _feeder_competitions(feed: str, sports: list[str] | None, categories: list[s
     })
 
 
+FEEDER_EVENT_STATUSES = ["Open", "Closed", "Resulted", "Cancelled", "Abandoned"]
+
+# Platform notes: categorized by entity_type; multiple notes per entity. entity_ref identifies the entity within that type.
+# Example types: feeder_event (ref=feed_provider|feed_valid_id), domain_event (ref=domain_id), competition (ref=competition_id).
+NOTES_ENTITY_FEEDER_EVENT = "feeder_event"
+_NOTES_FIELDS = ["entity_type", "entity_ref", "note_id", "note_text", "created_at", "updated_at", "created_by", "updated_by", "requires_confirmation"]
+NOTES_DEFAULT_USER = "Admin"
+_NOTIFICATION_FIELDS = ["notification_id", "note_id", "message_snippet", "created_at", "confirmed"]
+
+
+def _feeder_entity_ref(feed_provider: str, feed_valid_id: str) -> str:
+    """Entity ref for a feeder event (used in platform_notes)."""
+    return f"{(feed_provider or '').strip()}|{(feed_valid_id or '').strip()}"
+
+
+def _normalize_note_row(row: dict) -> dict:
+    """Ensure note has created_by, updated_by, requires_confirmation (for backward compatibility)."""
+    out = dict(row)
+    if not out.get("created_by"):
+        out["created_by"] = NOTES_DEFAULT_USER
+    if not out.get("updated_by"):
+        out["updated_by"] = NOTES_DEFAULT_USER
+    if out.get("requires_confirmation") not in ("1", 1, True):
+        out["requires_confirmation"] = "0"
+    return out
+
+
+def _load_platform_notes() -> list[dict]:
+    """Load platform_notes.csv. Columns include created_by, updated_by, requires_confirmation."""
+    if not NOTES_PATH.exists():
+        if NOTES_PATH_LEGACY and NOTES_PATH_LEGACY.exists():
+            import shutil
+            NOTES_PATH.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(NOTES_PATH_LEGACY), str(NOTES_PATH))
+        else:
+            _migrate_legacy_feeder_notes_to_platform()
+    if not NOTES_PATH.exists():
+        return []
+    rows = []
+    with open(NOTES_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            rows.append(_normalize_note_row(row))
+    return rows
+
+
+def _migrate_legacy_feeder_notes_to_platform() -> None:
+    """One-time: copy rows from feeder_event_notes.csv into platform_notes.csv."""
+    if not FEEDER_EVENT_NOTES_PATH.exists():
+        return
+    legacy_rows = []
+    with open(FEEDER_EVENT_NOTES_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            legacy_rows.append(row)
+    if not legacy_rows:
+        return
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    new_notes = []
+    for r in legacy_rows:
+        provider = (r.get("feed_provider") or "").strip()
+        valid_id = (r.get("feed_valid_id") or "").strip()
+        if not provider and not valid_id:
+            continue
+        new_notes.append({
+            "entity_type": NOTES_ENTITY_FEEDER_EVENT,
+            "entity_ref": _feeder_entity_ref(provider, valid_id),
+            "note_id": str(uuid.uuid4()),
+            "note_text": (r.get("note_text") or "").strip(),
+            "created_at": r.get("updated_at") or now,
+            "updated_at": r.get("updated_at") or now,
+            "created_by": NOTES_DEFAULT_USER,
+            "updated_by": NOTES_DEFAULT_USER,
+            "requires_confirmation": "0",
+        })
+    if not new_notes:
+        return
+    NOTES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(NOTES_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_NOTES_FIELDS)
+        w.writeheader()
+        w.writerows(new_notes)
+
+
+def _get_notes_for_entity(entity_type: str, entity_ref: str) -> list[dict]:
+    """Return all notes for this entity (newest updated_at first)."""
+    entity_ref = (entity_ref or "").strip()
+    notes = [n for n in _load_platform_notes() if (n.get("entity_type") or "").strip() == entity_type and (n.get("entity_ref") or "").strip() == entity_ref]
+    notes.sort(key=lambda n: (n.get("updated_at") or ""), reverse=True)
+    return notes
+
+
+def _entity_refs_with_notes(entity_type: str) -> set[str]:
+    """Set of entity_ref values that have at least one note (for badges/indicators)."""
+    notes = _load_platform_notes()
+    return {(n.get("entity_ref") or "").strip() for n in notes if (n.get("entity_type") or "").strip() == entity_type and (n.get("entity_ref") or "").strip()}
+
+
+def _feeder_notes_has_set() -> set[tuple[str, str]]:
+    """Set of (feed_provider, feed_valid_id) that have at least one note (for feeder events table)."""
+    refs = _entity_refs_with_notes(NOTES_ENTITY_FEEDER_EVENT)
+    out = set()
+    for ref in refs:
+        if "|" in ref:
+            a, b = ref.split("|", 1)
+            out.add((a, b))
+    return out
+
+
+def _add_note(entity_type: str, entity_ref: str, note_text: str, requires_confirmation: bool = False, created_by: str = None) -> dict:
+    """Append a note. If requires_confirmation, create a platform notification. Returns the new note dict."""
+    entity_type = (entity_type or "").strip()
+    entity_ref = (entity_ref or "").strip()
+    note_text = (note_text or "").strip()
+    created_by = (created_by or NOTES_DEFAULT_USER).strip()
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    note_id = str(uuid.uuid4())
+    note = {
+        "entity_type": entity_type, "entity_ref": entity_ref, "note_id": note_id, "note_text": note_text,
+        "created_at": now, "updated_at": now,
+        "created_by": created_by, "updated_by": created_by,
+        "requires_confirmation": "1" if requires_confirmation else "0",
+    }
+    notes = _load_platform_notes()
+    notes.append(note)
+    NOTES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(NOTES_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_NOTES_FIELDS)
+        w.writeheader()
+        w.writerows(notes)
+    if requires_confirmation and NOTIFICATIONS_PATH:
+        _create_notification(note_id, (note_text[:200] + "…") if len(note_text) > 200 else note_text)
+    return note
+
+
+def _update_note(note_id: str, note_text: str, updated_by: str = None) -> bool:
+    """Update note_text, updated_at and updated_by for the given note_id. Returns True if found."""
+    note_id = (note_id or "").strip()
+    note_text = (note_text or "").strip()
+    updated_by = (updated_by or NOTES_DEFAULT_USER).strip()
+    notes = _load_platform_notes()
+    for n in notes:
+        if (n.get("note_id") or "").strip() == note_id:
+            n["note_text"] = note_text
+            n["updated_at"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+            n["updated_by"] = updated_by
+            with open(NOTES_PATH, "w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=_NOTES_FIELDS)
+                w.writeheader()
+                w.writerows(notes)
+            return True
+    return False
+
+
+def _delete_note(note_id: str) -> bool:
+    """Remove the note by note_id. Returns True if found and removed."""
+    note_id = (note_id or "").strip()
+    notes = [n for n in _load_platform_notes() if (n.get("note_id") or "").strip() != note_id]
+    if len(notes) == len(_load_platform_notes()):
+        return False
+    with open(NOTES_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_NOTES_FIELDS)
+        w.writeheader()
+        if notes:
+            w.writerows(notes)
+    return True
+
+
+def _load_notifications() -> list[dict]:
+    """Load platform_notifications.csv. Returns list of dicts with notification_id, note_id, message_snippet, created_at, confirmed."""
+    if not NOTIFICATIONS_PATH or not NOTIFICATIONS_PATH.exists():
+        return []
+    rows = []
+    with open(NOTIFICATIONS_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            rows.append(row)
+    return rows
+
+
+def _get_unconfirmed_notifications() -> list[dict]:
+    """Return notifications where confirmed is not 1."""
+    return [n for n in _load_notifications() if (n.get("confirmed") or "").strip() != "1"]
+
+
+def _create_notification(note_id: str, message_snippet: str) -> None:
+    """Append a notification row (requires user to confirm read)."""
+    if not NOTIFICATIONS_PATH:
+        return
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    notification_id = str(uuid.uuid4())
+    row = {"notification_id": notification_id, "note_id": note_id, "message_snippet": (message_snippet or "").strip(), "created_at": now, "confirmed": "0"}
+    notifications = _load_notifications()
+    notifications.append(row)
+    NOTIFICATIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(NOTIFICATIONS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_NOTIFICATION_FIELDS)
+        w.writeheader()
+        w.writerows(notifications)
+
+
+def _confirm_notification(notification_id: str) -> bool:
+    """Set confirmed=1 for this notification. Returns True if found."""
+    notification_id = (notification_id or "").strip()
+    notifications = _load_notifications()
+    for n in notifications:
+        if (n.get("notification_id") or "").strip() == notification_id:
+            n["confirmed"] = "1"
+            with open(NOTIFICATIONS_PATH, "w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=_NOTIFICATION_FIELDS)
+                w.writeheader()
+                w.writerows(notifications)
+            return True
+    return False
+
+
+# --- Feeder event log (appeared, mapped, note_added, ignored, unignored) ---
+_FEEDER_EVENT_LOG_FIELDS = ["feed_provider", "feed_valid_id", "action_type", "details", "created_at"]
+
+
+def _load_feeder_event_log() -> list[dict]:
+    """All rows from feeder_event_log.csv."""
+    if not FEEDER_EVENT_LOG_PATH or not FEEDER_EVENT_LOG_PATH.exists():
+        return []
+    out = []
+    with open(FEEDER_EVENT_LOG_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            out.append({k: row.get(k, "") for k in _FEEDER_EVENT_LOG_FIELDS})
+    return out
+
+
+def _append_feeder_event_log(feed_provider: str, feed_valid_id: str, action_type: str, details: str | None = None) -> None:
+    """Append one log entry. action_type: appeared, mapped, note_added, ignored, unignored."""
+    if not FEEDER_EVENT_LOG_PATH:
+        return
+    feed_provider = (feed_provider or "").strip()
+    feed_valid_id = (feed_valid_id or "").strip()
+    created = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    row = {
+        "feed_provider": feed_provider,
+        "feed_valid_id": feed_valid_id,
+        "action_type": (action_type or "").strip(),
+        "details": (details or "").strip(),
+        "created_at": created,
+    }
+    FEEDER_EVENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    file_exists = FEEDER_EVENT_LOG_PATH.exists()
+    with open(FEEDER_EVENT_LOG_PATH, "a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_FEEDER_EVENT_LOG_FIELDS)
+        if not file_exists:
+            w.writeheader()
+        w.writerow(row)
+
+
+def _get_event_log_entries(feed_provider: str, feed_valid_id: str) -> list[dict]:
+    """Log entries for this feeder event, newest first."""
+    provider = (feed_provider or "").strip()
+    valid_id = (feed_valid_id or "").strip()
+    rows = [r for r in _load_feeder_event_log() if (r.get("feed_provider") or "").strip() == provider and (r.get("feed_valid_id") or "").strip() == valid_id]
+    rows.sort(key=lambda r: (r.get("created_at") or ""), reverse=True)
+    return rows
+
+
+def _ensure_appeared_batch(events: list[dict]) -> None:
+    """For each event that has no log entry yet, add one 'appeared' entry (idempotent per event)."""
+    if not FEEDER_EVENT_LOG_PATH or not events:
+        return
+    existing_keys = set()
+    for r in _load_feeder_event_log():
+        k = ((r.get("feed_provider") or "").strip(), (r.get("feed_valid_id") or "").strip())
+        if k[0] or k[1]:
+            existing_keys.add(k)
+    to_add = []
+    for e in events:
+        p = (e.get("feed_provider") or "").strip()
+        v = (e.get("valid_id") or str(e.get("valid_id") or "")).strip()
+        if (p, v) not in existing_keys:
+            to_add.append((p, v))
+            existing_keys.add((p, v))
+    for p, v in to_add:
+        _append_feeder_event_log(p, v, "appeared")
+
+
 @app.get("/feeder-events", response_class=HTMLResponse)
 async def feeder_events_view(
     request: Request,
@@ -2212,6 +2565,9 @@ async def feeder_events_view(
     sports: List[str] = Query(default=None),
     categories: List[str] = Query(default=None),
     competitions: List[str] = Query(default=None),
+    statuses: List[str] = Query(default=None),
+    live_only: str = "0",
+    notes_only: str = "0",
 ):
     _sync_feeder_events_mapping_status()
     _enrich_feed_events_sport_names()
@@ -2224,6 +2580,9 @@ async def feeder_events_view(
     selected_sports = sports if sports else feed_sports_live
     selected_categories = categories or []
     selected_competitions = competitions or []
+    selected_statuses = statuses or []
+    live_only_active = (live_only or "").strip() in ("1", "true", "yes")
+    notes_only_active = (notes_only or "").strip() in ("1", "true", "yes")
     filtered = [
         e for e in DUMMY_EVENTS
         if (e.get("feed_provider") or "").strip().lower() == selected_feed
@@ -2233,6 +2592,14 @@ async def feeder_events_view(
         filtered = [e for e in filtered if _feeder_category_key(e) in selected_categories]
     if selected_competitions:
         filtered = [e for e in filtered if _feeder_competition_key(e) in selected_competitions]
+    if selected_statuses:
+        status_set = set(selected_statuses)
+        filtered = [e for e in filtered if (e.get("status") or "Open") in status_set]
+    if live_only_active:
+        filtered = [e for e in filtered if (e.get("time_status") or "0") == "1"]
+    has_notes = _feeder_notes_has_set()
+    if notes_only_active:
+        filtered = [e for e in filtered if ((e.get("feed_provider") or "").strip(), (e.get("valid_id") or "").strip()) in has_notes]
     available_categories = _feeder_categories(selected_feed, selected_sports)
     available_competitions = _feeder_competitions(selected_feed, selected_sports, selected_categories if selected_categories else None)
     _mk = lambda etype: {(m["feed_provider_id"], str(m["feed_id"])) for m in ENTITY_FEED_MAPPINGS if m["entity_type"] == etype}
@@ -2253,7 +2620,12 @@ async def feeder_events_view(
         "selected_categories": selected_categories,
         "available_competitions": available_competitions,
         "selected_competitions": selected_competitions,
+        "available_statuses": FEEDER_EVENT_STATUSES,
+        "selected_statuses": selected_statuses,
+        "live_only": "1" if live_only_active else "0",
+        "notes_only": "1" if notes_only_active else "0",
         "events": filtered,
+        "has_notes": has_notes,
         "mapped_sport_feed_ids": mapped_sport_feed_ids,
         "mapped_category_feed_ids": mapped_category_feed_ids,
         "mapped_comp_feed_ids": mapped_comp_feed_ids,
@@ -2285,10 +2657,13 @@ async def feeder_events_table(
     sports: List[str] = Query(default=None),
     categories: List[str] = Query(default=None),
     competitions: List[str] = Query(default=None),
+    statuses: List[str] = Query(default=None),
+    live_only: str = "0",
+    notes_only: str = "0",
 ):
     """
     HTMX Endpoint: Returns filtered tbody rows only.
-    Supports: feed, sports, categories, competitions, mapping status, outright, and text search.
+    Supports: feed, sports, categories, competitions, status, live_only, notes_only, mapping status, outright, text search.
     """
     _sync_feeder_events_mapping_status()
     _enrich_feed_events_sport_names()
@@ -2307,6 +2682,8 @@ async def feeder_events_table(
     else:
         active_sports = sorted(overlap) if overlap else feed_sports
     q_lower = q.strip().lower()
+    notes_only_on = (notes_only or "").strip() in ("1", "true", "yes")
+    has_notes_set = _feeder_notes_has_set() if notes_only_on else None
 
     filtered = []
     for e in DUMMY_EVENTS:
@@ -2318,12 +2695,19 @@ async def feeder_events_table(
             continue
         if competitions and _feeder_competition_key(e) not in competitions:
             continue
+        if statuses and (e.get("status") or "Open") not in statuses:
+            continue
         if mapping_status_filter and e["mapping_status"] != mapping_status_filter:
             continue
         if outright_filter == "outright" and not e.get("is_outright"):
             continue
         if outright_filter == "regular" and e.get("is_outright"):
             continue
+        if (live_only or "").strip() in ("1", "true", "yes") and (e.get("time_status") or "0") != "1":
+            continue
+        if notes_only_on and has_notes_set is not None:
+            if ((e.get("feed_provider") or "").strip(), (e.get("valid_id") or "").strip()) not in has_notes_set:
+                continue
         if q_lower:
             event_label = e.get("market_name") if e.get("is_outright") else f"{e.get('raw_home_name', '')} {e.get('raw_away_name', '')}"
             haystack = " ".join(filter(None, [
@@ -2336,7 +2720,9 @@ async def feeder_events_table(
                 continue
         filtered.append(e)
 
+    _ensure_appeared_batch(filtered)
     selected_feed_pid = next((f["domain_id"] for f in FEEDS if f["code"] == selected_feed), None)
+    has_notes = _feeder_notes_has_set()
     _mk = lambda etype: {(m["feed_provider_id"], str(m["feed_id"])) for m in ENTITY_FEED_MAPPINGS if m["entity_type"] == etype}
     _mk_sport = lambda: {(m["feed_provider_id"], (m.get("feed_id") or "").strip().lower()) for m in ENTITY_FEED_MAPPINGS if m.get("entity_type") == "sports"}
     mapped_sport_feed_ids = _mk_sport()
@@ -2347,6 +2733,7 @@ async def feeder_events_table(
         "request": request,
         "events": filtered,
         "selected_feed_pid": selected_feed_pid,
+        "has_notes": has_notes,
         "mapped_sport_feed_ids": mapped_sport_feed_ids,
         "mapped_category_feed_ids": mapped_category_feed_ids,
         "mapped_comp_feed_ids": mapped_comp_feed_ids,
@@ -2677,45 +3064,9 @@ async def archived_events_view(request: Request):
     })
 
 
-@app.post("/api/map-sport", response_class=HTMLResponse)
-async def map_sport(
-    request: Request,
-    feeder_provider: str = Form(default=""),
-    feeder_valid_id: str = Form(default=""),
-    domain_sport_id: str = Form(default=""),
-):
-    """Map feed sport to a domain sport. Saves entity_feed_mapping and returns updated modal HTML."""
-    if not domain_sport_id or not domain_sport_id.strip():
-        return HTMLResponse(
-            '<div class="p-6 text-center text-amber-400 text-sm">'
-            '<i class="fa-solid fa-triangle-exclamation mr-2"></i>Select a sport from the dropdown first.</div>'
-        )
-    try:
-        dom_sport_id = int(domain_sport_id.strip())
-    except ValueError:
-        return HTMLResponse(
-            '<div class="p-6 text-center text-red-400 text-sm">Invalid domain sport.</div>'
-        )
-    event = next((e for e in DUMMY_EVENTS if e["valid_id"] == feeder_valid_id), None)
-    if not event:
-        return HTMLResponse('<div class="p-6 text-red-500">Event not found.</div>')
-    feed_obj = next((f for f in FEEDS if (f.get("code") or "").lower() == (feeder_provider or "").lower()), None)
-    if not feed_obj:
-        return HTMLResponse('<div class="p-6 text-red-500">Feed not found.</div>')
-    feed_pid = int(feed_obj["domain_id"])
-    _raw_sport_id = event.get("sport_id")
-    feed_sport_val = str(_raw_sport_id).strip() if _raw_sport_id not in (None, "") else ""
-    if not feed_sport_val:
-        return HTMLResponse(
-            '<div class="p-6 text-center text-amber-400 text-sm">Event has no sport_id to map. Sport mapping uses feed sport_id only.</div>'
-        )
-    _ensure_entity_feed_mapping("sports", dom_sport_id, feed_pid, feed_sport_val)
-    return _render_mapping_modal(request, feeder_valid_id)
-
-
 def _render_mapping_modal(request: Request, event_id: str):
     """
-    Build and return the Mapping Modal HTML. Used by GET modal and by POST map-sport.
+    Build and return the Mapping Modal HTML. Used by GET modal.
     Pre-resolves any already-mapped entities (sport alias, category/competition/team by feed_id).
     """
     event = next((e for e in DUMMY_EVENTS if e["valid_id"] == event_id), None)
@@ -2884,6 +3235,132 @@ def _render_mapping_modal(request: Request, event_id: str):
 async def modal_map_event(request: Request, event_id: str):
     """Returns the HTML partial for the Mapping Modal."""
     return _render_mapping_modal(request, event_id)
+
+
+@app.get("/modal/feeder-event-notes/{valid_id}", response_class=HTMLResponse)
+async def modal_feeder_event_notes(
+    request: Request,
+    valid_id: str,
+    feed_provider: str = "",
+    event_label: str = "",
+):
+    """Returns the HTML partial for the Feeder Event Notes modal (multiple notes per event)."""
+    feed_provider = (feed_provider or "").strip()
+    entity_ref = _feeder_entity_ref(feed_provider, valid_id) if (feed_provider or valid_id) else ""
+    notes = _get_notes_for_entity(NOTES_ENTITY_FEEDER_EVENT, entity_ref) if entity_ref else []
+    # Build a short label for display if not provided
+    if not event_label:
+        for e in DUMMY_EVENTS:
+            if (e.get("feed_provider") or "").strip() == feed_provider and str(e.get("valid_id")) == str(valid_id):
+                if e.get("is_outright"):
+                    event_label = e.get("market_name") or f"Event {valid_id}"
+                else:
+                    event_label = f"{e.get('raw_home_name', '')} vs {e.get('raw_away_name', '')}".strip() or f"Event {valid_id}"
+                break
+        else:
+            event_label = f"Event {valid_id}"
+    return templates.TemplateResponse("feeder_events/modal_feeder_notes.html", {
+        "request": request,
+        "notes": notes,
+        "entity_type": NOTES_ENTITY_FEEDER_EVENT,
+        "entity_ref": entity_ref,
+        "feed_provider": feed_provider,
+        "feed_valid_id": valid_id,
+        "event_label": event_label or f"Event {valid_id}",
+    })
+
+
+def _feeder_event_label(feed_provider: str, valid_id: str) -> str:
+    """Short label for a feeder event (for modal titles)."""
+    feed_provider = (feed_provider or "").strip()
+    valid_id = str(valid_id or "").strip()
+    for e in DUMMY_EVENTS:
+        if (e.get("feed_provider") or "").strip() == feed_provider and str(e.get("valid_id")) == valid_id:
+            if e.get("is_outright"):
+                return e.get("market_name") or f"Event {valid_id}"
+            return f"{e.get('raw_home_name', '')} vs {e.get('raw_away_name', '')}".strip() or f"Event {valid_id}"
+    return f"Event {valid_id}"
+
+
+@app.get("/modal/feeder-event-log/{valid_id}", response_class=HTMLResponse)
+async def modal_feeder_event_log(
+    request: Request,
+    valid_id: str,
+    feed_provider: str = "",
+):
+    """Returns the HTML partial for the Feeder Event Log modal (all actions: appeared, mapped, note_added, ignored, unignored)."""
+    feed_provider = (feed_provider or "").strip()
+    entries = _get_event_log_entries(feed_provider, valid_id)
+    event_label = _feeder_event_label(feed_provider, valid_id)
+    return templates.TemplateResponse("feeder_events/modal_feeder_event_log.html", {
+        "request": request,
+        "entries": entries,
+        "feed_provider": feed_provider,
+        "feed_valid_id": valid_id,
+        "event_label": event_label,
+    })
+
+
+@app.get("/notifications/unconfirmed", response_class=HTMLResponse)
+async def notifications_unconfirmed(request: Request):
+    """HTMX: returns HTML fragment of unconfirmed notifications for top-right panel."""
+    items = _get_unconfirmed_notifications()
+    return templates.TemplateResponse("partials/notifications_unconfirmed.html", {
+        "request": request,
+        "notifications": items,
+    })
+
+
+@app.post("/api/notifications/{notification_id}/confirm")
+async def api_confirm_notification(notification_id: str):
+    """Mark notification as confirmed (user read and acknowledged)."""
+    ok = _confirm_notification(notification_id)
+    return {"ok": ok}
+
+
+@app.post("/api/feeder-events/set-ignored")
+async def api_feeder_events_set_ignored(
+    feed_provider: str = Form(...),
+    feed_valid_id: str = Form(...),
+    ignored: str = Form("1"),
+):
+    """Set or clear ignored state for a feeder event. ignored=1 to ignore, 0 to un-ignore. No data is deleted."""
+    is_ignored = (ignored or "").strip() in ("1", "true", "yes")
+    _set_feeder_event_ignored(feed_provider, feed_valid_id, is_ignored)
+    _append_feeder_event_log(feed_provider, feed_valid_id, "ignored" if is_ignored else "unignored")
+    return {"ok": True}
+
+
+@app.post("/api/notes")
+async def api_add_note(
+    entity_type: str = Form(...),
+    entity_ref: str = Form(...),
+    note_text: str = Form(""),
+    requires_confirmation: str = Form("0"),
+    created_by: str = Form(""),
+):
+    """Add a note for any entity. If requires_confirmation=1, all users get a notification to confirm read."""
+    rc = (requires_confirmation or "").strip() in ("1", "true", "yes")
+    note = _add_note(entity_type, entity_ref, note_text, requires_confirmation=rc, created_by=created_by or None)
+    if entity_type == NOTES_ENTITY_FEEDER_EVENT and entity_ref and "|" in entity_ref:
+        parts = entity_ref.strip().split("|", 1)
+        if len(parts) == 2:
+            _append_feeder_event_log(parts[0].strip(), parts[1].strip(), "note_added")
+    return {"ok": True, "note_id": note["note_id"], "created_at": note["created_at"], "updated_at": note["updated_at"]}
+
+
+@app.patch("/api/notes/{note_id}")
+async def api_update_note(note_id: str, note_text: str = Form("")):
+    """Update an existing note by note_id."""
+    ok = _update_note(note_id, note_text)
+    return {"ok": ok}
+
+
+@app.post("/api/notes/{note_id}/delete")
+async def api_delete_note(note_id: str):
+    """Delete a note by note_id."""
+    ok = _delete_note(note_id)
+    return {"ok": ok}
 
 
 @app.get("/api/feed-markets")

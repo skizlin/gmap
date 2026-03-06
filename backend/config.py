@@ -45,6 +45,8 @@ ENTITY_FIELDS = {
 DOMAIN_EVENTS_PATH = DATA_DIR / "domain_events.csv"
 EVENT_MAPPINGS_PATH = DATA_DIR / "event_mappings.csv"
 ENTITY_FEED_MAPPINGS_PATH = DATA_DIR / "entity_feed_mappings.csv"
+# Sport–feed mappings: developer-controlled, committed/deployed, never dumped (same on local and server)
+SPORT_FEED_MAPPINGS_PATH = DATA_DIR / "sport_feed_mappings.csv"
 ENTITY_FEED_MAPPING_FIELDS = ["entity_type", "domain_id", "feed_provider_id", "feed_id", "domain_name"]
 DOMAIN_EVENT_FIELDS = [
     "domain_id", "sport", "category", "competition",
@@ -73,6 +75,15 @@ FEEDS_PATH = DATA_DIR / "feeds.csv"
 FEED_SPORTS_PATH = DATA_DIR / "feed_sports.csv"
 FEEDER_CONFIG_PATH = DATA_DIR / "feeder_config.csv"
 FEEDER_INCIDENTS_PATH = DATA_DIR / "feeder_incidents.csv"
+# Notes: own folder for current and future note CSVs
+DATA_NOTES_DIR = DATA_DIR / "notes"
+DATA_NOTES_DIR.mkdir(exist_ok=True)
+FEEDER_EVENT_NOTES_PATH = DATA_DIR / "feeder_event_notes.csv"  # legacy; migrated to platform_notes (in notes/)
+FEEDER_IGNORED_EVENTS_PATH = DATA_DIR / "feeder_ignored_events.csv"  # feed_provider, feed_valid_id — events to treat as ignored
+FEEDER_EVENT_LOG_PATH = DATA_DIR / "feeder_event_log.csv"  # feed_provider, feed_valid_id, action_type, details, created_at
+NOTES_PATH = DATA_NOTES_DIR / "platform_notes.csv"  # + created_by, updated_by, requires_confirmation
+NOTES_PATH_LEGACY = DATA_DIR / "platform_notes.csv"  # one-time move from here to NOTES_PATH if present
+NOTIFICATIONS_PATH = DATA_NOTES_DIR / "platform_notifications.csv"  # notification_id, note_id, message_snippet, created_at, confirmed
 MARGIN_TEMPLATES_PATH = DATA_DIR / "margin_templates.csv"
 MARGIN_TEMPLATE_COMPETITIONS_PATH = DATA_DIR / "margin_template_competitions.csv"
 

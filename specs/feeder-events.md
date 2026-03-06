@@ -1,5 +1,7 @@
 # Feeder Events — Spec
 
+**Module folder:** [specs/modules/feeder-events/](modules/feeder-events/) — Confluence (overview), Epic, User Stories.
+
 ---
 
 ## Feature

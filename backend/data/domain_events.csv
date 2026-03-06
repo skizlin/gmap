@@ -1,19 +1,2 @@
 domain_id,sport,category,competition,home,home_id,away,away_id,start_time
-G-33FF2E73,Football,Argentina,Liga Profesional,San Lorenzo,,Instituto AC Cordoba,,2026-02-24 22:15:00
-G-416F8DD7,Football,Argentina,Liga Profesional,Central Cordoba SdE,,Talleres Cordoba,,2026-02-24 22:45:00
-G-B38CE5CD,Football,Hong Kong SAR China,Hong Kong U22 League,Eastern Football Team U22,,Eastern District U22,,2026-02-25 10:30:00
-G-96A5238D,Football,International,U20 CONCACAF Championship,Martinique (U20),,US Virgin Islands U20,,2026-02-24 22:00:00
-G-A9C8EBE0,Football,Nepal,National League,Manang Marshyangdi Club,,Armed Police Force,,2026-02-25 12:15:00
-G-48840284,Football,Turkey,U19 League,Beyoglu Yeni Carsi FK U19,,Inegol Kafkasspor U19,,2026-02-25 11:00:00
-G-6FA7561D,Tennis,WTA,Austin,Jessica Pegula,,Rebecca Sramkova,,2026-02-24 21:45:00
-G-C09A6112,Tennis,WTA,Austin - Doubles,C. Harrison/D. Hewitt,,A. Bondar/D. Galfi,,2026-02-24 22:15:00
-G-8FDE3FF7,Football,International,UEFA Youth League,Paris St. Germain U19,,HJK Helsinki U19,,2026-02-25 13:00:00
-G-CAAC37F4,Football,International,Copa Libertadores Qualification,Sporting Cristal,,2 de Mayo,,2026-02-25 00:30:00
-G-12403A9C,Football,International,Copa Libertadores Qualification,Huachipato,,Carabobo,,2026-02-24 22:00:00
-G-B55E0033,Football,Turkey,U19 League,Sariyer U19,,Bursa Yildirimspor U19,,2026-02-25 10:00:00
-G-E5226CE8,Football,Brazil,Copa do Brasil,Joinville,,CSA,,2026-02-24 22:00:00
-G-B73EF9B2,Football,Brazil,Campeonato Acreano,Humaita,,Sao Francisco AC,,2026-02-24 23:00:00
-G-7385EB42,Esports,,ESL Pro League Stage 1,3DMAX,,Gaimin Gladiators,,2026-03-03 15:30:00
-G-A8483F22,Basketball,Sweden,Ligan,Uppsala Basket,,Soedertaelje BBK,,2026-03-04 18:04:00
-G-84BFC894,Basketball,Slovakia,Extraliga Women,Piestanske Cajky Women,,Slavia Banska Bystrica Women,,2026-03-03 17:00:00
-G-18B96EBE,Football,Barbados,Premier League,St. Andrew Lions FC,,Ellerton FC,,2026-02-24 23:00:00
+G-51789ABA,Football,Argentina,Liga Profesional de Futbol,San Lorenzo,,Instituto De Cordoba,,2026-02-24 22:15:00

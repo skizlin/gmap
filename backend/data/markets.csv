@@ -1,7 +1,1 @@
 domain_id,code,name,abb,market_type,market_group,template,period_type,score_type,side_type,score_dependant,created_at,updated_at
-1,3W,3-Way,3W,both,main,WINNER2D,FLGM,GL,undefined,0,2026-02-27T21:24:23,2026-02-27T21:24:23
-2,HCP2,Handicap 2-way,HCP2,both,main,HANDICAP2,FLGM,GL,undefined,0,2026-02-27T21:25:37,2026-02-27T21:25:37
-3,OU,Total Goals,OU,both,main,OVERUNDER,FLGM,GL,undefined,0,2026-02-27T21:26:15,2026-02-27T21:26:15
-4,,Total Corners,,both,corners,OVERUNDER,FLGM,CORNER,undefined,0,2026-02-27T22:25:06,2026-02-27T22:25:06
-5,HTR,Half Time Result,HTR,both,half,WINNER2D,1HLF,GL,undefined,0,2026-02-27T22:31:21,2026-02-27T22:31:21
-6,OU-H,Home Team Total Goals,OU-H,both,team,OVERUNDER,FLGM,GL,home,0,2026-02-27T22:32:42,2026-02-27T22:32:42

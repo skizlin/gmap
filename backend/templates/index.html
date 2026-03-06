@@ -97,7 +97,7 @@
             Go to Mapping Tool <i class="fa-solid fa-arrow-right ml-2"></i>
         </a>
         <form method="post" action="/api/dump-csv-data" class="inline"
-            onsubmit="return confirm('This will delete all data in entities and mappings (sports, categories, competitions, teams, domain events, event mappings, entity feed mappings). feeds.csv will not be changed. Continue?');">
+            onsubmit="return confirm('This will delete all data in categories, competitions, teams, domain events, event mappings, and entity feed mappings. feeds.csv, sports.csv and sport_feed_mappings.csv will not be changed. Continue?');">
             <button type="submit"
                 class="inline-flex items-center px-6 py-3 bg-slate-700 hover:bg-red-900/50 text-slate-300 hover:text-red-300 border border-slate-600 rounded-lg transition-all font-medium">
                 <i class="fa-solid fa-trash-can mr-2"></i> Dump CSV data

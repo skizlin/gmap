@@ -184,7 +184,9 @@ def parse_bwin(file_path):
             "market_name": market_name,
             "is_mainbook": is_mainbook,
             "updated_at": int(item.get("updated_at")) if item.get("updated_at") else None,
-            "mapping_status": "UNMAPPED"
+            "mapping_status": "UNMAPPED",
+            "status": (item.get("status") or "Open").strip() or "Open",
+            "markets_count": item.get("markets_count") if item.get("markets_count") is not None else 0,
         })
     return events
 
@@ -232,7 +234,9 @@ def parse_unified(file_path, provider):
             "market_name": None,
             "is_mainbook": False,
             "updated_at": None,
-            "mapping_status": "UNMAPPED"
+            "mapping_status": "UNMAPPED",
+            "status": (item.get("status") or "Open").strip() or "Open",
+            "markets_count": item.get("markets_count") if item.get("markets_count") is not None else 0,
         })
     return events
 
@@ -295,7 +299,9 @@ def parse_b365racing(file_path):
             "market_name": market_name,
             "is_mainbook": False,
             "updated_at": int(item["updated_at"]) if item.get("updated_at") not in (None, "") else None,
-            "mapping_status": "UNMAPPED"
+            "mapping_status": "UNMAPPED",
+            "status": (item.get("status") or "Open").strip() or "Open",
+            "markets_count": item.get("markets_count") if item.get("markets_count") is not None else 0,
         })
     return events
 

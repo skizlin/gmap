@@ -1,6 +1,6 @@
 # Deploy to server
 
-## 1. Push to GitHub (done from your machine)
+## 1. Push to GitHub (from your machine)
 
 ```bash
 git add -A
@@ -8,61 +8,61 @@ git commit -m "Your message"
 git push origin main
 ```
 
-## 2. On the server
+---
 
-### Option A: Manual deploy (VPS / VM)
+## 2. Deploy on Hetzner (Docker)
+
+SSH to the server, then run:
 
 ```bash
-# Clone (first time) or pull
-cd /path/to/app
+ssh root@23.88.106.222
+cd /var/www/gmap
+
+# Stash server data so git pull doesn’t overwrite it
+git stash push -m "server data" -- \
+  backend/data/competitions.csv \
+  backend/data/domain_events.csv \
+  backend/data/entity_feed_mappings.csv \
+  backend/data/event_mappings.csv \
+  backend/data/teams.csv \
+  backend/data/categories.csv
+
 git pull origin main
 
-# Use a virtualenv if you have one
-# source venv/bin/activate   # Linux/Mac
-# .\venv\Scripts\activate   # Windows
+# Restore server data
+git stash pop
 
-# Install/update dependencies
-pip install -r backend/requirements.txt
+# Rebuild and run container
+docker stop gmap
+docker rm gmap
+docker build -t gmap .
+docker run -d --name gmap -p 8001:8001 \
+  -v /var/www/gmap/backend/data:/app/backend/data \
+  --restart unless-stopped \
+  gmap
 
-# Run the app (adjust host/port as needed)
-# From project root so backend package is found:
-python -m backend.main
-# Or with uvicorn directly:
-uvicorn backend.main:app --host 0.0.0.0 --port 8000
+docker ps
 ```
 
-### Option B: Using a process manager (e.g. systemd on Linux)
-
-Create a service file so the app restarts on reboot:
-
-```ini
-# /etc/systemd/system/ptc-gmap.service
-[Unit]
-Description=PTC Global Mapper
-After=network.target
-
-[Service]
-User=www-data
-WorkingDirectory=/path/to/PTC Global Mapper - Cursor
-ExecStart=/path/to/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Then:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable ptc-gmap
-sudo systemctl restart ptc-gmap
-```
-
-### Option C: Docker (if you add a Dockerfile later)
-
-Build and run the image, or use docker-compose for app + reverse proxy.
+**Optional:** If you also keep server-specific changes in `margin_templates.csv`, `margin_template_competitions.csv`, or `translations.csv`, add them to the `git stash push` list so they aren’t overwritten by `git pull`.
 
 ---
 
-**Note:** If your server is behind nginx or Apache, configure a reverse proxy to forward requests to `http://127.0.0.1:8000`.
+## Other options
+
+### Manual run (no Docker)
+
+```bash
+cd /var/www/gmap
+git pull origin main
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --host 0.0.0.0 --port 8001
+```
+
+### systemd
+
+Use a unit file that runs `uvicorn backend.main:app --host 0.0.0.0 --port 8001` from the project directory (see earlier version of this doc if needed).
+
+---
+
+**Note:** With Docker, the app listens on port **8001**. Point nginx or your reverse proxy at `http://127.0.0.1:8001`.

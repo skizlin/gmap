@@ -91,30 +91,10 @@
                 Sport</div>
             <div class="flex-1 min-w-0 flex items-center gap-2 px-5 py-3 bg-emerald-950/20">
                 {% if resolved.sport %}
-                {# LOCKED: sport already resolved via entity_feed_mappings #}
                 <input type="hidden" name="domain_sport_id" value="{{ resolved.sport.domain_id }}">
-                <div class="flex-1 flex items-center gap-2">
-                    <span class="text-sm text-emerald-300 font-medium">#{{ resolved.sport.domain_id }} {{
-                        resolved.sport.name }}</span>
-                    <span
-                        class="text-[10px] text-emerald-500/80 border border-emerald-700/50 px-1.5 py-0.5 rounded flex items-center gap-1">
-                        <i class="fa-solid fa-lock text-[8px]"></i> Auto-matched
-                    </span>
-                </div>
+                <span class="text-sm text-emerald-300 font-medium" data-domain-sport-name="{{ resolved.sport.name | e }}">#{{ resolved.sport.domain_id }} {{ resolved.sport.name }}</span>
                 {% else %}
-                <form id="form-map-sport" class="flex-1 flex items-center gap-2" method="post" action="/api/map-sport"
-                    hx-post="/api/map-sport" hx-target="#modal-content" hx-swap="innerHTML">
-                    <input type="hidden" name="feeder_provider" value="{{ event.feed_provider }}">
-                    <input type="hidden" name="feeder_valid_id" value="{{ event.valid_id }}">
-                    <select name="domain_sport_id" id="select-sport" class="flex-1 bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none">
-                        <option value="">Select sport…</option>
-                        {% for s in domain_entities.sports %}
-                        <option value="{{ s.domain_id }}">#{{ s.domain_id }} {{ s.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" id="btn-map-sport" disabled
-                        class="shrink-0 text-[10px] px-2.5 py-1.5 rounded border border-slate-600 text-slate-400 hover:border-primary hover:text-primary transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">Map</button>
-                </form>
+                <p class="text-sm text-slate-500 italic">Sport must be mapped by developer before this event can be mapped.</p>
                 {% endif %}
             </div>
         </div>
@@ -677,22 +657,9 @@
 
     // ── Sport selected → unlock Category + Teams ──────────────────────
     function onSportSelect() {
-        const sportSel = document.querySelector('select[name="domain_sport_id"]');
-        const sportInput = document.getElementById('input-sport');
-        // When sport is locked we have input[name="domain_sport_id"]; when unresolved we have input-sport + domain_sport_id_hidden
+        // Sport is only set via entity_feed_mappings (developer); when resolved we have a hidden input
         const sportHidden = document.querySelector('input[name="domain_sport_id"]');
-        const hasSport = !!(sportHidden && sportHidden.value) || (sportSel && sportSel.value) || !sportInput;
-        const sportNameEl = document.getElementById('domain-sport-name');
-        if (sportNameEl) {
-            if (sportInput && sportInput.value) sportNameEl.value = sportInput.value.trim();
-            else if (sportSel && sportSel.selectedIndex >= 0) {
-                const opt = sportSel.options[sportSel.selectedIndex];
-                sportNameEl.value = (opt && opt.text) ? opt.text.replace(/^#\d+\s*/, '').trim() : '';
-            }
-        }
-
-        const btnMapSport = document.getElementById('btn-map-sport');
-        if (btnMapSport) btnMapSport.disabled = !hasSport;
+        const hasSport = !!(sportHidden && sportHidden.value && sportHidden.value.trim());
 
         ['input-category', 'btn-create-category'].forEach(id => {
             const el = document.getElementById(id);
@@ -943,9 +910,13 @@
         if (entityType === 'categories') name = getCategoryNameForFilter() || name;
         if (!name) return;
 
-        // Sport name: when locked it's in domain-sport-name; otherwise from sport search input or select
+        // Sport name: when locked it's in domain-sport-name or data-domain-sport-name on the span; otherwise from sport search input or select
         const sportNameEl = document.getElementById('domain-sport-name');
         let sportName = (sportNameEl && sportNameEl.value) ? sportNameEl.value.trim() : null;
+        if (!sportName) {
+            const sportSpan = document.querySelector('[data-domain-sport-name]');
+            if (sportSpan && sportSpan.getAttribute('data-domain-sport-name')) sportName = sportSpan.getAttribute('data-domain-sport-name').trim();
+        }
         if (!sportName) {
             const sportInputEl = document.getElementById('input-sport');
             if (sportInputEl && sportInputEl.value) sportName = sportInputEl.value.trim();
@@ -953,6 +924,10 @@
         if (!sportName) {
             const sportSel = document.querySelector('select[name="domain_sport_id"]');
             if (sportSel && sportSel.selectedIndex >= 0) sportName = sportSel.options[sportSel.selectedIndex]?.text?.replace(/^#\d+\s*/, '').trim() || null;
+        }
+        if ((entityType === 'categories' || entityType === 'competitions' || entityType === 'teams') && !sportName) {
+            statusEl.innerHTML = '<span class="text-[10px] text-red-400" title="Sport is required">Not created — sport required</span>';
+            return;
         }
 
         const catVal = getCategoryNameForFilter() || null;
@@ -1010,8 +985,14 @@
             if (entityType === 'categories' && typeof window.syncCompetitionLock === 'function') window.syncCompetitionLock();
             if (window.validateReadyToMap) window.validateReadyToMap();
         } else {
-            const msg = (typeof data?.detail === 'string' ? data.detail : (data?.detail?.msg || 'Request failed')) || '✗';
-            statusEl.innerHTML = `<span class="text-[10px] text-red-400" title="${String(msg).replace(/"/g, '&quot;')}">✗</span>`;
+            let msg = 'Request failed';
+            if (data?.detail) {
+                if (typeof data.detail === 'string') msg = data.detail;
+                else if (Array.isArray(data.detail)) msg = data.detail.map(d => d.msg || d.loc?.join('.') || '').filter(Boolean).join('; ') || 'Validation error';
+                else if (data.detail.msg) msg = data.detail.msg;
+            }
+            const safeMsg = String(msg).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+            statusEl.innerHTML = `<span class="text-[10px] text-red-400 flex items-center gap-1.5 shrink-0" title="${safeMsg}"><i class="fa-solid fa-circle-xmark"></i> Not created</span>`;
         }
     }
 

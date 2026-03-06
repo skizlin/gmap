@@ -1,0 +1,6 @@
+entity_type,domain_id,feed_provider_id,feed_id,domain_name
+sports,1,1,1,Football
+sports,1,2,4,Football
+sports,1,3,1,Football
+sports,1,4,1,Football
+sports,1,5,1,Football

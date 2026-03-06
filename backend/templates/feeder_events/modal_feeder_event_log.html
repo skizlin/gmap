@@ -1,0 +1,32 @@
+{# Modal: Event log for a feeder event — appeared, mapped, note_added, ignored, unignored #}
+<div class="p-6">
+    <h3 class="text-lg font-semibold text-white mb-1">Event Log</h3>
+    <p class="text-xs text-slate-400 mb-4">{{ event_label | e }} <span class="text-slate-500">· Feed ID: {{ feed_valid_id | e }}</span></p>
+
+    <div class="space-y-2 max-h-[60vh] overflow-y-auto">
+        {% for entry in entries %}
+        <div class="flex items-start gap-3 py-2 px-3 rounded-lg bg-slate-900/60 border border-slate-600/50">
+            <span class="flex-shrink-0 mt-0.5 w-2 h-2 rounded-full
+                {% if entry.action_type == 'appeared' %}bg-slate-500
+                {% elif entry.action_type == 'mapped' %}bg-emerald-500
+                {% elif entry.action_type == 'note_added' %}bg-amber-500
+                {% elif entry.action_type == 'ignored' %}bg-slate-600
+                {% elif entry.action_type == 'unignored' %}bg-slate-400
+                {% else %}bg-slate-500{% endif %}"></span>
+            <div class="min-w-0 flex-1">
+                <span class="text-sm font-medium text-slate-200 capitalize">{{ entry.action_type | replace('_', ' ') }}</span>
+                {% if entry.details %}
+                <span class="text-slate-400 text-sm ml-1">— {{ entry.details | e }}</span>
+                {% endif %}
+                <p class="text-[11px] text-slate-500 mt-0.5">{{ entry.created_at or '—' }}</p>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500 italic py-4">No log entries yet.</p>
+        {% endfor %}
+    </div>
+
+    <div class="mt-4 pt-4 border-t border-slate-600">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 rounded text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white transition-colors">Close</button>
+    </div>
+</div>
