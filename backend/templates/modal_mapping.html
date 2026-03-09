@@ -1115,12 +1115,17 @@
     }
 
     async function submitCreateNew() {
-        const g = n => document.querySelector('[name=' + n + ']')?.value || '';
+        // Sync editable inputs to hidden fields before collecting
+        const catHidden = document.querySelector('input[name="new_category"]');
+        const inputCat = document.getElementById('input-category');
+        if (catHidden && inputCat) catHidden.value = (inputCat.value || '').trim();
+
+        const g = n => document.querySelector(`[name="${n}"]`)?.value ?? '';
         const form = {
             feeder_provider: g('feeder_provider'),
             feeder_valid_id: g('feeder_valid_id'),
             sport: g('domain_sport_name'),
-            category: g('new_category'),
+            category: (inputCat?.value || catHidden?.value || g('new_category') || '').trim(),
             competition: g('new_competition'),
             home: g('new_home'),
             home_id: g('new_home_id') || undefined,
@@ -1133,6 +1138,18 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(form)
         });
-        document.getElementById('modal-content').innerHTML = await res.text();
+        const html = await res.text();
+        if (!res.ok) {
+            const safeHtml = html.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            document.getElementById('modal-content').innerHTML = `
+                <div class="p-6 text-center text-red-400">
+                    <i class="fa-solid fa-circle-xmark text-2xl mb-2"></i>
+                    <p class="text-sm">Request failed (${res.status})</p>
+                    <pre class="mt-2 text-left text-xs overflow-auto max-h-32 bg-slate-900 p-2 rounded">${safeHtml}</pre>
+                </div>
+            `;
+        } else {
+            document.getElementById('modal-content').innerHTML = html;
+        }
     }
 </script>

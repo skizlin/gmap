@@ -1138,6 +1138,12 @@ def _save_domain_event(event: dict) -> None:
         "start_time":  event.get("start_time", ""),
     }
     write_header = not DOMAIN_EVENTS_PATH.exists() or DOMAIN_EVENTS_PATH.stat().st_size == 0
+    # Ensure file ends with newline before appending (prevents merged rows)
+    if not write_header and DOMAIN_EVENTS_PATH.stat().st_size > 0:
+        with open(DOMAIN_EVENTS_PATH, "rb+") as f:
+            f.seek(-1, 2)
+            if f.read(1) != b"\n":
+                f.write(b"\n")
     with open(DOMAIN_EVENTS_PATH, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=_DOMAIN_EVENT_FIELDS)
         if write_header:
