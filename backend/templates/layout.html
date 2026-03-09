@@ -279,7 +279,7 @@
             document.addEventListener('htmx:afterSwap', function (e) {
                 var target = e.detail && e.detail.target;
                 var url = (e.detail && e.detail.xhr && e.detail.xhr.responseURL) || '';
-                if ((target && target.id === 'modal-content') || (url.indexOf('/modal/map-event') !== -1) || (url.indexOf('/modal/feeder-event-notes') !== -1) || (url.indexOf('/modal/feeder-event-log') !== -1)) {
+                if ((target && target.id === 'modal-content') || (url.indexOf('/modal/map-event') !== -1) || (url.indexOf('/modal/feeder-event-notes') !== -1) || (url.indexOf('/modal/feeder-event-log') !== -1) || (url.indexOf('/event-navigator/notes-modal') !== -1)) {
                     runModalScripts();
                 }
             });

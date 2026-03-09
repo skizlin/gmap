@@ -1,3 +1,5 @@
 domain_id,sport_id,name,baseid,jurisdiction,underage_category_id,participant_type_id,is_amateur,created_at,updated_at
 1,1,San Lorenzo,,ar,,1,0,2026-03-06T22:29:36,2026-03-06T22:29:36
 2,1,Instituto De Cordoba,,ar,,1,0,2026-03-06T22:29:50,2026-03-06T22:29:50
+3,1,Ellerton FC,,-,,1,0,2026-03-09T23:07:26,2026-03-09T23:07:26
+4,1,St. Andrew Lions,,-,,1,0,2026-03-09T23:07:56,2026-03-09T23:07:56

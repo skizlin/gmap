@@ -12,11 +12,42 @@
     <div
         class="relative z-10 bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg p-3 flex flex-wrap items-center gap-3">
 
-        <!-- 1. Date -->
-        <div class="flex items-center bg-slate-900 rounded border border-slate-700 px-2.5 py-1.5">
-            <i class="fa-regular fa-calendar text-slate-400 mr-2 text-xs"></i>
-            <input type="date" name="date" id="feeder-date-input" class="bg-transparent border-none text-xs text-white focus:ring-0 p-0"
-                value="2023-10-27">
+        <!-- 1. Period (Start Time) – placeholder, no filter logic -->
+        <div class="relative" id="fe-period-dropdown-wrap">
+            <button type="button" id="fe-period-trigger" onclick="toggleFeederPeriodDropdown()"
+                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[200px] hover:border-slate-500 transition-colors text-left">
+                <i class="fa-regular fa-calendar text-slate-400 text-[10px]"></i>
+                <span id="fe-period-label">07/03/2026 - 07/03/2026</span>
+                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+            </button>
+            <input type="hidden" name="date" id="feeder-date-input" value="2023-10-27">
+            <div id="fe-period-panel"
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-56 py-1">
+                <button type="button" data-period="today" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors rounded-none text-white bg-primary/20 border-l-2 border-primary">
+                    Today
+                </button>
+                <button type="button" data-period="tomorrow" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Tomorrow
+                </button>
+                <button type="button" data-period="next_7_days" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Next 7 Days
+                </button>
+                <button type="button" data-period="this_month" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    This Month
+                </button>
+                <button type="button" data-period="next_month" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Next Month
+                </button>
+                <button type="button" data-period="yesterday" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Yesterday
+                </button>
+                <button type="button" data-period="last_7_days" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Last 7 Days
+                </button>
+                <button type="button" data-period="custom" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Custom range
+                </button>
+            </div>
         </div>
 
         <!-- 2. Feed filter -->
@@ -314,6 +345,44 @@
         if (compWrap && !compWrap.contains(e.target)) document.getElementById('feeder-competition-panel').classList.add('hidden');
         const statusWrap = document.getElementById('feeder-status-dropdown-wrap');
         if (statusWrap && !statusWrap.contains(e.target)) document.getElementById('feeder-status-panel').classList.add('hidden');
+        const periodWrap = document.getElementById('fe-period-dropdown-wrap');
+        if (periodWrap && !periodWrap.contains(e.target)) document.getElementById('fe-period-panel').classList.add('hidden');
+    });
+
+    // ── Period (Start Time) dropdown – presentation only, no filter logic ─────
+    function toggleFeederPeriodDropdown() {
+        const panel = document.getElementById('fe-period-panel');
+        if (panel) panel.classList.toggle('hidden');
+    }
+
+    const FE_PERIOD_LABELS = {
+        today: '07/03/2026 - 07/03/2026',
+        tomorrow: '08/03/2026 - 08/03/2026',
+        next_7_days: '07/03/2026 - 14/03/2026',
+        this_month: '01/03/2026 - 31/03/2026',
+        next_month: '01/04/2026 - 30/04/2026',
+        yesterday: '06/03/2026 - 06/03/2026',
+        last_7_days: '28/02/2026 - 06/03/2026',
+        custom: 'Custom range'
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.fe-period-option').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const period = this.getAttribute('data-period');
+                const labelEl = document.getElementById('fe-period-label');
+                if (labelEl && period) {
+                    labelEl.textContent = FE_PERIOD_LABELS[period] || period;
+                }
+                document.querySelectorAll('.fe-period-option').forEach(function (o) {
+                    o.classList.remove('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
+                    o.classList.add('text-slate-300');
+                });
+                this.classList.add('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
+                this.classList.remove('text-slate-300');
+                document.getElementById('fe-period-panel').classList.add('hidden');
+            });
+        });
     });
 
     function getCheckedSports() {

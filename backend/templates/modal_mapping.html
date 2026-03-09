@@ -92,7 +92,7 @@
             <div class="flex-1 min-w-0 flex items-center gap-2 px-5 py-3 bg-emerald-950/20">
                 {% if resolved.sport %}
                 <input type="hidden" name="domain_sport_id" value="{{ resolved.sport.domain_id }}">
-                <span class="text-sm text-emerald-300 font-medium" data-domain-sport-name="{{ resolved.sport.name | e }}">#{{ resolved.sport.domain_id }} {{ resolved.sport.name }}</span>
+                <span class="text-sm text-emerald-300 font-medium" data-domain-sport-name="{{ resolved.sport.name | e }}">{{ resolved.sport.name }} <span class="text-[10px] font-mono text-slate-400 bg-slate-800/80 px-1 py-0.5 rounded">ID {{ resolved.sport.domain_id }}</span></span>
                 {% else %}
                 <p class="text-sm text-slate-500 italic">Sport must be mapped by developer before this event can be mapped.</p>
                 {% endif %}
@@ -124,15 +124,15 @@
                 {# LOCKED: category already exists for this feed_id #}
                 <input type="hidden" name="new_category" value="{{ resolved.category.name }}">
                 <input type="hidden" name="category_country" value="{{ resolved.category.jurisdiction or '-' }}">
-                <span class="text-sm text-emerald-300 font-medium flex-1">#{{ resolved.category.domain_id }} {{ resolved.category.name }}</span>
+                <span class="text-sm text-emerald-300 font-medium flex-1">{{ resolved.category.name }} <span class="text-[10px] font-mono text-slate-400 bg-slate-800/80 px-1 py-0.5 rounded">ID {{ resolved.category.domain_id }}</span></span>
                 <span class="text-[10px] text-emerald-500/80 border border-emerald-700/50 px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0"><i class="fa-solid fa-lock text-[8px]"></i> Matched</span>
                 {% else %}
-                <input type="hidden" name="new_category" id="hidden-new-category" value="">
+                <input type="hidden" name="new_category" id="hidden-new-category" value="{{ suggested_entities.category.name if (suggested_entities and suggested_entities.category and (suggested_entities.category.get('jurisdiction') or '') and suggested_entities.category.get('jurisdiction') != '-') else '' }}">
                 <div class="flex flex-1 min-w-0 items-center gap-2 flex-nowrap">
                     <select id="category-country" name="category_country"{% if not resolved.sport %} disabled{% endif %}
                         class="shrink-0 w-[130px] bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                         {% for c in countries %}
-                        <option value="{{ c.cc }}"{% if c.cc == '-' %} selected{% endif %}>{{ c.name }}</option>
+                        <option value="{{ c.cc }}"{% if suggested_entities and suggested_entities.category and (suggested_entities.category.get('jurisdiction') or '') and suggested_entities.category.get('jurisdiction') == c.cc %} selected{% elif c.cc == '-' and not (suggested_entities and suggested_entities.category and (suggested_entities.category.get('jurisdiction') or '') and suggested_entities.category.get('jurisdiction') != '-') %} selected{% endif %}>{{ c.name }}</option>
                         {% endfor %}
                     </select>
                     <div id="category-exception-wrap" class="flex-1 min-w-0 relative flex items-center">
@@ -141,14 +141,20 @@
                             <option value="{{ c.name }}" data-sport="{{ sports_by_id.get(c.sport_id, '') }}"></option>
                             {% endfor %}
                         </datalist>
-                        <input type="text" id="input-category" autocomplete="off" value="{{ suggested_entities.category.name if suggested_entities and suggested_entities.category else '' }}" placeholder="Search exception (Champions League, ATP, …) or type to create…"
+                        <input type="text" id="input-category" autocomplete="off" value="{{ suggested_entities.category.name if suggested_entities and suggested_entities.category else '' }}" placeholder="Search or type category…"
                             class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none">
                         <div id="category-dropdown" class="hidden absolute top-full left-0 right-0 mt-0.5 z-20 max-h-32 overflow-y-auto bg-slate-800 border border-slate-600 rounded shadow-xl py-1"></div>
                     </div>
-                    <div id="category-country-name" class="text-sm text-slate-200 hidden shrink-0"></div>
                 </div>
+                {% if suggested_entities and suggested_entities.category and suggested_entities.category.get('domain_id') and (suggested_entities.category.get('match_pct') == 100 or (suggested_entities.category.get('jurisdiction') and suggested_entities.category.get('jurisdiction') != '-')) %}
+                <span class="text-[10px] font-bold text-primary bg-primary/20 px-1.5 py-0.5 rounded shrink-0">100%</span>
+                <button type="button" id="btn-map-category" onclick="confirmCategoryMapping()"{% if not resolved.sport %} disabled{% endif %}
+                    class="shrink-0 text-[10px] px-2.5 py-1.5 rounded border border-primary/50 text-primary hover:bg-primary/20 transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">Map</button>
+                {% else %}
                 <button type="button" id="btn-create-category" onclick="createEntityFromModal('categories', '{{ cat_feed_id }}', 'input-category', 'status-category')"{% if not resolved.sport %} disabled{% endif %}
                     class="shrink-0 text-[10px] px-2.5 py-1.5 rounded border border-slate-600 text-slate-400 hover:border-primary hover:text-primary transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">Create</button>
+                {% endif %}
+                <span id="status-category" class="text-[10px] shrink-0"></span>
                 <span id="status-category" class="text-[10px] shrink-0"></span>
                 {% endif %}
             </div>
@@ -176,8 +182,7 @@
                 {% if resolved.competition %}
                 {# LOCKED: competition already exists for this feed_id #}
                 <input type="hidden" name="new_competition" value="{{ resolved.competition.name }}">
-                <span class="text-sm text-emerald-300 font-medium flex-1">#{{ resolved.competition.domain_id }} {{
-                    resolved.competition.name }}</span>
+                <span class="text-sm text-emerald-300 font-medium flex-1">{{ resolved.competition.name }} <span class="text-[10px] font-mono text-slate-400 bg-slate-800/80 px-1 py-0.5 rounded">ID {{ resolved.competition.domain_id }}</span></span>
                 <span
                     class="text-[10px] text-emerald-500/80 border border-emerald-700/50 px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0">
                     <i class="fa-solid fa-lock text-[8px]"></i> Matched
@@ -210,6 +215,8 @@
                     {% endif %}
                     {% endif %}
                 </div>
+                <button type="button" id="btn-map-competition" onclick="confirmEntityMapping('competition', 'input-competition', 'status-competition')" style="display: none;"
+                    class="shrink-0 text-[10px] px-2.5 py-1.5 rounded border border-primary/50 text-primary hover:bg-primary/20 transition-colors whitespace-nowrap">Map</button>
                 <button type="button" id="btn-create-competition"
                     onclick="createEntityFromModal('competitions', '{{ event.raw_league_id or event.raw_league_name }}', 'input-competition', 'status-competition')"
                     class="shrink-0 text-[10px] px-2.5 py-1.5 rounded border border-slate-600 text-slate-400 hover:border-primary hover:text-primary transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">Create</button>
@@ -268,13 +275,13 @@
                 {# LOCKED: home team already exists for this feed_id #}
                 <input type="hidden" name="new_home" value="{{ resolved.home.name }}">
                 <input type="hidden" name="new_home_id" value="{{ resolved.home.domain_id }}">
-                <span class="text-sm text-emerald-300 font-medium flex-1">#{{ resolved.home.domain_id }} {{
-                    resolved.home.name }}</span>
+                <span class="text-sm text-emerald-300 font-medium flex-1">{{ resolved.home.name }} <span class="text-[10px] font-mono text-slate-400 bg-slate-800/80 px-1 py-0.5 rounded">ID {{ resolved.home.domain_id }}</span></span>
                 <span
                     class="text-[10px] text-emerald-500/80 border border-emerald-700/50 px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0">
                     <i class="fa-solid fa-lock text-[8px]"></i> Matched
                 </span>
                 {% else %}
+                <input type="hidden" name="new_home_id" value="{{ suggested_entities.home.domain_id if suggested_entities and suggested_entities.home and suggested_entities.home.domain_id else '' }}">
                 <datalist id="dl-teams">
                     {% for t in domain_entities.teams %}
                     <option value="{{ t.name }}" data-id="{{ t.domain_id }}" data-sport="{{ t.sport }}"></option>
@@ -301,6 +308,8 @@
                     {% endif %}
                     {% endif %}
                 </div>
+                <button type="button" id="btn-map-home" onclick="confirmEntityMapping('home', 'input-home', 'status-home')" style="display: none;"
+                    class="shrink-0 text-[10px] px-2.5 py-1.5 rounded border border-primary/50 text-primary hover:bg-primary/20 transition-colors whitespace-nowrap">Map</button>
                 <button type="button" id="btn-create-home"
                     onclick="createEntityFromModal('teams', '{{ event.raw_home_id or event.raw_home_name }}', 'input-home', 'status-home', 'domain_sport_id')"{% if not resolved.sport %} disabled{% endif %}
                     class="shrink-0 text-[10px] px-2.5 py-1.5 rounded border border-slate-600 text-slate-400 hover:border-primary hover:text-primary transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">Create</button>
@@ -332,13 +341,13 @@
                 {# LOCKED: away team already exists for this feed_id #}
                 <input type="hidden" name="new_away" value="{{ resolved.away.name }}">
                 <input type="hidden" name="new_away_id" value="{{ resolved.away.domain_id }}">
-                <span class="text-sm text-emerald-300 font-medium flex-1">#{{ resolved.away.domain_id }} {{
-                    resolved.away.name }}</span>
+                <span class="text-sm text-emerald-300 font-medium flex-1">{{ resolved.away.name }} <span class="text-[10px] font-mono text-slate-400 bg-slate-800/80 px-1 py-0.5 rounded">ID {{ resolved.away.domain_id }}</span></span>
                 <span
                     class="text-[10px] text-emerald-500/80 border border-emerald-700/50 px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0">
                     <i class="fa-solid fa-lock text-[8px]"></i> Matched
                 </span>
                 {% else %}
+                <input type="hidden" name="new_away_id" value="{{ suggested_entities.away.domain_id if suggested_entities and suggested_entities.away and suggested_entities.away.domain_id else '' }}">
                 <datalist id="dl-teams-away"></datalist>
                 <div class="flex-1 relative flex items-center gap-2" id="away-team-wrap">
                     <div class="flex-1 relative min-w-0">
@@ -361,6 +370,8 @@
                     {% endif %}
                     {% endif %}
                 </div>
+                <button type="button" id="btn-map-away" onclick="confirmEntityMapping('away', 'input-away', 'status-away')" style="display: none;"
+                    class="shrink-0 text-[10px] px-2.5 py-1.5 rounded border border-primary/50 text-primary hover:bg-primary/20 transition-colors whitespace-nowrap">Map</button>
                 <button type="button" id="btn-create-away"
                     onclick="createEntityFromModal('teams', '{{ event.raw_away_id or event.raw_away_name }}', 'input-away', 'status-away', 'domain_sport_id')"{% if not resolved.sport %} disabled{% endif %}
                     class="shrink-0 text-[10px] px-2.5 py-1.5 rounded border border-slate-600 text-slate-400 hover:border-primary hover:text-primary transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">Create</button>
@@ -382,23 +393,6 @@
                 <input type="text" name="new_start_time" value="{{ event.start_time or '' }}"
                     class="flex-1 bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm font-mono text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none">
                 <div class="w-[54px] shrink-0"></div><!-- spacer aligns with Create buttons above -->
-            </div>
-        </div>
-
-        <!-- ─── Status ─── -->
-        <div class="flex items-stretch">
-            <div class="w-[300px] shrink-0 flex justify-end items-center px-3 py-3 bg-blue-950/20">
-                {% if event.time_status == "1" %}
-                <span class="text-xs text-emerald-400 font-medium">In-Play</span>
-                {% else %}
-                <span class="text-xs text-slate-400">Pre-Match</span>
-                {% endif %}
-            </div>
-            <div
-                class="w-[130px] shrink-0 flex items-center justify-center text-[10px] uppercase tracking-wider text-slate-400 font-semibold bg-slate-900 border-x border-slate-800">
-                Status</div>
-            <div class="flex-1 min-w-0 flex items-center px-5 py-3 bg-emerald-950/20">
-                <span class="text-xs text-slate-600 italic">—</span>
             </div>
         </div>
 
@@ -424,21 +418,41 @@
                 <button onclick="clearSelection()" class="text-slate-500 hover:text-white text-xs ml-0.5">✕</button>
             </div>
         </div>
-        <div id="search-results" class="flex gap-2 flex-wrap min-h-[40px]">
-            {% if suggested_domain_event %}
-            {% set suggested_label = (suggested_domain_event.home or '') ~ ' vs ' ~ (suggested_domain_event.away or '') %}
-            <div class="p-2 border border-primary/50 bg-primary/10 rounded flex justify-between items-center cursor-pointer hover:bg-primary/20 transition-colors w-full"
-                 id="suggested-event-card"
-                 data-domain-id="{{ suggested_domain_event.id }}"
-                 data-label="{{ suggested_label }}"
-                 data-suggested-match-score="{{ suggested_match_score }}"
-                 onclick="selectDomainEvent('{{ suggested_domain_event.id }}', '{{ suggested_label | e }}')">
-                <div>
-                    <div class="text-white font-medium text-xs">{{ suggested_domain_event.home or '—' }} vs {{ suggested_domain_event.away or '—' }}</div>
-                    <div class="text-[10px] text-slate-400">{{ suggested_domain_event.competition or '—' }}</div>
+        <div id="search-results" class="flex flex-col gap-2 min-h-[40px]">
+            {% if suggested_domain_events %}
+            {% for item in suggested_domain_events %}
+            {% set ev = item.event %}
+            {% set suggested_label = (ev.home or '') ~ ' vs ' ~ (ev.away or '') %}
+            {% set suggested_start = ev.start_time | format_start_time or '—' %}
+            <div class="suggested-event-card domain-event-card p-2 border border-slate-600 bg-slate-800/50 rounded flex justify-between items-center cursor-pointer hover:bg-slate-700/50 hover:border-slate-500 transition-colors w-full"
+                 data-domain-id="{{ ev.id }}"
+                 data-label="{{ suggested_label | e }}"
+                 data-start-time="{{ suggested_start | e }}"
+                 data-category="{{ (ev.category or '—') | e }}"
+                 data-competition="{{ (ev.competition or '—') | e }}"
+                 data-suggested-match-score="{{ item.score }}"
+                 data-reversed-home-away="{{ '1' if item.reversed_home_away else '0' }}"
+                 onclick="selectDomainEvent(this)">
+                <div class="min-w-0 flex-1">
+                    <div class="text-white font-medium text-xs">{{ ev.home or '—' }} vs {{ ev.away or '—' }}</div>
+                    <div class="text-[10px] text-slate-400">
+                        <span>{{ ev.start_time | format_start_time or '—' }}</span>
+                        <span class="mx-1.5">·</span>
+                        <span>{{ ev.category or '—' }}</span>
+                        <span class="mx-1.5">·</span>
+                        <span>{{ ev.competition or '—' }}</span>
+                        <span class="mx-1.5">·</span>
+                        <span class="font-mono text-slate-500">ID {{ ev.id }}</span>
+                    </div>
                 </div>
-                <span class="text-xs font-bold text-primary bg-primary/20 px-2 py-1 rounded">{{ suggested_match_score }}% match</span>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    {% if item.reversed_home_away %}
+                    <span class="text-[10px] font-medium text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded" title="Tick Reverse Home/Away when confirming">Reverse H/A</span>
+                    {% endif %}
+                    <span class="text-xs font-bold text-primary bg-primary/20 px-2 py-1 rounded">{{ item.score }}% match</span>
+                </div>
             </div>
+            {% endfor %}
             {% else %}
             <div hx-get="/api/search-domain-events" hx-trigger="load" hx-swap="innerHTML"
                 hx-vals='{"q": "{% if event.is_outright %}{{ event.market_name or '' }}{% else %}{{ event.raw_home_name or '' }}{% endif %}"}'
@@ -469,18 +483,62 @@
 </div>
 
 <script>
-    function selectDomainEvent(id, name) {
+    function selectDomainEvent(idOrElement, name) {
+        var id, label;
+        if (typeof idOrElement === 'object' && idOrElement && idOrElement.dataset) {
+            var d = idOrElement.dataset;
+            id = d.domainId || '';
+            label = d.label || '';
+        } else {
+            id = idOrElement;
+            label = name || '';
+        }
         document.getElementById('domain-id-selected').value = id;
-        document.getElementById('selected-event-name').textContent = name;
+        document.getElementById('selected-event-name').textContent = label;
         document.getElementById('selected-event-banner').classList.remove('hidden');
-        const btn = document.getElementById('btn-confirm-mapping');
+        // Switch: grey/blue unselected, green selected
+        document.querySelectorAll('.domain-event-card').forEach(function (card) {
+            card.classList.remove('border-primary', 'bg-primary/10');
+            card.classList.add('border-slate-600', 'bg-slate-800/50');
+        });
+        if (typeof idOrElement === 'object' && idOrElement) {
+            idOrElement.classList.remove('border-slate-600', 'bg-slate-800/50');
+            idOrElement.classList.add('border-primary', 'bg-primary/10');
+        }
+        var btn = document.getElementById('btn-confirm-mapping');
         if (btn) { btn.disabled = false; btn.title = ''; }
     }
     function clearSelection() {
         document.getElementById('domain-id-selected').value = '';
         document.getElementById('selected-event-banner').classList.add('hidden');
-        const btn = document.getElementById('btn-confirm-mapping');
+        document.querySelectorAll('.domain-event-card').forEach(function (card) {
+            card.classList.remove('border-primary', 'bg-primary/10');
+            card.classList.add('border-slate-600', 'bg-slate-800/50');
+        });
+        var btn = document.getElementById('btn-confirm-mapping');
         if (btn) { btn.disabled = true; btn.title = 'Select a domain event from the list first'; }
+    }
+
+    function confirmCategoryMapping() {
+        const inputCat = document.getElementById('input-category');
+        const hidden = document.querySelector('input[name="new_category"]');
+        const statusEl = document.getElementById('status-category');
+        const mapBtn = document.getElementById('btn-map-category');
+        if (!inputCat || !hidden) return;
+        const name = (inputCat.value || '').trim();
+        if (!name) return;
+        hidden.value = name;
+        if (statusEl) statusEl.innerHTML = '<span class="text-[10px] text-emerald-400"><i class="fa-solid fa-circle-check"></i> Mapped</span>';
+        if (mapBtn) { mapBtn.disabled = true; mapBtn.title = 'Category mapped'; }
+        if (window.validateReadyToMap) window.validateReadyToMap();
+    }
+
+    function confirmEntityMapping(entityType, inputId, statusId) {
+        const statusEl = document.getElementById(statusId);
+        const mapBtn = document.getElementById('btn-map-' + entityType);
+        if (statusEl) statusEl.innerHTML = '<span class="text-[10px] text-emerald-400"><i class="fa-solid fa-circle-check"></i> Mapped</span>';
+        if (mapBtn) { mapBtn.disabled = true; mapBtn.title = 'Mapped'; }
+        if (window.validateReadyToMap) window.validateReadyToMap();
     }
 
     // Module-scope helper — used by both initModal and createEntityFromModal
@@ -511,7 +569,7 @@
             const colour = data.created ? 'text-emerald-400' : 'text-amber-400';
             const title = data.created ? 'Created' : 'Already existed';
             statusEl.innerHTML = `<span class="flex items-center gap-1 text-[10px] ${colour}" title="${title}">
-                <i class="fa-solid fa-circle-check"></i> #${data.domain_id}
+                <i class="fa-solid fa-circle-check"></i> ID ${data.domain_id}
             </span>`;
         } else {
             statusEl.innerHTML = '<span class="text-[10px] text-red-400">✗</span>';
@@ -530,7 +588,7 @@
         const q = (filter || '').trim().toLowerCase();
         const filtered = q ? ALL_SPORTS.filter(s => (s.name || '').toLowerCase().includes(q)) : ALL_SPORTS;
         dd.innerHTML = filtered.length
-            ? filtered.map(s => `<div class="px-3 py-2 text-xs text-slate-200 hover:bg-white/10 cursor-pointer" data-id="${s.domain_id}" data-name="${(s.name || '').replace(/"/g, '&quot;')}">#${s.domain_id} ${s.name}</div>`).join('')
+            ? filtered.map(s => `<div class="px-3 py-2 text-xs text-slate-200 hover:bg-white/10 cursor-pointer" data-id="${s.domain_id}" data-name="${(s.name || '').replace(/"/g, '&quot;')}">${s.name} <span class="text-[10px] font-mono text-slate-400">ID ${s.domain_id}</span></div>`).join('')
             : '<div class="px-3 py-2 text-xs text-slate-500">No sports match</div>';
         dd.classList.remove('hidden');
     }
@@ -601,13 +659,24 @@
         const teams = getTeamsForDropdown();
         const filtered = q ? teams.filter(t => (t.name || '').toLowerCase().includes(q)) : teams;
         dd.innerHTML = filtered.length
-            ? filtered.map(t => `<div class="px-3 py-2 text-xs text-slate-200 hover:bg-white/10 cursor-pointer" data-name="${(t.name || '').replace(/"/g, '&quot;')}">#${t.domain_id} ${(t.name || '').replace(/</g, '&lt;')}</div>`).join('')
+            ? filtered.map(t => `<div class="px-3 py-2 text-xs text-slate-200 hover:bg-white/10 cursor-pointer" data-id="${t.domain_id}" data-name="${(t.name || '').replace(/"/g, '&quot;')}">${(t.name || '').replace(/</g, '&lt;')} <span class="text-[10px] font-mono text-slate-400">ID ${t.domain_id}</span></div>`).join('')
             : '<div class="px-3 py-2 text-xs text-slate-500">No teams match. Type a name and use Create.</div>';
         dd.classList.remove('hidden');
     }
     function hideTeamDropdown(dropdownId) {
         const dd = document.getElementById(dropdownId);
         if (dd) dd.classList.add('hidden');
+    }
+    function setHiddenInput(name, value) {
+        let el = document.querySelector(`input[name="${name}"]`);
+        if (!el) {
+            el = document.createElement('input');
+            el.type = 'hidden';
+            el.name = name;
+            const container = document.getElementById('modal-content') || document.querySelector('.modal-content') || document.body;
+            container.appendChild(el);
+        }
+        el.value = value || '';
     }
 
     function getCategoriesForDropdown() {
@@ -634,10 +703,10 @@
         const dd = document.getElementById('category-dropdown');
         if (!dd) return;
         const q = (filter || '').trim().toLowerCase();
-        const categories = getExceptionCategoriesForDropdown();
+        const categories = getCategoriesForDropdown();
         const filtered = q ? categories.filter(c => (c.name || '').toLowerCase().includes(q)) : categories;
         dd.innerHTML = filtered.length
-            ? filtered.map(c => `<div class="px-3 py-2 text-xs text-slate-200 hover:bg-white/10 cursor-pointer" data-name="${(c.name || '').replace(/"/g, '&quot;')}">#${c.domain_id} ${(c.name || '').replace(/</g, '&lt;')}</div>`).join('')
+            ? filtered.map(c => { const j = (c.jurisdiction || '').trim(); return `<div class="px-3 py-2 text-xs text-slate-200 hover:bg-white/10 cursor-pointer" data-id="${c.domain_id}" data-name="${(c.name || '').replace(/"/g, '&quot;')}" data-jurisdiction="${j}">${(c.name || '').replace(/</g, '&lt;')} <span class="text-[10px] font-mono text-slate-400">ID ${c.domain_id}</span></div>`; }).join('')
             : '<div class="px-3 py-2 text-xs text-slate-500">No categories match. Type a name and use Create.</div>';
         dd.classList.remove('hidden');
     }
@@ -648,7 +717,7 @@
         const competitions = getCompetitionsForDropdown();
         const filtered = q ? competitions.filter(c => (c.name || '').toLowerCase().includes(q)) : competitions;
         dd.innerHTML = filtered.length
-            ? filtered.map(c => `<div class="px-3 py-2 text-xs text-slate-200 hover:bg-white/10 cursor-pointer" data-name="${(c.name || '').replace(/"/g, '&quot;')}">#${c.domain_id} ${(c.name || '').replace(/</g, '&lt;')}</div>`).join('')
+            ? filtered.map(c => `<div class="px-3 py-2 text-xs text-slate-200 hover:bg-white/10 cursor-pointer" data-id="${c.domain_id}" data-name="${(c.name || '').replace(/"/g, '&quot;')}">${(c.name || '').replace(/</g, '&lt;')} <span class="text-[10px] font-mono text-slate-400">ID ${c.domain_id}</span></div>`).join('')
             : '<div class="px-3 py-2 text-xs text-slate-500">No competitions match. Type a name and use Create.</div>';
         dd.classList.remove('hidden');
     }
@@ -661,7 +730,7 @@
         const sportHidden = document.querySelector('input[name="domain_sport_id"]');
         const hasSport = !!(sportHidden && sportHidden.value && sportHidden.value.trim());
 
-        ['input-category', 'btn-create-category'].forEach(id => {
+        ['input-category', 'btn-create-category', 'btn-map-category'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.disabled = !hasSport;
         });
@@ -701,10 +770,48 @@
             const compOK = fieldOK('input-competition', 'dl-competitions', 'new_competition');
             const homeOK = fieldOK('input-home', 'dl-teams', 'new_home');
             const awayOK = fieldOK('input-away', 'dl-teams-away', 'new_away');
+            // Sync new_home_id/new_away_id when value matches a team (e.g. typed without dropdown click)
+            if (!lockedValue('new_home_id')) {
+                const teams = getTeamsForDropdown();
+                const homeVal = (document.getElementById('input-home')?.value || '').trim();
+                const t = homeVal ? teams.find(x => (x.name || '').trim() === homeVal) : null;
+                setHiddenInput('new_home_id', t ? String(t.domain_id) : '');
+            }
+            if (!lockedValue('new_away_id')) {
+                const teams = getTeamsForDropdown();
+                const awayVal = (document.getElementById('input-away')?.value || '').trim();
+                const t = awayVal ? teams.find(x => (x.name || '').trim() === awayVal) : null;
+                setHiddenInput('new_away_id', t ? String(t.domain_id) : '');
+            }
             const btn = document.getElementById('btn-create-and-map');
             if (!btn) return;
             const ready = compOK && homeOK && awayOK;
             btn.disabled = !ready;
+            const mapComp = document.getElementById('btn-map-competition');
+            const mapHome = document.getElementById('btn-map-home');
+            const mapAway = document.getElementById('btn-map-away');
+            const createComp = document.getElementById('btn-create-competition');
+            const createHome = document.getElementById('btn-create-home');
+            const createAway = document.getElementById('btn-create-away');
+            if (mapComp && createComp) {
+                mapComp.style.display = compOK ? 'inline-block' : 'none';
+                createComp.style.display = compOK ? 'none' : 'inline-block';
+                if (compOK) mapComp.disabled = (document.getElementById('status-competition')?.innerHTML || '').includes('Mapped');
+                else { const s = document.getElementById('status-competition'); if (s) s.innerHTML = ''; }
+            }
+            if (mapHome && createHome) {
+                mapHome.style.display = homeOK ? 'inline-block' : 'none';
+                createHome.style.display = homeOK ? 'none' : 'inline-block';
+                if (homeOK) mapHome.disabled = (document.getElementById('status-home')?.innerHTML || '').includes('Mapped');
+                else { const s = document.getElementById('status-home'); if (s) s.innerHTML = ''; }
+            }
+            if (mapAway && createAway) {
+                mapAway.style.display = awayOK ? 'inline-block' : 'none';
+                createAway.style.display = awayOK ? 'none' : 'inline-block';
+                if (awayOK) mapAway.disabled = (document.getElementById('status-away')?.innerHTML || '').includes('Mapped');
+                else { const s = document.getElementById('status-away'); if (s) s.innerHTML = ''; }
+            }
+
             if (!ready) {
                 const missing = [];
                 if (!compOK) missing.push('Competition');
@@ -745,26 +852,26 @@
 
         function syncCategoryCountryUI() {
             const sel = document.getElementById('category-country');
-            const wrap = document.getElementById('category-exception-wrap');
-            const nameDiv = document.getElementById('category-country-name');
-            const hidden = document.getElementById('hidden-new-category');
+            const hidden = document.querySelector('input[name="new_category"]');
             const inputCat = document.getElementById('input-category');
-            if (!sel) return;
+            if (!sel || !inputCat) return;
             const isNone = sel.value === '-';
-            if (wrap) wrap.classList.toggle('hidden', !isNone);
-            if (nameDiv) {
-                nameDiv.classList.toggle('hidden', isNone);
-                if (!isNone) {
-                    const opt = sel.options[sel.selectedIndex];
-                    const text = (opt && opt.text) ? opt.text.trim() : '';
-                    nameDiv.textContent = text;
-                    if (hidden) hidden.value = text;
-                }
+            if (!isNone) {
+                const opt = sel.options[sel.selectedIndex];
+                const text = (opt && opt.text) ? opt.text.trim() : '';
+                inputCat.value = text;
+                if (hidden) hidden.value = text;
+            } else if (hidden) {
+                hidden.value = (inputCat.value || '').trim();
             }
-            if (isNone && inputCat && hidden) hidden.value = (inputCat.value || '').trim();
         }
 
-        if (catEl) catEl.addEventListener('input', () => { syncCategoryCountryUI(); syncCompetitionLock(); });
+        if (catEl) catEl.addEventListener('input', () => {
+            const hidden = document.querySelector('input[name="new_category"]');
+            if (hidden) hidden.value = (catEl.value || '').trim();
+            syncCompetitionLock();
+            if (window.validateReadyToMap) window.validateReadyToMap();
+        });
 
         const categoryCountrySel = document.getElementById('category-country');
         if (categoryCountrySel) {
@@ -790,11 +897,11 @@
             });
         }
 
-        // Auto-select suggested domain event only when it's clearly the same match (score >= 90)
-        const suggestedCard = document.getElementById('suggested-event-card');
-        const suggestedScore = parseInt(document.querySelector('[data-suggested-match-score]')?.dataset?.suggestedMatchScore || '0', 10);
+        // Auto-select first suggested domain event only when it's clearly the same match (score >= 90)
+        const suggestedCard = document.querySelector('.suggested-event-card');
+        const suggestedScore = parseInt(suggestedCard?.dataset?.suggestedMatchScore || '0', 10);
         if (suggestedCard && suggestedCard.dataset.domainId && suggestedScore >= 90) {
-            selectDomainEvent(suggestedCard.dataset.domainId, suggestedCard.dataset.label || '');
+            selectDomainEvent(suggestedCard);
         }
 
         // Sport dropdown (select): enable Map button when user selects a sport
@@ -839,8 +946,13 @@
             const row = e.target.closest('[data-name]');
             if (!row || !catInput) return;
             catInput.value = row.dataset.name || '';
-            const hiddenCat = document.getElementById('hidden-new-category');
+            const hiddenCat = document.querySelector('input[name="new_category"]');
             if (hiddenCat) hiddenCat.value = (row.dataset.name || '').trim();
+            const j = (row.dataset.jurisdiction || '').trim();
+            if (j && j !== '-') {
+                const countrySel = document.getElementById('category-country');
+                if (countrySel) { countrySel.value = j; syncCategoryCountryUI(); }
+            }
             hideCategoryDropdown();
             filterCompetitions();
             syncCompetitionLock();
@@ -876,16 +988,18 @@
             awayTeamInput.addEventListener('input', () => { renderTeamDropdown('away-team-dropdown', awayTeamInput.value, 'input-away'); if (window.validateReadyToMap) window.validateReadyToMap(); });
         }
         document.getElementById('home-team-dropdown')?.addEventListener('click', (e) => {
-            const row = e.target.closest('[data-name]');
+            const row = e.target.closest('[data-id][data-name]');
             if (!row || !homeTeamInput) return;
             homeTeamInput.value = row.dataset.name || '';
+            setHiddenInput('new_home_id', row.dataset.id || '');
             hideTeamDropdown('home-team-dropdown');
             if (window.validateReadyToMap) window.validateReadyToMap();
         });
         document.getElementById('away-team-dropdown')?.addEventListener('click', (e) => {
-            const row = e.target.closest('[data-name]');
+            const row = e.target.closest('[data-id][data-name]');
             if (!row || !awayTeamInput) return;
             awayTeamInput.value = row.dataset.name || '';
+            setHiddenInput('new_away_id', row.dataset.id || '');
             hideTeamDropdown('away-team-dropdown');
             if (window.validateReadyToMap) window.validateReadyToMap();
         });
@@ -972,7 +1086,11 @@
         const data = await res.json();
         if (res.ok) {
             const colour = data.created ? 'text-emerald-400' : 'text-amber-400';
-            statusEl.innerHTML = `<span class="text-[10px] ${colour}"><i class="fa-solid fa-circle-check"></i> #${data.domain_id}</span>`;
+            statusEl.innerHTML = `<span class="text-[10px] ${colour}"><i class="fa-solid fa-circle-check"></i> ID ${data.domain_id}</span>`;
+            if (entityType === 'teams' && data.domain_id != null) {
+                if (inputId === 'input-home') setHiddenInput('new_home_id', String(data.domain_id));
+                else if (inputId === 'input-away') setHiddenInput('new_away_id', String(data.domain_id));
+            }
             // Add the newly created entity to the relevant datalist so validateReadyToMap can find it
             const dlMap = { 'input-competition': 'dl-competitions', 'input-home': 'dl-teams', 'input-away': 'dl-teams-away' };
             const dlId = dlMap[inputId];

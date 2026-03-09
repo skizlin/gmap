@@ -60,10 +60,23 @@
     <td class="px-3 py-2 text-slate-600 text-xs">—</td>
     <td class="px-3 py-2 text-slate-600 text-xs">—</td>
     <td class="px-3 py-2 text-slate-600 text-xs">—</td>
-    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
-    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
     <td class="px-3 py-2 text-slate-400 text-xs font-mono">{{ ev.mapped_feed_count | default(0) }}</td>
     <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2 align-middle">
+        <button type="button"
+            hx-get="/event-navigator/notes-modal/{{ ev.id }}"
+            hx-target="#modal-content"
+            hx-swap="innerHTML"
+            onclick="openModal(); document.body.querySelector('.domain-action-menu-wrap') && document.querySelectorAll('.domain-event-action-dropdown').forEach(function(d){ d.classList.add('hidden'); });"
+            class="inline-flex items-center justify-center min-w-[1.5rem] text-slate-400 hover:text-amber-400 transition-colors"
+            title="{% if ev.has_en_note %}Edit note (Event Navigator only){% else %}Add note (Event Navigator only){% endif %}">
+            {% if ev.has_en_note %}
+            <i class="fa-solid fa-note-sticky text-amber-400 text-sm"></i>
+            {% else %}
+            <span class="text-slate-600">—</span>
+            {% endif %}
+        </button>
+    </td>
     <td class="px-3 py-2 align-middle text-right">
         <div class="relative inline-block domain-action-menu-wrap" data-menu-id="domain-action-{{ ev.id }}">
             <button type="button" onclick="toggleDomainActionMenu('domain-action-{{ ev.id }}', event)"
@@ -85,14 +98,15 @@
                 <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="view-bets">View Bets</button>
                 <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="event-log">Event Log</button>
                 <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="dynamic-templates">Dynamic Templates</button>
-                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="notes">Notes</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="notes"
+                    hx-get="/event-navigator/notes-modal/{{ ev.id }}" hx-target="#modal-content" hx-swap="innerHTML" onclick="openModal(); document.getElementById('domain-action-{{ ev.id }}').classList.add('hidden');">Notes</button>
             </div>
         </div>
     </td>
 </tr>
 {% else %}
 <tr>
-    <td colspan="19" class="p-10 text-center text-slate-500 italic">
+    <td colspan="18" class="p-10 text-center text-slate-500 italic">
         No domain events yet. Start mapping from the Feeder Events page!
     </td>
 </tr>

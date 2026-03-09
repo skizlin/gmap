@@ -12,13 +12,42 @@
     <div
         class="relative z-10 bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg p-3 flex flex-wrap items-center gap-3">
 
-        <!-- 1. Date -->
-        <div class="flex items-center bg-slate-900 rounded border border-slate-700 px-2.5 py-1.5">
-            <i class="fa-regular fa-calendar text-slate-400 mr-2 text-xs"></i>
-            <input type="date" id="domain-date-filter" name="date" value="{{ selected_date }}"
-                hx-get="/event-navigator/table" hx-target="#domain-events-body" hx-swap="innerHTML"
-                hx-trigger="change" hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions'],[name='q']"
-                class="bg-transparent border-none text-xs text-white focus:ring-0 p-0">
+        <!-- 1. Period (Start Time) – placeholder, no filter logic -->
+        <div class="relative" id="domain-period-dropdown-wrap">
+            <button type="button" id="domain-period-trigger" onclick="toggleDomainPeriodDropdown()"
+                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[200px] hover:border-slate-500 transition-colors text-left">
+                <i class="fa-regular fa-calendar text-slate-400 text-[10px]"></i>
+                <span id="domain-period-label">07/03/2026 - 07/03/2026</span>
+                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+            </button>
+            <input type="hidden" id="domain-date-filter" name="date" value="{{ selected_date }}">
+            <div id="domain-period-panel"
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-56 py-1">
+                <button type="button" data-period="today" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors rounded-none text-white bg-primary/20 border-l-2 border-primary">
+                    Today
+                </button>
+                <button type="button" data-period="tomorrow" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Tomorrow
+                </button>
+                <button type="button" data-period="next_7_days" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Next 7 Days
+                </button>
+                <button type="button" data-period="this_month" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    This Month
+                </button>
+                <button type="button" data-period="next_month" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Next Month
+                </button>
+                <button type="button" data-period="yesterday" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Yesterday
+                </button>
+                <button type="button" data-period="last_7_days" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Last 7 Days
+                </button>
+                <button type="button" data-period="custom" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                    Custom range
+                </button>
+            </div>
         </div>
 
         <!-- 2. Sport multi-select -->
@@ -154,15 +183,117 @@
             </div>
         </div>
 
-        <!-- 5. Search -->
+        <!-- 5. Status multi-select (domain event status) -->
+        <div id="domain-status-hidden-inputs">
+            {% for st in selected_statuses or [] %}
+            <input type="hidden" name="statuses" value="{{ st }}">
+            {% endfor %}
+        </div>
+        <div class="relative" id="domain-status-dropdown-wrap">
+            <button type="button" id="domain-status-trigger" onclick="toggleDomainStatusDropdown()"
+                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[120px] hover:border-slate-500 transition-colors"
+                title="Filter by event status">
+                <i class="fa-solid fa-circle-dot text-slate-400 text-[10px]"></i>
+                <span id="domain-status-label">All Statuses</span>
+                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+            </button>
+            <div id="domain-status-panel"
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-44 py-1 max-h-[240px] overflow-y-auto">
+                {% for st in available_statuses %}
+                <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                    <input type="checkbox" name="domain_status_check" value="{{ st }}" {% if st in (selected_statuses or []) %}checked{% endif %}
+                        onchange="onDomainStatusChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
+                    <span class="text-xs text-slate-300">{{ st }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 6. Live match – icon toggle -->
+        <input type="hidden" id="domain-live-only-input" name="live_only" value="{{ live_only | default('0') }}">
+        <button type="button" id="domain-live-only-btn" onclick="setDomainLiveOnlyFilter(this)" title="Show all (deselected) or live only (selected)"
+            class="inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-slate-700 bg-slate-900 transition-colors hover:border-slate-500">
+            <i id="domain-live-only-icon" class="fa-solid fa-tower-broadcast text-sm {{ 'text-red-500' if live_only == '1' else 'text-slate-400' }}" aria-hidden="true"></i>
+        </button>
+
+        <!-- 7. Has Bets filter – icon toggle ($) -->
+        <input type="hidden" id="domain-has-bets-input" name="has_bets_only" value="{{ has_bets_only | default('0') }}">
+        <button type="button" id="domain-has-bets-btn" onclick="setDomainHasBetsFilter(this)" title="Show all (deselected) or only events with bets (selected)"
+            class="inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-slate-700 bg-slate-900 transition-colors hover:border-slate-500">
+            <i id="domain-has-bets-icon" class="fa-solid fa-dollar-sign text-sm {{ 'text-emerald-400' if has_bets_only == '1' else 'text-slate-400' }}" aria-hidden="true"></i>
+        </button>
+
+        <!-- 8. Notes filter – icon toggle -->
+        <input type="hidden" id="domain-notes-only-input" name="notes_only" value="{{ notes_only | default('0') }}">
+        <button type="button" id="domain-notes-only-btn" onclick="setDomainNotesOnlyFilter(this)" title="Show all (deselected) or only with notes (selected)"
+            class="inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-slate-700 bg-slate-900 transition-colors hover:border-slate-500">
+            <i id="domain-notes-only-icon" class="fa-solid fa-note-sticky text-sm {{ 'text-amber-400' if notes_only == '1' else 'text-slate-400' }}" aria-hidden="true"></i>
+        </button>
+
+        <div class="border-l border-slate-700 h-6 mx-1"></div>
+
+        <!-- 9. All / Outright / Regular tabs -->
+        {% set _outright = outright_filter | default('') %}
+        <input type="hidden" id="domain-outright-input" name="outright_filter" value="{{ _outright }}">
+        <div class="flex bg-slate-900 rounded p-0.5 border border-slate-700" id="domain-outright-toggle">
+            <button type="button" data-outright="" onclick="setDomainOutrightFilter(this)"
+                class="px-3 py-1 rounded text-xs font-medium {{ 'bg-slate-700 text-white shadow' if _outright == '' else 'text-slate-400 hover:text-white' }}">All</button>
+            <button type="button" data-outright="outright" onclick="setDomainOutrightFilter(this)"
+                class="px-3 py-1 rounded text-xs font-medium {{ 'bg-slate-700 text-white shadow' if _outright == 'outright' else 'text-slate-400 hover:text-white' }}">Outright</button>
+            <button type="button" data-outright="regular" onclick="setDomainOutrightFilter(this)"
+                class="px-3 py-1 rounded text-xs font-medium {{ 'bg-slate-700 text-white shadow' if _outright == 'regular' else 'text-slate-400 hover:text-white' }}">Regular</button>
+        </div>
+
+        <div class="border-l border-slate-700 h-6 mx-1"></div>
+
+        <!-- 10. Search -->
         <div class="flex items-center bg-slate-900 rounded border border-slate-700 px-2.5 py-1.5 min-w-[200px]">
             <i class="fa-solid fa-search text-slate-500 mr-2 text-xs"></i>
             <input type="text" id="domain-search-input" name="q" value="{{ search_q }}"
                 placeholder="Sport, category, competition, event…"
                 hx-get="/event-navigator/table" hx-target="#domain-events-body" hx-swap="innerHTML"
                 hx-trigger="input changed delay:350ms"
-                hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions']"
+                hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='has_bets_only'],[name='brands']"
                 class="bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full">
+        </div>
+
+        <div class="border-l border-slate-700 h-6 mx-1"></div>
+
+        <!-- 11. Brand multiselect (Global = default; Global cannot be combined with other brands) -->
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-medium text-slate-400 shrink-0">Brand:</span>
+            <div id="domain-brand-hidden-inputs">
+                {% for b in selected_brands or ['Global'] %}
+                <input type="hidden" name="brands" value="{{ b }}">
+                {% endfor %}
+            </div>
+            <div class="relative" id="domain-brand-dropdown-wrap">
+                <button type="button" id="domain-brand-trigger" onclick="toggleDomainBrandDropdown()"
+                    class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[120px] hover:border-slate-500 transition-colors text-left">
+                    <span id="domain-brand-label">
+                        {% if not selected_brands or selected_brands == ['Global'] %}Global
+                        {% elif selected_brands | length == 1 %}{{ selected_brands[0] }}
+                        {% else %}{{ selected_brands | length }} brands
+                        {% endif %}
+                    </span>
+                    <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+                </button>
+                <div id="domain-brand-panel"
+                    class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-48 py-1 max-h-[240px] overflow-y-auto">
+                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors domain-brand-option" data-brand-value="Global">
+                        <input type="checkbox" name="domain_brand_check" value="Global" {% if not selected_brands or 'Global' in selected_brands %}checked{% endif %}
+                            class="accent-secondary rounded border-slate-600 w-3.5 h-3.5 domain-brand-cb">
+                        <span class="text-xs text-slate-300">Global</span>
+                    </label>
+                    {% for b in brands or [] %}
+                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors domain-brand-option" data-brand-value="{{ b.id }}">
+                        <input type="checkbox" name="domain_brand_check" value="{{ b.id }}" {% if selected_brands and (b.id|string) in selected_brands %}checked{% endif %}
+                            class="accent-secondary rounded border-slate-600 w-3.5 h-3.5 domain-brand-cb">
+                        <span class="text-xs text-slate-300">{{ b.name }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
 
@@ -190,30 +321,36 @@
                         <th class="px-3 py-2 font-semibold">Event</th>
                         <th class="px-3 py-2 font-semibold w-20">Status</th>
                         <th class="px-3 py-2 font-semibold w-14">Class</th>
-                        <th class="px-3 py-2 font-semibold w-12">CD</th>
+                        <th class="px-3 py-2 font-semibold w-12">CO</th>
                         <th class="px-3 py-2 font-semibold w-12">T/O</th>
                         <th class="px-3 py-2 font-semibold">In charge</th>
                         <th class="px-3 py-2 font-semibold">Has Bets</th>
-                        <th class="px-3 py-2 font-semibold">Bet Start</th>
-                        <th class="px-3 py-2 font-semibold">No More Bets</th>
                         <th class="px-3 py-2 font-semibold w-20">Score</th>
                         <th class="px-3 py-2 font-semibold w-12">#FEED</th>
                         <th class="px-3 py-2 font-semibold w-12">#mkt</th>
+                        <th class="px-3 py-2 font-semibold w-12">Notes</th>
                         <th class="px-3 py-2 font-semibold text-right w-14">Action</th>
                     </tr>
                 </thead>
                 <tbody id="domain-events-body" class="divide-y divide-slate-700/40 text-xs"
                     hx-get="/event-navigator/table" hx-trigger="load, domainEventsReload from:body"
-                    hx-swap="innerHTML" hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions'],[name='q']">
+                    hx-swap="innerHTML" hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='has_bets_only'],[name='brands'],[name='q']">
                     {% include 'event_navigator/_rows.html' %}
                 </tbody>
             </table>
         </div>
 
-        <!-- Pagination / count -->
+        <!-- Footer: Bulk Update, count, pagination (placeholders) -->
         <div
             class="px-4 py-2 bg-slate-900/50 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500 flex-shrink-0">
-            <span>Showing {{ domain_events|length }} events</span>
+            <div class="flex items-center gap-3">
+                <button type="button" class="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 border border-slate-600" disabled title="Bulk update – coming soon">Bulk Update</button>
+                <span>Showing {{ domain_events|length }} events</span>
+            </div>
+            <div class="flex space-x-2">
+                <button type="button" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-400" disabled title="Pagination – coming soon">Previous</button>
+                <button type="button" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-400" disabled title="Pagination – coming soon">Next</button>
+            </div>
         </div>
     </div>
 </div>
@@ -263,6 +400,176 @@
         if (catWrap && !catWrap.contains(e.target)) document.getElementById('domain-category-panel').classList.add('hidden');
         const compWrap = document.getElementById('domain-competition-dropdown-wrap');
         if (compWrap && !compWrap.contains(e.target)) document.getElementById('domain-competition-panel').classList.add('hidden');
+        const periodWrap = document.getElementById('domain-period-dropdown-wrap');
+        if (periodWrap && !periodWrap.contains(e.target)) document.getElementById('domain-period-panel').classList.add('hidden');
+        const statusWrap = document.getElementById('domain-status-dropdown-wrap');
+        if (statusWrap && !statusWrap.contains(e.target)) document.getElementById('domain-status-panel').classList.add('hidden');
+        const brandWrap = document.getElementById('domain-brand-dropdown-wrap');
+        if (brandWrap && !brandWrap.contains(e.target)) document.getElementById('domain-brand-panel').classList.add('hidden');
+    });
+
+    // ── Period (Start Time) dropdown – presentation only, no filter logic ─────
+    function toggleDomainPeriodDropdown() {
+        const panel = document.getElementById('domain-period-panel');
+        if (panel) panel.classList.toggle('hidden');
+    }
+
+    const PERIOD_LABELS = {
+        today: '07/03/2026 - 07/03/2026',
+        tomorrow: '08/03/2026 - 08/03/2026',
+        next_7_days: '07/03/2026 - 14/03/2026',
+        this_month: '01/03/2026 - 31/03/2026',
+        next_month: '01/04/2026 - 30/04/2026',
+        yesterday: '06/03/2026 - 06/03/2026',
+        last_7_days: '28/02/2026 - 06/03/2026',
+        custom: 'Custom range'
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.domain-period-option').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const period = this.getAttribute('data-period');
+                const labelEl = document.getElementById('domain-period-label');
+                if (labelEl && period) {
+                    labelEl.textContent = PERIOD_LABELS[period] || period;
+                }
+                document.querySelectorAll('.domain-period-option').forEach(function (o) {
+                    o.classList.remove('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
+                    o.classList.add('text-slate-300');
+                });
+                this.classList.add('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
+                this.classList.remove('text-slate-300');
+                document.getElementById('domain-period-panel').classList.add('hidden');
+            });
+        });
+    });
+
+    // ── Status multi-select ────────────────────────────────────────
+    function toggleDomainStatusDropdown() {
+        const panel = document.getElementById('domain-status-panel');
+        if (panel) panel.classList.toggle('hidden');
+    }
+    function getCheckedDomainStatuses() {
+        return [...document.querySelectorAll('#domain-status-panel input[name="domain_status_check"]:checked')].map(cb => cb.value);
+    }
+    function updateDomainStatusHiddenInputs(selected) {
+        const container = document.getElementById('domain-status-hidden-inputs');
+        if (!container) return;
+        container.innerHTML = selected.map(s => `<input type="hidden" name="statuses" value="${String(s).replace(/"/g, '&quot;')}">`).join('');
+    }
+    function updateDomainStatusLabel(selected) {
+        const label = document.getElementById('domain-status-label');
+        if (!label) return;
+        if (selected.length === 0) label.textContent = 'All Statuses';
+        else if (selected.length === 1) label.textContent = selected[0];
+        else label.textContent = selected.length + ' Statuses';
+    }
+    function onDomainStatusChange() {
+        const selected = getCheckedDomainStatuses();
+        updateDomainStatusHiddenInputs(selected);
+        updateDomainStatusLabel(selected);
+        triggerDomainEventsTableRefresh();
+    }
+
+    // ── Live / Notes / Outright toggles ─────────────────────────────
+    function setDomainLiveOnlyFilter(btn) {
+        var input = document.getElementById('domain-live-only-input');
+        var icon = document.getElementById('domain-live-only-icon');
+        if (!input || !icon) return;
+        var on = input.value !== '1';
+        input.value = on ? '1' : '0';
+        icon.classList.toggle('text-red-500', on);
+        icon.classList.toggle('text-slate-400', !on);
+        triggerDomainEventsTableRefresh();
+    }
+    function setDomainNotesOnlyFilter(btn) {
+        var input = document.getElementById('domain-notes-only-input');
+        var icon = document.getElementById('domain-notes-only-icon');
+        if (!input || !icon) return;
+        var on = input.value !== '1';
+        input.value = on ? '1' : '0';
+        icon.classList.toggle('text-amber-400', on);
+        icon.classList.toggle('text-slate-400', !on);
+        triggerDomainEventsTableRefresh();
+    }
+    function setDomainOutrightFilter(btn) {
+        var val = (btn && btn.getAttribute('data-outright')) || '';
+        var input = document.getElementById('domain-outright-input');
+        if (input) input.value = val;
+        document.querySelectorAll('#domain-outright-toggle button').forEach(function (b) {
+            b.classList.remove('bg-slate-700', 'text-white', 'shadow');
+            b.classList.add('text-slate-400');
+        });
+        if (btn) {
+            btn.classList.add('bg-slate-700', 'text-white', 'shadow');
+            btn.classList.remove('text-slate-400');
+        }
+        triggerDomainEventsTableRefresh();
+    }
+
+    function setDomainHasBetsFilter(btn) {
+        var input = document.getElementById('domain-has-bets-input');
+        var icon = document.getElementById('domain-has-bets-icon');
+        if (!input || !icon) return;
+        var on = input.value !== '1';
+        input.value = on ? '1' : '0';
+        icon.classList.toggle('text-emerald-400', on);
+        icon.classList.toggle('text-slate-400', !on);
+        triggerDomainEventsTableRefresh();
+    }
+
+    // ── Brand multiselect (Global exclusive: Global cannot be combined with other brands) ─────
+    function toggleDomainBrandDropdown() {
+        var panel = document.getElementById('domain-brand-panel');
+        if (panel) panel.classList.toggle('hidden');
+    }
+    function getCheckedDomainBrands() {
+        return [...document.querySelectorAll('#domain-brand-panel input.domain-brand-cb:checked')].map(function (cb) { return cb.value; });
+    }
+    function updateDomainBrandHiddenInputs(selected) {
+        var container = document.getElementById('domain-brand-hidden-inputs');
+        if (!container) return;
+        container.innerHTML = selected.map(function (s) {
+            return '<input type="hidden" name="brands" value="' + String(s).replace(/"/g, '&quot;') + '">';
+        }).join('');
+    }
+    function updateDomainBrandLabel(selected) {
+        var label = document.getElementById('domain-brand-label');
+        if (!label) return;
+        if (selected.length === 0) {
+            label.textContent = 'No brand';
+        } else if (selected.length === 1) {
+            var opt = document.querySelector('.domain-brand-option[data-brand-value="' + selected[0] + '"]');
+            label.textContent = opt ? (opt.querySelector('span') && opt.querySelector('span').textContent) : selected[0];
+        } else {
+            label.textContent = selected.length + ' brands';
+        }
+    }
+    function onDomainBrandChange(justCheckedValue) {
+        var checkboxes = document.querySelectorAll('#domain-brand-panel input.domain-brand-cb');
+        var globalCb = document.querySelector('#domain-brand-panel input.domain-brand-cb[value="Global"]');
+        if (justCheckedValue === 'Global') {
+            checkboxes.forEach(function (cb) {
+                if (cb.value !== 'Global') cb.checked = false;
+            });
+        } else {
+            if (globalCb) globalCb.checked = false;
+        }
+        var selected = getCheckedDomainBrands();
+        if (selected.length === 0 && globalCb) {
+            globalCb.checked = true;
+            selected = ['Global'];
+        }
+        updateDomainBrandHiddenInputs(selected);
+        updateDomainBrandLabel(selected);
+        triggerDomainEventsTableRefresh();
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('#domain-brand-panel input.domain-brand-cb').forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                onDomainBrandChange(this.value);
+            });
+        });
     });
 
     function getCheckedDomainSports() {
@@ -347,6 +654,9 @@
     function getDomainCompetitionsFromHiddenInputs() {
         return [...document.querySelectorAll('#domain-competition-hidden-inputs input[name="competitions"]')].map(i => i.value);
     }
+    function getDomainStatusesFromHiddenInputs() {
+        return [...document.querySelectorAll('#domain-status-hidden-inputs input[name="statuses"]')].map(i => i.value);
+    }
 
     function updateActiveFilterBadges() {
         const container = document.getElementById('domain-active-filters');
@@ -356,6 +666,7 @@
         const allSports = getAllDomainSports ? getAllDomainSports() : [];
         const categories = getDomainCategoriesFromHiddenInputs();
         const competitions = getDomainCompetitionsFromHiddenInputs();
+        const statuses = getDomainStatusesFromHiddenInputs ? getDomainStatusesFromHiddenInputs() : [];
         const q = (document.getElementById('domain-search-input') || {}).value || '';
         const badges = [];
         if (dateVal) {
@@ -366,6 +677,7 @@
         }
         categories.forEach(c => badges.push({ type: 'category', label: 'Category: ' + c, value: c }));
         competitions.forEach(c => badges.push({ type: 'competition', label: 'Competition: ' + c, value: c }));
+        statuses.forEach(s => badges.push({ type: 'status', label: 'Status: ' + s, value: s }));
         if (q.trim()) badges.push({ type: 'search', label: 'Search: "' + q.trim() + '"', value: q.trim() });
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
         let html = badges.map(b =>
@@ -399,8 +711,36 @@
         clearDomainCategoryAndCompetition();
         htmx.trigger(document.body, 'domainCategoriesRefresh');
         htmx.trigger(document.body, 'domainCompetitionsRefresh');
+        document.getElementById('domain-status-hidden-inputs').innerHTML = '';
+        if (document.getElementById('domain-status-label')) document.getElementById('domain-status-label').textContent = 'All Statuses';
+        document.querySelectorAll('#domain-status-panel input[name="domain_status_check"]').forEach(cb => { cb.checked = false; });
+        var liveInput = document.getElementById('domain-live-only-input');
+        if (liveInput) liveInput.value = '0';
+        var liveIcon = document.getElementById('domain-live-only-icon');
+        if (liveIcon) { liveIcon.classList.add('text-slate-400'); liveIcon.classList.remove('text-red-500'); }
+        var notesInput = document.getElementById('domain-notes-only-input');
+        if (notesInput) notesInput.value = '0';
+        var notesIcon = document.getElementById('domain-notes-only-icon');
+        if (notesIcon) { notesIcon.classList.add('text-slate-400'); notesIcon.classList.remove('text-amber-400'); }
+        var outrightInput = document.getElementById('domain-outright-input');
+        if (outrightInput) outrightInput.value = '';
+        document.querySelectorAll('#domain-outright-toggle button').forEach(function (b) {
+            b.classList.remove('bg-slate-700', 'text-white', 'shadow');
+            b.classList.add('text-slate-400');
+        });
+        var allOutrightBtn = document.querySelector('#domain-outright-toggle button[data-outright=""]');
+        if (allOutrightBtn) allOutrightBtn.classList.add('bg-slate-700', 'text-white', 'shadow');
+        var hasBetsInput = document.getElementById('domain-has-bets-input');
+        if (hasBetsInput) hasBetsInput.value = '0';
+        var hasBetsIcon = document.getElementById('domain-has-bets-icon');
+        if (hasBetsIcon) { hasBetsIcon.classList.add('text-slate-400'); hasBetsIcon.classList.remove('text-emerald-400'); }
         const searchEl = document.getElementById('domain-search-input');
         if (searchEl) searchEl.value = '';
+        document.getElementById('domain-brand-hidden-inputs').innerHTML = '<input type="hidden" name="brands" value="Global">';
+        if (document.getElementById('domain-brand-label')) document.getElementById('domain-brand-label').textContent = 'Global';
+        document.querySelectorAll('#domain-brand-panel input.domain-brand-cb').forEach(function (cb) {
+            cb.checked = (cb.value === 'Global');
+        });
         updateDomainCategoryButtonState();
         updateDomainCompetitionButtonState();
         triggerDomainEventsTableRefresh();
@@ -431,6 +771,14 @@
             const remaining = getDomainCompetitionsFromHiddenInputs().filter(v => v !== value);
             updateDomainCompetitionHiddenInputs(remaining);
             updateDomainCompetitionLabel(remaining);
+            triggerDomainEventsTableRefresh();
+        } else if (type === 'status') {
+            document.querySelectorAll('#domain-status-panel input[name="domain_status_check"]').forEach(cb => {
+                if (cb.value === value) cb.checked = false;
+            });
+            const remaining = getDomainStatusesFromHiddenInputs().filter(v => v !== value);
+            updateDomainStatusHiddenInputs(remaining);
+            updateDomainStatusLabel(remaining);
             triggerDomainEventsTableRefresh();
         } else if (type === 'search') {
             const el = document.getElementById('domain-search-input');

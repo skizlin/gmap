@@ -55,6 +55,7 @@ FEEDER_IGNORED_EVENTS_PATH = getattr(config, "FEEDER_IGNORED_EVENTS_PATH", None)
 FEEDER_EVENT_LOG_PATH = getattr(config, "FEEDER_EVENT_LOG_PATH", None)
 NOTES_PATH = config.NOTES_PATH
 NOTES_PATH_LEGACY = getattr(config, "NOTES_PATH_LEGACY", None)  # optional one-time move from data/ to data/notes/
+EVENT_NAVIGATOR_NOTES_PATH = getattr(config, "EVENT_NAVIGATOR_NOTES_PATH", None)
 NOTIFICATIONS_PATH = getattr(config, "NOTIFICATIONS_PATH", None)
 MARGIN_TEMPLATES_PATH = config.MARGIN_TEMPLATES_PATH
 MARGIN_TEMPLATE_COMPETITIONS_PATH = config.MARGIN_TEMPLATE_COMPETITIONS_PATH
@@ -1603,34 +1604,45 @@ def _fuzzy_score(a: str, b: str) -> int:
     return int(round(100 * difflib.SequenceMatcher(None, a, b).ratio()))
 
 
-def _suggest_domain_event(feed_event: dict) -> tuple[dict | None, int]:
+def _suggest_domain_events(feed_event: dict) -> list[dict]:
     """
-    Find best-matching domain event for this feed event (same match from another feed).
-    Returns (domain_event_dict, match_score_0_100) or (None, 0).
+    Find all matching domain events for this feed event (same match from another feed).
+    Supports reverse home/away (feed home vs domain away, feed away vs domain home).
+    Returns list of { "event": dict, "score": int, "reversed_home_away": bool } sorted by score desc.
     """
     if not DOMAIN_EVENTS:
-        return None, 0
+        return []
     feed_home = (feed_event.get("raw_home_name") or "").strip()
     feed_away = (feed_event.get("raw_away_name") or "").strip()
     feed_comp = (feed_event.get("raw_league_name") or "").strip()
     feed_start = (feed_event.get("start_time") or "").strip()
     if not feed_home and not feed_away:
-        return None, 0
-    best_ev, best_score = None, 0
+        return []
+    candidates: list[dict] = []
     for ev in DOMAIN_EVENTS:
         d_home = (ev.get("home") or "").strip()
         d_away = (ev.get("away") or "").strip()
         d_comp = (ev.get("competition") or "").strip()
         d_start = (ev.get("start_time") or "").strip()
-        s_home = _fuzzy_score(feed_home, d_home) if feed_home and d_home else (100 if not feed_home and not d_home else 0)
-        s_away = _fuzzy_score(feed_away, d_away) if feed_away and d_away else (100 if not feed_away and not d_away else 0)
         s_comp = _fuzzy_score(feed_comp, d_comp) if feed_comp or d_comp else 100
         s_start = 100 if feed_start and d_start and feed_start == d_start else (50 if feed_start and d_start else 100)
-        score = int(round(0.4 * s_home + 0.4 * s_away + 0.15 * s_comp + 0.05 * s_start))
-        if score > best_score and score >= 50:
-            best_score = score
-            best_ev = ev
-    return (best_ev, best_score) if best_ev else (None, 0)
+        # Normal: feed_home↔domain_home, feed_away↔domain_away
+        s_home_n = _fuzzy_score(feed_home, d_home) if feed_home and d_home else (100 if not feed_home and not d_home else 0)
+        s_away_n = _fuzzy_score(feed_away, d_away) if feed_away and d_away else (100 if not feed_away and not d_away else 0)
+        score_n = int(round(0.4 * s_home_n + 0.4 * s_away_n + 0.15 * s_comp + 0.05 * s_start))
+        # Reversed: feed_home↔domain_away, feed_away↔domain_home
+        s_home_r = _fuzzy_score(feed_home, d_away) if feed_home and d_away else (100 if not feed_home and not d_away else 0)
+        s_away_r = _fuzzy_score(feed_away, d_home) if feed_away and d_home else (100 if not feed_away and not d_home else 0)
+        score_r = int(round(0.4 * s_home_r + 0.4 * s_away_r + 0.15 * s_comp + 0.05 * s_start))
+        best_score = max(score_n, score_r)
+        if best_score >= 50:
+            candidates.append({
+                "event": ev,
+                "score": best_score,
+                "reversed_home_away": score_r > score_n,
+            })
+    candidates.sort(key=lambda x: -x["score"])
+    return candidates
 
 
 def _suggest_entity_by_name(
@@ -2197,18 +2209,37 @@ async def search_domain_events(q: str = ""):
     cards = ""
     for ev in results:
         ev_id = ev["id"]
-        home  = ev.get("home") or ""
-        away  = ev.get("away") or ""
-        comp  = ev.get("competition") or ""
+        home = ev.get("home") or ""
+        away = ev.get("away") or ""
+        comp = ev.get("competition") or ""
+        cat = ev.get("category") or "—"
+        start_fmt = _format_start_time(ev.get("start_time")) or "—"
         label = f"{home} vs {away}" if (home and away) else (home or ev_id)
+        # Escape for HTML attributes
+        label_attr = label.replace("'", "&#39;").replace('"', "&quot;")
+        comp_attr = comp.replace("'", "&#39;").replace('"', "&quot;")
+        cat_attr = cat.replace("'", "&#39;").replace('"', "&quot;")
+        start_attr = start_fmt.replace("'", "&#39;").replace('"', "&quot;")
         cards += f"""
-        <div class="p-2 border border-primary/50 bg-primary/10 rounded flex items-center gap-2 cursor-pointer hover:bg-primary/20 transition-colors"
-             onclick="selectDomainEvent('{ev_id}', '{label.replace("'", "&#39;")}')">
-            <div>
+        <div class="domain-event-card p-2 border border-slate-600 bg-slate-800/50 rounded flex justify-between items-center cursor-pointer hover:bg-slate-700/50 hover:border-slate-500 transition-colors w-full"
+             data-domain-id="{ev_id}"
+             data-label="{label_attr}"
+             data-start-time="{start_attr}"
+             data-category="{cat_attr}"
+             data-competition="{comp_attr}"
+             onclick="selectDomainEvent(this)">
+            <div class="min-w-0 flex-1">
                 <div class="text-white text-xs font-medium">{label}</div>
-                <div class="text-[10px] text-slate-400">{comp}</div>
+                <div class="text-[10px] text-slate-400">
+                    <span>{start_fmt}</span>
+                    <span class="mx-1.5">·</span>
+                    <span>{cat}</span>
+                    <span class="mx-1.5">·</span>
+                    <span>{comp}</span>
+                    <span class="mx-1.5">·</span>
+                    <span class="font-mono text-slate-500">ID {ev_id}</span>
+                </div>
             </div>
-            <div class="text-[10px] font-mono text-primary bg-primary/20 px-1.5 py-0.5 rounded ml-auto shrink-0">{ev_id}</div>
         </div>"""
 
     return HTMLResponse(cards)
@@ -2442,6 +2473,44 @@ def _delete_note(note_id: str) -> bool:
         if notes:
             w.writerows(notes)
     return True
+
+
+# ── Event Navigator notes (screen-only; separate from feeder/platform notes) ──
+_EVENT_NAVIGATOR_NOTE_FIELDS = ["domain_event_id", "note_text", "updated_at"]
+
+
+def _load_event_navigator_notes() -> dict[str, dict]:
+    """Load event_navigator_notes.csv. Returns dict domain_event_id -> {note_text, updated_at}. Event Navigator screen only."""
+    if not EVENT_NAVIGATOR_NOTES_PATH or not EVENT_NAVIGATOR_NOTES_PATH.exists():
+        return {}
+    out: dict[str, dict] = {}
+    with open(EVENT_NAVIGATOR_NOTES_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            eid = (row.get("domain_event_id") or "").strip()
+            if not eid:
+                continue
+            out[eid] = {
+                "note_text": (row.get("note_text") or "").strip(),
+                "updated_at": (row.get("updated_at") or "").strip(),
+            }
+    return out
+
+
+def _save_event_navigator_note(domain_event_id: str, note_text: str) -> None:
+    """Create or update the single note for this domain event. Overwrites any existing note. Event Navigator screen only."""
+    domain_event_id = (domain_event_id or "").strip()
+    note_text = (note_text or "").strip()
+    if not EVENT_NAVIGATOR_NOTES_PATH:
+        return
+    now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    notes_map = _load_event_navigator_notes()
+    notes_map[domain_event_id] = {"note_text": note_text, "updated_at": now}
+    EVENT_NAVIGATOR_NOTES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(EVENT_NAVIGATOR_NOTES_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_EVENT_NAVIGATOR_NOTE_FIELDS)
+        w.writeheader()
+        for eid, data in notes_map.items():
+            w.writerow({"domain_event_id": eid, "note_text": data["note_text"], "updated_at": data["updated_at"]})
 
 
 def _load_notifications() -> list[dict]:
@@ -2902,11 +2971,19 @@ async def event_navigator_view(
     sports: List[str] = Query(default=None),
     categories: List[str] = Query(default=None),
     competitions: List[str] = Query(default=None),
+    statuses: List[str] = Query(default=None),
+    live_only: str | None = None,
+    notes_only: str | None = None,
+    outright_filter: str | None = None,
+    has_bets_only: str | None = None,
+    brands: List[str] = Query(default=None),
     q: str | None = None,
 ):
     """
-    Domain Events Table (Golden Copy). Supports filter by date, sport, category, competition, and text search.
+    Domain Events Table (Golden Copy). Supports filter by date, sport, category, competition, status, live/notes/outright, has_bets, brands, and text search.
     """
+    global DOMAIN_EVENTS
+    DOMAIN_EVENTS = _load_domain_events()
     mappings_by_event: dict[str, list[dict]] = {}
     for m in _load_event_mappings():
         mappings_by_event.setdefault(m["domain_event_id"], []).append(m)
@@ -2926,11 +3003,18 @@ async def event_navigator_view(
     selected_categories = categories or []
     available_competitions = _domain_events_competitions(active_sports, selected_categories if selected_categories else None)
     selected_competitions = competitions or []
+    brands_list = _load_brands()
+    selected_brands = brands if brands else ["Global"]
     filtered = _filter_domain_events(
         enriched, date, active_sports, q,
         selected_categories if selected_categories else None,
         selected_competitions if selected_competitions else None,
     )
+    en_notes = _load_event_navigator_notes()
+    for ev in filtered:
+        data = en_notes.get(str(ev.get("id")), {})
+        ev["en_note"] = (data.get("note_text") or "").strip()
+        ev["has_en_note"] = bool(ev["en_note"])
     return templates.TemplateResponse("event_navigator/event_navigator.html", {
         "request": request,
         "section": "domain",
@@ -2942,6 +3026,14 @@ async def event_navigator_view(
         "selected_categories": selected_categories,
         "available_competitions": available_competitions,
         "selected_competitions": selected_competitions,
+        "available_statuses": FEEDER_EVENT_STATUSES,
+        "selected_statuses": statuses or [],
+        "live_only": "1" if live_only == "1" else "0",
+        "notes_only": "1" if notes_only == "1" else "0",
+        "outright_filter": outright_filter or "",
+        "has_bets_only": "1" if has_bets_only == "1" else "0",
+        "brands": brands_list,
+        "selected_brands": selected_brands,
         "selected_date": date or "",
         "search_q": q or "",
     })
@@ -2954,12 +3046,20 @@ async def event_navigator_table(
     sports: List[str] = Query(default=None),
     categories: List[str] = Query(default=None),
     competitions: List[str] = Query(default=None),
+    statuses: List[str] = Query(default=None),
+    live_only: str | None = None,
+    notes_only: str | None = None,
+    outright_filter: str | None = None,
+    has_bets_only: str | None = None,
+    brands: List[str] = Query(default=None),
     q: str | None = None,
 ):
     """
     HTMX Endpoint: Returns filtered domain events table rows only.
-    Supports date, sport, category, competition, and text search.
+    Supports date, sport, category, competition, status, live/notes/outright, has_bets, brands, and text search.
     """
+    global DOMAIN_EVENTS
+    DOMAIN_EVENTS = _load_domain_events()
     mappings_by_event: dict[str, list[dict]] = {}
     for m in _load_event_mappings():
         mappings_by_event.setdefault(m["domain_event_id"], []).append(m)
@@ -2980,6 +3080,11 @@ async def event_navigator_table(
         categories if categories else None,
         competitions if competitions else None,
     )
+    en_notes = _load_event_navigator_notes()
+    for ev in filtered:
+        data = en_notes.get(str(ev.get("id")), {})
+        ev["en_note"] = (data.get("note_text") or "").strip()
+        ev["has_en_note"] = bool(ev["en_note"])
     return templates.TemplateResponse("event_navigator/_rows.html", {
         "request": request,
         "domain_events": filtered,
@@ -3020,6 +3125,44 @@ async def event_navigator_event_details(request: Request, domain_id: str):
         "markets_by_group": markets_by_group,
         "brands": brands,
     })
+
+
+@app.get("/event-navigator/notes-modal/{domain_event_id}", response_class=HTMLResponse)
+async def event_navigator_notes_modal(request: Request, domain_event_id: str):
+    """Modal content for Event Navigator notes (screen-only; not related to feeder notes)."""
+    en_notes = _load_event_navigator_notes()
+    data = en_notes.get(domain_event_id.strip(), {})
+    note_text = (data.get("note_text") or "").strip()
+    ev = next((e for e in DOMAIN_EVENTS if str(e.get("id")) == domain_event_id.strip()), None)
+    event_label = ""
+    if ev:
+        event_label = (ev.get("home") or "") + " v " + (ev.get("away") or "") if (ev.get("home") or ev.get("away")) else (ev.get("name") or str(ev.get("id")))
+    return templates.TemplateResponse("event_navigator/modal_notes.html", {
+        "request": request,
+        "domain_event_id": domain_event_id,
+        "event_label": event_label,
+        "note_text": note_text,
+    })
+
+
+@app.post("/api/event-navigator/notes")
+async def api_event_navigator_notes(
+    domain_event_id: str = Form(...),
+    note_text: str = Form(default=""),
+    requires_confirmation: str = Form("0"),
+):
+    """Save Event Navigator note for a domain event. Screen-only; not related to feeder notes. If requires_confirmation=1, create a platform notification."""
+    domain_event_id = (domain_event_id or "").strip()
+    if not domain_event_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="domain_event_id required")
+    _save_event_navigator_note(domain_event_id, note_text or "")
+    if (requires_confirmation or "").strip() in ("1", "true", "yes"):
+        snippet = (note_text or "").strip()
+        if len(snippet) > 200:
+            snippet = snippet[:200] + "…"
+        _create_notification("en-" + domain_event_id, snippet or "Event Navigator note")
+    return {"ok": True}
 
 
 @app.get("/event-navigator/category-options", response_class=HTMLResponse)
@@ -3111,8 +3254,11 @@ def _render_mapping_modal(request: Request, event_id: str):
     }
     sports_by_id = {s["domain_id"]: s["name"] for s in DOMAIN_ENTITIES["sports"]}
 
-    # Fuzzy: suggest existing domain event (same match from another feed)
-    suggested_domain_event, suggested_match_score = _suggest_domain_event(event)
+    # Fuzzy: suggest all matching domain events (same match from another feed; supports reversed home/away)
+    suggested_domain_events = _suggest_domain_events(event)
+    best_suggestion = suggested_domain_events[0] if suggested_domain_events else None
+    suggested_domain_event = best_suggestion["event"] if best_suggestion else None
+    suggested_match_score = best_suggestion["score"] if best_suggestion else 0
 
     # Sport: no suggestions or fuzzy when unmapped — UI shows dropdown of domain sports + Map button only
     suggested_sports = []
@@ -3120,26 +3266,30 @@ def _render_mapping_modal(request: Request, event_id: str):
     # Entity suggestions: best match per field (for prefill / match %)
     sport_id_for_suggest = r_sport["domain_id"] if r_sport else (suggested_sports[0]["domain_id"] if suggested_sports else None)
     category_id_for_suggest = None
-    if suggested_domain_event:
-        # Prefer suggestions from the suggested domain event
-        suggested_category = suggested_domain_event.get("category")
-        suggested_competition = suggested_domain_event.get("competition")
-        suggested_home = suggested_domain_event.get("home")
-        suggested_away = suggested_domain_event.get("away")
-    else:
-        suggested_category = suggested_competition = suggested_home = suggested_away = None
-    # When no suggested domain event, suggest by feed names within sport
-    if not suggested_domain_event or not suggested_category:
-        cat_candidates = _suggest_entity_by_name("categories", event.get("category") or event.get("raw_league_name") or "", sport_id_for_suggest)
-        suggested_category = cat_candidates[0] if cat_candidates else {"name": (event.get("category") or "").strip(), "match_pct": 0}
-        if isinstance(suggested_category, dict) and suggested_category.get("name"):
-            cat_ent = next((c for c in DOMAIN_ENTITIES["categories"] if c["name"] == suggested_category["name"] and c.get("sport_id") == sport_id_for_suggest), None)
-            if cat_ent:
-                category_id_for_suggest = cat_ent["domain_id"]
-    if not suggested_domain_event or not suggested_competition:
-        comp_candidates = _suggest_entity_by_name("competitions", event.get("raw_league_name") or "", sport_id_for_suggest, category_id_for_suggest)
-        suggested_competition = comp_candidates[0] if comp_candidates else {"name": (event.get("raw_league_name") or "").strip(), "match_pct": 0}
-    # Teams: suggest raw feed names when no match; when mapping same match (score >= 70), pre-fill from that event
+
+    # Category: always derive from feed first. Feed "Barbados" → suggest Barbados.
+    # Only use a domain category when match is strong (≥55%); otherwise use feed value with Create.
+    cat_candidates = _suggest_entity_by_name("categories", event.get("category") or event.get("raw_league_name") or "", sport_id_for_suggest)
+    raw_cat = (event.get("category") or "").strip()
+    best_cat = cat_candidates[0] if cat_candidates else None
+    suggested_category = best_cat if (best_cat and (best_cat.get("match_pct") or 0) >= 55) else ({"name": raw_cat, "match_pct": 0} if raw_cat else None)
+    if isinstance(suggested_category, dict) and suggested_category.get("name"):
+        cat_ent = next((c for c in DOMAIN_ENTITIES["categories"] if c["name"] == suggested_category["name"] and c.get("sport_id") == sport_id_for_suggest), None)
+        if cat_ent:
+            category_id_for_suggest = cat_ent["domain_id"]
+            suggested_category = dict(suggested_category)
+            suggested_category["domain_id"] = cat_ent["domain_id"]
+            j = (cat_ent.get("jurisdiction") or "").strip()
+            if j and j != COUNTRY_CODE_NONE:
+                suggested_category["jurisdiction"] = j
+
+    # Competition: always derive from feed first; only use domain when match ≥55%
+    comp_candidates = _suggest_entity_by_name("competitions", event.get("raw_league_name") or "", sport_id_for_suggest, category_id_for_suggest)
+    raw_comp = (event.get("raw_league_name") or "").strip()
+    best_comp = comp_candidates[0] if comp_candidates else None
+    suggested_competition = best_comp if (best_comp and (best_comp.get("match_pct") or 0) >= 55) else ({"name": raw_comp, "match_pct": 0} if raw_comp else None)
+
+    # Teams: suggest raw feed names; when mapping same match (score >= 70) and per-team match ≥55%, pre-fill from suggested domain event
     # match_pct = similarity between feed name and domain name (like category/competition), not 100%
     suggested_home = {"name": (event.get("raw_home_name") or "").strip(), "match_pct": 0, "is_suggested": True}
     suggested_away = {"name": (event.get("raw_away_name") or "").strip(), "match_pct": 0, "is_suggested": True}
@@ -3150,8 +3300,9 @@ def _render_mapping_modal(request: Request, event_id: str):
         d_away = (suggested_domain_event.get("away") or "").strip()
         pct_home = _fuzzy_score(feed_home, d_home)
         pct_away = _fuzzy_score(feed_away, d_away)
-        suggested_home = {"name": suggested_domain_event.get("home") or "", "match_pct": pct_home, "is_suggested": pct_home == 0}
-        suggested_away = {"name": suggested_domain_event.get("away") or "", "match_pct": pct_away, "is_suggested": pct_away == 0}
+        if pct_home >= 55 and pct_away >= 55:
+            suggested_home = {"name": suggested_domain_event.get("home") or "", "match_pct": pct_home, "is_suggested": pct_home == 0, "domain_id": suggested_domain_event.get("home_id")}
+            suggested_away = {"name": suggested_domain_event.get("away") or "", "match_pct": pct_away, "is_suggested": pct_away == 0, "domain_id": suggested_domain_event.get("away_id")}
     # Normalize to dict with name + match_pct + is_suggested for template (raw_name used when no match)
     def _norm(v, raw_name: str = ""):
         if v is None and not raw_name:
@@ -3163,16 +3314,14 @@ def _render_mapping_modal(request: Request, event_id: str):
             out.setdefault("is_suggested", (out.get("match_pct") or 0) == 0)
             return out
         return {"name": (v.get("name") if isinstance(v, dict) else str(v)) or raw_name or "", "match_pct": 100, "is_suggested": False}
-    raw_cat = (event.get("category") or "").strip()
-    raw_comp = (event.get("raw_league_name") or "").strip()
     suggested_entities = {
         "category":    _norm(suggested_category, raw_cat) if (suggested_category or raw_cat) else None,
         "competition": _norm(suggested_competition, raw_comp) if (suggested_competition or raw_comp) else None,
         "home":        suggested_home,
         "away":        suggested_away,
     }
-    # Only use suggested_domain_event for category/competition when it's clearly the same match (score >= 70).
-    # Otherwise we would show wrong values (e.g. Argentina/Liga Profesional for a Barbados event).
+    # Only use suggested_domain_event for category/competition when feed and domain match (≥55%).
+    # E.g. feed "Barbados" vs domain "Argentina" → keep Barbados (Create), don't show Argentina (Map).
     if suggested_domain_event and suggested_match_score >= 70:
         feed_cat = (event.get("category") or "").strip()
         feed_comp = (event.get("raw_league_name") or "").strip()
@@ -3180,14 +3329,35 @@ def _render_mapping_modal(request: Request, event_id: str):
         d_comp = (suggested_domain_event.get("competition") or "").strip()
         pct_cat = _fuzzy_score(feed_cat, d_cat)
         pct_comp = _fuzzy_score(feed_comp, d_comp)
-        suggested_entities["category"] = {"name": suggested_domain_event.get("category") or "", "match_pct": pct_cat, "is_suggested": pct_cat == 0}
-        suggested_entities["competition"] = {"name": suggested_domain_event.get("competition") or "", "match_pct": pct_comp, "is_suggested": pct_comp == 0}
+        # Only override category when feed category matches domain event category (≥55%)
+        if feed_cat and d_cat and pct_cat >= 55:
+            suggested_entities["category"] = {"name": suggested_domain_event.get("category") or "", "match_pct": pct_cat, "is_suggested": pct_cat == 0}
+            if sport_id_for_suggest is not None:
+                cat_ent = next((c for c in DOMAIN_ENTITIES["categories"] if (c.get("name") or "").strip() == d_cat and c.get("sport_id") == sport_id_for_suggest), None)
+                if cat_ent:
+                    suggested_entities["category"] = dict(suggested_entities["category"])
+                    suggested_entities["category"]["domain_id"] = cat_ent["domain_id"]
+                    j = (cat_ent.get("jurisdiction") or "").strip()
+                    if j and j != COUNTRY_CODE_NONE:
+                        suggested_entities["category"]["jurisdiction"] = j
+        # Only override competition when feed competition matches domain event competition (≥55%)
+        if feed_comp and d_comp and pct_comp >= 55:
+            suggested_entities["competition"] = {"name": suggested_domain_event.get("competition") or "", "match_pct": pct_comp, "is_suggested": pct_comp == 0}
     # Ensure is_suggested when match_pct is 0 (raw feed name suggested)
     for key in ("category", "competition", "home", "away"):
         if suggested_entities.get(key):
             suggested_entities[key]["is_suggested"] = (suggested_entities[key].get("match_pct") or 0) == 0
 
     countries = _load_countries()
+    # When feed category matches a country (e.g. Barbados) but not in domain, pre-select that country in dropdown
+    if suggested_entities.get("category") and not suggested_entities["category"].get("jurisdiction"):
+        cat_name = (suggested_entities["category"].get("name") or "").strip()
+        if cat_name:
+            country_match = next((c for c in countries if (c.get("name") or "").strip().lower() == cat_name.lower()), None)
+            if country_match and (country_match.get("cc") or "").strip() != COUNTRY_CODE_NONE:
+                suggested_entities["category"] = dict(suggested_entities["category"])
+                suggested_entities["category"]["jurisdiction"] = (country_match.get("cc") or "").strip()
+
     participant_types = _load_participant_types()
     underage_categories = _load_underage_categories()
     underage_ids = {int(u["id"]) for u in underage_categories}
@@ -3219,6 +3389,7 @@ def _render_mapping_modal(request: Request, event_id: str):
         "sports_by_id": sports_by_id,
         "suggested_domain_event": suggested_domain_event,
         "suggested_match_score": suggested_match_score,
+        "suggested_domain_events": suggested_domain_events,
         "suggested_sports": suggested_sports,
         "suggested_entities": suggested_entities,
         "countries": countries,

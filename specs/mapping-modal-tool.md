@@ -22,7 +22,7 @@ The **Mapping Modal** is the tool to link a **feed event** to the domain: either
 
 - **Entry:** Feeder Events table → Action → “Map Event” → modal opens for that feed event.
 - **Modal sections:**
-  - **Find Existing Domain Event:** Suggested one (fuzzy match by home/away/competition/start time, score ≥ threshold e.g. 50%); overall match %. Search box to find another; select one → **Confirm Mapping**.
+  - **Find Existing Domain Event:** Suggested matches (all with fuzzy score ≥ 50%, normal + reversed home/away); each shows id, start time, category, competition, match %. Search box to find more; select one → **Confirm Mapping**.
   - **Build new / edit:** Sport (required first), Category, Competition, Home Team, Away Team, Start Time. Each entity: search/select or **Create** (creates entity and adds row to entity_feed_mappings for current feed). Per-entity match % (feed value vs domain value). When Competition and both teams resolved → **Create & Map** enabled.
 - **Persistence:** Confirm Mapping → one row in `event_mappings.csv`. Create & Map → one row in `domain_events.csv`, one in `event_mappings.csv`, and any new entities + entity_feed_mappings rows. New competitions auto-assigned to default margin template (e.g. Uncategorized).
 - **Locked/resolved:** If sport (or entity) is already resolved (e.g. sport alias or existing entity_feed_mapping for this feed), show “Auto-matched” / “Matched” and do not show editable search for that row.
@@ -61,7 +61,7 @@ The **Mapping Modal** is the tool to link a **feed event** to the domain: either
 ## Business Rules
 
 - **Sport first:** Category, Competition, Home, Away are disabled until Sport is selected (or locked). Options filtered by sport (and by category for competitions).
-- **Suggestions:** One suggested domain event when fuzzy score ≥ 50% (configurable). Overall match % = that score. Per-entity match % = feed vs domain for that field only.
+- **Suggestions:** All matching domain events (fuzzy score ≥ 50%) shown as cards; supports normal and reversed home/away. Best match used for form pre-fill. Per-entity match % = feed vs domain for that field only.
 - **Confirm Mapping:** Requires one selected domain event. Idempotent if same (feed_provider, feed_valid_id) already mapped.
 - **Create & Map:** Requires Competition and both Home and Away resolved. Creates exactly one domain event and one mapping row. New competition → assign to default margin template (e.g. template_id 1).
 - **Start time:** Single field; no match %. Not used for uniqueness in suggestion only; can be displayed/editable as per product.
@@ -99,3 +99,20 @@ The **Mapping Modal** is the tool to link a **feed event** to the domain: either
 - **Entities page CRUD and bulk management:** See **entities** spec. Modal only creates entities on demand and links feed.
 - **Market type mapping, Margin Configuration, Feeder Configuration, Localization:** Other platform areas.
 - **Unmap / delete mapping:** Not in scope; define separately if required.
+
+---
+
+## Future Enhancements
+
+### Reverse Home/Away checkbox
+
+When a domain event has reversed home/away teams (feed: A vs B, domain: B vs A), the admin can select it but **must tick a "Reverse Home/Away" checkbox** before confirming. The system will then:
+
+- Map feed home → domain away, feed away → domain home
+- Treat all feed data for this mapping as reversed (e.g. 1X2 market: feed "Away win" odds → domain "Home win"; markets, odds, everything under that feed event is interpreted with swapped home/away)
+
+Use cases: cup matches on neutral pitch, tennis (no explicit home/away), feeds with different conventions. Suggestion logic already detects reversed matches and shows a "Reverse H/A" badge on the card.
+
+### Multiple suggested matches
+
+The modal now shows **all** matching domain events (score ≥ 50%), not just the single best. Sorted by score; supports both normal and reversed home/away matching. Admin can pick the correct one when feeds use defaulted times or multiple similar events exist.
