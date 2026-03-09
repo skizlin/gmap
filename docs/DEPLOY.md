@@ -19,6 +19,7 @@ ssh root@23.88.106.222
 cd /var/www/gmap
 
 # Stash server data so git pull doesn’t overwrite it
+# sports.csv and sport_feed_mappings.csv are never stashed — always from git (local)
 git stash push -m "server data" -- \
   backend/data/competitions.csv \
   backend/data/domain_events.csv \

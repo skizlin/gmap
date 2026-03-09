@@ -707,18 +707,21 @@
         tab.classList.add('text-primary', 'border-primary');
         tab.classList.remove('text-slate-400', 'border-transparent');
         document.getElementById('panel-' + key).classList.remove('hidden');
+        const form = document.getElementById('new-entity-form');
+        if (key === 'sports' && form) form.classList.add('hidden');
         const sel = document.getElementById('nef-type');
-        if (sel) sel.value = key;
+        if (sel) sel.value = (key === 'sports') ? 'categories' : key;
         if (key === 'categories' && typeof applyCategoriesFilters === 'function') applyCategoriesFilters();
         if (key === 'teams' && typeof applyTeamsFilters === 'function') applyTeamsFilters();
         if (key === 'competitions' && typeof applyCompetitionsFilters === 'function') applyCompetitionsFilters();
     }
 
     function toggleNewEntityForm() {
+        const activeTab = document.querySelector('.entity-tab.text-primary');
+        if (activeTab && activeTab.id === 'tab-sports') return;
         const form = document.getElementById('new-entity-form');
         form.classList.toggle('hidden');
         if (!form.classList.contains('hidden')) {
-            const activeTab = document.querySelector('.entity-tab.text-primary');
             if (activeTab) {
                 document.getElementById('nef-type').value = activeTab.id.replace('tab-', '');
                 onNefTypeChange();
@@ -728,6 +731,7 @@
     }
 
     function openNewEntityForm(type) {
+        if (type === 'sports') return;
         const form = document.getElementById('new-entity-form');
         const typeSel = document.getElementById('nef-type');
         if (typeSel) typeSel.value = type;
