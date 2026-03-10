@@ -149,12 +149,14 @@ def parse_bwin(file_path):
         else:
             start_time = "—"
 
-        # Determine Sport
+        # Determine Sport (check more specific names first so "Table Tennis" is not collapsed to "Tennis")
         sport_name = item.get("SportName", "Unknown")
         if "Football" in sport_name or "Soccer" in sport_name:
             sport = "Soccer"
         elif "Basketball" in sport_name:
             sport = "Basketball"
+        elif "Table Tennis" in sport_name:
+            sport = "Table Tennis"
         elif "Tennis" in sport_name:
             sport = "Tennis"
         else:

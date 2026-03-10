@@ -1516,20 +1516,43 @@ def _category_name(cat_id: int) -> str:
     c = next((c for c in DOMAIN_ENTITIES["categories"] if c["domain_id"] == cat_id), None)
     return c["name"] if c else ""
 
+def _normalize_sport_feed_id(value: str | int | float | None) -> str:
+    """Canonical form for sport feed_id: numeric -> int string ('5'); else stripped lower."""
+    if value is None:
+        return ""
+    s = (str(value) or "").strip()
+    if not s:
+        return ""
+    try:
+        return str(int(float(s)))
+    except (ValueError, TypeError):
+        return s.lower()
+
+
 def _resolve_sport_alias(feed_provider_id: int, feed_sport_id_or_name: str) -> dict | None:
     """Return the domain sport dict if a sport mapping exists. Prefer match by feed sport ID, then by sport name (case-insensitive)."""
     incoming = (feed_sport_id_or_name or "").strip()
     if not incoming or feed_provider_id is None:
         return None
+    incoming_norm = _normalize_sport_feed_id(incoming)
     incoming_lower = incoming.lower()
-    # Try exact match first (for feed sport IDs), then case-insensitive (for names)
-    mapping = next((m for m in ENTITY_FEED_MAPPINGS
-                   if m["entity_type"] == "sports"
-                   and m["feed_provider_id"] == int(feed_provider_id)
-                   and ((m.get("feed_id") or "").strip() == incoming or (m.get("feed_id") or "").strip().lower() == incoming_lower)), None)
-    if not mapping:
-        return None
-    return next((s for s in DOMAIN_ENTITIES["sports"] if s["domain_id"] == mapping["domain_id"]), None)
+    fid = int(feed_provider_id)
+    for m in ENTITY_FEED_MAPPINGS:
+        if m.get("entity_type") != "sports" or m["feed_provider_id"] != fid:
+            continue
+        mid = (m.get("feed_id") or "").strip()
+        mid_norm = _normalize_sport_feed_id(mid)
+        if mid_norm and mid_norm == incoming_norm:
+            return next((s for s in DOMAIN_ENTITIES["sports"] if s["domain_id"] == m["domain_id"]), None)
+        if mid.lower() == incoming_lower:
+            return next((s for s in DOMAIN_ENTITIES["sports"] if s["domain_id"] == m["domain_id"]), None)
+    return None
+
+
+# Register for use in feeder_events template (sport green check)
+def _register_sport_feed_id_filter():
+    templates.env.filters["normalize_sport_feed_id"] = lambda v: _normalize_sport_feed_id(v)
+_register_sport_feed_id_filter()
 
 
 def _load_feed_markets_for_sport(feed_code: str, feed_sport_id: int) -> list[dict]:
@@ -2678,7 +2701,7 @@ async def feeder_events_view(
     available_categories = _feeder_categories(selected_feed, selected_sports)
     available_competitions = _feeder_competitions(selected_feed, selected_sports, selected_categories if selected_categories else None)
     _mk = lambda etype: {(m["feed_provider_id"], str(m["feed_id"])) for m in ENTITY_FEED_MAPPINGS if m["entity_type"] == etype}
-    _mk_sport = lambda: {(m["feed_provider_id"], (m.get("feed_id") or "").strip().lower()) for m in ENTITY_FEED_MAPPINGS if m.get("entity_type") == "sports"}
+    _mk_sport = lambda: {(m["feed_provider_id"], _normalize_sport_feed_id(m.get("feed_id"))) for m in ENTITY_FEED_MAPPINGS if m.get("entity_type") == "sports"}
     mapped_sport_feed_ids = _mk_sport()
     mapped_category_feed_ids = _mk("categories")
     mapped_comp_feed_ids     = _mk("competitions")
@@ -2796,10 +2819,10 @@ async def feeder_events_table(
         filtered.append(e)
 
     _ensure_appeared_batch(filtered)
-    selected_feed_pid = next((f["domain_id"] for f in FEEDS if f["code"] == selected_feed), None)
+    selected_feed_pid = next((f["domain_id"] for f in FEEDS if (f.get("code") or "").strip().lower() == selected_feed), None)
     has_notes = _feeder_notes_has_set()
     _mk = lambda etype: {(m["feed_provider_id"], str(m["feed_id"])) for m in ENTITY_FEED_MAPPINGS if m["entity_type"] == etype}
-    _mk_sport = lambda: {(m["feed_provider_id"], (m.get("feed_id") or "").strip().lower()) for m in ENTITY_FEED_MAPPINGS if m.get("entity_type") == "sports"}
+    _mk_sport = lambda: {(m["feed_provider_id"], _normalize_sport_feed_id(m.get("feed_id"))) for m in ENTITY_FEED_MAPPINGS if m.get("entity_type") == "sports"}
     mapped_sport_feed_ids = _mk_sport()
     mapped_category_feed_ids = _mk("categories")
     mapped_comp_feed_ids    = _mk("competitions")

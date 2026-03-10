@@ -18,7 +18,7 @@
         {% endif %}
     </td>
     <!-- ID / Status: green domain ID if mapped (and not ignored); grey "Ignored" if ignored; red "Unmapped" otherwise -->
-    {% set sport_key = (event.sport_id | string or event.sport or '') | lower %}
+    {% set sport_key = (event.sport_id | normalize_sport_feed_id or (event.sport or '') | lower) %}
     {% set sport_mapped = sport_key and selected_feed_pid is not none and (selected_feed_pid, sport_key) in mapped_sport_feed_ids %}
     <td class="px-3 py-1.5 font-mono {{ 'text-slate-500' if is_ignored else '' }}">
         {% if event.mapping_status == 'IGNORED' %}
