@@ -26,3 +26,11 @@ Thumbs.db
 
 # Test
 .pytest_cache/
+
+# RBAC data: admins and roles are per-environment (not in repo). Structure is created at startup from config.
+backend/data/rbac/users.csv
+backend/data/rbac/roles.csv
+backend/data/rbac/user_roles.csv
+backend/data/rbac/user_brands.csv
+backend/data/rbac/role_permissions.csv
+backend/data/rbac/rbac_audit_log.csv

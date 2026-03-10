@@ -73,9 +73,22 @@ class UpdateMarketRequest(BaseModel):
     score_dependant: Optional[bool] = None
 
 
+class CreatePartnerRequest(BaseModel):
+    name: str
+    code: Optional[str] = None
+    active: Optional[bool] = True
+
+
+class UpdatePartnerRequest(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    active: Optional[bool] = None
+
+
 class CreateBrandRequest(BaseModel):
     name: str
     code: Optional[str] = None
+    partner_id: Optional[int] = None
     jurisdiction: Optional[List[str]] = None
     language_ids: Optional[List[int]] = None
     currencies: Optional[List[str]] = None
@@ -85,6 +98,7 @@ class CreateBrandRequest(BaseModel):
 class UpdateBrandRequest(BaseModel):
     name: Optional[str] = None
     code: Optional[str] = None
+    partner_id: Optional[int] = None
     jurisdiction: Optional[List[str]] = None
     language_ids: Optional[List[int]] = None
     currencies: Optional[List[str]] = None
@@ -154,3 +168,44 @@ class UpdateMarginTemplateRequest(BaseModel):
     betbuilder: Optional[str] = None
     bet_delay: Optional[str] = None
     risk_class_id: Optional[int] = None
+
+
+# ── RBAC ───────────────────────────────────────────────────────────────────
+
+class CreateRbacUserRequest(BaseModel):
+    email: str  # mandatory
+    login: Optional[str] = None  # optional; default from email
+    display_name: Optional[str] = None
+    partner_id: Optional[int] = None
+    active: Optional[bool] = True
+    role_ids: Optional[List[int]] = None  # assign these roles on create
+    brand_ids: Optional[List[int]] = None  # optional brand scope when partner-scoped
+
+
+class UpdateRbacUserRequest(BaseModel):
+    email: Optional[str] = None
+    login: Optional[str] = None
+    display_name: Optional[str] = None
+    partner_id: Optional[int] = None
+    active: Optional[bool] = None
+    role_ids: Optional[List[int]] = None
+    brand_ids: Optional[List[int]] = None
+
+
+class AssignUserRolesRequest(BaseModel):
+    role_ids: List[int]
+
+
+class CreateRbacRoleRequest(BaseModel):
+    name: str
+    active: Optional[bool] = True
+    partner_id: Optional[int] = None  # None/empty = Platform role
+    permission_codes: Optional[List[str]] = None
+
+
+class UpdateRbacRoleRequest(BaseModel):
+    name: Optional[str] = None
+    active: Optional[bool] = None
+    permission_codes: Optional[List[str]] = None
+
+

@@ -1,0 +1,839 @@
+{% extends "layout.html" %}
+
+{% macro render_perm_tree(nodes) %}
+{% for node in nodes %}
+  {% if node.children is defined and node.children %}
+    <div class="rp-tree-group border-l border-slate-700/50 pl-2 my-1">
+      <button type="button" class="rp-tree-group-btn w-full text-left flex items-center gap-2 py-1 px-1 rounded hover:bg-white/5 text-slate-300 text-xs font-medium" aria-expanded="true" data-rp-toggle>
+        <i class="fa-solid fa-chevron-down rp-tree-chevron text-[10px] w-3 transition-transform"></i>
+        <i class="fa-solid fa-folder text-amber-500/80"></i>
+        <span>{{ node.label }}</span>
+      </button>
+      <div class="rp-tree-group-children ml-2">
+        {% if node.permissions is defined and node.permissions %}
+        <div class="rp-tree-section border-l border-slate-700/30 pl-2 my-0.5 flex items-center gap-3 py-1 flex-wrap">
+          <span class="text-[11px] text-slate-400 font-medium min-w-[7rem]">{{ node.label }}</span>
+          <div class="rp-tree-perms-row flex items-center gap-2 flex-wrap">
+            {% for perm in node.permissions %}
+            <span class="rp-tree-perm inline-flex items-center gap-1 text-xs text-slate-400" data-permission-code="{{ perm.code }}" data-always-granted="{{ 'true' if perm.get('always_granted') else 'false' }}">
+              <span class="rp-perm-icon w-4 flex items-center justify-center text-slate-600 text-[10px]" aria-hidden="true">—</span>
+              <span class="rp-perm-label">{{ perm.label }}</span>
+            </span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {{ render_perm_tree(node.children) }}
+      </div>
+    </div>
+  {% elif node.permissions is defined and node.permissions %}
+    <div class="rp-tree-section border-l border-slate-700/30 pl-2 my-0.5 flex items-center gap-3 py-1 flex-wrap">
+      <span class="text-[11px] text-slate-400 font-medium min-w-[7rem]">{{ node.label }}</span>
+      <div class="rp-tree-perms-row flex items-center gap-2 flex-wrap">
+        {% for perm in node.permissions %}
+        <span class="rp-tree-perm inline-flex items-center gap-1 text-xs text-slate-400" data-permission-code="{{ perm.code }}" data-always-granted="{{ 'true' if perm.get('always_granted') else 'false' }}">
+          <span class="rp-perm-icon w-4 flex items-center justify-center text-slate-600 text-[10px]" aria-hidden="true">—</span>
+          <span class="rp-perm-label">{{ perm.label }}</span>
+        </span>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+{% endfor %}
+{% endmacro %}
+
+{% block page_heading %}Admin Management{% endblock %}
+{% block page_description %}Manage admins (users). Roles & Permissions: assign users to roles and view access rights by page and action (view/create/update/delete).{% endblock %}
+
+{% block title %}Admin Management{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full space-y-3">
+
+    <!-- Main tabs: Admin | Roles & Permissions (hash-based so switching always works) -->
+    <div class="flex border-b border-slate-700 shrink-0 flex-nowrap" role="tablist">
+        <a href="#admin" id="main-tab-admin" class="main-admin-tab px-4 py-2.5 text-sm font-medium border-b-2 border-primary text-primary no-underline hover:opacity-90">
+            <i class="fa-solid fa-user mr-1.5"></i> Admin
+        </a>
+        <a href="#roles-perms" id="main-tab-roles-perms" class="main-admin-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-white transition-colors no-underline">
+            <i class="fa-solid fa-user-shield mr-1.5"></i> Roles & Permissions
+        </a>
+    </div>
+
+    <!-- Main panel: Admin (user list + add form only) -->
+    <div id="main-panel-admin" class="flex flex-col flex-1 min-h-0 overflow-auto">
+    <div class="flex flex-col h-full space-y-3 flex-1 min-h-0">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <form method="get" action="/users" id="admin-filters-form" class="flex flex-wrap items-center gap-3">
+                <input type="hidden" name="status" id="admin-filter-status-input" value="{{ filter_status | default('active') }}">
+                <label class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Partner</label>
+                <select name="partner_id" id="admin-filter-partner-id" class="bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary min-w-[140px]">
+                    <option value="">All</option>
+                    <option value="platform" {% if filter_partner_id == 'platform' %}selected{% endif %}>Platform</option>
+                    {% for p in partners %}
+                    <option value="{{ p.id }}" {% if filter_partner_id is not none and filter_partner_id != 'platform' and filter_partner_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+                <div id="admin-brands-hidden-inputs">
+                    {% for bid in (filter_brand_ids or []) %}
+                    <input type="hidden" name="brand_ids" value="{{ bid }}">
+                    {% endfor %}
+                </div>
+                <div class="relative" id="admin-brands-dropdown-wrap">
+                    <button type="button" id="admin-brands-trigger" onclick="toggleAdminBrandsDropdown()"
+                        class="flex items-center gap-2 bg-slate-800 text-white text-xs rounded border border-slate-600 px-3 py-1.5 min-w-[130px] hover:border-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        {% if not filter_partner_id or filter_partner_id == 'platform' %}disabled title="Select a partner first"{% endif %}>
+                        <i class="fa-solid fa-building text-slate-400 text-[10px]"></i>
+                        <span id="admin-brands-label">
+                            {% if not filter_partner_id or filter_partner_id == 'platform' %}Brands
+                            {% elif not (filter_brand_ids or []) %}All Brands
+                            {% elif (filter_brand_ids or []) | length == 1 %}1 Brand
+                            {% else %}{{ (filter_brand_ids or []) | length }} Brands
+                            {% endif %}
+                        </span>
+                        <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+                    </button>
+                    <div id="admin-brands-panel"
+                        class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-52 py-1 max-h-[280px] overflow-y-auto">
+                        <div class="flex items-center justify-between px-3 py-1.5 border-b border-slate-700 mb-1">
+                            <span class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Brands</span>
+                            <button type="button" onclick="adminBrandsSelectAll()" class="text-[10px] text-primary hover:text-emerald-300 font-medium">Select All</button>
+                        </div>
+                        <div id="admin-brands-checkboxes-container">
+                            {% for b in brands_for_partner %}
+                            <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                                <input type="checkbox" class="admin-brand-cb accent-primary rounded border-slate-600 w-3.5 h-3.5" value="{{ b.id }}" {% if b.id in (filter_brand_ids or []) %}checked{% endif %} onchange="onAdminBrandsChange()">
+                                <span class="text-xs text-slate-300">{{ b.name }}</span>
+                            </label>
+                            {% endfor %}
+                            {% if not brands_for_partner %}
+                            <p class="text-[10px] text-slate-500 italic px-3 py-2">Select partner first</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <label class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Role</label>
+                <select name="role_id" class="bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary min-w-[140px]">
+                    <option value="">All</option>
+                    {% for r in roles %}
+                    <option value="{{ r.role_id }}" {% if filter_role_id is not none and filter_role_id == r.role_id %}selected{% endif %}>{{ r.name }} ({{ r.partner_name | default('Platform') }})</option>
+                    {% endfor %}
+                </select>
+                <span class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Status</span>
+                <div class="flex rounded-lg border border-slate-600 overflow-hidden bg-slate-800/80" role="group" aria-label="Filter by status">
+                    <button type="button" class="admin-status-btn px-3 py-1.5 text-xs font-medium transition-colors {% if (filter_status | default('active')) == 'active' %}bg-primary text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-700{% endif %}" data-status="active">Active</button>
+                    <button type="button" class="admin-status-btn px-3 py-1.5 text-xs font-medium transition-colors {% if (filter_status | default('active')) == 'inactive' %}bg-primary text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-700{% endif %}" data-status="inactive">Inactive</button>
+                    <button type="button" class="admin-status-btn px-3 py-1.5 text-xs font-medium transition-colors {% if (filter_status | default('active')) == 'all' %}bg-primary text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-700{% endif %}" data-status="all">All</button>
+                </div>
+                <label class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Search</label>
+                <input type="text" name="search" value="{{ filter_search }}" placeholder="Email, name, login…" class="bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-primary w-44">
+                <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded bg-slate-700 text-slate-200 hover:bg-slate-600">Filter</button>
+            </form>
+            <button type="button" onclick="usersShowAddForm()"
+                class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Add user
+            </button>
+        </div>
+        <div id="user-add-form" class="hidden bg-cardbg/80 border border-slate-700 rounded-lg p-5 space-y-4">
+            <h3 class="text-sm font-semibold text-white">Add user</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Email <span class="text-red-500">*</span></label>
+                    <input type="email" id="user-form-email" placeholder="user@example.com"
+                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Login (optional)</label>
+                    <input type="text" id="user-form-login" placeholder="Defaults to email prefix"
+                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Display name</label>
+                    <input type="text" id="user-form-display-name" placeholder="Optional"
+                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
+                    <select id="user-form-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">Platform</option>
+                        {% for p in partners %}
+                        <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Role</label>
+                    <select id="user-form-role-ids" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">— None —</option>
+                        {% for r in roles %}
+                        <option value="{{ r.role_id }}">{{ r.name }} ({{ r.partner_name | default('Platform') }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Brands (optional; when partner-scoped)</label>
+                    <select id="user-form-brand-ids" multiple class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[60px]">
+                        {% for b in brands %}
+                        <option value="{{ b.id }}">{{ b.name }} ({{ b.code }})</option>
+                        {% endfor %}
+                    </select>
+                    <span class="text-[10px] text-slate-500">Ctrl+click to select multiple; empty = all partner brands</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="usersSubmitAdd()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                <button type="button" onclick="usersHideAddForm()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                <span id="user-form-status" class="text-xs text-slate-400"></span>
+            </div>
+        </div>
+        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                    <tr>
+                        <th class="px-3 py-2 font-semibold w-28">Partner</th>
+                        <th class="px-3 py-2 font-semibold min-w-[120px]">Brands</th>
+                        <th class="px-3 py-2 font-semibold w-48">Email</th>
+                        <th class="px-3 py-2 font-semibold w-32">Display name</th>
+                        <th class="px-3 py-2 font-semibold w-20">Status</th>
+                        <th class="px-3 py-2 font-semibold min-w-[140px]">Role</th>
+                        <th class="px-3 py-2 font-semibold w-16">Online</th>
+                        <th class="px-3 py-2 font-semibold w-28">Last login</th>
+                        <th class="px-3 py-2 font-semibold w-24">Created by</th>
+                        <th class="px-3 py-2 font-semibold w-28">Created on</th>
+                        <th class="px-3 py-2 font-semibold w-28">Last modified</th>
+                        <th class="px-3 py-2 font-semibold w-24 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr class="hover:bg-white/5 transition-colors border-b border-slate-700/30" data-user-id="{{ u.user_id }}">
+                        <td class="px-3 py-2 text-slate-300">{{ u.partner_name }}</td>
+                        <td class="px-3 py-2 text-slate-300">
+                            {% for name in (u.brand_names or []) %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                            {% if not (u.brand_names or []) %}<span class="text-slate-500">—</span>{% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-white font-medium">{{ u.email }}</td>
+                        <td class="px-3 py-2 text-slate-300">{{ u.display_name or '—' }}</td>
+                        <td class="px-3 py-2">
+                            {% if u.active %}
+                            <span class="text-primary">Active</span>
+                            {% else %}
+                            <span class="text-slate-500">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-slate-300">
+                            {% for r in u.roles %}{{ r.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                            {% if not u.roles %}<span class="text-slate-500">—</span>{% endif %}
+                        </td>
+                        <td class="px-3 py-2">
+                            {% if u.online %}
+                            <span class="text-primary">Yes</span>
+                            {% else %}
+                            <span class="text-slate-500">No</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-slate-400 text-[11px]">{{ u.last_login or '—' }}</td>
+                        <td class="px-3 py-2 text-slate-300">{{ u.created_by or 'SuperAdmin' }}</td>
+                        <td class="px-3 py-2 text-slate-400 text-[11px]">{{ u.created_at or '—' }}</td>
+                        <td class="px-3 py-2 text-slate-400 text-[11px]">{{ u.updated_at or '—' }}</td>
+                        <td class="px-3 py-2 text-right">
+                            <button type="button" onclick="usersEdit({{ u.user_id }})" class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-slate-700 text-slate-200 hover:bg-slate-600">Edit</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not users %}
+                    <tr>
+                        <td colspan="12" class="px-3 py-6 text-center text-slate-500">No users yet. Add a user to get started.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
+    <!-- Main panel: Roles & Permissions (3 columns) -->
+    <div id="main-panel-roles-perms" class="hidden flex flex-col flex-1 min-h-0 overflow-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0 overflow-hidden">
+            <!-- Left: Admin Roles -->
+            <div class="flex flex-col bg-cardbg/80 border border-slate-700/50 rounded-lg overflow-hidden min-h-0">
+                <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between shrink-0">
+                    <span class="text-sm font-semibold text-slate-200">Admin Roles</span>
+                    <button type="button" onclick="rpShowCreateRoleModal()" class="text-xs px-2 py-1 rounded bg-primary text-white hover:bg-emerald-600">+ Create Role</button>
+                </div>
+                <form method="get" action="/users" id="rp-filters-form" class="shrink-0 flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-700/50">
+                    <label class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Partner</label>
+                    <select name="rp_partner_id" id="rp-partner-select" class="rp-partner-select bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary min-w-[140px]">
+                        <option value="">All</option>
+                        <option value="platform" {% if filter_rp_partner_id == 'platform' %}selected{% endif %}>Platform</option>
+                        {% for p in partners %}
+                        <option value="{{ p.id }}" {% if filter_rp_partner_id == p.id | string %}selected{% endif %}>{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                <div class="overflow-auto flex-1 min-h-0">
+                    <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                        <thead class="bg-slate-800/80 text-slate-400 uppercase tracking-wider sticky top-0 z-10">
+                            <tr>
+                                <th class="px-2 py-1.5 w-8"></th>
+                                <th class="px-2 py-1.5 font-semibold w-10">Id</th>
+                                <th class="px-2 py-1.5 font-semibold min-w-[80px]">Partner</th>
+                                <th class="px-2 py-1.5 font-semibold">Role</th>
+                                <th class="px-2 py-1.5 font-semibold w-16">Active Admins</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in roles_filtered %}
+                            <tr class="rbac-role-row hover:bg-white/5 border-b border-slate-700/30 cursor-pointer {% if loop.first %}rbac-role-selected bg-primary/10{% endif %}"
+                                data-role-id="{{ r.role_id }}" data-role-name="{{ r.name | e }}" data-permissions="{{ (r.permission_codes or []) | join(',') }}"
+                                onclick="selectRoleFromRow(this)">
+                                <td class="px-2 py-1.5">
+                                    <input type="radio" name="rbac-role-radio" class="rbac-role-radio" value="{{ r.role_id }}" {% if loop.first %}checked{% endif %}>
+                                </td>
+                                <td class="px-2 py-1.5 text-slate-400">{{ r.role_id }}</td>
+                                <td class="px-2 py-1.5 text-slate-300">{{ r.partner_name | default('Platform') }}</td>
+                                <td class="px-2 py-1.5 text-white font-medium">{{ r.name }}</td>
+                                <td class="px-2 py-1.5 text-slate-300">{{ r.active_admins | default(0) }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="px-2 py-4 text-center text-slate-500 italic">No roles for this partner. Create a role to get started.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Middle: Admins in [Role] -->
+            <div class="flex flex-col bg-cardbg/80 border border-slate-700/50 rounded-lg overflow-hidden min-h-0">
+                <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/50 shrink-0">
+                    <span class="text-sm font-semibold text-slate-200" id="rp-admins-title">Admins in <span id="rp-role-name">—</span></span>
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                        <select id="rp-assign-user" class="flex-1 min-w-0 max-w-[180px] bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white">
+                            <option value="">Select user —</option>
+                            {% for u in users %}
+                            <option value="{{ u.user_id }}" data-role-ids="{{ u.role_ids | join(',') }}">{{ u.email }} ({{ u.login or u.display_name or u.user_id }})</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" id="rp-assign-btn" onclick="rpAssignUser()" class="text-xs px-2 py-1 rounded bg-primary text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Assign</button>
+                    </div>
+                </div>
+                <div class="overflow-auto flex-1 min-h-0">
+                    <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                        <thead class="bg-slate-800/80 text-slate-400 uppercase tracking-wider sticky top-0 z-10">
+                            <tr>
+                                <th class="px-2 py-1.5 font-semibold">Email</th>
+                                <th class="px-2 py-1.5 font-semibold">Username</th>
+                                <th class="px-2 py-1.5 font-semibold w-16 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rp-admins-tbody">
+                            <tr><td colspan="3" class="px-2 py-4 text-center text-slate-500">Select a role</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Right: Access Rights (tree: pages and view/create/update/delete) -->
+            <div class="flex flex-col bg-cardbg/80 border border-slate-700/50 rounded-lg overflow-hidden min-h-0">
+                <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between shrink-0">
+                    <span class="text-sm font-semibold text-slate-200"><i class="fa-solid fa-shield-halved mr-1.5 text-slate-500"></i>Access Rights</span>
+                </div>
+                <div class="px-3 py-1 text-slate-400 text-xs border-b border-slate-700/50" id="rp-perms-role-label">—</div>
+                <div class="overflow-auto flex-1 min-h-0 p-2" id="rp-permissions-wrap">
+                    <div id="rp-permissions-tree" class="text-xs">
+                        {{ render_perm_tree(permission_tree) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Role modal (Roles & Permissions) -->
+<div id="rp-create-role-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white">Create Role</h3>
+            <button type="button" onclick="rpCloseCreateRoleModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name <span class="text-red-500">*</span></label>
+            <input type="text" id="rp-create-role-name" placeholder="e.g. Brand Admin" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
+            <select id="rp-create-role-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <option value="">Platform</option>
+                {% for p in partners %}
+                <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" id="rp-create-role-active" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" checked> Active
+            </label>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="rpSubmitCreateRole()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Create</button>
+            <button type="button" onclick="rpCloseCreateRoleModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <span id="rp-create-role-status" class="text-xs text-slate-400"></span>
+        </div>
+    </div>
+</div>
+
+<!-- Edit user modal -->
+<div id="user-edit-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white">Edit user</h3>
+            <button type="button" onclick="usersCloseEditModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <input type="hidden" id="user-edit-id" value="">
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Email <span class="text-red-500">*</span></label>
+            <input type="email" id="user-edit-email" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Login</label>
+            <input type="text" id="user-edit-login" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Display name</label>
+            <input type="text" id="user-edit-display-name" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
+            <select id="user-edit-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <option value="">Platform</option>
+                {% for p in partners %}
+                <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Role</label>
+            <select id="user-edit-role-ids" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <option value="">— None —</option>
+                {% for r in roles %}
+                <option value="{{ r.role_id }}">{{ r.name }} ({{ r.partner_name | default('Platform') }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Brands (optional)</label>
+            <select id="user-edit-brand-ids" multiple class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[60px]">
+                {% for b in brands %}
+                <option value="{{ b.id }}">{{ b.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" id="user-edit-active" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary"> Active
+            </label>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="usersSubmitEdit()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+            <button type="button" onclick="usersCloseEditModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <span id="user-edit-status" class="text-xs text-slate-400"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+// Main tabs: Admin | Roles & Permissions — driven by URL hash so click always works
+function applyMainTabFromHash() {
+    var hash = (window.location.hash || '#admin').replace('#', '');
+    var isAdmin = hash !== 'roles-perms';
+    var panelAdmin = document.getElementById('main-panel-admin');
+    var panelRp = document.getElementById('main-panel-roles-perms');
+    var tAdmin = document.getElementById('main-tab-admin');
+    var tRp = document.getElementById('main-tab-roles-perms');
+    if (panelAdmin) { panelAdmin.classList.toggle('hidden', !isAdmin); panelAdmin.classList.toggle('flex', isAdmin); }
+    if (panelRp) { panelRp.classList.toggle('hidden', isAdmin); panelRp.classList.toggle('flex', !isAdmin); }
+    if (tAdmin) { tAdmin.classList.toggle('border-primary', isAdmin); tAdmin.classList.toggle('text-primary', isAdmin); tAdmin.classList.toggle('border-transparent', !isAdmin); tAdmin.classList.toggle('text-slate-400', !isAdmin); }
+    if (tRp) { tRp.classList.toggle('border-primary', !isAdmin); tRp.classList.toggle('text-primary', !isAdmin); tRp.classList.toggle('border-transparent', isAdmin); tRp.classList.toggle('text-slate-400', isAdmin); }
+    if (!isAdmin) {
+        if (window._rpSelectedRoleId != null) {
+            try { selectRole(window._rpSelectedRoleId, window._rpSelectedRoleName, window._rpSelectedPermissions || []); } catch (e) { console.error(e); }
+        } else {
+            var firstRole = document.querySelector('.rbac-role-row');
+            if (firstRole) selectRoleFromRow(firstRole);
+        }
+    }
+}
+window.addEventListener('hashchange', applyMainTabFromHash);
+document.addEventListener('DOMContentLoaded', function() {
+    if (!window.location.hash) window.location.hash = 'admin';
+    applyMainTabFromHash();
+    // R&P Partner dropdown: navigate with rp_partner_id only and keep #roles-perms so we stay on R&P tab
+    var rpPartnerSelect = document.getElementById('rp-partner-select');
+    if (rpPartnerSelect) {
+        rpPartnerSelect.addEventListener('change', function() {
+            var v = this.value || '';
+            var url = '/users?rp_partner_id=' + encodeURIComponent(v) + '#roles-perms';
+            window.location.href = url;
+        });
+    }
+});
+
+// Roles & Permissions: selected role state
+window._rpSelectedRoleId = null;
+window._rpSelectedRoleName = null;
+window._rpSelectedPermissions = [];
+
+function selectRoleFromRow(rowEl) {
+    var id = parseInt(rowEl.getAttribute('data-role-id'), 10);
+    var name = rowEl.getAttribute('data-role-name') || '—';
+    var permsStr = rowEl.getAttribute('data-permissions') || '';
+    var perms = permsStr ? permsStr.split(',').map(function(p) { return p.trim(); }).filter(Boolean) : [];
+    document.querySelectorAll('.rbac-role-row').forEach(function(r) { r.classList.remove('rbac-role-selected', 'bg-primary/10'); });
+    rowEl.classList.add('rbac-role-selected', 'bg-primary/10');
+    rowEl.querySelector('.rbac-role-radio').checked = true;
+    selectRole(id, name, perms);
+}
+
+function selectRole(roleId, roleName, permissionCodes) {
+    window._rpSelectedRoleId = roleId;
+    window._rpSelectedRoleName = roleName;
+    window._rpSelectedPermissions = permissionCodes || [];
+    document.getElementById('rp-role-name').textContent = roleName;
+    document.getElementById('rp-perms-role-label').textContent = roleName;
+
+    var users = window.__usersData || [];
+    var adminsInRole = users.filter(function(u) { return (u.role_ids || []).indexOf(roleId) !== -1; });
+    var tbody = document.getElementById('rp-admins-tbody');
+    tbody.innerHTML = '';
+    adminsInRole.forEach(function(u) {
+        var tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-700/30 hover:bg-white/5';
+        tr.innerHTML = '<td class="px-2 py-1.5 text-white">' + (u.email || '—') + '</td><td class="px-2 py-1.5 text-slate-300">' + (u.login || u.display_name || '—') + '</td><td class="px-2 py-1.5 text-right"><button type="button" onclick="rpUnassignUser(' + u.user_id + ')" class="text-amber-400 hover:text-amber-300 text-xs">Unassign</button></td>';
+        tbody.appendChild(tr);
+    });
+    if (adminsInRole.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="px-2 py-4 text-center text-slate-500">No admins in this role</td></tr>';
+    }
+
+    var permSet = {};
+    (permissionCodes || []).forEach(function(p) { permSet[p] = true; });
+    document.querySelectorAll('.rp-tree-perm').forEach(function(el) {
+        var code = el.getAttribute('data-permission-code');
+        var icon = el.querySelector('.rp-perm-icon');
+        var alwaysGranted = el.getAttribute('data-always-granted') === 'true';
+        var hasPerm = alwaysGranted || permSet[code];
+        if (hasPerm) {
+            el.classList.add('text-primary');
+            el.classList.toggle('rp-always-granted', alwaysGranted);
+            if (icon) {
+                icon.innerHTML = alwaysGranted
+                    ? '<i class="fa-solid fa-lock text-slate-500" title="Always visible, not configurable"></i>'
+                    : '<i class="fa-solid fa-check text-primary"></i>';
+            }
+        } else {
+            el.classList.remove('text-primary', 'rp-always-granted');
+            if (icon) { icon.textContent = '—'; }
+        }
+    });
+
+    var sel = document.getElementById('rp-assign-user');
+    if (sel) {
+    var opts = Array.from(sel.options);
+    opts.forEach(function(o, i) {
+        if (i === 0) { o.disabled = false; return; }
+        var ids = (o.getAttribute('data-role-ids') || '').split(',').map(function(x) { return parseInt(x, 10); }).filter(Boolean);
+        o.hidden = ids.indexOf(roleId) !== -1;
+        o.disabled = ids.indexOf(roleId) !== -1;
+        if (ids.indexOf(roleId) !== -1 && o.selected) sel.selectedIndex = 0;
+    });
+    document.getElementById('rp-assign-btn').disabled = true;
+    sel.value = '';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Admin filters: status quick selector submits form
+    document.body.addEventListener('click', function(e) {
+        var btn = e.target.closest('.admin-status-btn');
+        if (!btn) return;
+        e.preventDefault();
+        var status = btn.getAttribute('data-status');
+        var input = document.getElementById('admin-filter-status-input');
+        var form = document.getElementById('admin-filters-form');
+        if (input && form && status) {
+            input.value = status;
+            form.submit();
+        }
+    });
+    // When partner changes, reload so Brands list updates
+    var partnerSelect = document.getElementById('admin-filter-partner-id');
+    if (partnerSelect) partnerSelect.addEventListener('change', function() {
+        document.getElementById('admin-filters-form').submit();
+    });
+    // Admin Brands dropdown: click outside to close
+    document.addEventListener('click', function(e) {
+        var wrap = document.getElementById('admin-brands-dropdown-wrap');
+        if (wrap && !wrap.contains(e.target)) document.getElementById('admin-brands-panel').classList.add('hidden');
+    });
+    var sel = document.getElementById('rp-assign-user');
+    if (sel) sel.addEventListener('change', function() { document.getElementById('rp-assign-btn').disabled = !this.value || this.value === ''; });
+    var firstRole = document.querySelector('.rbac-role-row');
+    if (firstRole) {
+        window._rpSelectedRoleId = parseInt(firstRole.getAttribute('data-role-id'), 10);
+        window._rpSelectedRoleName = firstRole.getAttribute('data-role-name') || '—';
+        window._rpSelectedPermissions = (firstRole.getAttribute('data-permissions') || '').split(',').map(function(p) { return p.trim(); }).filter(Boolean);
+    }
+    // Expand/collapse tree groups
+    document.getElementById('rp-permissions-wrap').addEventListener('click', function(e) {
+        var btn = e.target.closest('.rp-tree-group-btn');
+        if (!btn) return;
+        e.preventDefault();
+        var group = btn.closest('.rp-tree-group');
+        if (!group) return;
+        var children = group.querySelector('.rp-tree-group-children');
+        var chevron = group.querySelector('.rp-tree-chevron');
+        var expanded = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        if (children) children.classList.toggle('hidden', expanded);
+        if (chevron) chevron.style.transform = expanded ? 'rotate(-90deg)' : '';
+    });
+});
+
+function toggleAdminBrandsDropdown() {
+    var panel = document.getElementById('admin-brands-panel');
+    var btn = document.getElementById('admin-brands-trigger');
+    if (btn && btn.disabled) return;
+    if (panel) panel.classList.toggle('hidden');
+}
+function getAdminBrandsChecked() {
+    var cbs = document.querySelectorAll('#admin-brands-checkboxes-container input.admin-brand-cb:checked');
+    return Array.from(cbs).map(function(cb) { return parseInt(cb.value, 10); }).filter(function(n) { return !isNaN(n); });
+}
+function onAdminBrandsChange() {
+    var container = document.getElementById('admin-brands-hidden-inputs');
+    var label = document.getElementById('admin-brands-label');
+    if (!container || !label) return;
+    var ids = getAdminBrandsChecked();
+    container.innerHTML = '';
+    ids.forEach(function(id) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'brand_ids';
+        inp.value = String(id);
+        container.appendChild(inp);
+    });
+    if (ids.length === 0) label.textContent = 'All Brands';
+    else if (ids.length === 1) label.textContent = '1 Brand';
+    else label.textContent = ids.length + ' Brands';
+}
+function adminBrandsSelectAll() {
+    document.querySelectorAll('#admin-brands-checkboxes-container input.admin-brand-cb').forEach(function(cb) { cb.checked = true; });
+    onAdminBrandsChange();
+}
+
+function rpShowCreateRoleModal() {
+    document.getElementById('rp-create-role-modal').classList.remove('hidden');
+    document.getElementById('rp-create-role-name').value = '';
+    document.getElementById('rp-create-role-partner-id').value = '';
+    document.getElementById('rp-create-role-active').checked = true;
+    document.getElementById('rp-create-role-status').textContent = '';
+}
+function rpCloseCreateRoleModal() {
+    document.getElementById('rp-create-role-modal').classList.add('hidden');
+}
+async function rpSubmitCreateRole() {
+    var name = document.getElementById('rp-create-role-name').value.trim();
+    if (!name) {
+        document.getElementById('rp-create-role-status').textContent = 'Name is required.';
+        document.getElementById('rp-create-role-status').className = 'text-xs text-amber-400';
+        return;
+    }
+    var partnerIdEl = document.getElementById('rp-create-role-partner-id');
+    var partnerId = partnerIdEl.value ? parseInt(partnerIdEl.value, 10) : null;
+    if (isNaN(partnerId)) partnerId = null;
+    var body = {
+        name: name,
+        active: document.getElementById('rp-create-role-active').checked,
+        partner_id: partnerId
+    };
+    var statusEl = document.getElementById('rp-create-role-status');
+    statusEl.textContent = 'Creating…';
+    statusEl.className = 'text-xs text-slate-400';
+    try {
+        var r = await fetch('/api/rbac/roles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        var data = await r.json();
+        if (!r.ok) {
+            statusEl.textContent = data.detail || 'Failed to create role';
+            statusEl.className = 'text-xs text-red-400';
+            return;
+        }
+        rpCloseCreateRoleModal();
+        window.location.reload();
+    } catch (e) {
+        statusEl.textContent = 'Request failed: ' + e.message;
+        statusEl.className = 'text-xs text-red-400';
+    }
+}
+
+function rpAssignUser() {
+    var roleId = window._rpSelectedRoleId;
+    var userIdEl = document.getElementById('rp-assign-user');
+    var userId = userIdEl ? parseInt(userIdEl.value, 10) : 0;
+    if (!roleId || !userId) return;
+    var users = window.__usersData || [];
+    var user = users.find(function(u) { return u.user_id === userId; });
+    if (!user) return;
+    fetch('/api/rbac/users/' + userId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_ids: [roleId] })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) window.location.reload();
+        else alert(data.detail || 'Failed to assign');
+    }).catch(function() { alert('Request failed'); });
+}
+
+function rpUnassignUser(userId) {
+    var roleId = window._rpSelectedRoleId;
+    if (!roleId || !userId) return;
+    var users = window.__usersData || [];
+    var user = users.find(function(u) { return u.user_id === userId; });
+    if (!user) return;
+    fetch('/api/rbac/users/' + userId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_ids: [] })
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.ok) window.location.reload();
+        else alert(data.detail || 'Failed to unassign');
+    }).catch(function() { alert('Request failed'); });
+}
+
+function usersShowAddForm() {
+    document.getElementById('user-add-form').classList.remove('hidden');
+    document.getElementById('user-form-email').value = '';
+    document.getElementById('user-form-login').value = '';
+    document.getElementById('user-form-display-name').value = '';
+    document.getElementById('user-form-partner-id').value = '';
+    document.getElementById('user-form-role-ids').value = '';
+    document.getElementById('user-form-brand-ids').selectedIndex = -1;
+    document.getElementById('user-form-status').textContent = '';
+}
+function usersHideAddForm() { document.getElementById('user-add-form').classList.add('hidden'); }
+function getMultiSelect(sel) { return Array.from(sel.selectedOptions).map(function(o) { return parseInt(o.value, 10); }).filter(function(n) { return !isNaN(n); }); }
+function getSingleRoleId(sel) {
+    var v = sel && sel.value;
+    if (!v) return [];
+    var n = parseInt(v, 10);
+    return isNaN(n) ? [] : [n];
+}
+async function usersSubmitAdd() {
+    var email = document.getElementById('user-form-email').value.trim();
+    if (!email) {
+        document.getElementById('user-form-status').textContent = 'Email is required.';
+        document.getElementById('user-form-status').className = 'text-xs text-amber-400';
+        return;
+    }
+    var body = {
+        email: email,
+        login: document.getElementById('user-form-login').value.trim() || undefined,
+        display_name: document.getElementById('user-form-display-name').value.trim() || undefined,
+        partner_id: document.getElementById('user-form-partner-id').value ? parseInt(document.getElementById('user-form-partner-id').value, 10) : null,
+        role_ids: getSingleRoleId(document.getElementById('user-form-role-ids')),
+        brand_ids: getMultiSelect(document.getElementById('user-form-brand-ids')),
+    };
+    var statusEl = document.getElementById('user-form-status');
+    statusEl.textContent = 'Saving…';
+    statusEl.className = 'text-xs text-slate-400';
+    try {
+        var r = await fetch('/api/rbac/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        var data = await r.json();
+        if (!r.ok) {
+            statusEl.textContent = data.detail || 'Failed to create user';
+            statusEl.className = 'text-xs text-red-400';
+            return;
+        }
+        statusEl.textContent = 'Saved. Reloading…';
+        statusEl.className = 'text-xs text-primary';
+        window.location.reload();
+    } catch (e) {
+        statusEl.textContent = 'Request failed: ' + e.message;
+        statusEl.className = 'text-xs text-red-400';
+    }
+}
+function usersEdit(userId) {
+    fetch('/api/rbac/users/' + userId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var u = data.user;
+            document.getElementById('user-edit-id').value = userId;
+            document.getElementById('user-edit-email').value = u.email || '';
+            document.getElementById('user-edit-login').value = u.login || '';
+            document.getElementById('user-edit-display-name').value = u.display_name || '';
+            document.getElementById('user-edit-partner-id').value = u.partner_id !== null && u.partner_id !== undefined ? u.partner_id : '';
+            document.getElementById('user-edit-active').checked = u.active !== false;
+            var roleSel = document.getElementById('user-edit-role-ids');
+            var firstRoleId = (u.role_ids && u.role_ids.length) ? u.role_ids[0] : null;
+            roleSel.value = firstRoleId != null ? String(firstRoleId) : '';
+            var brandSel = document.getElementById('user-edit-brand-ids');
+            Array.from(brandSel.options).forEach(function(o) { o.selected = (u.brand_ids || []).indexOf(parseInt(o.value, 10)) !== -1; });
+            document.getElementById('user-edit-status').textContent = '';
+            document.getElementById('user-edit-modal').classList.remove('hidden');
+        })
+        .catch(function() { document.getElementById('user-edit-status').textContent = 'Failed to load user'; });
+}
+function usersCloseEditModal() { document.getElementById('user-edit-modal').classList.add('hidden'); }
+async function usersSubmitEdit() {
+    var id = document.getElementById('user-edit-id').value;
+    if (!id) return;
+    var email = document.getElementById('user-edit-email').value.trim();
+    if (!email) {
+        document.getElementById('user-edit-status').textContent = 'Email is required.';
+        document.getElementById('user-edit-status').className = 'text-xs text-amber-400';
+        return;
+    }
+    var partnerIdEl = document.getElementById('user-edit-partner-id');
+    var body = {
+        email: email,
+        login: document.getElementById('user-edit-login').value.trim() || undefined,
+        display_name: document.getElementById('user-edit-display-name').value.trim() || undefined,
+        partner_id: partnerIdEl.value ? parseInt(partnerIdEl.value, 10) : null,
+        role_ids: getSingleRoleId(document.getElementById('user-edit-role-ids')),
+        brand_ids: getMultiSelect(document.getElementById('user-edit-brand-ids')),
+        active: document.getElementById('user-edit-active').checked
+    };
+    var statusEl = document.getElementById('user-edit-status');
+    statusEl.textContent = 'Saving…';
+    statusEl.className = 'text-xs text-slate-400';
+    try {
+        var r = await fetch('/api/rbac/users/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        var data = await r.json();
+        if (!r.ok) {
+            statusEl.textContent = data.detail || 'Failed to update user';
+            statusEl.className = 'text-xs text-red-400';
+            return;
+        }
+        statusEl.textContent = 'Saved. Reloading…';
+        statusEl.className = 'text-xs text-primary';
+        window.location.reload();
+    } catch (e) {
+        statusEl.textContent = 'Request failed: ' + e.message;
+        statusEl.className = 'text-xs text-red-400';
+    }
+}
+</script>
+<script>
+window.__usersData = {{ users | tojson }};
+window.__rolesData = {{ roles | tojson }};
+</script>
+{% endblock %}

@@ -1,13 +1,111 @@
 {% extends "layout.html" %}
 
-{% block page_heading %}Brands{% endblock %}
-{% block page_description %}Global level includes all brand settings; add and configure brands below.{% endblock %}
+{% block page_heading %}Brands & Partners{% endblock %}
+{% block page_description %}Partners are B2B clients; assign brands to partners. Global = platform (our) admins.{% endblock %}
 
-{% block title %}Brands{% endblock %}
+{% block title %}Brands & Partners{% endblock %}
 
 {% block content %}
 <div class="flex flex-col h-full space-y-3">
 
+    <!-- Tabs -->
+    <div class="flex border-b border-slate-700">
+        <button type="button" id="tab-partners" onclick="switchBrandsTab('partners')"
+            class="brands-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-white transition-colors">
+            <i class="fa-solid fa-handshake mr-1.5"></i> Partners
+        </button>
+        <button type="button" id="tab-brands" onclick="switchBrandsTab('brands')"
+            class="brands-tab px-4 py-2.5 text-sm font-medium border-b-2 border-primary text-primary">
+            <i class="fa-solid fa-building mr-1.5"></i> Brands
+        </button>
+    </div>
+
+    <!-- Partners panel -->
+    <div id="panel-partners" class="hidden flex flex-col h-full space-y-3 flex-1 min-h-0">
+        <div class="flex items-center justify-end">
+            <button type="button" onclick="partnersShowAddForm()"
+                class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-plus"></i> Add partner
+            </button>
+        </div>
+        <div id="partner-add-form" class="hidden bg-cardbg/80 border border-slate-700 rounded-lg p-5 space-y-4">
+            <h3 class="text-sm font-semibold text-white">Add partner</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="partner-form-name" placeholder="Partner name"
+                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
+                    <input type="text" id="partner-form-code" placeholder="e.g. acme_corp (optional)"
+                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <label class="flex items-center gap-2 text-sm text-slate-300">
+                    <input type="checkbox" id="partner-form-active" checked class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary">
+                    Active
+                </label>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="partnersSubmitAdd()"
+                    class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                <button type="button" onclick="partnersHideAddForm()"
+                    class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                <span id="partner-form-status" class="text-xs text-slate-400"></span>
+            </div>
+        </div>
+        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                    <tr>
+                        <th class="px-3 py-2 font-semibold w-48">Name</th>
+                        <th class="px-3 py-2 font-semibold w-32">Code</th>
+                        <th class="px-3 py-2 font-semibold w-20">Active</th>
+                        <th class="px-3 py-2 font-semibold min-w-[180px]">Brands</th>
+                        <th class="px-3 py-2 font-semibold w-24 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for partner in partners %}
+                    <tr class="hover:bg-white/5 transition-colors border-b border-slate-700/30" data-partner-id="{{ partner.id }}">
+                        <td class="px-3 py-2 text-white font-medium">{{ partner.name }}</td>
+                        <td class="px-3 py-2 text-slate-400 font-mono">{{ partner.code }}</td>
+                        <td class="px-3 py-2">
+                            {% if partner.active %}
+                            <span class="text-primary">Yes</span>
+                            {% else %}
+                            <span class="text-slate-500">No</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-slate-300">
+                            {% if partner.brands %}
+                            {% for b in partner.brands %}{{ b.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+                            {% else %}
+                            <span class="text-slate-500">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-right">
+                            <button type="button" onclick="partnersEdit({{ partner.id }})"
+                                class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-slate-700 text-slate-200 hover:bg-slate-600">
+                                Edit
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not partners %}
+                    <tr>
+                        <td colspan="5" class="px-3 py-6 text-center text-slate-500">No partners yet. Add a partner, then assign brands on the Brands tab.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Brands panel -->
+    <div id="panel-brands" class="flex flex-col h-full space-y-3 flex-1 min-h-0">
     <div class="flex items-center justify-end">
         <button type="button" onclick="brandsShowAddForm()"
             class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
@@ -28,6 +126,16 @@
                 <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
                 <input type="text" id="brand-form-code" placeholder="e.g. brand_uk (optional)"
                     class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
+                <select id="brand-form-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <option value="">Global (platform)</option>
+                    {% for p in partners %}
+                    <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
+                    {% endfor %}
+                </select>
+                <span class="text-[10px] text-slate-500">Global = our company; assign to a partner for B2B client brands.</span>
             </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -90,6 +198,7 @@
                 <tr>
                     <th class="px-3 py-2 font-semibold w-40">Name</th>
                     <th class="px-3 py-2 font-semibold w-28">Code</th>
+                    <th class="px-3 py-2 font-semibold w-32">Partner</th>
                     <th class="px-3 py-2 font-semibold min-w-[140px]">Jurisdiction</th>
                     <th class="px-3 py-2 font-semibold min-w-[120px]">Languages</th>
                     <th class="px-3 py-2 font-semibold min-w-[100px]">Currencies</th>
@@ -102,6 +211,7 @@
                 <tr class="bg-slate-800/50 border-b border-slate-700/50">
                     <td class="px-3 py-2 font-medium text-white">Global</td>
                     <td class="px-3 py-2 text-slate-500">—</td>
+                    <td class="px-3 py-2 text-slate-400">—</td>
                     <td class="px-3 py-2 text-slate-400">All</td>
                     <td class="px-3 py-2 text-slate-400">All</td>
                     <td class="px-3 py-2 text-slate-400">All</td>
@@ -112,6 +222,7 @@
                 <tr class="hover:bg-white/5 transition-colors border-b border-slate-700/30" data-brand-id="{{ brand.id }}">
                     <td class="px-3 py-2 text-white">{{ brand.name }}</td>
                     <td class="px-3 py-2 text-slate-400 font-mono">{{ brand.code }}</td>
+                    <td class="px-3 py-2 text-slate-300">{{ brand.partner_name }}</td>
                     <td class="px-3 py-2 text-slate-300">{{ brand.jurisdiction_display }}</td>
                     <td class="px-3 py-2 text-slate-300">{{ brand.language_display }}</td>
                     <td class="px-3 py-2 text-slate-300">{{ brand.currencies or '—' }}</td>
@@ -126,6 +237,39 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    </div>
+</div>
+
+<!-- Edit partner modal -->
+<div id="partner-edit-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white">Edit partner</h3>
+            <button type="button" onclick="partnersCloseEditModal()" class="text-slate-400 hover:text-white p-1">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+        <input type="hidden" id="partner-edit-id" value="">
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+            <input type="text" id="partner-edit-name" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
+            <input type="text" id="partner-edit-code" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" id="partner-edit-active" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary">
+                Active
+            </label>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="partnersSubmitEdit()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+            <button type="button" onclick="partnersCloseEditModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <span id="partner-edit-status" class="text-xs text-slate-400"></span>
+        </div>
     </div>
 </div>
 
@@ -147,6 +291,15 @@
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
                 <input type="text" id="brand-edit-code" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
+                <select id="brand-edit-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <option value="">Global (platform)</option>
+                    {% for p in partners %}
+                    <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -192,6 +345,108 @@
 </div>
 
 <script>
+    function switchBrandsTab(tab) {
+        const panels = { partners: document.getElementById('panel-partners'), brands: document.getElementById('panel-brands') };
+        const tabs = { partners: document.getElementById('tab-partners'), brands: document.getElementById('tab-brands') };
+        ['partners', 'brands'].forEach(function(key) {
+            if (panels[key]) {
+                panels[key].classList.toggle('hidden', key !== tab);
+                panels[key].classList.toggle('flex', key === tab);
+            }
+            if (tabs[key]) {
+                tabs[key].classList.toggle('border-primary', key === tab);
+                tabs[key].classList.toggle('text-primary', key === tab);
+                tabs[key].classList.toggle('border-transparent', key !== tab);
+                tabs[key].classList.toggle('text-slate-400', key !== tab);
+            }
+        });
+    }
+
+    function partnersShowAddForm() {
+        document.getElementById('partner-add-form').classList.remove('hidden');
+        document.getElementById('partner-form-name').value = '';
+        document.getElementById('partner-form-code').value = '';
+        document.getElementById('partner-form-active').checked = true;
+        document.getElementById('partner-form-status').textContent = '';
+    }
+    function partnersHideAddForm() {
+        document.getElementById('partner-add-form').classList.add('hidden');
+    }
+    async function partnersSubmitAdd() {
+        const name = document.getElementById('partner-form-name').value.trim();
+        if (!name) {
+            document.getElementById('partner-form-status').textContent = 'Name is required.';
+            document.getElementById('partner-form-status').className = 'text-xs text-amber-400';
+            return;
+        }
+        const code = document.getElementById('partner-form-code').value.trim();
+        const active = document.getElementById('partner-form-active').checked;
+        const statusEl = document.getElementById('partner-form-status');
+        statusEl.textContent = 'Saving…';
+        statusEl.className = 'text-xs text-slate-400';
+        try {
+            const r = await fetch('/api/partners', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, code: code || undefined, active }),
+            });
+            const data = await r.json();
+            if (!r.ok) {
+                statusEl.textContent = data.detail || 'Failed to create partner';
+                statusEl.className = 'text-xs text-red-400';
+                return;
+            }
+            statusEl.textContent = 'Saved. Reloading…';
+            statusEl.className = 'text-xs text-primary';
+            window.location.reload();
+        } catch (e) {
+            statusEl.textContent = 'Request failed: ' + e.message;
+            statusEl.className = 'text-xs text-red-400';
+        }
+    }
+    function partnersEdit(partnerId) {
+        const partner = window.__partnersData.find(function(p) { return p.id === partnerId; });
+        if (!partner) return;
+        document.getElementById('partner-edit-id').value = partnerId;
+        document.getElementById('partner-edit-name').value = partner.name || '';
+        document.getElementById('partner-edit-code').value = partner.code || '';
+        document.getElementById('partner-edit-active').checked = partner.active !== false;
+        document.getElementById('partner-edit-status').textContent = '';
+        document.getElementById('partner-edit-modal').classList.remove('hidden');
+    }
+    function partnersCloseEditModal() {
+        document.getElementById('partner-edit-modal').classList.add('hidden');
+    }
+    async function partnersSubmitEdit() {
+        const id = document.getElementById('partner-edit-id').value;
+        if (!id) return;
+        const name = document.getElementById('partner-edit-name').value.trim();
+        const code = document.getElementById('partner-edit-code').value.trim();
+        const active = document.getElementById('partner-edit-active').checked;
+        const statusEl = document.getElementById('partner-edit-status');
+        statusEl.textContent = 'Saving…';
+        statusEl.className = 'text-xs text-slate-400';
+        try {
+            const r = await fetch('/api/partners/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name || undefined, code: code || undefined, active }),
+            });
+            const data = await r.json();
+            if (!r.ok) {
+                statusEl.textContent = data.detail || 'Failed to update partner';
+                statusEl.className = 'text-xs text-red-400';
+                return;
+            }
+            statusEl.textContent = 'Saved. Reloading…';
+            statusEl.className = 'text-xs text-primary';
+            window.location.reload();
+        } catch (e) {
+            statusEl.textContent = 'Request failed: ' + e.message;
+            statusEl.className = 'text-xs text-red-400';
+        }
+    }
+
     const BRAND_COUNTRIES = {{ countries | tojson }};
     const BRAND_LANGUAGES = {{ languages | tojson }};
     const BRAND_CURRENCIES = {{ currencies | tojson }};
@@ -201,6 +456,7 @@
         document.getElementById('brand-add-form').classList.remove('hidden');
         document.getElementById('brand-form-name').value = '';
         document.getElementById('brand-form-code').value = '';
+        document.getElementById('brand-form-partner-id').value = '';
         document.getElementById('brand-form-jurisdiction').selectedIndex = -1;
         document.getElementById('brand-form-language-ids').selectedIndex = -1;
         document.getElementById('brand-form-currencies').selectedIndex = -1;
@@ -224,6 +480,8 @@
             return;
         }
         const code = document.getElementById('brand-form-code').value.trim();
+        const partnerIdEl = document.getElementById('brand-form-partner-id');
+        const partner_id = partnerIdEl.value ? parseInt(partnerIdEl.value, 10) : null;
         const jurisdiction = getSelectedOptions(document.getElementById('brand-form-jurisdiction'));
         const language_ids = getSelectedOptions(document.getElementById('brand-form-language-ids')).map(x => parseInt(x, 10)).filter(n => !isNaN(n));
         const currencies = getSelectedOptions(document.getElementById('brand-form-currencies'));
@@ -239,6 +497,7 @@
                 body: JSON.stringify({
                     name,
                     code: code || undefined,
+                    partner_id: partner_id,
                     jurisdiction: jurisdiction.length ? jurisdiction : undefined,
                     language_ids: language_ids.length ? language_ids : undefined,
                     currencies: currencies.length ? currencies : undefined,
@@ -263,13 +522,18 @@
     function brandsEdit(brandId) {
         const row = document.querySelector(`tr[data-brand-id="${brandId}"]`);
         if (!row) return;
+        const brandData = window.__brandsData ? window.__brandsData.find(b => b.id === brandId) : null;
         const cells = row.querySelectorAll('td');
         const name = cells[0].textContent.trim();
         const code = cells[1].textContent.trim();
         document.getElementById('brand-edit-id').value = brandId;
         document.getElementById('brand-edit-name').value = name;
         document.getElementById('brand-edit-code').value = code;
-        // We need to set multi-select from current brand data; pass from server in data attributes
+        const partnerIdEl = document.getElementById('brand-edit-partner-id');
+        if (partnerIdEl) {
+            const pid = brandData ? brandData.partner_id : null;
+            partnerIdEl.value = (pid !== null && pid !== undefined) ? String(pid) : '';
+        }
         const jurisdictionEl = document.getElementById('brand-edit-jurisdiction');
         const langEl = document.getElementById('brand-edit-language-ids');
         const currEl = document.getElementById('brand-edit-currencies');
@@ -278,7 +542,6 @@
         Array.from(langEl.options).forEach(o => { o.selected = false; });
         Array.from(currEl.options).forEach(o => { o.selected = false; });
         Array.from(oddsEl.options).forEach(o => { o.selected = false; });
-        const brandData = window.__brandsData ? window.__brandsData.find(b => b.id === brandId) : null;
         if (brandData) {
             const jCodes = (brandData.jurisdiction || '').split(',').map(s => s.trim()).filter(Boolean);
             const lIds = (brandData.language_ids || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -311,12 +574,15 @@
         statusEl.textContent = 'Saving…';
         statusEl.className = 'text-xs text-slate-400';
         try {
+            const partnerIdEl = document.getElementById('brand-edit-partner-id');
+            const partner_id = partnerIdEl && partnerIdEl.value ? parseInt(partnerIdEl.value, 10) : null;
             const r = await fetch('/api/brands/' + id, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: name || undefined,
                     code: code || undefined,
+                    partner_id: partner_id,
                     jurisdiction: jurisdiction.length ? jurisdiction : [],
                     language_ids: language_ids.length ? language_ids : [],
                     currencies: currencies.length ? currencies : [],
@@ -340,5 +606,6 @@
 </script>
 <script>
     window.__brandsData = {{ brands | tojson }};
+    window.__partnersData = {{ partners | tojson }};
 </script>
 {% endblock %}

@@ -63,10 +63,10 @@
             <!-- Navigation Menu -->
             <nav class="flex items-stretch h-full flex-1">
 
-                <!-- Admin (no dropdown) -->
+                <!-- Admin (User Management) -->
                 <div class="nav-item relative flex items-center">
-                    <a href="#"
-                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+                    <a href="/users"
+                        class="flex items-center h-full px-4 text-sm transition-colors {% if section == 'users' %}text-primary{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %}">
                         Admin
                     </a>
                 </div>

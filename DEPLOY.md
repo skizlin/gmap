@@ -1,5 +1,24 @@
 # Deploying PTC Global Mapper
 
+## RBAC data (admins and roles) – not in the repo
+
+The following files are **not** committed to the repo and are **not** overwritten on deploy:
+
+- `backend/data/rbac/users.csv`
+- `backend/data/rbac/roles.csv`
+- `backend/data/rbac/user_roles.csv`
+- `backend/data/rbac/user_brands.csv`
+- `backend/data/rbac/role_permissions.csv`
+- `backend/data/rbac/rbac_audit_log.csv`
+
+**Initial deployment:** On first run the app creates these files with the correct headers (structure from `backend/config.py`) and **no rows**. Create your first admins and roles in the UI after deploy.
+
+**Future deployments:** `git pull` and rebuild do **not** overwrite these files (they are in `.gitignore`). Each environment (local, server) keeps its own admins and roles.
+
+**Schema changes:** If the CSV structure (columns) is changed in code (`RBAC_*_FIELDS` in `config.py`), existing server files keep their data; new columns are not auto-added. For major schema changes you may need to migrate or recreate the files on the server (back up first).
+
+---
+
 ## CSV as "database"
 
 Using CSV files under `backend/data/` is **fine for deployment** in these cases:

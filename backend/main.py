@@ -47,6 +47,8 @@ UNDERAGE_CATEGORIES_PATH = config.UNDERAGE_CATEGORIES_PATH
 LANGUAGES_PATH = config.LANGUAGES_PATH
 TRANSLATIONS_PATH = config.TRANSLATIONS_PATH
 BRANDS_PATH = config.BRANDS_PATH
+PARTNERS_PATH = config.PARTNERS_PATH
+_PARTNERS_FIELDS = config.PARTNERS_FIELDS
 FEED_SPORTS_PATH = config.FEED_SPORTS_PATH
 FEEDER_CONFIG_PATH = config.FEEDER_CONFIG_PATH
 FEEDER_INCIDENTS_PATH = config.FEEDER_INCIDENTS_PATH
@@ -59,11 +61,45 @@ EVENT_NAVIGATOR_NOTES_PATH = getattr(config, "EVENT_NAVIGATOR_NOTES_PATH", None)
 NOTIFICATIONS_PATH = getattr(config, "NOTIFICATIONS_PATH", None)
 MARGIN_TEMPLATES_PATH = config.MARGIN_TEMPLATES_PATH
 MARGIN_TEMPLATE_COMPETITIONS_PATH = config.MARGIN_TEMPLATE_COMPETITIONS_PATH
+# RBAC
+RBAC_USERS_PATH = config.RBAC_USERS_PATH
+RBAC_ROLES_PATH = config.RBAC_ROLES_PATH
+RBAC_USER_ROLES_PATH = config.RBAC_USER_ROLES_PATH
+RBAC_ROLE_PERMISSIONS_PATH = config.RBAC_ROLE_PERMISSIONS_PATH
+RBAC_USER_BRANDS_PATH = config.RBAC_USER_BRANDS_PATH
+RBAC_AUDIT_LOG_PATH = config.RBAC_AUDIT_LOG_PATH
+_RBAC_USERS_FIELDS = config.RBAC_USERS_FIELDS
+_RBAC_ROLES_FIELDS = config.RBAC_ROLES_FIELDS
+_RBAC_USER_ROLES_FIELDS = config.RBAC_USER_ROLES_FIELDS
+_RBAC_ROLE_PERMISSIONS_FIELDS = config.RBAC_ROLE_PERMISSIONS_FIELDS
+_RBAC_USER_BRANDS_FIELDS = config.RBAC_USER_BRANDS_FIELDS
+_RBAC_AUDIT_LOG_FIELDS = config.RBAC_AUDIT_LOG_FIELDS
 
 # Mount Static & Templates
 STATIC_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+
+def _ensure_rbac_csv_if_missing(path: Path, fieldnames: list[str]) -> None:
+    """If path does not exist, create it with CSV header only (structure from config). Used so RBAC data is not in repo and is created empty on first deploy."""
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+
+
+@app.on_event("startup")
+def _ensure_rbac_data_structure() -> None:
+    """Create RBAC CSV files with headers only if they don't exist. Admins and roles are not in repo; each env (local/server) has its own data. Structure comes from config."""
+    _ensure_rbac_csv_if_missing(RBAC_USERS_PATH, list(config.RBAC_USERS_FIELDS))
+    _ensure_rbac_csv_if_missing(RBAC_ROLES_PATH, list(config.RBAC_ROLES_FIELDS))
+    _ensure_rbac_csv_if_missing(RBAC_USER_ROLES_PATH, list(config.RBAC_USER_ROLES_FIELDS))
+    _ensure_rbac_csv_if_missing(RBAC_ROLE_PERMISSIONS_PATH, list(config.RBAC_ROLE_PERMISSIONS_FIELDS))
+    _ensure_rbac_csv_if_missing(RBAC_USER_BRANDS_PATH, list(config.RBAC_USER_BRANDS_FIELDS))
+    _ensure_rbac_csv_if_missing(RBAC_AUDIT_LOG_PATH, list(config.RBAC_AUDIT_LOG_FIELDS))
 
 
 def _parse_start_time(s: str | None) -> datetime | None:
@@ -236,8 +272,15 @@ from backend.schemas import (
     UpdateEntityNameRequest,
     UpdateEntityJurisdictionRequest,
     UpdateMarketRequest,
+    CreatePartnerRequest,
+    UpdatePartnerRequest,
     CreateBrandRequest,
     UpdateBrandRequest,
+    CreateRbacUserRequest,
+    UpdateRbacUserRequest,
+    AssignUserRolesRequest,
+    CreateRbacRoleRequest,
+    UpdateRbacRoleRequest,
     CreateMarketGroupRequest,
     MarketTypeMappingItem,
     SaveMarketTypeMappingsRequest,
@@ -707,6 +750,45 @@ def _save_translations(translations: list[dict]) -> None:
             w.writerow(row)
 
 
+def _load_partners() -> list[dict]:
+    """Load partners from data/partners.csv (B2B clients)."""
+    if not PARTNERS_PATH.exists():
+        return []
+    with open(PARTNERS_PATH, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    out: list[dict] = []
+    for r in rows:
+        try:
+            pid = int(r.get("id", "0") or "0")
+        except (TypeError, ValueError):
+            pid = 0
+        out.append({
+            "id": pid,
+            "name": (r.get("name") or "").strip(),
+            "code": (r.get("code") or "").strip(),
+            "active": (r.get("active") or "1").strip().lower() in ("1", "true", "yes"),
+            "created_at": (r.get("created_at") or "").strip(),
+            "updated_at": (r.get("updated_at") or "").strip(),
+        })
+    return out
+
+
+def _save_partners(partners: list[dict]) -> None:
+    """Persist partners to data/partners.csv."""
+    with open(PARTNERS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_PARTNERS_FIELDS)
+        w.writeheader()
+        for p in partners:
+            w.writerow({
+                "id": p.get("id", ""),
+                "name": p.get("name", ""),
+                "code": p.get("code", ""),
+                "active": "1" if p.get("active", True) else "0",
+                "created_at": p.get("created_at", ""),
+                "updated_at": p.get("updated_at", ""),
+            })
+
+
 def _load_brands() -> list[dict]:
     """Load brands from data/brands.csv. Global is not stored; it is a virtual row in the UI."""
     if not BRANDS_PATH.exists():
@@ -719,10 +801,16 @@ def _load_brands() -> list[dict]:
             bid = int(r.get("id", "0") or "0")
         except (TypeError, ValueError):
             bid = 0
+        partner_id_raw = (r.get("partner_id") or "").strip()
+        try:
+            partner_id = int(partner_id_raw) if partner_id_raw else None
+        except (TypeError, ValueError):
+            partner_id = None
         out.append({
             "id": bid,
             "name": (r.get("name") or "").strip(),
             "code": (r.get("code") or "").strip(),
+            "partner_id": partner_id,
             "jurisdiction": (r.get("jurisdiction") or "").strip(),  # comma-separated country codes
             "language_ids": (r.get("language_ids") or "").strip(),  # comma-separated
             "currencies": (r.get("currencies") or "").strip(),  # comma-separated
@@ -739,10 +827,12 @@ def _save_brands(brands: list[dict]) -> None:
         w = csv.DictWriter(f, fieldnames=_BRANDS_FIELDS)
         w.writeheader()
         for b in brands:
+            pid = b.get("partner_id")
             w.writerow({
                 "id": b.get("id", ""),
                 "name": b.get("name", ""),
                 "code": b.get("code", ""),
+                "partner_id": str(pid) if pid is not None else "",
                 "jurisdiction": b.get("jurisdiction", ""),
                 "language_ids": b.get("language_ids", ""),
                 "currencies": b.get("currencies", ""),
@@ -750,6 +840,200 @@ def _save_brands(brands: list[dict]) -> None:
                 "created_at": b.get("created_at", ""),
                 "updated_at": b.get("updated_at", ""),
             })
+
+
+# ── RBAC load/save/audit ───────────────────────────────────────────────────
+
+def _load_rbac_users() -> list[dict]:
+    """Load users from data/rbac/users.csv."""
+    if not RBAC_USERS_PATH.exists():
+        return []
+    out = []
+    with open(RBAC_USERS_PATH, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            uid = _int_or_none(r.get("user_id"))
+            pid = _int_or_none(r.get("partner_id"))
+            created_by = (r.get("created_by") or "").strip() or "SuperAdmin"
+            out.append({
+                "user_id": uid or 0,
+                "login": (r.get("login") or "").strip(),
+                "email": (r.get("email") or "").strip(),
+                "display_name": (r.get("display_name") or "").strip(),
+                "active": (r.get("active") or "1").strip().lower() in ("1", "true", "yes"),
+                "partner_id": pid,
+                "created_by": created_by,
+                "created_at": (r.get("created_at") or "").strip(),
+                "updated_at": (r.get("updated_at") or "").strip(),
+                "last_login": (r.get("last_login") or "").strip(),
+                "online": (r.get("online") or "0").strip().lower() in ("1", "true", "yes"),
+            })
+    return out
+
+
+def _int_or_none(v):
+    if v is None or (isinstance(v, str) and not v.strip()):
+        return None
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _save_rbac_users(users: list[dict]) -> None:
+    with open(RBAC_USERS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_RBAC_USERS_FIELDS)
+        w.writeheader()
+        for u in users:
+            w.writerow({
+                "user_id": u.get("user_id", ""),
+                "login": u.get("login", ""),
+                "email": u.get("email", ""),
+                "display_name": u.get("display_name", ""),
+                "active": "1" if u.get("active", True) else "0",
+                "partner_id": u.get("partner_id") if u.get("partner_id") is not None else "",
+                "created_by": (u.get("created_by") or "SuperAdmin").strip(),
+                "created_at": u.get("created_at", ""),
+                "updated_at": u.get("updated_at", ""),
+                "last_login": u.get("last_login", ""),
+                "online": "1" if u.get("online", False) else "0",
+            })
+
+
+def _load_rbac_roles() -> list[dict]:
+    if not RBAC_ROLES_PATH.exists():
+        return []
+    out = []
+    with open(RBAC_ROLES_PATH, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            rid = _int_or_none(r.get("role_id")) or 0
+            pid = _int_or_none(r.get("partner_id"))
+            out.append({
+                "role_id": rid,
+                "name": (r.get("name") or "").strip(),
+                "active": (r.get("active") or "1").strip().lower() in ("1", "true", "yes"),
+                "is_system": (r.get("is_system") or "0").strip().lower() in ("1", "true", "yes"),
+                "partner_id": pid,
+                "created_at": (r.get("created_at") or "").strip(),
+                "updated_at": (r.get("updated_at") or "").strip(),
+            })
+    return out
+
+
+def _save_rbac_roles(roles: list[dict]) -> None:
+    with open(RBAC_ROLES_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_RBAC_ROLES_FIELDS)
+        w.writeheader()
+        for row in roles:
+            w.writerow({
+                "role_id": row.get("role_id", ""),
+                "name": row.get("name", ""),
+                "active": "1" if row.get("active", True) else "0",
+                "is_system": "1" if row.get("is_system", False) else "0",
+                "partner_id": row.get("partner_id") if row.get("partner_id") is not None else "",
+                "created_at": row.get("created_at", ""),
+                "updated_at": row.get("updated_at", ""),
+            })
+
+
+def _save_rbac_role_permissions(rows: list[dict]) -> None:
+    with open(RBAC_ROLE_PERMISSIONS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_RBAC_ROLE_PERMISSIONS_FIELDS)
+        w.writeheader()
+        for row in rows:
+            w.writerow({"role_id": row.get("role_id", ""), "permission_code": row.get("permission_code", "")})
+
+
+def _load_rbac_user_roles() -> list[dict]:
+    if not RBAC_USER_ROLES_PATH.exists():
+        return []
+    out = []
+    with open(RBAC_USER_ROLES_PATH, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            out.append({
+                "user_id": int(r.get("user_id") or 0),
+                "role_id": int(r.get("role_id") or 0),
+                "assigned_at": (r.get("assigned_at") or "").strip(),
+                "assigned_by_user_id": _int_or_none(r.get("assigned_by_user_id")),
+            })
+    return out
+
+
+def _save_rbac_user_roles(rows: list[dict]) -> None:
+    with open(RBAC_USER_ROLES_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_RBAC_USER_ROLES_FIELDS)
+        w.writeheader()
+        for row in rows:
+            w.writerow({
+                "user_id": row.get("user_id", ""),
+                "role_id": row.get("role_id", ""),
+                "assigned_at": row.get("assigned_at", ""),
+                "assigned_by_user_id": row.get("assigned_by_user_id") if row.get("assigned_by_user_id") is not None else "",
+            })
+
+
+def _load_rbac_role_permissions() -> list[dict]:
+    if not RBAC_ROLE_PERMISSIONS_PATH.exists():
+        return []
+    out = []
+    with open(RBAC_ROLE_PERMISSIONS_PATH, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            out.append({"role_id": int(r.get("role_id") or 0), "permission_code": (r.get("permission_code") or "").strip()})
+    return out
+
+
+def _load_rbac_user_brands() -> list[dict]:
+    if not RBAC_USER_BRANDS_PATH.exists():
+        return []
+    out = []
+    with open(RBAC_USER_BRANDS_PATH, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            out.append({"user_id": int(r.get("user_id") or 0), "brand_id": int(r.get("brand_id") or 0)})
+    return out
+
+
+def _save_rbac_user_brands(rows: list[dict]) -> None:
+    with open(RBAC_USER_BRANDS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_RBAC_USER_BRANDS_FIELDS)
+        w.writeheader()
+        for row in rows:
+            w.writerow({"user_id": row.get("user_id", ""), "brand_id": row.get("brand_id", "")})
+
+
+def _rbac_audit_next_id() -> int:
+    if not RBAC_AUDIT_LOG_PATH.exists() or RBAC_AUDIT_LOG_PATH.stat().st_size == 0:
+        return 1
+    with open(RBAC_AUDIT_LOG_PATH, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+    if not rows:
+        return 1
+    ids = [_int_or_none(r.get("id")) or 0 for r in rows]
+    return max(ids, default=0) + 1
+
+
+def _rbac_audit_append(actor_user_id: int | None, action: str, target_type: str, target_id: str, details: str = "") -> None:
+    """Append one row to rbac_audit_log.csv. Append-only."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    next_id = _rbac_audit_next_id()
+    write_header = not RBAC_AUDIT_LOG_PATH.exists() or RBAC_AUDIT_LOG_PATH.stat().st_size == 0
+    if RBAC_AUDIT_LOG_PATH.exists() and RBAC_AUDIT_LOG_PATH.stat().st_size > 0:
+        with open(RBAC_AUDIT_LOG_PATH, "rb+") as f:
+            f.seek(-1, 2)
+            if f.read(1) != b"\n":
+                f.write(b"\n")
+    with open(RBAC_AUDIT_LOG_PATH, "a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_RBAC_AUDIT_LOG_FIELDS)
+        if write_header:
+            w.writeheader()
+        w.writerow({
+            "id": next_id,
+            "created_at": now,
+            "actor_user_id": actor_user_id if actor_user_id is not None else "",
+            "action": action,
+            "target_type": target_type,
+            "target_id": str(target_id),
+            "details": details,
+        })
 
 
 def _load_market_type_mappings() -> list[dict]:
@@ -3763,6 +4047,57 @@ def _next_brand_id(brands: list[dict]) -> int:
     return max((b.get("id") or 0 for b in brands), default=0) + 1
 
 
+def _next_partner_id(partners: list[dict]) -> int:
+    if not partners:
+        return 1
+    return max((p.get("id") or 0 for p in partners), default=0) + 1
+
+
+@app.post("/api/partners")
+async def create_partner(body: CreatePartnerRequest):
+    """Create a new partner (B2B client). Stored in data/partners.csv."""
+    from fastapi import HTTPException
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    code = (body.code or "").strip() or name.lower().replace(" ", "_")[:32]
+    partners = _load_partners()
+    if any((p.get("code") or "").lower() == code.lower() for p in partners):
+        raise HTTPException(status_code=400, detail=f"Partner with code '{code}' already exists")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    pid = _next_partner_id(partners)
+    new_partner = {
+        "id": pid,
+        "name": name,
+        "code": code,
+        "active": body.active if body.active is not None else True,
+        "created_at": now,
+        "updated_at": now,
+    }
+    partners.append(new_partner)
+    _save_partners(partners)
+    return {"ok": True, "partner": new_partner}
+
+
+@app.put("/api/partners/{partner_id:int}")
+async def update_partner(partner_id: int, body: UpdatePartnerRequest):
+    """Update an existing partner."""
+    from fastapi import HTTPException
+    partners = _load_partners()
+    partner = next((p for p in partners if p.get("id") == partner_id), None)
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    if body.name is not None:
+        partner["name"] = (body.name or "").strip()
+    if body.code is not None:
+        partner["code"] = (body.code or "").strip()
+    if body.active is not None:
+        partner["active"] = body.active
+    partner["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    _save_partners(partners)
+    return {"ok": True, "partner": partner}
+
+
 @app.post("/api/brands")
 async def create_brand(body: CreateBrandRequest):
     """Create a new brand. Stored in data/brands.csv."""
@@ -3779,11 +4114,13 @@ async def create_brand(body: CreateBrandRequest):
     language_ids = ",".join(str(x) for x in (body.language_ids or []))
     currencies = ",".join(body.currencies or [])
     odds_formats = ",".join(body.odds_formats or [])
+    partner_id = getattr(body, "partner_id", None)  # None = Global (platform)
     bid = _next_brand_id(brands)
     new_brand = {
         "id": bid,
         "name": name,
         "code": code,
+        "partner_id": partner_id,
         "jurisdiction": jurisdiction,
         "language_ids": language_ids,
         "currencies": currencies,
@@ -3808,6 +4145,8 @@ async def update_brand(brand_id: int, body: UpdateBrandRequest):
         brand["name"] = (body.name or "").strip()
     if body.code is not None:
         brand["code"] = (body.code or "").strip()
+    if body.partner_id is not None:
+        brand["partner_id"] = body.partner_id
     if body.jurisdiction is not None:
         brand["jurisdiction"] = ",".join(body.jurisdiction) if body.jurisdiction else ""
     if body.language_ids is not None:
@@ -3819,6 +4158,239 @@ async def update_brand(brand_id: int, body: UpdateBrandRequest):
     brand["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     _save_brands(brands)
     return {"ok": True, "brand": brand}
+
+
+# ── RBAC API ───────────────────────────────────────────────────────────────
+
+def _next_rbac_user_id(users: list[dict]) -> int:
+    if not users:
+        return 1
+    return max((u.get("user_id") or 0 for u in users), default=0) + 1
+
+
+def _get_user_permissions(user_id: int) -> set[str]:
+    """Resolve all permission codes for a user from their roles. Returns empty set if user inactive or not found."""
+    users = _load_rbac_users()
+    user = next((u for u in users if u.get("user_id") == user_id), None)
+    if not user or not user.get("active"):
+        return set()
+    user_roles = _load_rbac_user_roles()
+    role_ids = [ur["role_id"] for ur in user_roles if ur.get("user_id") == user_id]
+    perms = _load_rbac_role_permissions()
+    return {p["permission_code"] for p in perms if p["role_id"] in role_ids and p.get("permission_code")}
+
+
+@app.get("/api/rbac/users")
+async def list_rbac_users(partner_id: Optional[int] = None):
+    """List users. If partner_id given, filter to that partner (for partner-scoped admin)."""
+    users = _load_rbac_users()
+    if partner_id is not None:
+        users = [u for u in users if u.get("partner_id") == partner_id]
+    roles = _load_rbac_roles()
+    user_roles = _load_rbac_user_roles()
+    role_by_id = {r["role_id"]: r for r in roles}
+    partners = _load_partners()
+    partner_by_id = {p["id"]: p for p in partners}
+    for u in users:
+        u["roles"] = [
+            role_by_id[ur["role_id"]]
+            for ur in user_roles
+            if ur["user_id"] == u["user_id"] and ur["role_id"] in role_by_id
+        ]
+        u["partner_name"] = partner_by_id.get(u["partner_id"], {}).get("name", "") if u.get("partner_id") else "Platform"
+    return {"users": users}
+
+
+@app.get("/api/rbac/users/{user_id:int}")
+async def get_rbac_user(user_id: int):
+    from fastapi import HTTPException
+    users = _load_rbac_users()
+    user = next((u for u in users if u.get("user_id") == user_id), None)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_roles = _load_rbac_user_roles()
+    roles = _load_rbac_roles()
+    role_by_id = {r["role_id"]: r for r in roles}
+    user["roles"] = [
+        role_by_id[ur["role_id"]]
+        for ur in user_roles
+        if ur["user_id"] == user_id and ur["role_id"] in role_by_id
+    ]
+    user["role_ids"] = [r["role_id"] for r in user["roles"]]
+    user_brands = _load_rbac_user_brands()
+    user["brand_ids"] = [ub["brand_id"] for ub in user_brands if ub["user_id"] == user_id]
+    partners = _load_partners()
+    user["partner_name"] = next((p["name"] for p in partners if p["id"] == user.get("partner_id")), None) or "Platform"
+    return {"user": user}
+
+
+@app.post("/api/rbac/users")
+async def create_rbac_user(body: CreateRbacUserRequest):
+    from fastapi import HTTPException
+    email = (body.email or "").strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    users = _load_rbac_users()
+    if any((u.get("email") or "").lower() == email.lower() for u in users):
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    uid = _next_rbac_user_id(users)
+    login = (body.login or "").strip() or email.split("@")[0]
+    role_ids = list(body.role_ids) if body.role_ids else []
+    if len(role_ids) > 1:
+        raise HTTPException(status_code=400, detail="Each user may have only one role.")
+    role_ids = role_ids[:1]
+    new_user = {
+        "user_id": uid,
+        "login": login,
+        "email": email,
+        "display_name": (body.display_name or "").strip() or login,
+        "active": body.active if body.active is not None else True,
+        "partner_id": body.partner_id,
+        "created_by": "SuperAdmin",
+        "created_at": now,
+        "updated_at": now,
+        "last_login": "",
+        "online": False,
+    }
+    users.append(new_user)
+    _save_rbac_users(users)
+    user_roles = _load_rbac_user_roles()
+    for rid in role_ids:
+        user_roles.append({
+            "user_id": uid,
+            "role_id": rid,
+            "assigned_at": now,
+            "assigned_by_user_id": None,
+        })
+    _save_rbac_user_roles(user_roles)
+    if body.brand_ids:
+        user_brands = _load_rbac_user_brands()
+        for bid in body.brand_ids:
+            user_brands.append({"user_id": uid, "brand_id": bid})
+        _save_rbac_user_brands(user_brands)
+    _rbac_audit_append(None, "user.create", "user", str(uid), f"email={email}")
+    return {"ok": True, "user": new_user}
+
+
+@app.put("/api/rbac/users/{user_id:int}")
+async def update_rbac_user(user_id: int, body: UpdateRbacUserRequest):
+    from fastapi import HTTPException
+    users = _load_rbac_users()
+    user = next((u for u in users if u.get("user_id") == user_id), None)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if body.email is not None:
+        email = (body.email or "").strip()
+        if not email:
+            raise HTTPException(status_code=400, detail="Email cannot be empty")
+        if any((u.get("email") or "").lower() == email.lower() for u in users if u.get("user_id") != user_id):
+            raise HTTPException(status_code=400, detail="Another user with this email exists")
+        user["email"] = email
+    if body.login is not None:
+        user["login"] = (body.login or "").strip() or user.get("email", "").split("@")[0]
+    if body.display_name is not None:
+        user["display_name"] = (body.display_name or "").strip()
+    if body.partner_id is not None:
+        user["partner_id"] = body.partner_id
+    if body.active is not None:
+        user["active"] = body.active
+    if body.role_ids is not None:
+        role_ids = list(body.role_ids)
+        if len(role_ids) > 1:
+            raise HTTPException(status_code=400, detail="Each user may have only one role.")
+        role_ids = role_ids[:1]
+        user_roles = _load_rbac_user_roles()
+        user_roles = [ur for ur in user_roles if ur["user_id"] != user_id]
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        for rid in role_ids:
+            user_roles.append({"user_id": user_id, "role_id": rid, "assigned_at": now, "assigned_by_user_id": None})
+        _save_rbac_user_roles(user_roles)
+    if body.brand_ids is not None:
+        user_brands = _load_rbac_user_brands()
+        user_brands = [ub for ub in user_brands if ub["user_id"] != user_id]
+        for bid in body.brand_ids:
+            user_brands.append({"user_id": user_id, "brand_id": bid})
+        _save_rbac_user_brands(user_brands)
+    user["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    _save_rbac_users(users)
+    _rbac_audit_append(None, "user.update", "user", str(user_id), "")
+    return {"ok": True, "user": user}
+
+
+@app.delete("/api/rbac/users/{user_id:int}")
+async def delete_rbac_user(user_id: int):
+    from fastapi import HTTPException
+    users = _load_rbac_users()
+    user = next((u for u in users if u.get("user_id") == user_id), None)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.get("active"):
+        raise HTTPException(status_code=400, detail="Cannot delete active user; deactivate first")
+    users = [u for u in users if u.get("user_id") != user_id]
+    _save_rbac_users(users)
+    user_roles = _load_rbac_user_roles()
+    user_roles = [ur for ur in user_roles if ur["user_id"] != user_id]
+    _save_rbac_user_roles(user_roles)
+    user_brands = _load_rbac_user_brands()
+    user_brands = [ub for ub in user_brands if ub["user_id"] != user_id]
+    _save_rbac_user_brands(user_brands)
+    _rbac_audit_append(None, "user.delete", "user", str(user_id), "")
+    return {"ok": True}
+
+
+@app.get("/api/rbac/roles")
+async def list_rbac_roles():
+    roles = _load_rbac_roles()
+    perms = _load_rbac_role_permissions()
+    perms_by_role = {}
+    for p in perms:
+        perms_by_role.setdefault(p["role_id"], []).append(p["permission_code"])
+    for r in roles:
+        r["permission_codes"] = perms_by_role.get(r["role_id"], [])
+    return {"roles": roles}
+
+
+@app.post("/api/rbac/roles")
+async def create_rbac_role(body: CreateRbacRoleRequest):
+    """Create a new role. partner_id optional (null = Platform). New roles are non-system."""
+    from fastapi import HTTPException
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    roles = _load_rbac_roles()
+    next_id = max((r.get("role_id") or 0 for r in roles), default=0) + 1
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    new_role = {
+        "role_id": next_id,
+        "name": name,
+        "active": body.active if body.active is not None else True,
+        "is_system": False,
+        "partner_id": body.partner_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    roles.append(new_role)
+    _save_rbac_roles(roles)
+    if body.permission_codes:
+        perms = _load_rbac_role_permissions()
+        for code in body.permission_codes:
+            code = (code or "").strip()
+            if code:
+                perms.append({"role_id": next_id, "permission_code": code})
+        _save_rbac_role_permissions(perms)
+    _rbac_audit_append(None, "role.create", "role", str(next_id), name)
+    return {"ok": True, "role_id": next_id}
+
+
+@app.get("/api/rbac/audit-log")
+async def list_rbac_audit_log(limit: int = 100):
+    if not RBAC_AUDIT_LOG_PATH.exists():
+        return {"entries": []}
+    with open(RBAC_AUDIT_LOG_PATH, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    rows = sorted(rows, key=lambda r: (r.get("created_at") or ""), reverse=True)[:limit]
+    return {"entries": rows}
 
 
 @app.post("/api/margin-templates")
@@ -4590,28 +5162,149 @@ BRAND_ODDS_FORMATS = ["Decimal", "Fractional", "American"]
 async def brands_view(request: Request):
     """
     Configuration > Brands page.
-    First row is Global (read-only; represents platform default / union of all brands).
-    Other rows are brands from data/brands.csv with jurisdiction, languages, currencies, odds formats.
+    First row is Global (read-only; represents platform default / B2B provider admins).
+    Other rows are brands from data/brands.csv; each brand can be assigned to a Partner (B2B client).
     """
     brands = _load_brands()
+    partners = _load_partners()
     countries = _load_countries()
     languages = _load_languages()
     countries_by_cc = {c.get("cc", ""): c.get("name", "") for c in countries}
     languages_by_id = {str(l.get("id")): l.get("name", "") for l in languages}
-    # Resolve jurisdiction and language display names for table
+    partners_by_id = {p["id"]: p for p in partners}
+    # Attach brands to each partner for Partners tab
+    brands_by_partner: dict[int, list[dict]] = {}
+    for b in brands:
+        pid = b.get("partner_id")
+        if pid is not None:
+            brands_by_partner.setdefault(pid, []).append(b)
+    for p in partners:
+        p["brands"] = brands_by_partner.get(p["id"], [])
+    # Resolve jurisdiction, language, and partner display names for table
     for b in brands:
         j_codes = [x.strip() for x in (b.get("jurisdiction") or "").split(",") if x.strip()]
         b["jurisdiction_display"] = ", ".join(countries_by_cc.get(cc, cc) for cc in j_codes) or "—"
         l_ids = [x.strip() for x in (b.get("language_ids") or "").split(",") if x.strip()]
         b["language_display"] = ", ".join(languages_by_id.get(lid, lid) for lid in l_ids) or "—"
+        pid = b.get("partner_id")
+        b["partner_name"] = partners_by_id.get(pid, {}).get("name", "—") if pid else "Global"
     return templates.TemplateResponse("configuration/brands.html", {
         "request": request,
         "section": "brands",
         "brands": brands,
+        "partners": partners,
         "countries": countries,
         "languages": languages,
         "currencies": BRAND_CURRENCIES,
         "odds_formats": BRAND_ODDS_FORMATS,
+    })
+
+
+@app.get("/users", response_class=HTMLResponse)
+async def users_view(
+    request: Request,
+    status: str = "active",
+    role_id: str | None = None,
+    partner_id: str | None = None,
+    brand_ids: list[int] | None = None,
+    search: str = "",
+    rp_partner_id: str | None = None,
+):
+    """Admin Management. Users list with filters: status, role, partner, brands (when partner set), search. rp_partner_id filters Roles & Permissions panel by partner."""
+    users = _load_rbac_users()
+    roles = _load_rbac_roles()
+    user_roles = _load_rbac_user_roles()
+    user_brands = _load_rbac_user_brands()
+    partners = _load_partners()
+    brands = _load_brands()
+    brand_by_id = {b["id"]: b for b in brands}
+    partner_by_id = {p["id"]: p for p in partners}
+    for r in roles:
+        r["partner_name"] = partner_by_id.get(r.get("partner_id"), {}).get("name", "Platform") if r.get("partner_id") else "Platform"
+    role_by_id = {r["role_id"]: r for r in roles}
+    from collections import Counter
+    role_user_count = Counter(ur["role_id"] for ur in user_roles)
+    for r in roles:
+        r["active_admins"] = role_user_count.get(r["role_id"], 0)
+    # Roles & Permissions panel: filter roles by partner (All / Platform / Partner X)
+    _rp_raw = (rp_partner_id or "").strip().lower()
+    if _rp_raw == "platform":
+        roles_filtered = [r for r in roles if r.get("partner_id") is None]
+    elif _rp_raw and _rp_raw != "all":
+        _rp_id = _int_or_none(rp_partner_id)
+        roles_filtered = [r for r in roles if r.get("partner_id") == _rp_id] if _rp_id is not None else roles
+    else:
+        roles_filtered = roles
+    rp_partner_id_for_template = _rp_raw if _rp_raw in ("platform", "all") or _int_or_none(rp_partner_id) is not None else ""
+    for u in users:
+        u["roles"] = [
+            role_by_id[ur["role_id"]]
+            for ur in user_roles
+            if ur["user_id"] == u["user_id"] and ur["role_id"] in role_by_id
+        ]
+        u["role_ids"] = [r["role_id"] for r in u["roles"]]
+        u["brand_ids"] = [ub["brand_id"] for ub in user_brands if ub["user_id"] == u["user_id"]]
+        u["brand_names"] = [brand_by_id.get(bid, {}).get("name", "") for bid in u["brand_ids"] if bid in brand_by_id]
+        u["partner_name"] = partner_by_id.get(u["partner_id"], {}).get("name", "Platform") if u.get("partner_id") else "Platform"
+
+    # Apply filters (default status=active)
+    status = (status or "active").strip().lower()
+    if status not in ("active", "inactive", "all"):
+        status = "active"
+    search = (search or "").strip().lower()
+    filtered = users
+    if status == "active":
+        filtered = [u for u in filtered if u.get("active", True)]
+    elif status == "inactive":
+        filtered = [u for u in filtered if not u.get("active", True)]
+    _role_id = _int_or_none(role_id) if role_id else None
+    _partner_id_raw = (partner_id or "").strip().lower()
+    _partner_id = None if _partner_id_raw in ("", "all") else ("platform" if _partner_id_raw == "platform" else _int_or_none(partner_id))
+    if _partner_id == "platform":
+        filtered = [u for u in filtered if u.get("partner_id") is None]
+    elif isinstance(_partner_id, int):
+        filtered = [u for u in filtered if u.get("partner_id") == _partner_id]
+    if _role_id is not None:
+        filtered = [u for u in filtered if (u.get("role_ids") or []) and u["role_ids"][0] == _role_id]
+    if brand_ids:
+        _brand_ids_set = set(brand_ids)
+        filtered = [u for u in filtered if _brand_ids_set & set(u.get("brand_ids") or [])]
+    if search:
+        filtered = [
+            u for u in filtered
+            if search in (u.get("email") or "").lower()
+            or search in (u.get("display_name") or "").lower()
+            or search in (u.get("login") or "").lower()
+        ]
+
+    brands_for_partner = []
+    if isinstance(_partner_id, int):
+        brands_for_partner = [b for b in brands if b.get("partner_id") == _partner_id]
+    filter_partner_id_for_template = None if _partner_id_raw in ("", "all") else (_partner_id_raw if _partner_id_raw == "platform" else _partner_id)
+
+    perms = _load_rbac_role_permissions()
+    perms_by_role = {}
+    for p in perms:
+        perms_by_role.setdefault(p["role_id"], []).append(p["permission_code"])
+    for r in roles:
+        r["permission_codes"] = perms_by_role.get(r["role_id"], [])
+    permission_tree = config.RBAC_PERMISSION_TREE
+    return templates.TemplateResponse("configuration/users.html", {
+        "request": request,
+        "section": "users",
+        "users": filtered,
+        "roles": roles,
+        "roles_filtered": roles_filtered,
+        "partners": partners,
+        "brands": brands,
+        "brands_for_partner": brands_for_partner,
+        "permission_tree": permission_tree,
+        "filter_status": status,
+        "filter_role_id": _role_id,
+        "filter_partner_id": filter_partner_id_for_template,
+        "filter_brand_ids": brand_ids or [],
+        "filter_search": search or "",
+        "filter_rp_partner_id": rp_partner_id or "",
     })
 
 
