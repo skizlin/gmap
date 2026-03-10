@@ -78,7 +78,17 @@ docker rm -f gmap         # remove container (data in /var/www/gmap/backend/data
 # Then run the `docker run` again to recreate.
 ```
 
-After code changes: `git pull`, `docker build -t gmap .`, `docker rm -f gmap`, then run the same `docker run` again.
+**After code changes (including RBAC):** On the server run:
+
+```bash
+cd /var/www/gmap
+git pull origin main
+docker build -t gmap .
+docker rm -f gmap
+# Then run the same docker run -v ... command again (see above).
+```
+
+RBAC CSV files under `backend/data/rbac/` are not in the repo; the app creates them with headers only on first run. Existing server data in those files is **not** overwritten by `git pull`.
 
 ---
 
