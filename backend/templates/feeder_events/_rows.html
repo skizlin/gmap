@@ -70,7 +70,8 @@
         <span class="text-emerald-400 text-[10px] mr-1 border border-emerald-500/30 px-1 rounded"
             title="Main Market">M-BOOK</span>
         {% endif %}
-        <span class="{{ 'text-slate-500' if is_ignored else 'text-primary' }}" title="{{ event.market_name }}">{{ event.market_name }}</span>
+        {% set event_mapped = event.domain_id and event.domain_id != '0' %}
+        <span class="{{ 'text-slate-500' if is_ignored else ('text-emerald-300' if event_mapped else 'text-white') }}" title="{{ event.market_name }}">{{ event.market_name }}</span>
         {% else %}
         {% set home_id = event.raw_home_id | string if event.raw_home_id else event.raw_home_name %}
         {% set away_id = event.raw_away_id | string if event.raw_away_id else event.raw_away_name %}
@@ -81,8 +82,8 @@
             event.raw_away_name }}</span>
         {% endif %}
     </td>
-    <!-- Status (from feed): darker when ignored -->
-    <td class="px-3 py-1.5 {{ 'text-slate-500' if is_ignored else 'text-slate-400' }}">{{ event.status or 'Open' }}</td>
+    <!-- Status (time_status from feed: code → description; if feed does not return status, show —) -->
+    <td class="px-3 py-1.5 {{ 'text-slate-500' if is_ignored else 'text-slate-400' }}">{{ event.time_status | time_status_description }}</td>
     <!-- #MKT: same as category when not ignored (text-slate-400); darker when ignored -->
     <td class="px-3 py-1.5 text-center font-mono {{ 'text-slate-500' if is_ignored else 'text-slate-400' }}">{{ event.markets_count if event.markets_count is not none else '—' }}</td>
     <!-- Notes: icon when event has a note -->

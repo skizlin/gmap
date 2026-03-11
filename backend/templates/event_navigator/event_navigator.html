@@ -253,9 +253,14 @@
                 placeholder="Sport, category, competition, event…"
                 hx-get="/event-navigator/table" hx-target="#domain-events-body" hx-swap="innerHTML"
                 hx-trigger="input changed delay:350ms"
-                hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='has_bets_only'],[name='brands']"
+                hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='has_bets_only'],[name='brands'],[name='sort_start_time'],[name='page'],[name='per_page']"
                 class="bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full">
         </div>
+
+        <!-- Sort + paging (included in table reload) -->
+        <input type="hidden" name="sort_start_time" id="domain-sort-start-time" value="{{ en_sort_start_time | default('asc') }}">
+        <input type="hidden" name="page" id="domain-page-input" value="{{ en_page | default(1) }}">
+        <input type="hidden" name="per_page" id="domain-per-page-input" value="{{ en_per_page | default(50) }}">
 
         <div class="border-l border-slate-700 h-6 mx-1"></div>
 
@@ -314,7 +319,18 @@
                             <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" aria-label="Bulk select all" id="domain-events-bulk-select">
                         </th>
                         <th class="px-3 py-2 font-semibold">Id</th>
-                        <th class="px-3 py-2 font-semibold">Start Time</th>
+                        <th class="px-3 py-2 font-semibold">
+                            <button type="button" id="domain-sort-start-time-btn" class="inline-flex items-center gap-1 text-left hover:text-white transition-colors" title="Sort by start time (click to toggle)">
+                                Start Time
+                                <span id="domain-sort-start-time-icon" class="text-slate-500">
+                                    {% if (en_sort_start_time | default('asc')) == 'desc' %}
+                                    <i class="fa-solid fa-sort-down" aria-hidden="true"></i>
+                                    {% else %}
+                                    <i class="fa-solid fa-sort-up" aria-hidden="true"></i>
+                                    {% endif %}
+                                </span>
+                            </button>
+                        </th>
                         <th class="px-3 py-2 font-semibold">Sport</th>
                         <th class="px-3 py-2 font-semibold">Category</th>
                         <th class="px-3 py-2 font-semibold">Competition</th>
@@ -334,22 +350,33 @@
                 </thead>
                 <tbody id="domain-events-body" class="divide-y divide-slate-700/40 text-xs"
                     hx-get="/event-navigator/table" hx-trigger="load, domainEventsReload from:body"
-                    hx-swap="innerHTML" hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='has_bets_only'],[name='brands'],[name='q']">
+                    hx-swap="innerHTML" hx-include="[name='date'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='has_bets_only'],[name='brands'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']">
                     {% include 'event_navigator/_rows.html' %}
                 </tbody>
             </table>
         </div>
 
-        <!-- Footer: Bulk Update, count, pagination (placeholders) -->
-        <div
-            class="px-4 py-2 bg-slate-900/50 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500 flex-shrink-0">
+        <!-- Footer: Bulk Update, pager -->
+        <div id="domain-events-pager"
+            class="px-4 py-2 bg-slate-900/50 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500 flex-shrink-0"
+            data-total="{{ en_total_events | default(0) }}"
+            data-page="{{ en_page | default(1) }}"
+            data-per-page="{{ en_per_page | default(50) }}"
+            data-total-pages="{{ en_total_pages | default(1) }}">
             <div class="flex items-center gap-3">
                 <button type="button" class="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 border border-slate-600" disabled title="Bulk update – coming soon">Bulk Update</button>
-                <span>Showing {{ domain_events|length }} events</span>
+                <span id="domain-pager-summary">
+                    {% set en_total = en_total_events | default(0) %}
+                    {% set en_pg = en_page | default(1) %}
+                    {% set en_pp = en_per_page | default(50) %}
+                    {% set en_start = (en_pg - 1) * en_pp + 1 if en_total else 0 %}
+                    {% set en_end = [en_pg * en_pp, en_total] | min if en_total else 0 %}
+                    Showing {{ en_start }}–{{ en_end }} of {{ en_total }} events
+                </span>
             </div>
             <div class="flex space-x-2">
-                <button type="button" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-400" disabled title="Pagination – coming soon">Previous</button>
-                <button type="button" class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-400" disabled title="Pagination – coming soon">Next</button>
+                <button type="button" id="domain-pager-prev" class="domain-pager-btn px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-200 border border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed" {% if (en_page | default(1)) <= 1 %}disabled{% endif %}>Previous</button>
+                <button type="button" id="domain-pager-next" class="domain-pager-btn px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-200 border border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed" {% if (en_page | default(1)) >= (en_total_pages | default(1)) %}disabled{% endif %}>Next</button>
             </div>
         </div>
     </div>
@@ -600,10 +627,74 @@
         if (allBtn) allBtn.textContent = selected.length === total ? 'Deselect All' : 'Select All';
     }
 
-    function triggerDomainEventsTableRefresh() {
+    function triggerDomainEventsTableRefresh(resetPage) {
+        if (resetPage !== false) {
+            var pageInput = document.getElementById('domain-page-input');
+            if (pageInput) pageInput.value = '1';
+        }
         htmx.trigger(document.body, 'domainEventsReload');
         updateActiveFilterBadges();
     }
+
+    // ── Start time sort: click header to toggle asc/desc, reset to page 1 ──
+    document.getElementById('domain-sort-start-time-btn')?.addEventListener('click', function () {
+        var input = document.getElementById('domain-sort-start-time');
+        if (!input) return;
+        input.value = input.value === 'desc' ? 'asc' : 'desc';
+        document.getElementById('domain-page-input').value = '1';
+        triggerDomainEventsTableRefresh();
+    });
+
+    // ── Pager: Previous / Next (do not reset page) ───────────────────────────────
+    document.getElementById('domain-pager-prev')?.addEventListener('click', function () {
+        if (this.disabled) return;
+        var input = document.getElementById('domain-page-input');
+        var p = parseInt(input.value, 10) || 1;
+        if (p > 1) { input.value = p - 1; triggerDomainEventsTableRefresh(false); }
+    });
+    document.getElementById('domain-pager-next')?.addEventListener('click', function () {
+        if (this.disabled) return;
+        var input = document.getElementById('domain-page-input');
+        var pager = document.getElementById('domain-events-pager');
+        var totalPages = parseInt(pager?.getAttribute('data-total-pages'), 10) || 1;
+        var p = parseInt(input.value, 10) || 1;
+        if (p < totalPages) { input.value = p + 1; triggerDomainEventsTableRefresh(false); }
+    });
+
+    // ── HX-Trigger navigatorPager: update pager display after table load ─────────
+    document.body.addEventListener('navigatorPager', function (evt) {
+        var d = evt.detail || {};
+        var total = d.total_events ?? 0;
+        var page = d.page ?? 1;
+        var perPage = d.per_page ?? 50;
+        var totalPages = d.total_pages ?? 1;
+        var sortSt = d.sort_start_time ?? 'asc';
+        var pager = document.getElementById('domain-events-pager');
+        var summary = document.getElementById('domain-pager-summary');
+        var pageInput = document.getElementById('domain-page-input');
+        var sortInput = document.getElementById('domain-sort-start-time');
+        var iconEl = document.getElementById('domain-sort-start-time-icon');
+        var prevBtn = document.getElementById('domain-pager-prev');
+        var nextBtn = document.getElementById('domain-pager-next');
+        if (pager) {
+            pager.setAttribute('data-total', total);
+            pager.setAttribute('data-page', page);
+            pager.setAttribute('data-per-page', perPage);
+            pager.setAttribute('data-total-pages', totalPages);
+        }
+        if (pageInput) pageInput.value = page;
+        if (sortInput) sortInput.value = sortSt;
+        if (summary) {
+            var start = total ? (page - 1) * perPage + 1 : 0;
+            var end = total ? Math.min(page * perPage, total) : 0;
+            summary.textContent = 'Showing ' + start + '–' + end + ' of ' + total + ' events';
+        }
+        if (iconEl) {
+            iconEl.innerHTML = sortSt === 'desc' ? '<i class="fa-solid fa-sort-down" aria-hidden="true"></i>' : '<i class="fa-solid fa-sort-up" aria-hidden="true"></i>';
+        }
+        if (prevBtn) prevBtn.disabled = page <= 1;
+        if (nextBtn) nextBtn.disabled = page >= totalPages;
+    });
 
     // ── Click-to-filter shortcut (click sport/category/competition in table) ─────
     document.addEventListener('click', function (e) {

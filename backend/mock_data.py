@@ -8,6 +8,13 @@ from datetime import datetime, timezone
 BASE_DIR = Path(__file__).resolve().parent.parent
 MOCK_DIR = BASE_DIR / "designs" / "feed_json_examples"
 
+# When feed_data/bet365.json exists (pulled from API), use it instead of feed_json_examples/bet365.json
+try:
+    from backend import config
+    FEED_DATA_DIR = getattr(config, "FEED_DATA_DIR", None)
+except Exception:
+    FEED_DATA_DIR = None
+
 # We'll use this list to store all loaded events
 LOADED_EVENTS = []
 
@@ -122,7 +129,28 @@ def parse_bwin(file_path):
     
     events = []
     for item in data.get("results", []):
+        # Bwin: outright from IsOutright, event-level category/templateCategory, or any Market category "Outrights"
         is_outright = item.get("IsOutright", False)
+        if not is_outright:
+            cat = (item.get("category") or item.get("Category") or "").strip()
+            if not cat:
+                tc = item.get("templateCategory") or {}
+                cat = (tc.get("category") or tc.get("Category") or "").strip()
+            is_outright = cat.lower() == "outrights"
+        if not is_outright:
+            for m in item.get("Markets") or []:
+                mc = (m.get("category") or m.get("Category") or "").strip().lower()
+                if mc == "outrights":
+                    is_outright = True
+                    break
+                mtc = m.get("templateCategory") or {}
+                mtc_cat = (mtc.get("category") or mtc.get("Category") or "").strip().lower()
+                if mtc_cat == "outrights":
+                    is_outright = True
+                    break
+                if any((str(x) or "").strip().lower() == "outrights" for x in (mtc.get("dynamicCategories") or [])):
+                    is_outright = True
+                    break
         market_name = None
         is_mainbook = False
         
@@ -206,34 +234,43 @@ def parse_unified(file_path, provider):
         except (ValueError, TypeError):
             start_time = "—"
             
-        home = item.get("home", {})
-        away = item.get("away", {})
-        league = item.get("league", {})
+        home = item.get("home") or {}
+        away = item.get("away") if item.get("away") is not None else {}
+        league = item.get("league") or {}
         league_id = league.get("id")
-        # Category for unified feeds: use league id, present/store as COMP:<league_id>
         comp_category_id = ("COMP:" + str(league_id)) if league_id is not None and str(league_id).strip() else None
-
-        # Feed sends sport_id; display name comes from feed_sports.csv (see main._enrich_feed_events_sport_names).
         sport_id = item.get("sport_id")
+
+        # Bet365: outright when away is null (Horse Racing, Greyhounds, etc.); extra.n = Race #
+        is_outright = False
+        market_name = None
+        if provider == "bet365" and item.get("away") is None:
+            is_outright = True
+            extra = item.get("extra") or {}
+            if isinstance(extra, dict):
+                n_val = extra.get("n")
+                if n_val is not None:
+                    market_name = "Race " + str(n_val).strip()
+
         events.append({
             "feed_provider": provider,
             "valid_id": item.get("id"),
             "domain_id": None,
-            "raw_home_name": home.get("name"),
-            "raw_away_name": away.get("name"),
-            "raw_home_id": home.get("id"),
-            "raw_away_id": away.get("id"),
-            "raw_league_name": league.get("name"),
-            "raw_league_id": league.get("id"),
+            "raw_home_name": home.get("name") if isinstance(home, dict) else "",
+            "raw_away_name": "" if is_outright else (away.get("name") if isinstance(away, dict) else ""),
+            "raw_home_id": str(home["id"]) if isinstance(home, dict) and home.get("id") is not None else None,
+            "raw_away_id": None if is_outright else (str(away["id"]) if isinstance(away, dict) and away.get("id") is not None else None),
+            "raw_league_name": league.get("name") if isinstance(league, dict) else None,
+            "raw_league_id": str(league_id) if league_id is not None else None,
             "category": comp_category_id,
             "category_id": comp_category_id,
             "start_time": start_time,
             "time_status": item.get("time_status", "0"),
-            "sport": None,  # filled from feed_sports.csv in main._enrich_feed_events_sport_names()
-            "sport_id": sport_id if sport_id not in (None, "") else None,  # from feed; used for lookup in feed_sports and entity_feed_mappings
+            "sport": None,
+            "sport_id": sport_id if sport_id not in (None, "") else None,
             "betradar_id": None,
-            "is_outright": False,
-            "market_name": None,
+            "is_outright": is_outright,
+            "market_name": market_name,
             "is_mainbook": False,
             "updated_at": None,
             "mapping_status": "UNMAPPED",
@@ -310,22 +347,91 @@ def parse_b365racing(file_path):
 
 def load_all_mock_data():
     all_events = []
-    
-    # Load bwin
-    bwin_path = MOCK_DIR / "bwin.json"
-    if bwin_path.exists():
-        all_events.extend(parse_bwin(bwin_path))
-        
-    # Load unified feeds
-    unified_feeds = ["bet365", "betfair", "sbobet", "1xbet"]
-    for provider in unified_feeds:
-        provider_path = MOCK_DIR / f"{provider}.json"
-        if provider_path.exists():
-            all_events.extend(parse_unified(provider_path, provider))
 
-    # Bet365 Horse Racing (sport_id 2): outright events; extra.n = Race Number = event name
-    b365racing_path = MOCK_DIR / "b365racing.json"
-    if b365racing_path.exists():
-        all_events.extend(parse_b365racing(b365racing_path))
+    # Bwin: use only feed_data/bwin.json when feed_data dir exists (no fallback to examples if file missing/empty)
+    bwin_loaded_from_stored = False
+    if FEED_DATA_DIR:
+        if (FEED_DATA_DIR / "bwin.json").exists():
+            try:
+                with open(FEED_DATA_DIR / "bwin.json", "r", encoding="utf-8") as f:
+                    bwin_stored = json.load(f)
+                if isinstance(bwin_stored, list):
+                    all_events.extend(bwin_stored)
+                bwin_loaded_from_stored = True
+            except (json.JSONDecodeError, OSError):
+                pass
+        else:
+            # feed_data exists but bwin.json missing (e.g. user deleted it) -> no Bwin events, no fallback
+            bwin_loaded_from_stored = True
+    if not bwin_loaded_from_stored:
+        bwin_path = MOCK_DIR / "bwin.json"
+        if bwin_path.exists():
+            all_events.extend(parse_bwin(bwin_path))
+
+    # Bet365: use only feed_data/bet365.json when feed_data dir exists (no fallback if file missing/empty)
+    bet365_loaded_from_stored = False
+    if FEED_DATA_DIR:
+        if (FEED_DATA_DIR / "bet365.json").exists():
+            try:
+                with open(FEED_DATA_DIR / "bet365.json", "r", encoding="utf-8") as f:
+                    bet365_stored = json.load(f)
+                if isinstance(bet365_stored, list):
+                    all_events.extend(bet365_stored)
+                bet365_loaded_from_stored = True
+            except (json.JSONDecodeError, OSError):
+                bet365_loaded_from_stored = True
+        else:
+            bet365_loaded_from_stored = True  # file missing -> no Bet365 events, no fallback
+    if not bet365_loaded_from_stored:
+        if (MOCK_DIR / "bet365.json").exists():
+            all_events.extend(parse_unified(MOCK_DIR / "bet365.json", "bet365"))
+        b365racing_path = MOCK_DIR / "b365racing.json"
+        if b365racing_path.exists():
+            all_events.extend(parse_b365racing(b365racing_path))
+
+    # Betfair: use pulled data from feed_data/betfair.json when present, else feed_json_examples
+    betfair_loaded_from_stored = False
+    if FEED_DATA_DIR and (FEED_DATA_DIR / "betfair.json").exists():
+        try:
+            with open(FEED_DATA_DIR / "betfair.json", "r", encoding="utf-8") as f:
+                betfair_stored = json.load(f)
+            if isinstance(betfair_stored, list):
+                all_events.extend(betfair_stored)
+                betfair_loaded_from_stored = True
+        except (json.JSONDecodeError, OSError):
+            pass
+    if not betfair_loaded_from_stored:
+        if (MOCK_DIR / "betfair.json").exists():
+            all_events.extend(parse_unified(MOCK_DIR / "betfair.json", "betfair"))
+
+    # Sbobet: use pulled data from feed_data/sbobet.json when present, else feed_json_examples
+    sbobet_loaded_from_stored = False
+    if FEED_DATA_DIR and (FEED_DATA_DIR / "sbobet.json").exists():
+        try:
+            with open(FEED_DATA_DIR / "sbobet.json", "r", encoding="utf-8") as f:
+                sbobet_stored = json.load(f)
+            if isinstance(sbobet_stored, list):
+                all_events.extend(sbobet_stored)
+                sbobet_loaded_from_stored = True
+        except (json.JSONDecodeError, OSError):
+            pass
+    if not sbobet_loaded_from_stored:
+        if (MOCK_DIR / "sbobet.json").exists():
+            all_events.extend(parse_unified(MOCK_DIR / "sbobet.json", "sbobet"))
+
+    # 1xbet: use pulled data from feed_data/1xbet.json when present, else feed_json_examples
+    onexbet_loaded_from_stored = False
+    if FEED_DATA_DIR and (FEED_DATA_DIR / "1xbet.json").exists():
+        try:
+            with open(FEED_DATA_DIR / "1xbet.json", "r", encoding="utf-8") as f:
+                onexbet_stored = json.load(f)
+            if isinstance(onexbet_stored, list):
+                all_events.extend(onexbet_stored)
+                onexbet_loaded_from_stored = True
+        except (json.JSONDecodeError, OSError):
+            pass
+    if not onexbet_loaded_from_stored:
+        if (MOCK_DIR / "1xbet.json").exists():
+            all_events.extend(parse_unified(MOCK_DIR / "1xbet.json", "1xbet"))
 
     return all_events

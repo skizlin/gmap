@@ -1,3 +1,6 @@
 domain_id,sport,category,competition,home,home_id,away,away_id,start_time
 G-51789ABA,Football,Argentina,Liga Profesional de Futbol,San Lorenzo,1,Instituto De Cordoba,2,2026-02-24 22:15:00
 G-9CA1237C,Football,Barbados,BFA Premier League,St. Andrew Lions,4,Ellerton FC,3,2026-02-24 23:00:00
+G-022E7736,Football,International,UEFA Champions League,Bayer Leverkusen,5,Arsenal FC,6,2026-03-11 17:45:00
+G-964DA536,Basketball,Brazil,Brazil NBB,Caxias do Sul,7,Vasco da Gama,8,2026-03-11 22:30:00
+G-E6FDF496,Cricket,Australia,NCL Women,Queensland (W),9,Victoria (W),10,2026-03-11 23:30:00

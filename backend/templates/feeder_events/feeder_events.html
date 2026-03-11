@@ -54,7 +54,8 @@
         <div class="relative">
             <select id="feed-filter" name="feed_provider" hx-get="/feeder-events/table" hx-target="#feeder-events-body"
                 hx-swap="innerHTML" hx-trigger="change"
-                hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q']"
+                hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']"
+                onchange="document.getElementById('feeder-page-input').value = '1';"
                 class="bg-slate-900 text-white text-xs rounded border border-secondary/60 px-3 py-1.5 pr-7 appearance-none ring-1 ring-secondary/30">
                 {% for feed in feeds %}
                 <option value="{{ feed }}" {% if feed==selected_feed %}selected{% endif %}>{{ feed }}</option>
@@ -199,7 +200,7 @@
                 <i class="fa-solid fa-circle-dot text-slate-400 text-[10px]"></i>
                 <span id="feeder-status-label">
                     {% if not selected_statuses %}All Statuses
-                    {% elif selected_statuses | length == 1 %}{{ selected_statuses[0] }}
+                    {% elif selected_statuses | length == 1 %}{{ selected_statuses[0] | time_status_description }}
                     {% else %}{{ selected_statuses | length }} Statuses
                     {% endif %}
                 </span>
@@ -207,11 +208,11 @@
             </button>
             <div id="feeder-status-panel"
                 class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-44 py-1 max-h-[240px] overflow-y-auto">
-                {% for st in available_statuses %}
+                {% for code, desc in available_statuses %}
                 <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
-                    <input type="checkbox" name="status_check" value="{{ st | e }}" {% if st in selected_statuses %}checked{% endif %}
+                    <input type="checkbox" name="status_check" value="{{ code | e }}" data-description="{{ desc | e }}" {% if code in selected_statuses %}checked{% endif %}
                         onchange="onFeederStatusChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
-                    <span class="text-xs text-slate-300">{{ st }}</span>
+                    <span class="text-xs text-slate-300">{{ desc }}</span>
                 </label>
                 {% endfor %}
             </div>
@@ -265,9 +266,14 @@
             <input type="text" id="search-input" name="q" placeholder="Sport, category, competition, event…"
                 hx-get="/feeder-events/table" hx-target="#feeder-events-body" hx-swap="innerHTML"
                 hx-trigger="input changed delay:350ms"
-                hx-include="[name='feed_provider'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter']"
+                hx-include="[name='feed_provider'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='sort_start_time'],[name='page'],[name='per_page']"
                 class="bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full">
         </div>
+
+        <!-- Sort + paging (included in table reload) -->
+        <input type="hidden" name="sort_start_time" id="feeder-sort-start-time" value="{{ feeder_sort_start_time | default('asc') }}">
+        <input type="hidden" name="page" id="feeder-page-input" value="{{ feeder_page | default(1) }}">
+        <input type="hidden" name="per_page" id="feeder-per-page-input" value="{{ feeder_per_page | default(50) }}">
     </div>
 
     <!-- Active filter badges -->
@@ -287,7 +293,19 @@
                         <th class="px-3 py-2 font-semibold">Feed Source</th>
                         <th class="px-3 py-2 font-semibold">Feed ID</th>
                         <th class="px-3 py-2 font-semibold">ID / Status</th>
-                        <th class="px-3 py-2 font-semibold">Start Time</th>
+                        <th class="px-3 py-2 font-semibold">
+                            <button type="button" id="feeder-sort-start-time-btn" class="inline-flex items-center gap-1 text-left hover:text-white transition-colors"
+                                title="Sort by start time (click to toggle)">
+                                Start Time
+                                <span id="feeder-sort-start-time-icon" class="text-slate-500">
+                                    {% if (feeder_sort_start_time | default('asc')) == 'desc' %}
+                                    <i class="fa-solid fa-sort-down" aria-hidden="true"></i>
+                                    {% else %}
+                                    <i class="fa-solid fa-sort-up" aria-hidden="true"></i>
+                                    {% endif %}
+                                </span>
+                            </button>
+                        </th>
                         <th class="px-3 py-2 font-semibold">Sport</th>
                         <th class="px-3 py-2 font-semibold">Category</th>
                         <th class="px-3 py-2 font-semibold">Competition</th>
@@ -300,7 +318,7 @@
                 </thead>
                 <tbody id="feeder-events-body" class="divide-y divide-slate-700/40 text-xs"
                     hx-get="/feeder-events/table" hx-trigger="reload" hx-swap="innerHTML"
-                    hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q']">
+                    hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']">
                     {% include 'feeder_events/_rows.html' %}
                 </tbody>
 
@@ -308,15 +326,24 @@
         </div>
 
         <!-- Pagination -->
-        <div
-            class="px-4 py-2 bg-slate-900/50 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500 flex-shrink-0">
+        <div id="feeder-events-pager"
+            class="px-4 py-2 bg-slate-900/50 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500 flex-shrink-0"
+            data-total="{{ feeder_total_events | default(0) }}"
+            data-page="{{ feeder_page | default(1) }}"
+            data-per-page="{{ feeder_per_page | default(50) }}"
+            data-total-pages="{{ feeder_total_pages | default(1) }}">
             <div class="flex items-center gap-3">
                 <button type="button" class="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 border border-slate-600" disabled title="Bulk update – coming soon">Bulk Update</button>
-                <span>Showing {{ events|length }} events</span>
+                <span id="feeder-pager-summary">
+                    {% set fe_total = feeder_total_events | default(0) %}
+                    {% set fe_start = (feeder_page - 1) * feeder_per_page + 1 if fe_total else 0 %}
+                    {% set fe_end = [feeder_page * feeder_per_page, fe_total] | min if fe_total else 0 %}
+                    Showing {{ fe_start }}–{{ fe_end }} of {{ fe_total }} events
+                </span>
             </div>
             <div class="flex space-x-2">
-                <button class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700">Previous</button>
-                <button class="px-3 py-1 bg-slate-800 rounded hover:bg-slate-700">Next</button>
+                <button type="button" id="feeder-pager-prev" class="feeder-pager-btn px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-200 border border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed" {% if feeder_page <= 1 %}disabled{% endif %}>Previous</button>
+                <button type="button" id="feeder-pager-next" class="feeder-pager-btn px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-200 border border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed" {% if feeder_page >= feeder_total_pages %}disabled{% endif %}>Next</button>
             </div>
         </div>
     </div>
@@ -525,8 +552,10 @@
         const label = document.getElementById('feeder-status-label');
         if (!label) return;
         if (selected.length === 0) label.textContent = 'All Statuses';
-        else if (selected.length === 1) label.textContent = selected[0];
-        else label.textContent = selected.length + ' Statuses';
+        else if (selected.length === 1) {
+            const cb = document.querySelector('#feeder-status-panel input[name="status_check"][value="' + String(selected[0]).replace(/"/g, '&quot;') + '"]');
+            label.textContent = cb && cb.getAttribute('data-description') ? cb.getAttribute('data-description') : selected[0];
+        } else label.textContent = selected.length + ' Statuses';
     }
 
     function onFeederStatusChange() {
@@ -884,5 +913,65 @@
     });
 
     document.addEventListener('DOMContentLoaded', updateFeederBulkSelectHeader);
+
+    // ── Start Time sort (click header to toggle asc/desc) ─────────────────────
+    document.getElementById('feeder-sort-start-time-btn')?.addEventListener('click', function () {
+        var input = document.getElementById('feeder-sort-start-time');
+        if (!input) return;
+        input.value = input.value === 'desc' ? 'asc' : 'desc';
+        document.getElementById('feeder-page-input').value = '1';
+        triggerTableRefresh();
+    });
+
+    // ── Pager: Previous / Next ───────────────────────────────────────────────
+    document.getElementById('feeder-pager-prev')?.addEventListener('click', function () {
+        if (this.disabled) return;
+        var input = document.getElementById('feeder-page-input');
+        var p = parseInt(input.value, 10) || 1;
+        if (p > 1) { input.value = p - 1; triggerTableRefresh(); }
+    });
+    document.getElementById('feeder-pager-next')?.addEventListener('click', function () {
+        if (this.disabled) return;
+        var input = document.getElementById('feeder-page-input');
+        var pager = document.getElementById('feeder-events-pager');
+        var totalPages = pager ? parseInt(pager.getAttribute('data-total-pages'), 10) || 1 : 1;
+        var p = parseInt(input.value, 10) || 1;
+        if (p < totalPages) { input.value = p + 1; triggerTableRefresh(); }
+    });
+
+    // ── HX-Trigger feederPager: update pager display after table load ─────────
+    document.body.addEventListener('feederPager', function (evt) {
+        var d = evt.detail || {};
+        var total = d.total_events ?? 0;
+        var page = d.page ?? 1;
+        var perPage = d.per_page ?? 50;
+        var totalPages = d.total_pages ?? 1;
+        var sortDir = d.sort_start_time || 'asc';
+        var pager = document.getElementById('feeder-events-pager');
+        var summary = document.getElementById('feeder-pager-summary');
+        var pageInput = document.getElementById('feeder-page-input');
+        var sortInput = document.getElementById('feeder-sort-start-time');
+        var iconEl = document.getElementById('feeder-sort-start-time-icon');
+        var prevBtn = document.getElementById('feeder-pager-prev');
+        var nextBtn = document.getElementById('feeder-pager-next');
+        if (pager) {
+            pager.setAttribute('data-total', total);
+            pager.setAttribute('data-page', page);
+            pager.setAttribute('data-per-page', perPage);
+            pager.setAttribute('data-total-pages', totalPages);
+        }
+        if (pageInput) pageInput.value = page;
+        if (sortInput) sortInput.value = sortDir;
+        if (summary) {
+            var start = total ? (page - 1) * perPage + 1 : 0;
+            var end = total ? Math.min(page * perPage, total) : 0;
+            summary.textContent = 'Showing ' + start + '–' + end + ' of ' + total + ' events';
+        }
+        if (iconEl) {
+            iconEl.innerHTML = sortDir === 'desc' ? '<i class="fa-solid fa-sort-down" aria-hidden="true"></i>' : '<i class="fa-solid fa-sort-up" aria-hidden="true"></i>';
+        }
+        if (prevBtn) prevBtn.disabled = page <= 1;
+        if (nextBtn) nextBtn.disabled = page >= totalPages;
+    });
 </script>
 {% endblock %}

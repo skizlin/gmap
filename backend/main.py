@@ -4,6 +4,8 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import json
+import os
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -18,7 +20,12 @@ STATIC_DIR = config.STATIC_DIR
 DATA_DIR = config.DATA_DIR
 PROJECT_ROOT = config.PROJECT_ROOT
 FEED_JSON_DIR = config.FEED_JSON_DIR
+FEED_DATA_DIR = config.FEED_DATA_DIR
 DATA_COUNTRIES_DIR = config.DATA_COUNTRIES_DIR
+
+# Feed pull module uses this for stored feed data (e.g. bet365 from API)
+from backend import feed_pull
+feed_pull.FEED_DATA_DIR = FEED_DATA_DIR
 DATA_MARKETS_DIR = config.DATA_MARKETS_DIR
 COUNTRY_CODE_NONE = config.COUNTRY_CODE_NONE
 
@@ -50,6 +57,8 @@ BRANDS_PATH = config.BRANDS_PATH
 PARTNERS_PATH = config.PARTNERS_PATH
 _PARTNERS_FIELDS = config.PARTNERS_FIELDS
 FEED_SPORTS_PATH = config.FEED_SPORTS_PATH
+FEED_TIME_STATUSES_PATH = getattr(config, "FEED_TIME_STATUSES_PATH", None) or (config.DATA_DIR / "feed_time_statuses.csv")
+FEED_LAST_PULL_PATH = getattr(config, "FEED_LAST_PULL_PATH", None) or (config.DATA_DIR / "feed_last_pull.csv")
 FEEDER_CONFIG_PATH = config.FEEDER_CONFIG_PATH
 FEEDER_INCIDENTS_PATH = config.FEEDER_INCIDENTS_PATH
 FEEDER_EVENT_NOTES_PATH = config.FEEDER_EVENT_NOTES_PATH
@@ -130,6 +139,22 @@ def _parse_start_time(s: str | None) -> datetime | None:
     return None
 
 
+def _feeder_event_start_time_sort_key(e: dict, ascending: bool) -> tuple:
+    """Sort key for feeder events by start_time. Valid times sorted by dt; invalid/empty always at end."""
+    dt = _parse_start_time(e.get("start_time"))
+    if dt is not None:
+        return (0, dt) if ascending else (0, -dt.timestamp())
+    return (1, 0)  # invalid/missing at end in both directions
+
+
+def _domain_event_start_time_sort_key(ev: dict, ascending: bool) -> tuple:
+    """Sort key for domain events by start_time. Same semantics as feeder (valid first, invalid at end)."""
+    dt = _parse_start_time(ev.get("start_time"))
+    if dt is not None:
+        return (0, dt) if ascending else (0, -dt.timestamp())
+    return (1, 0)
+
+
 def _format_start_time(s: str | None) -> str:
     """Format start_time for display (DD/MM/YYYY HH:mm). Returns '' if invalid."""
     dt = _parse_start_time(s)
@@ -144,6 +169,8 @@ def _start_time_past(s: str | None) -> bool:
 
 templates.env.filters["format_start_time"] = lambda s: _format_start_time(s)
 templates.env.filters["start_time_past"] = lambda s: _start_time_past(s)
+
+
 
 
 def _format_entity_date(s: str | None) -> str:
@@ -2571,6 +2598,179 @@ async def dashboard(request: Request):
     })
 
 
+def _load_feed_last_pulls() -> dict[tuple[str, str], str]:
+    """Load feed_last_pull.csv into a dict (feed_provider, feed_sport_id) -> last_pull_at (ISO string)."""
+    path = FEED_LAST_PULL_PATH
+    out: dict[tuple[str, str], str] = {}
+    if not path.exists():
+        return out
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            feed = (row.get("feed_provider") or "").strip().lower()
+            sport_id = (row.get("feed_sport_id") or "").strip()
+            at = (row.get("last_pull_at") or "").strip()
+            if feed and at:
+                out[(feed, sport_id)] = at
+    return out
+
+
+def _format_last_pull(iso_str: str | None) -> str:
+    """Format ISO last_pull_at for display (e.g. 25 Feb 2025, 14:30). Returns '—' if missing."""
+    if not iso_str or not iso_str.strip():
+        return "—"
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        return dt.strftime("%d %b %Y, %H:%M")
+    except (ValueError, TypeError):
+        return "—"
+
+
+def _save_feed_last_pull(feed_provider: str, feed_sport_id: str) -> None:
+    """Record last pull time for (feed_provider, feed_sport_id) in feed_last_pull.csv."""
+    path = FEED_LAST_PULL_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc).isoformat()
+    feed_key = (feed_provider or "").strip().lower()
+    sport_key = (feed_sport_id or "").strip()
+    fieldnames = ["feed_provider", "feed_sport_id", "last_pull_at"]
+    key_to_row: dict[tuple[str, str], dict[str, str]] = {}
+    if path.exists():
+        with open(path, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                k = ((row.get("feed_provider") or "").strip().lower(), (row.get("feed_sport_id") or "").strip())
+                key_to_row[k] = {fn: row.get(fn, "") for fn in fieldnames}
+    key_to_row[(feed_key, sport_key)] = {
+        "feed_provider": feed_key,
+        "feed_sport_id": sport_key,
+        "last_pull_at": now,
+    }
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        w.writerows(key_to_row.values())
+
+
+@app.get("/pull-feeds", response_class=HTMLResponse)
+async def pull_feeds_view(request: Request):
+    """Pull Feeds Data screen: manually pull fresh data from each feed (Bet365/Betfair per-sport, Bwin all sports)."""
+    rows = _load_feed_sports_rows()
+    last_pulls = _load_feed_last_pulls()
+    bet365_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "bet365"]
+    betfair_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "betfair"]
+    sbobet_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "sbobet"]
+    onexbet_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "1xbet"]
+    bwin_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "bwin"]
+    for s in bet365_sports:
+        s["last_pull"] = _format_last_pull(last_pulls.get(("bet365", (s.get("feed_sport_id") or "").strip())))
+    for s in betfair_sports:
+        s["last_pull"] = _format_last_pull(last_pulls.get(("betfair", (s.get("feed_sport_id") or "").strip())))
+    for s in sbobet_sports:
+        s["last_pull"] = _format_last_pull(last_pulls.get(("sbobet", (s.get("feed_sport_id") or "").strip())))
+    for s in onexbet_sports:
+        s["last_pull"] = _format_last_pull(last_pulls.get(("1xbet", (s.get("feed_sport_id") or "").strip())))
+    for s in bwin_sports:
+        s["last_pull"] = _format_last_pull(last_pulls.get(("bwin", (s.get("feed_sport_id") or "").strip())))
+    return templates.TemplateResponse("pull_feeds.html", {
+        "request": request,
+        "section": "pull_feeds",
+        "bet365_sports": bet365_sports,
+        "betfair_sports": betfair_sports,
+        "sbobet_sports": sbobet_sports,
+        "onexbet_sports": onexbet_sports,
+        "bwin_sports": bwin_sports,
+    })
+
+
+@app.post("/api/pull-feed")
+async def api_pull_feed(
+    feed_provider: str = Form(...),
+    feed_sport_id: str = Form(""),
+    feed_sport_name: str = Form(""),
+    api_token: str = Form(""),
+):
+    """
+    Pull upcoming/prematch events from a feed. Bet365: per-sport (feed_sport_id required). Bwin: all sports, no sport param.
+    API key from request only (not stored). Reloads DUMMY_EVENTS after successful pull.
+    """
+    from fastapi import HTTPException
+    feed_provider = (feed_provider or "").strip().lower()
+    feed_sport_id = (feed_sport_id or "").strip()
+    feed_sport_name = (feed_sport_name or "").strip()
+    token = (api_token or "").strip()
+
+    if feed_provider == "bet365":
+        if not feed_sport_id:
+            raise HTTPException(status_code=400, detail="feed_sport_id is required for Bet365.")
+        if not token:
+            return {"ok": False, "added": 0, "skipped": 0, "total": 0, "error": "Please enter API key"}
+        if not feed_sport_name:
+            for r in _load_feed_sports_rows():
+                if (r.get("feed_provider") or "").strip().lower() == "bet365" and (r.get("feed_sport_id") or "").strip() == feed_sport_id:
+                    feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
+                    break
+            feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
+        result = feed_pull.pull_bet365_sport(feed_sport_id, feed_sport_name, token)
+    elif feed_provider == "betfair":
+        if not feed_sport_id:
+            raise HTTPException(status_code=400, detail="feed_sport_id is required for Betfair.")
+        if not token:
+            return {"ok": False, "added": 0, "skipped": 0, "total": 0, "error": "Please enter API key"}
+        if not feed_sport_name:
+            for r in _load_feed_sports_rows():
+                if (r.get("feed_provider") or "").strip().lower() == "betfair" and (r.get("feed_sport_id") or "").strip() == feed_sport_id:
+                    feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
+                    break
+            feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
+        result = feed_pull.pull_betfair_sport(feed_sport_id, feed_sport_name, token)
+    elif feed_provider == "sbobet":
+        if not feed_sport_id:
+            raise HTTPException(status_code=400, detail="feed_sport_id is required for Sbobet.")
+        if not token:
+            return {"ok": False, "added": 0, "skipped": 0, "total": 0, "error": "Please enter API key"}
+        if not feed_sport_name:
+            for r in _load_feed_sports_rows():
+                if (r.get("feed_provider") or "").strip().lower() == "sbobet" and (r.get("feed_sport_id") or "").strip() == feed_sport_id:
+                    feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
+                    break
+            feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
+        result = feed_pull.pull_sbobet_sport(feed_sport_id, feed_sport_name, token)
+    elif feed_provider == "1xbet":
+        if not feed_sport_id:
+            raise HTTPException(status_code=400, detail="feed_sport_id is required for 1xbet.")
+        if not token:
+            return {"ok": False, "added": 0, "skipped": 0, "total": 0, "error": "Please enter API key"}
+        if not feed_sport_name:
+            for r in _load_feed_sports_rows():
+                if (r.get("feed_provider") or "").strip().lower() == "1xbet" and (r.get("feed_sport_id") or "").strip() == feed_sport_id:
+                    feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
+                    break
+            feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
+        result = feed_pull.pull_1xbet_sport(feed_sport_id, feed_sport_name, token)
+    elif feed_provider == "bwin":
+        if not feed_sport_id:
+            raise HTTPException(status_code=400, detail="feed_sport_id is required for Bwin.")
+        if not token:
+            return {"ok": False, "added": 0, "updated": 0, "total": 0, "error": "Please enter API key"}
+        if not feed_sport_name:
+            for r in _load_feed_sports_rows():
+                if (r.get("feed_provider") or "").strip().lower() == "bwin" and (r.get("feed_sport_id") or "").strip() == feed_sport_id:
+                    feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
+                    break
+            feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
+        result = feed_pull.pull_bwin_sport(feed_sport_id, feed_sport_name, token)
+    else:
+        raise HTTPException(status_code=400, detail="Only bet365, betfair, sbobet, 1xbet and bwin are supported.")
+
+    if result.get("ok"):
+        _save_feed_last_pull(feed_provider, feed_sport_id)
+        result["last_pull_display"] = _format_last_pull(datetime.now(timezone.utc).isoformat())
+        global DUMMY_EVENTS
+        DUMMY_EVENTS = load_all_mock_data()
+        _enrich_feed_events_sport_names()
+    return result
+
+
 @app.post("/api/dump-csv-data", response_class=HTMLResponse)
 async def dump_csv_data(request: Request):
     """
@@ -2623,7 +2823,65 @@ def _feeder_competitions(feed: str, sports: list[str] | None, categories: list[s
     })
 
 
-FEEDER_EVENT_STATUSES = ["Open", "Closed", "Resulted", "Cancelled", "Abandoned"]
+# time_status: codes from feed_time_statuses.csv; display description. If feed does not return status, show "—".
+FEEDER_TIME_STATUS_MAP: dict[str, str] = {}
+FEEDER_TIME_STATUS_OPTIONS: list[tuple[str, str]] = []
+
+
+def _load_feed_time_statuses() -> None:
+    """Load feed_time_statuses.csv into FEEDER_TIME_STATUS_MAP and FEEDER_TIME_STATUS_OPTIONS. Create file with defaults if missing."""
+    global FEEDER_TIME_STATUS_MAP, FEEDER_TIME_STATUS_OPTIONS
+    default_rows = [
+        ("0", "Not Started"),
+        ("1", "InPlay"),
+        ("2", "TO BE FIXED"),
+        ("3", "Ended"),
+        ("4", "Postponed"),
+        ("5", "Cancelled"),
+        ("6", "Walkover"),
+        ("7", "Interrupted"),
+        ("8", "Abandoned"),
+        ("9", "Retired"),
+        ("10", "Suspended"),
+        ("11", "Decided by FA"),
+        ("12", "Disqualified"),
+        ("99", "Removed"),
+    ]
+    path = FEED_TIME_STATUSES_PATH
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            f.write("code,description\n")
+            for code, desc in default_rows:
+                f.write(f"{code},{desc}\n")
+    FEEDER_TIME_STATUS_MAP = {}
+    FEEDER_TIME_STATUS_OPTIONS = [("", "—")]
+    with open(path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            code = (row.get("code") or "").strip()
+            desc = (row.get("description") or "").strip()
+            if code != "" or desc != "":
+                FEEDER_TIME_STATUS_MAP[code] = desc or "—"
+                FEEDER_TIME_STATUS_OPTIONS.append((code, desc or "—"))
+    # Ensure standard codes exist if CSV was edited and missing some
+    for code, desc in default_rows:
+        if code not in FEEDER_TIME_STATUS_MAP:
+            FEEDER_TIME_STATUS_MAP[code] = desc
+            FEEDER_TIME_STATUS_OPTIONS.append((code, desc))
+
+
+def _time_status_description(code) -> str:
+    """Map time_status code from feed to display label. Missing/unknown -> '—'."""
+    if code is None or (isinstance(code, str) and code.strip() == ""):
+        return "—"
+    return FEEDER_TIME_STATUS_MAP.get(str(code).strip(), "—")
+
+
+# Load time statuses at import so filter and views have data
+_load_feed_time_statuses()
+# Legacy alias for any code that referenced the old list of status labels
+FEEDER_EVENT_STATUSES = [desc for _code, desc in FEEDER_TIME_STATUS_OPTIONS if _code]
+templates.env.filters["time_status_description"] = _time_status_description
 
 # Platform notes: categorized by entity_type; multiple notes per entity. entity_ref identifies the entity within that type.
 # Example types: feeder_event (ref=feed_provider|feed_valid_id), domain_event (ref=domain_id), competition (ref=competition_id).
@@ -2977,12 +3235,25 @@ async def feeder_events_view(
         filtered = [e for e in filtered if _feeder_competition_key(e) in selected_competitions]
     if selected_statuses:
         status_set = set(selected_statuses)
-        filtered = [e for e in filtered if (e.get("status") or "Open") in status_set]
+        filtered = [e for e in filtered if str(e.get("time_status") or "") in status_set]
     if live_only_active:
         filtered = [e for e in filtered if (e.get("time_status") or "0") == "1"]
     has_notes = _feeder_notes_has_set()
     if notes_only_active:
         filtered = [e for e in filtered if ((e.get("feed_provider") or "").strip(), (e.get("valid_id") or "").strip()) in has_notes]
+    # Sort by start time and paginate (same logic as feeder_events_table)
+    sort_start_time = (request.query_params.get("sort_start_time") or "asc").strip().lower()
+    if sort_start_time not in ("asc", "desc"):
+        sort_start_time = "asc"
+    sort_asc = sort_start_time != "desc"
+    filtered.sort(key=lambda e: _feeder_event_start_time_sort_key(e, sort_asc))
+    page = max(1, int(request.query_params.get("page") or 1))
+    per_page = max(1, min(int(request.query_params.get("per_page") or FEEDER_EVENTS_PER_PAGE), 500))
+    total_events = len(filtered)
+    total_pages = (total_events + per_page - 1) // per_page if total_events else 1
+    page = max(1, min(page, total_pages))
+    start_idx = (page - 1) * per_page
+    page_events = filtered[start_idx : start_idx + per_page]
     available_categories = _feeder_categories(selected_feed, selected_sports)
     available_competitions = _feeder_competitions(selected_feed, selected_sports, selected_categories if selected_categories else None)
     _mk = lambda etype: {(m["feed_provider_id"], str(m["feed_id"])) for m in ENTITY_FEED_MAPPINGS if m["entity_type"] == etype}
@@ -3003,16 +3274,21 @@ async def feeder_events_view(
         "selected_categories": selected_categories,
         "available_competitions": available_competitions,
         "selected_competitions": selected_competitions,
-        "available_statuses": FEEDER_EVENT_STATUSES,
+        "available_statuses": FEEDER_TIME_STATUS_OPTIONS,
         "selected_statuses": selected_statuses,
         "live_only": "1" if live_only_active else "0",
         "notes_only": "1" if notes_only_active else "0",
-        "events": filtered,
+        "events": page_events,
         "has_notes": has_notes,
         "mapped_sport_feed_ids": mapped_sport_feed_ids,
         "mapped_category_feed_ids": mapped_category_feed_ids,
         "mapped_comp_feed_ids": mapped_comp_feed_ids,
         "mapped_team_feed_ids": mapped_team_feed_ids,
+        "feeder_total_events": total_events,
+        "feeder_page": page,
+        "feeder_per_page": per_page,
+        "feeder_total_pages": total_pages,
+        "feeder_sort_start_time": sort_start_time,
     })
 
 @app.get("/feeder-events/sport-options", response_class=HTMLResponse)
@@ -3030,6 +3306,10 @@ async def feeder_events_sport_options(request: Request, feed_provider: str = Non
         "sports": feed_sports
     })
 
+FEEDER_EVENTS_PER_PAGE = 50
+EVENT_NAVIGATOR_PER_PAGE = 50
+
+
 @app.get("/feeder-events/table", response_class=HTMLResponse)
 async def feeder_events_table(
     request: Request,
@@ -3043,10 +3323,13 @@ async def feeder_events_table(
     statuses: List[str] = Query(default=None),
     live_only: str = "0",
     notes_only: str = "0",
+    sort_start_time: str = "asc",
+    page: int = 1,
+    per_page: int = FEEDER_EVENTS_PER_PAGE,
 ):
     """
-    HTMX Endpoint: Returns filtered tbody rows only.
-    Supports: feed, sports, categories, competitions, status, live_only, notes_only, mapping status, outright, text search.
+    HTMX Endpoint: Returns filtered, sorted, and paginated tbody rows.
+    Sort and filters apply to full dataset; then one page is returned. Sends HX-Trigger with pager state.
     """
     _sync_feeder_events_mapping_status()
     _enrich_feed_events_sport_names()
@@ -3078,7 +3361,7 @@ async def feeder_events_table(
             continue
         if competitions and _feeder_competition_key(e) not in competitions:
             continue
-        if statuses and (e.get("status") or "Open") not in statuses:
+        if statuses and str(e.get("time_status") or "") not in statuses:
             continue
         if mapping_status_filter and e["mapping_status"] != mapping_status_filter:
             continue
@@ -3103,7 +3386,18 @@ async def feeder_events_table(
                 continue
         filtered.append(e)
 
-    _ensure_appeared_batch(filtered)
+    # Sort by start time (all data, then paginate)
+    sort_asc = (sort_start_time or "asc").strip().lower() != "desc"
+    filtered.sort(key=lambda e: _feeder_event_start_time_sort_key(e, sort_asc))
+
+    total_events = len(filtered)
+    per_page = max(1, min(per_page, 500))
+    total_pages = (total_events + per_page - 1) // per_page if total_events else 1
+    page = max(1, min(page, total_pages))
+    start_idx = (page - 1) * per_page
+    page_events = filtered[start_idx : start_idx + per_page]
+
+    _ensure_appeared_batch(page_events)
     selected_feed_pid = next((f["domain_id"] for f in FEEDS if (f.get("code") or "").strip().lower() == selected_feed), None)
     has_notes = _feeder_notes_has_set()
     _mk = lambda etype: {(m["feed_provider_id"], str(m["feed_id"])) for m in ENTITY_FEED_MAPPINGS if m["entity_type"] == etype}
@@ -3112,9 +3406,10 @@ async def feeder_events_table(
     mapped_category_feed_ids = _mk("categories")
     mapped_comp_feed_ids    = _mk("competitions")
     mapped_team_feed_ids    = _mk("teams")
-    return templates.TemplateResponse("feeder_events/_rows.html", {
+
+    response = templates.TemplateResponse("feeder_events/_rows.html", {
         "request": request,
-        "events": filtered,
+        "events": page_events,
         "selected_feed_pid": selected_feed_pid,
         "has_notes": has_notes,
         "mapped_sport_feed_ids": mapped_sport_feed_ids,
@@ -3122,6 +3417,16 @@ async def feeder_events_table(
         "mapped_comp_feed_ids": mapped_comp_feed_ids,
         "mapped_team_feed_ids": mapped_team_feed_ids,
     })
+    response.headers["HX-Trigger"] = json.dumps({
+        "feederPager": {
+            "total_events": total_events,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "sort_start_time": "desc" if not sort_asc else "asc",
+        }
+    })
+    return response
 
 
 @app.get("/feeder-events/category-options", response_class=HTMLResponse)
@@ -3292,16 +3597,18 @@ async def event_navigator_view(
     has_bets_only: str | None = None,
     brands: List[str] = Query(default=None),
     q: str | None = None,
+    sort_start_time: str = "asc",
+    page: int = 1,
+    per_page: int = EVENT_NAVIGATOR_PER_PAGE,
 ):
     """
-    Domain Events Table (Golden Copy). Supports filter by date, sport, category, competition, status, live/notes/outright, has_bets, brands, and text search.
+    Domain Events Table (Golden Copy). Supports filter by date, sport, category, competition, status, live/notes/outright, has_bets, brands, text search; sort by start time; paging.
     """
     global DOMAIN_EVENTS
     DOMAIN_EVENTS = _load_domain_events()
     mappings_by_event: dict[str, list[dict]] = {}
     for m in _load_event_mappings():
         mappings_by_event.setdefault(m["domain_event_id"], []).append(m)
-    # Fresh feed events from JSON so edits to bwin.json etc. are picked up without server restart
     feed_events = load_all_mock_data()
     enriched = []
     for ev in DOMAIN_EVENTS:
@@ -3329,10 +3636,27 @@ async def event_navigator_view(
         data = en_notes.get(str(ev.get("id")), {})
         ev["en_note"] = (data.get("note_text") or "").strip()
         ev["has_en_note"] = bool(ev["en_note"])
+    if notes_only == "1":
+        filtered = [ev for ev in filtered if ev.get("has_en_note")]
+    if outright_filter == "outright":
+        filtered = [ev for ev in filtered if not (ev.get("home") or ev.get("away"))]
+    elif outright_filter == "regular":
+        filtered = [ev for ev in filtered if bool(ev.get("home") or ev.get("away"))]
+    sort_st = (sort_start_time or "asc").strip().lower()
+    if sort_st not in ("asc", "desc"):
+        sort_st = "asc"
+    sort_asc = sort_st != "desc"
+    filtered.sort(key=lambda ev: _domain_event_start_time_sort_key(ev, sort_asc))
+    total_events = len(filtered)
+    per_page = max(1, min(per_page, 500))
+    total_pages = (total_events + per_page - 1) // per_page if total_events else 1
+    page = max(1, min(page, total_pages))
+    start_idx = (page - 1) * per_page
+    page_events = filtered[start_idx : start_idx + per_page]
     return templates.TemplateResponse("event_navigator/event_navigator.html", {
         "request": request,
         "section": "domain",
-        "domain_events": filtered,
+        "domain_events": page_events,
         "mappings_by_event": mappings_by_event,
         "sports": domain_sports,
         "selected_sports": selected_sports,
@@ -3350,6 +3674,11 @@ async def event_navigator_view(
         "selected_brands": selected_brands,
         "selected_date": date or "",
         "search_q": q or "",
+        "en_total_events": total_events,
+        "en_page": page,
+        "en_per_page": per_page,
+        "en_total_pages": total_pages,
+        "en_sort_start_time": sort_st,
     })
 
 
@@ -3367,17 +3696,19 @@ async def event_navigator_table(
     has_bets_only: str | None = None,
     brands: List[str] = Query(default=None),
     q: str | None = None,
+    sort_start_time: str = "asc",
+    page: int = 1,
+    per_page: int = EVENT_NAVIGATOR_PER_PAGE,
 ):
     """
-    HTMX Endpoint: Returns filtered domain events table rows only.
-    Supports date, sport, category, competition, status, live/notes/outright, has_bets, brands, and text search.
+    HTMX Endpoint: Returns filtered, sorted, and paginated domain events table rows.
+    Sends HX-Trigger with navigatorPager state.
     """
     global DOMAIN_EVENTS
     DOMAIN_EVENTS = _load_domain_events()
     mappings_by_event: dict[str, list[dict]] = {}
     for m in _load_event_mappings():
         mappings_by_event.setdefault(m["domain_event_id"], []).append(m)
-    # Fresh feed events from JSON so edits to bwin.json etc. are picked up without server restart
     feed_events = load_all_mock_data()
     enriched = []
     for ev in DOMAIN_EVENTS:
@@ -3399,10 +3730,37 @@ async def event_navigator_table(
         data = en_notes.get(str(ev.get("id")), {})
         ev["en_note"] = (data.get("note_text") or "").strip()
         ev["has_en_note"] = bool(ev["en_note"])
-    return templates.TemplateResponse("event_navigator/_rows.html", {
+    if notes_only == "1":
+        filtered = [ev for ev in filtered if ev.get("has_en_note")]
+    if outright_filter == "outright":
+        filtered = [ev for ev in filtered if not (ev.get("home") or ev.get("away"))]
+    elif outright_filter == "regular":
+        filtered = [ev for ev in filtered if bool(ev.get("home") or ev.get("away"))]
+    sort_st = (sort_start_time or "asc").strip().lower()
+    if sort_st not in ("asc", "desc"):
+        sort_st = "asc"
+    sort_asc = sort_st != "desc"
+    filtered.sort(key=lambda ev: _domain_event_start_time_sort_key(ev, sort_asc))
+    total_events = len(filtered)
+    per_page = max(1, min(per_page, 500))
+    total_pages = (total_events + per_page - 1) // per_page if total_events else 1
+    page = max(1, min(page, total_pages))
+    start_idx = (page - 1) * per_page
+    page_events = filtered[start_idx : start_idx + per_page]
+    response = templates.TemplateResponse("event_navigator/_rows.html", {
         "request": request,
-        "domain_events": filtered,
+        "domain_events": page_events,
     })
+    response.headers["HX-Trigger"] = json.dumps({
+        "navigatorPager": {
+            "total_events": total_events,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "sort_start_time": sort_st,
+        }
+    })
+    return response
 
 
 def _markets_by_group() -> list[dict]:

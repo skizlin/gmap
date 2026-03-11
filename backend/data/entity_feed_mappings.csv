@@ -15,3 +15,23 @@ categories,2,2,81,Barbados
 competitions,2,2,102516,BFA Premier League
 teams,4,2,205869,St. Andrew Lions
 teams,3,2,205868,Ellerton FC
+categories,3,3,COMP:10041809,International
+competitions,3,3,10041809,UEFA Champions League
+teams,5,3,10359722,Bayer Leverkusen
+teams,6,3,10359668,Arsenal FC
+categories,3,1,COMP:228,International
+competitions,3,1,228,UEFA Champions League
+teams,5,1,79004,Bayer Leverkusen
+teams,6,1,79695,Arsenal FC
+categories,4,3,COMP:10040097,Brazil
+competitions,4,3,10040097,Brazil NBB
+teams,7,3,10514446,Caxias do Sul
+teams,8,3,10428040,Vasco da Gama
+categories,4,2,33,Brazil
+competitions,4,2,17287,Brazil NBB
+teams,7,2,2725634,Caxias do Sul
+teams,8,2,2742121,Vasco da Gama
+categories,5,3,COMP:10045186,Australia
+competitions,5,3,10045186,NCL Women
+teams,9,3,11335733,Queensland (W)
+teams,10,3,11336769,Victoria (W)

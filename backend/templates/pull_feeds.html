@@ -1,0 +1,307 @@
+{% extends "layout.html" %}
+
+{% block page_heading %}Pull Feeds Data{% endblock %}
+{% block page_description %}Manually pull fresh data from each feed. Bet365: pull upcoming events per sport (API pagination).{% endblock %}
+
+{% block title %}Pull Feeds Data{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full space-y-4">
+    <div class="flex items-center gap-2 text-slate-500 text-sm">
+        <a href="/" class="text-primary hover:text-emerald-400">Dashboard</a>
+        <i class="fa-solid fa-chevron-right text-[10px]"></i>
+        <span class="text-slate-400">Pull Feeds Data</span>
+    </div>
+
+    <div class="glass-panel rounded-lg p-6 space-y-6">
+        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-download text-primary"></i> Pull Feeds Data
+        </h2>
+        <p class="text-slate-400 text-sm max-w-2xl">
+            Pull upcoming/prematch events from feed APIs. New events are added; existing event IDs are skipped. Enter the API key per feed when you want to pull; keys are not stored.
+        </p>
+
+        <!-- Bet365 -->
+        <div class="border border-slate-700/50 rounded-lg overflow-hidden">
+            <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
+                <span class="font-medium text-white">Bet365</span>
+                <span class="text-slate-400 text-sm">Upcoming events per sport (paginated)</span>
+                <label class="flex items-center gap-2 ml-auto">
+                    <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
+                    <input type="password"
+                           id="bet365-api-key"
+                           name="api_token"
+                           placeholder="Enter key to pull"
+                           autocomplete="off"
+                           class="bet365-api-key-input w-48 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-sm text-white placeholder-slate-500 focus:border-primary focus:outline-none">
+                </label>
+            </div>
+            <div class="divide-y divide-slate-700/50">
+                {% for sport in bet365_sports %}
+                <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
+                    <div class="flex items-center gap-3">
+                        <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
+                        <span class="text-slate-500 text-sm">sport_id: {{ sport.feed_sport_id }}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="last-pull-bet365-{{ sport.feed_sport_id }}" class="text-slate-500 text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
+                        <span id="pull-result-{{ sport.feed_sport_id }}" class="pull-result text-sm hidden"></span>
+                        <button type="button"
+                                class="pull-btn inline-flex items-center px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-medium transition-colors"
+                                data-feed="bet365"
+                                data-sport-id="{{ sport.feed_sport_id }}"
+                                data-sport-name="{{ sport.feed_sport_name }}">
+                            <i class="fa-solid fa-download mr-2"></i> Pull
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if not bet365_sports %}
+            <div class="px-4 py-4 text-slate-500 text-sm">
+                No Bet365 sports configured. Add entries in Configuration → Sport–Feed Mappings (feed_sports) for feed_provider <code>bet365</code>.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Betfair -->
+        <div class="border border-slate-700/50 rounded-lg overflow-hidden">
+            <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
+                <span class="font-medium text-white">Betfair</span>
+                <span class="text-slate-400 text-sm">Upcoming events per sport (paginated)</span>
+                <label class="flex items-center gap-2 ml-auto">
+                    <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
+                    <input type="password"
+                           id="betfair-api-key"
+                           name="api_token"
+                           placeholder="Enter key to pull"
+                           autocomplete="off"
+                           class="betfair-api-key-input w-48 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-sm text-white placeholder-slate-500 focus:border-primary focus:outline-none">
+                </label>
+            </div>
+            <div class="divide-y divide-slate-700/50">
+                {% for sport in betfair_sports %}
+                <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
+                    <div class="flex items-center gap-3">
+                        <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
+                        <span class="text-slate-500 text-sm">sport_id: {{ sport.feed_sport_id }}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="last-pull-betfair-{{ sport.feed_sport_id }}" class="text-slate-500 text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
+                        <span id="pull-result-betfair-{{ sport.feed_sport_id }}" class="pull-result text-sm hidden"></span>
+                        <button type="button"
+                                class="pull-btn inline-flex items-center px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-medium transition-colors"
+                                data-feed="betfair"
+                                data-sport-id="{{ sport.feed_sport_id }}"
+                                data-sport-name="{{ sport.feed_sport_name }}">
+                            <i class="fa-solid fa-download mr-2"></i> Pull
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if not betfair_sports %}
+            <div class="px-4 py-4 text-slate-500 text-sm">
+                No Betfair sports configured. Add entries in Configuration → Sport–Feed Mappings (feed_sports) for feed_provider <code>betfair</code>.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sbobet -->
+        <div class="border border-slate-700/50 rounded-lg overflow-hidden">
+            <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
+                <span class="font-medium text-white">Sbobet</span>
+                <span class="text-slate-400 text-sm">Upcoming events (Soccer only, sport_id=1)</span>
+                <label class="flex items-center gap-2 ml-auto">
+                    <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
+                    <input type="password"
+                           id="sbobet-api-key"
+                           name="api_token"
+                           placeholder="Enter key to pull"
+                           autocomplete="off"
+                           class="sbobet-api-key-input w-48 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-sm text-white placeholder-slate-500 focus:border-primary focus:outline-none">
+                </label>
+            </div>
+            <div class="divide-y divide-slate-700/50">
+                {% for sport in sbobet_sports %}
+                <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
+                    <div class="flex items-center gap-3">
+                        <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
+                        <span class="text-slate-500 text-sm">sport_id: {{ sport.feed_sport_id }}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="last-pull-sbobet-{{ sport.feed_sport_id }}" class="text-slate-500 text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
+                        <span id="pull-result-sbobet-{{ sport.feed_sport_id }}" class="pull-result text-sm hidden"></span>
+                        <button type="button"
+                                class="pull-btn inline-flex items-center px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-medium transition-colors"
+                                data-feed="sbobet"
+                                data-sport-id="{{ sport.feed_sport_id }}"
+                                data-sport-name="{{ sport.feed_sport_name }}">
+                            <i class="fa-solid fa-download mr-2"></i> Pull
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if not sbobet_sports %}
+            <div class="px-4 py-4 text-slate-500 text-sm">
+                No Sbobet sports configured. Add entries in Configuration → Sport–Feed Mappings (feed_sports) for feed_provider <code>sbobet</code>.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 1xbet -->
+        <div class="border border-slate-700/50 rounded-lg overflow-hidden">
+            <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
+                <span class="font-medium text-white">1xbet</span>
+                <span class="text-slate-400 text-sm">Upcoming events per sport (paginated)</span>
+                <label class="flex items-center gap-2 ml-auto">
+                    <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
+                    <input type="password"
+                           id="1xbet-api-key"
+                           name="api_token"
+                           placeholder="Enter key to pull"
+                           autocomplete="off"
+                           class="onexbet-api-key-input w-48 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-sm text-white placeholder-slate-500 focus:border-primary focus:outline-none">
+                </label>
+            </div>
+            <div class="divide-y divide-slate-700/50">
+                {% for sport in onexbet_sports %}
+                <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
+                    <div class="flex items-center gap-3">
+                        <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
+                        <span class="text-slate-500 text-sm">sport_id: {{ sport.feed_sport_id }}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="last-pull-1xbet-{{ sport.feed_sport_id }}" class="text-slate-500 text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
+                        <span id="pull-result-1xbet-{{ sport.feed_sport_id }}" class="pull-result text-sm hidden"></span>
+                        <button type="button"
+                                class="pull-btn inline-flex items-center px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-medium transition-colors"
+                                data-feed="1xbet"
+                                data-sport-id="{{ sport.feed_sport_id }}"
+                                data-sport-name="{{ sport.feed_sport_name }}">
+                            <i class="fa-solid fa-download mr-2"></i> Pull
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if not onexbet_sports %}
+            <div class="px-4 py-4 text-slate-500 text-sm">
+                No 1xbet sports configured. Add entries in Configuration → Sport–Feed Mappings (feed_sports) for feed_provider <code>1xbet</code>.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Bwin -->
+        <div class="border border-slate-700/50 rounded-lg overflow-hidden">
+            <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
+                <span class="font-medium text-white">Bwin</span>
+                <span class="text-slate-400 text-sm">Prematch events per sport (100 per page)</span>
+                <label class="flex items-center gap-2 ml-auto">
+                    <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
+                    <input type="password"
+                           id="bwin-api-key"
+                           name="api_token"
+                           placeholder="Enter key to pull"
+                           autocomplete="off"
+                           class="bwin-api-key-input w-48 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-sm text-white placeholder-slate-500 focus:border-primary focus:outline-none">
+                </label>
+            </div>
+            <div class="divide-y divide-slate-700/50">
+                {% for sport in bwin_sports %}
+                <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
+                    <div class="flex items-center gap-3">
+                        <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
+                        <span class="text-slate-500 text-sm">sport_id: {{ sport.feed_sport_id }}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="last-pull-bwin-{{ sport.feed_sport_id }}" class="text-slate-500 text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
+                        <span id="pull-result-bwin-{{ sport.feed_sport_id }}" class="pull-result text-sm hidden"></span>
+                        <button type="button"
+                                class="pull-btn inline-flex items-center px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-medium transition-colors"
+                                data-feed="bwin"
+                                data-sport-id="{{ sport.feed_sport_id }}"
+                                data-sport-name="{{ sport.feed_sport_name }}">
+                            <i class="fa-solid fa-download mr-2"></i> Pull
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if not bwin_sports %}
+            <div class="px-4 py-4 text-slate-500 text-sm">
+                No Bwin sports configured. Add entries in Configuration → Sport–Feed Mappings (feed_sports) for feed_provider <code>bwin</code>.
+            </div>
+            {% endif %}
+        </div>
+
+        <p class="text-slate-500 text-xs italic">
+            All five feeds (Bet365, Betfair, Sbobet, 1xbet, Bwin) are available above.
+        </p>
+    </div>
+</div>
+
+<script>
+(function() {
+    function setResult(resultId, data) {
+        var el = document.getElementById('pull-result-' + resultId);
+        if (!el) return;
+        el.classList.remove('hidden', 'text-red-400', 'text-amber-400', 'text-emerald-400');
+        if (data.error) {
+            el.textContent = 'Error: ' + data.error;
+            el.classList.add('text-red-400');
+        } else {
+            var skipOrUpdate = data.updated !== undefined
+                ? ('Updated: ' + (data.updated || 0))
+                : ('Skipped: ' + (data.skipped || 0));
+            el.textContent = 'Added: ' + (data.added || 0) + ', ' + skipOrUpdate + (data.total ? ' (API total: ' + data.total + ')' : '');
+            el.classList.add('text-emerald-400');
+        }
+        el.classList.remove('hidden');
+    }
+
+    document.body.addEventListener('click', function(e) {
+        var btn = e.target.closest('.pull-btn');
+        if (!btn) return;
+        var feed = btn.getAttribute('data-feed');
+        var sportId = btn.getAttribute('data-sport-id') || '';
+        var sportName = btn.getAttribute('data-sport-name') || '';
+        var resultId = btn.getAttribute('data-result-id') || (feed === 'betfair' ? 'betfair-' + sportId : feed === 'sbobet' ? 'sbobet-' + sportId : feed === '1xbet' ? '1xbet-' + sportId : feed === 'bwin' ? 'bwin-' + sportId : sportId) || feed;
+        var resultEl = document.getElementById('pull-result-' + resultId);
+        if (resultEl) { resultEl.textContent = 'Pulling…'; resultEl.classList.remove('hidden'); resultEl.classList.add('text-slate-400'); }
+
+        var keyId = feed === 'bwin' ? 'bwin-api-key' : feed === 'betfair' ? 'betfair-api-key' : feed === 'sbobet' ? 'sbobet-api-key' : feed === '1xbet' ? '1xbet-api-key' : 'bet365-api-key';
+        var keyInput = document.getElementById(keyId);
+        var token = keyInput ? (keyInput.value || '').trim() : '';
+        if (!token) {
+            setResult(resultId, { error: 'Please enter API key' });
+            return;
+        }
+
+        var form = new FormData();
+        form.append('feed_provider', feed);
+        form.append('feed_sport_id', sportId);
+        form.append('feed_sport_name', sportName);
+        form.append('api_token', token);
+
+        fetch('/api/pull-feed', {
+            method: 'POST',
+            body: form,
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            setResult(resultId, data);
+            if (data.ok && data.last_pull_display) {
+                var lastPullEl = document.getElementById('last-pull-' + feed + '-' + sportId);
+                if (lastPullEl) lastPullEl.textContent = 'Last pull: ' + data.last_pull_display;
+            }
+        })
+        .catch(function(err) {
+            setResult(resultId, { error: err.message || 'Request failed' });
+        });
+    });
+})();
+</script>
+{% endblock %}

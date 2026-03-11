@@ -12,11 +12,13 @@ STATIC_DIR = BASE_DIR / "static"
 DATA_DIR = BASE_DIR / "data"
 PROJECT_ROOT = BASE_DIR.parent
 FEED_JSON_DIR = PROJECT_ROOT / "designs" / "feed_json_examples"
+FEED_DATA_DIR = DATA_DIR / "feed_data"  # Pulled feed events (e.g. bet365 from API); used instead of feed_json_examples when present
 DATA_COUNTRIES_DIR = DATA_DIR / "countries"
 DATA_MARKETS_DIR = DATA_DIR / "markets"
 
 # Ensure data dirs exist (idempotent)
 DATA_DIR.mkdir(exist_ok=True)
+FEED_DATA_DIR.mkdir(exist_ok=True)
 DATA_COUNTRIES_DIR.mkdir(exist_ok=True)
 DATA_MARKETS_DIR.mkdir(exist_ok=True)
 
@@ -75,6 +77,9 @@ PARTNERS_PATH = DATA_DIR / "partners.csv"
 PARTNERS_FIELDS = ["id", "name", "code", "active", "created_at", "updated_at"]
 FEEDS_PATH = DATA_DIR / "feeds.csv"
 FEED_SPORTS_PATH = DATA_DIR / "feed_sports.csv"
+# Time status codes from feeds → display labels (feeder-events Status column and filter)
+FEED_TIME_STATUSES_PATH = DATA_DIR / "feed_time_statuses.csv"
+FEED_LAST_PULL_PATH = DATA_DIR / "feed_last_pull.csv"
 FEEDER_CONFIG_PATH = DATA_DIR / "feeder_config.csv"
 FEEDER_INCIDENTS_PATH = DATA_DIR / "feeder_incidents.csv"
 # Notes: own folder for current and future note CSVs

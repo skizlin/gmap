@@ -96,6 +96,10 @@
             class="inline-flex items-center px-6 py-3 bg-primary hover:bg-emerald-600 text-white rounded-lg transition-all font-medium">
             Go to Mapping Tool <i class="fa-solid fa-arrow-right ml-2"></i>
         </a>
+        <a href="/pull-feeds"
+            class="inline-flex items-center px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-lg transition-all font-medium">
+            <i class="fa-solid fa-download mr-2"></i> Pull Feeds Data
+        </a>
         <form method="post" action="/api/dump-csv-data" class="inline"
             onsubmit="return confirm('This will delete all data in categories, competitions, teams, domain events, event mappings, and entity feed mappings. feeds.csv, sports.csv and sport_feed_mappings.csv will not be changed. Continue?');">
             <button type="submit"

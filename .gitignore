@@ -15,6 +15,7 @@ env/
 # IDE / OS
 .idea/
 .vscode/
+.cursor/
 *.swp
 .DS_Store
 Thumbs.db
@@ -34,3 +35,9 @@ backend/data/rbac/user_roles.csv
 backend/data/rbac/user_brands.csv
 backend/data/rbac/role_permissions.csv
 backend/data/rbac/rbac_audit_log.csv
+
+# Pulled feed data (per-environment; each env pulls from APIs)
+backend/data/feed_data/*.json
+
+# Last-pull timestamps (per-environment)
+backend/data/feed_last_pull.csv
