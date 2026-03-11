@@ -19,6 +19,40 @@ The following files are **not** committed to the repo and are **not** overwritte
 
 ---
 
+## Line-by-line deploy (Docker, gmap.nomaths.com)
+
+SSH into the server, then run these in order (adjust path if yours is not `/var/www/gmap`).
+
+**First-time setup (clone + build + run once):**
+
+1. `cd /var/www`
+2. `git clone https://github.com/skizlin/gmap.git gmap`
+3. `cd gmap`
+4. `git pull origin main`
+5. `docker build -t gmap .`
+6. `docker run -d --name gmap -p 8001:8001 -v /var/www/gmap/backend/data:/app/backend/data --restart unless-stopped gmap`
+7. `docker ps`
+8. `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/`  
+   (expect `200`)
+
+**Every deploy after code changes:**
+
+1. `cd /var/www/gmap`
+2. `git pull origin main`
+3. `docker build -t gmap .`
+4. `docker rm -f gmap`
+5. `docker run -d --name gmap -p 8001:8001 -v /var/www/gmap/backend/data:/app/backend/data --restart unless-stopped gmap`
+6. `docker ps`  
+   (optional: `docker logs gmap` to confirm no errors)
+
+**Useful one-liners:**
+
+- View logs: `docker logs gmap`
+- Stop: `docker stop gmap`
+- Start again: `docker start gmap`
+
+---
+
 ## CSV as "database"
 
 Using CSV files under `backend/data/` is **fine for deployment** in these cases:

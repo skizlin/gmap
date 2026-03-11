@@ -209,3 +209,8 @@ class UpdateRbacRoleRequest(BaseModel):
     permission_codes: Optional[List[str]] = None
 
 
+class UpdateRolePermissionsRequest(BaseModel):
+    """Full set of permission codes for a role (replaces existing)."""
+    permission_codes: List[str]
+
+

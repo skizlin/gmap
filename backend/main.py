@@ -281,6 +281,7 @@ from backend.schemas import (
     AssignUserRolesRequest,
     CreateRbacRoleRequest,
     UpdateRbacRoleRequest,
+    UpdateRolePermissionsRequest,
     CreateMarketGroupRequest,
     MarketTypeMappingItem,
     SaveMarketTypeMappingsRequest,
@@ -4381,6 +4382,23 @@ async def create_rbac_role(body: CreateRbacRoleRequest):
         _save_rbac_role_permissions(perms)
     _rbac_audit_append(None, "role.create", "role", str(next_id), name)
     return {"ok": True, "role_id": next_id}
+
+
+@app.put("/api/rbac/roles/{role_id:int}/permissions")
+async def update_rbac_role_permissions(role_id: int, body: UpdateRolePermissionsRequest):
+    """Replace all permissions for a role. Sends full list (including always-granted)."""
+    from fastapi import HTTPException
+    roles = _load_rbac_roles()
+    if not any(r.get("role_id") == role_id for r in roles):
+        raise HTTPException(status_code=404, detail="Role not found")
+    perms = _load_rbac_role_permissions()
+    perms = [p for p in perms if p["role_id"] != role_id]
+    codes = [c for c in (body.permission_codes or []) if (c or "").strip()]
+    for code in codes:
+        perms.append({"role_id": role_id, "permission_code": code.strip()})
+    _save_rbac_role_permissions(perms)
+    _rbac_audit_append(None, "role.permissions.update", "role", str(role_id), str(len(codes)) + " permissions")
+    return {"ok": True}
 
 
 @app.get("/api/rbac/audit-log")

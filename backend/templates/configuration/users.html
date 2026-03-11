@@ -15,10 +15,20 @@
           <span class="text-[11px] text-slate-400 font-medium min-w-[7rem]">{{ node.label }}</span>
           <div class="rp-tree-perms-row flex items-center gap-2 flex-wrap">
             {% for perm in node.permissions %}
-            <span class="rp-tree-perm inline-flex items-center gap-1 text-xs text-slate-400" data-permission-code="{{ perm.code }}" data-always-granted="{{ 'true' if perm.get('always_granted') else 'false' }}">
-              <span class="rp-perm-icon w-4 flex items-center justify-center text-slate-600 text-[10px]" aria-hidden="true">—</span>
+            {% if perm.get('always_granted') %}
+            <span class="rp-tree-perm rp-always-granted inline-flex items-center gap-1 text-xs text-primary" data-permission-code="{{ perm.code }}" data-always-granted="true">
+              <span class="rp-perm-icon w-4 flex items-center justify-center text-[10px]"><i class="fa-solid fa-lock text-slate-500" title="Always visible"></i></span>
               <span class="rp-perm-label">{{ perm.label }}</span>
             </span>
+            {% else %}
+            <span class="rp-perm-cell inline-flex items-center gap-2">
+              <span class="rp-perm-view inline-flex items-center gap-1 text-xs" data-permission-code="{{ perm.code }}"><span class="rp-perm-icon w-4 flex items-center justify-center text-[10px]"></span><span class="rp-perm-label">{{ perm.label }}</span></span>
+              <label class="rp-perm-edit rp-perm-editable hidden inline-flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer hover:text-slate-300">
+                <input type="checkbox" class="rp-perm-checkbox accent-primary rounded border-slate-600 bg-slate-800 w-3.5 h-3.5" data-permission-code="{{ perm.code }}">
+                <span class="rp-perm-label">{{ perm.label }}</span>
+              </label>
+            </span>
+            {% endif %}
             {% endfor %}
           </div>
         </div>
@@ -31,10 +41,20 @@
       <span class="text-[11px] text-slate-400 font-medium min-w-[7rem]">{{ node.label }}</span>
       <div class="rp-tree-perms-row flex items-center gap-2 flex-wrap">
         {% for perm in node.permissions %}
-        <span class="rp-tree-perm inline-flex items-center gap-1 text-xs text-slate-400" data-permission-code="{{ perm.code }}" data-always-granted="{{ 'true' if perm.get('always_granted') else 'false' }}">
-          <span class="rp-perm-icon w-4 flex items-center justify-center text-slate-600 text-[10px]" aria-hidden="true">—</span>
+        {% if perm.get('always_granted') %}
+        <span class="rp-tree-perm rp-always-granted inline-flex items-center gap-1 text-xs text-primary" data-permission-code="{{ perm.code }}" data-always-granted="true">
+          <span class="rp-perm-icon w-4 flex items-center justify-center text-[10px]"><i class="fa-solid fa-lock text-slate-500" title="Always visible"></i></span>
           <span class="rp-perm-label">{{ perm.label }}</span>
         </span>
+        {% else %}
+        <span class="rp-perm-cell inline-flex items-center gap-2">
+          <span class="rp-perm-view inline-flex items-center gap-1 text-xs" data-permission-code="{{ perm.code }}"><span class="rp-perm-icon w-4 flex items-center justify-center text-[10px]"></span><span class="rp-perm-label">{{ perm.label }}</span></span>
+          <label class="rp-perm-edit rp-perm-editable hidden inline-flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer hover:text-slate-300">
+            <input type="checkbox" class="rp-perm-checkbox accent-primary rounded border-slate-600 bg-slate-800 w-3.5 h-3.5" data-permission-code="{{ perm.code }}">
+            <span class="rp-perm-label">{{ perm.label }}</span>
+          </label>
+        </span>
+        {% endif %}
         {% endfor %}
       </div>
     </div>
@@ -131,30 +151,15 @@
             </form>
             <button type="button" onclick="usersShowAddForm()"
                 class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
-                <i class="fa-solid fa-plus"></i> Add user
+                <i class="fa-solid fa-plus"></i> Add new admin
             </button>
         </div>
         <div id="user-add-form" class="hidden bg-cardbg/80 border border-slate-700 rounded-lg p-5 space-y-4">
-            <h3 class="text-sm font-semibold text-white">Add user</h3>
+            <h3 class="text-sm font-semibold text-white">Add new admin</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Email <span class="text-red-500">*</span></label>
-                    <input type="email" id="user-form-email" placeholder="user@example.com"
-                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
-                </div>
-                <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Login (optional)</label>
-                    <input type="text" id="user-form-login" placeholder="Defaults to email prefix"
-                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Display name</label>
-                    <input type="text" id="user-form-display-name" placeholder="Optional"
-                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
-                </div>
-                <div>
                     <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
-                    <select id="user-form-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <select id="user-form-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary" onchange="filterAddFormRolesByPartner()">
                         <option value="">Platform</option>
                         {% for p in partners %}
                         <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
@@ -166,9 +171,26 @@
                     <select id="user-form-role-ids" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">— None —</option>
                         {% for r in roles %}
-                        <option value="{{ r.role_id }}">{{ r.name }} ({{ r.partner_name | default('Platform') }})</option>
+                        <option value="{{ r.role_id }}" data-partner-id="{{ r.partner_id if r.partner_id is not none else '' }}">{{ r.name }} ({{ r.partner_name | default('Platform') }})</option>
                         {% endfor %}
                     </select>
+                </div>
+                <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Email <span class="text-red-500">*</span></label>
+                        <input type="email" id="user-form-email" placeholder="user@example.com"
+                            class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Login (optional)</label>
+                        <input type="text" id="user-form-login" placeholder="Defaults to email prefix"
+                            class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Display name</label>
+                        <input type="text" id="user-form-display-name" placeholder="Optional"
+                            class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    </div>
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Brands (optional; when partner-scoped)</label>
@@ -181,7 +203,7 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <button type="button" onclick="usersSubmitAdd()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                <button type="button" onclick="usersSubmitAdd()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Create New Admin</button>
                 <button type="button" onclick="usersHideAddForm()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
                 <span id="user-form-status" class="text-xs text-slate-400"></span>
             </div>
@@ -331,12 +353,20 @@
                     </table>
                 </div>
             </div>
-            <!-- Right: Access Rights (tree: pages and view/create/update/delete) -->
+            <!-- Right: Access Rights (tree: assign/edit permissions for selected role) -->
             <div class="flex flex-col bg-cardbg/80 border border-slate-700/50 rounded-lg overflow-hidden min-h-0">
                 <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between shrink-0">
                     <span class="text-sm font-semibold text-slate-200"><i class="fa-solid fa-shield-halved mr-1.5 text-slate-500"></i>Access Rights</span>
+                    <span class="flex items-center gap-1.5">
+                        <button type="button" id="rp-edit-permissions-btn" onclick="rpEnterEditMode()" class="hidden text-xs px-2 py-1 rounded bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit permissions for this role">Edit</button>
+                        <button type="button" id="rp-save-permissions-btn" onclick="rpSaveAccessRights()" class="hidden text-xs px-2 py-1 rounded bg-primary text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed" title="Save permission changes">Save</button>
+                        <button type="button" id="rp-cancel-edit-btn" onclick="rpCancelEditMode()" class="hidden text-xs px-2 py-1 rounded bg-slate-700 text-slate-300 hover:bg-slate-600" title="Cancel editing">Cancel</button>
+                    </span>
                 </div>
-                <div class="px-3 py-1 text-slate-400 text-xs border-b border-slate-700/50" id="rp-perms-role-label">—</div>
+                <div class="px-3 py-1 text-slate-400 text-xs border-b border-slate-700/50 flex items-center justify-between">
+                    <span id="rp-perms-role-label">—</span>
+                    <span id="rp-perms-save-status" class="text-[10px] text-slate-500"></span>
+                </div>
                 <div class="overflow-auto flex-1 min-h-0 p-2" id="rp-permissions-wrap">
                     <div id="rp-permissions-tree" class="text-xs">
                         {{ render_perm_tree(permission_tree) }}
@@ -515,24 +545,30 @@ function selectRole(roleId, roleName, permissionCodes) {
 
     var permSet = {};
     (permissionCodes || []).forEach(function(p) { permSet[p] = true; });
-    document.querySelectorAll('.rp-tree-perm').forEach(function(el) {
-        var code = el.getAttribute('data-permission-code');
-        var icon = el.querySelector('.rp-perm-icon');
-        var alwaysGranted = el.getAttribute('data-always-granted') === 'true';
-        var hasPerm = alwaysGranted || permSet[code];
-        if (hasPerm) {
-            el.classList.add('text-primary');
-            el.classList.toggle('rp-always-granted', alwaysGranted);
-            if (icon) {
-                icon.innerHTML = alwaysGranted
-                    ? '<i class="fa-solid fa-lock text-slate-500" title="Always visible, not configurable"></i>'
-                    : '<i class="fa-solid fa-check text-primary"></i>';
-            }
-        } else {
-            el.classList.remove('text-primary', 'rp-always-granted');
-            if (icon) { icon.textContent = '—'; }
+    document.querySelectorAll('.rp-perm-view').forEach(function(viewEl) {
+        var code = viewEl.getAttribute('data-permission-code');
+        var icon = viewEl.querySelector('.rp-perm-icon');
+        var hasPerm = !!permSet[code];
+        if (icon) {
+            icon.innerHTML = hasPerm
+                ? '<i class="fa-solid fa-check text-primary" aria-hidden="true"></i>'
+                : '<i class="fa-solid fa-times text-slate-500 text-[10px]" aria-hidden="true"></i>';
+        }
+        viewEl.classList.toggle('text-primary', hasPerm);
+        viewEl.classList.toggle('text-slate-500', !hasPerm);
+    });
+    document.querySelectorAll('.rp-perm-checkbox').forEach(function(cb) {
+        var code = cb.getAttribute('data-permission-code');
+        cb.checked = !!permSet[code];
+        var label = cb.closest('.rp-perm-editable');
+        if (label) {
+            if (permSet[code]) label.classList.add('text-primary');
+            else label.classList.remove('text-primary');
         }
     });
+    rpCancelEditMode();
+    var statusEl = document.getElementById('rp-perms-save-status');
+    if (statusEl) statusEl.textContent = '';
 
     var sel = document.getElementById('rp-assign-user');
     if (sel) {
@@ -549,7 +585,113 @@ function selectRole(roleId, roleName, permissionCodes) {
     }
 }
 
+function rpEnterEditMode() {
+    var wrap = document.getElementById('rp-permissions-wrap');
+    if (!wrap) return;
+    wrap.classList.add('rp-edit-mode');
+    document.querySelectorAll('.rp-perm-view').forEach(function(el) { el.classList.add('hidden'); });
+    document.querySelectorAll('.rp-perm-edit').forEach(function(el) { el.classList.remove('hidden'); });
+    var editBtn = document.getElementById('rp-edit-permissions-btn');
+    var saveBtn = document.getElementById('rp-save-permissions-btn');
+    var cancelBtn = document.getElementById('rp-cancel-edit-btn');
+    if (editBtn) editBtn.classList.add('hidden');
+    if (saveBtn) { saveBtn.classList.remove('hidden'); saveBtn.disabled = false; }
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
+    var statusEl = document.getElementById('rp-perms-save-status');
+    if (statusEl) statusEl.textContent = '';
+}
+
+function rpCancelEditMode() {
+    var wrap = document.getElementById('rp-permissions-wrap');
+    if (wrap) wrap.classList.remove('rp-edit-mode');
+    document.querySelectorAll('.rp-perm-view').forEach(function(el) { el.classList.remove('hidden'); });
+    document.querySelectorAll('.rp-perm-edit').forEach(function(el) { el.classList.add('hidden'); });
+    var editBtn = document.getElementById('rp-edit-permissions-btn');
+    var saveBtn = document.getElementById('rp-save-permissions-btn');
+    var cancelBtn = document.getElementById('rp-cancel-edit-btn');
+    if (editBtn) {
+        editBtn.classList.toggle('hidden', !window._rpSelectedRoleId);
+    }
+    if (saveBtn) saveBtn.classList.add('hidden');
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+    var perms = window._rpSelectedPermissions || [];
+    var permSet = {};
+    perms.forEach(function(p) { permSet[p] = true; });
+    document.querySelectorAll('.rp-perm-checkbox').forEach(function(cb) {
+        var code = cb.getAttribute('data-permission-code');
+        cb.checked = !!permSet[code];
+        var label = cb.closest('.rp-perm-editable');
+        if (label) {
+            if (permSet[code]) label.classList.add('text-primary');
+            else label.classList.remove('text-primary');
+        }
+    });
+}
+
+function rpSaveAccessRights() {
+    var roleId = window._rpSelectedRoleId;
+    if (!roleId) return;
+    var codes = [];
+    document.querySelectorAll('.rp-perm-checkbox:checked').forEach(function(cb) {
+        var c = (cb.getAttribute('data-permission-code') || '').trim();
+        if (c) codes.push(c);
+    });
+    document.querySelectorAll('.rp-tree-perm[data-always-granted="true"]').forEach(function(el) {
+        var c = (el.getAttribute('data-permission-code') || '').trim();
+        if (c && codes.indexOf(c) === -1) codes.push(c);
+    });
+    var saveBtn = document.getElementById('rp-save-permissions-btn');
+    var statusEl = document.getElementById('rp-perms-save-status');
+    if (saveBtn) saveBtn.disabled = true;
+    if (statusEl) statusEl.textContent = 'Saving…';
+    fetch('/api/rbac/roles/' + roleId + '/permissions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permission_codes: codes })
+    })
+    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+    .then(function(res) {
+        if (res.ok) {
+            if (statusEl) statusEl.textContent = 'Saved.';
+            window._rpSelectedPermissions = codes;
+            document.querySelectorAll('.rp-perm-view').forEach(function(viewEl) {
+                var code = viewEl.getAttribute('data-permission-code');
+                var icon = viewEl.querySelector('.rp-perm-icon');
+                var hasPerm = codes.indexOf(code) !== -1;
+                if (icon) {
+                    viewEl.classList.toggle('text-primary', hasPerm);
+                    viewEl.classList.toggle('text-slate-500', !hasPerm);
+                    icon.innerHTML = hasPerm
+                        ? '<i class="fa-solid fa-check text-primary" aria-hidden="true"></i>'
+                        : '<i class="fa-solid fa-times text-slate-500 text-[10px]" aria-hidden="true"></i>';
+                }
+            });
+            rpCancelEditMode();
+        } else {
+            if (statusEl) statusEl.textContent = res.data.detail || 'Failed to save';
+        }
+        if (saveBtn) saveBtn.disabled = false;
+    })
+    .catch(function() {
+        if (statusEl) statusEl.textContent = 'Request failed';
+        if (saveBtn) saveBtn.disabled = false;
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Access Rights: checkbox toggle updates label style
+    var permsWrap = document.getElementById('rp-permissions-wrap');
+    if (permsWrap) {
+        permsWrap.addEventListener('change', function(e) {
+            var cb = e.target.closest('.rp-perm-checkbox');
+            if (!cb) return;
+            var label = cb.closest('.rp-perm-editable');
+            if (label) {
+                if (cb.checked) label.classList.add('text-primary');
+                else label.classList.remove('text-primary');
+            }
+        });
+    }
     // Admin filters: status quick selector submits form
     document.body.addEventListener('click', function(e) {
         var btn = e.target.closest('.admin-status-btn');
@@ -711,6 +853,31 @@ function rpUnassignUser(userId) {
     }).catch(function() { alert('Request failed'); });
 }
 
+function filterAddFormRolesByPartner() {
+    var partnerSelect = document.getElementById('user-form-partner-id');
+    var roleSelect = document.getElementById('user-form-role-ids');
+    if (!partnerSelect || !roleSelect) return;
+    var selectedPartner = (partnerSelect.value || '').toString();
+    var selectedRole = roleSelect.value;
+    var options = roleSelect.querySelectorAll('option');
+    var hasVisible = false;
+    options.forEach(function(opt) {
+        if (opt.value === '') {
+            opt.disabled = false;
+            opt.hidden = false;
+            return;
+        }
+        var optPartner = (opt.getAttribute('data-partner-id') || '').toString();
+        var match = (selectedPartner === '' && optPartner === '') || (selectedPartner !== '' && optPartner === selectedPartner);
+        opt.disabled = !match;
+        opt.hidden = !match;
+        if (match) hasVisible = true;
+    });
+    var selectedOpt = roleSelect.querySelector('option[value="' + roleSelect.value + '"]');
+    if (roleSelect.value && selectedOpt && selectedOpt.disabled) {
+        roleSelect.value = '';
+    }
+}
 function usersShowAddForm() {
     document.getElementById('user-add-form').classList.remove('hidden');
     document.getElementById('user-form-email').value = '';
@@ -720,6 +887,7 @@ function usersShowAddForm() {
     document.getElementById('user-form-role-ids').value = '';
     document.getElementById('user-form-brand-ids').selectedIndex = -1;
     document.getElementById('user-form-status').textContent = '';
+    filterAddFormRolesByPartner();
 }
 function usersHideAddForm() { document.getElementById('user-add-form').classList.add('hidden'); }
 function getMultiSelect(sel) { return Array.from(sel.selectedOptions).map(function(o) { return parseInt(o.value, 10); }).filter(function(n) { return !isNaN(n); }); }
