@@ -259,7 +259,7 @@ from fastapi import Query
 from typing import List
 
 # Known feed providers (drives the filter dropdown)
-KNOWN_FEEDS = ["bet365", "betfair", "sbobet", "1xbet", "bwin"]
+KNOWN_FEEDS = ["bet365", "betfair", "1xbet", "bwin"]
 
 # DUMMY DATA FOR PROTOTYPE
 from backend.mock_data import load_all_mock_data
@@ -2844,15 +2844,12 @@ async def pull_feeds_view(request: Request):
     last_pulls = _load_feed_last_pulls()
     bet365_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "bet365"]
     betfair_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "betfair"]
-    sbobet_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "sbobet"]
     onexbet_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "1xbet"]
     bwin_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "bwin"]
     for s in bet365_sports:
         s["last_pull"] = _format_last_pull(last_pulls.get(("bet365", (s.get("feed_sport_id") or "").strip())))
     for s in betfair_sports:
         s["last_pull"] = _format_last_pull(last_pulls.get(("betfair", (s.get("feed_sport_id") or "").strip())))
-    for s in sbobet_sports:
-        s["last_pull"] = _format_last_pull(last_pulls.get(("sbobet", (s.get("feed_sport_id") or "").strip())))
     for s in onexbet_sports:
         s["last_pull"] = _format_last_pull(last_pulls.get(("1xbet", (s.get("feed_sport_id") or "").strip())))
     for s in bwin_sports:
@@ -2862,7 +2859,6 @@ async def pull_feeds_view(request: Request):
         "section": "pull_feeds",
         "bet365_sports": bet365_sports,
         "betfair_sports": betfair_sports,
-        "sbobet_sports": sbobet_sports,
         "onexbet_sports": onexbet_sports,
         "bwin_sports": bwin_sports,
     })
@@ -2909,18 +2905,6 @@ async def api_pull_feed(
                     break
             feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
         result = await feed_pull.pull_betfair_sport(feed_sport_id, feed_sport_name, token)
-    elif feed_provider == "sbobet":
-        if not feed_sport_id:
-            raise HTTPException(status_code=400, detail="feed_sport_id is required for Sbobet.")
-        if not token:
-            return {"ok": False, "added": 0, "skipped": 0, "total": 0, "error": "Please enter API key"}
-        if not feed_sport_name:
-            for r in _load_feed_sports_rows():
-                if (r.get("feed_provider") or "").strip().lower() == "sbobet" and (r.get("feed_sport_id") or "").strip() == feed_sport_id:
-                    feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
-                    break
-            feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
-        result = await feed_pull.pull_sbobet_sport(feed_sport_id, feed_sport_name, token)
     elif feed_provider == "1xbet":
         if not feed_sport_id:
             raise HTTPException(status_code=400, detail="feed_sport_id is required for 1xbet.")
@@ -2946,7 +2930,7 @@ async def api_pull_feed(
             feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
         result = await feed_pull.pull_bwin_sport(feed_sport_id, feed_sport_name, token)
     else:
-        raise HTTPException(status_code=400, detail="Only bet365, betfair, sbobet, 1xbet and bwin are supported.")
+        raise HTTPException(status_code=400, detail="Only bet365, betfair, 1xbet and bwin are supported.")
 
     if result.get("ok"):
         _save_feed_last_pull(feed_provider, feed_sport_id)
@@ -2972,7 +2956,7 @@ async def api_pull_feed_all(
     token = (api_token or "").strip()
     if not token:
         return {"ok": False, "results": [], "error": "Please enter API key"}
-    if feed_provider not in ("bet365", "betfair", "sbobet", "1xbet", "bwin"):
+    if feed_provider not in ("bet365", "betfair", "1xbet", "bwin"):
         raise HTTPException(status_code=400, detail="Unsupported feed.")
     rows = _load_feed_sports_rows()
     sports = [

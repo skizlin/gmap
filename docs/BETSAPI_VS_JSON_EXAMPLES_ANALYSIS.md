@@ -15,13 +15,12 @@
 | **Bet365** | GET    | `/v1/bet365/upcoming`    | `sport_id=1`, `token` | `https://api.b365api.com/v1/bet365/upcoming?sport_id=1&token=YOUR-TOKEN` |
 | **bwin**   | GET    | `/v1/bwin/prematch`      | `token`            | `https://api.b365api.com/v1/bwin/prematch?token=YOUR_TOKEN` |
 | **Betfair (Sportsbook)** | GET | `/v1/betfair/sb/upcoming` | `sport_id=1`, `token` | `https://api.b365api.com/v1/betfair/sb/upcoming?sport_id=1&token=YOUR-TOKEN` |
-| **SBObet** | GET    | `/v1/sbobet/upcoming`    | `sport_id=1`, `token` | `https://api.b365api.com/v1/sbobet/upcoming?sport_id=1&token=YOUR-TOKEN` |
 | **1xBet**  | GET    | `/v1/1xbet/upcoming`     | `sport_id=1`, `token` | `https://api.b365api.com/v1/1xbet/upcoming?sport_id=1&token=YOUR-TOKEN` |
 
 **Notes:**
 
-- **Betfair SB:** Path `betfair/sb/upcoming` — **SB = Sportsbook**. Betfair has Sportsbook and Exchange; we use the Sportsbook endpoint. This is the **betfair** feed only; SBObet is a separate provider with its own endpoint below.
-- **sport_id=1:** Used for Bet365, Betfair (SB), SBObet, 1xBet (typically Soccer). The JSON examples contain multiple sports; to match that we may need to call the API per sport (e.g. 1, 18, 13) or check if the API supports “all sports” (e.g. omit `sport_id` or use a special value). Implementation can start with `sport_id=1` and then extend.
+- **Betfair SB:** Path `betfair/sb/upcoming` — **SB = Sportsbook**. Betfair has Sportsbook and Exchange; we use the Sportsbook endpoint.
+- **sport_id=1:** Used for Bet365, Betfair (SB), 1xBet (typically Soccer). The JSON examples contain multiple sports; to match that we may need to call the API per sport (e.g. 1, 18, 13) or check if the API supports “all sports” (e.g. omit `sport_id` or use a special value). Implementation can start with `sport_id=1` and then extend.
 - **bwin:** No `sport_id` in the request; response likely includes all sports (as in bwin.json).
 
 ---
@@ -33,7 +32,6 @@
 | Bet365    | ✅ Events Bet365  | ✅ bet365      | ✅ unified                 | ✅ bet365.json |
 | bwin      | ✅ Events bwin    | ✅ bwin        | ✅ bwin parser             | ✅ bwin.json   |
 | Betfair (Sportsbook) | ✅ Events BetFairSB | ✅ betfair | ✅ unified | ✅ betfair.json |
-| SBObet    | ✅ Events SBObet  | ✅ sbobet      | ✅ unified                 | ✅ sbobet.json |
 | 1xBet     | ✅ Events 1xBet  | ✅ 1xbet       | ✅ unified                 | ✅ 1xbet.json  |
 | b365racing| ❌               | ✅ b365racing  | ❌                         | ✅ b365racing.json |
 
@@ -43,7 +41,7 @@ We have URLs for all five feeds currently loaded by the app. b365racing has no P
 
 ## 3. Response shape vs parsers (unchanged)
 
-### 3.1 Unified format (Bet365, Betfair Sportsbook, SBObet, 1xBet)
+### 3.1 Unified format (Bet365, Betfair Sportsbook, 1xBet)
 
 - **API response:** `success`, `pager` (page, per_page, total), `results[]` with `id`, `sport_id`, `time`, `time_status`, `league`, `home`, `away`, etc.
 - **Parser:** `parse_unified()` expects this shape. **Match.** Pagination must be handled in the client (loop over pages or cap).

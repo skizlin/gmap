@@ -12,7 +12,7 @@ class NormalizedMarket:
     Common representation of a market after feed-specific parsing.
     Used across the system for display, mapping, and persistence.
     """
-    feed_provider: str           # e.g. "bet365", "bwin", "sbobet"
+    feed_provider: str           # e.g. "bet365", "bwin"
     feed_market_id: str          # Native ID from the feed (string)
     name: str                    # Display name, e.g. "Match Winner", "Total goals"
     code: Optional[str] = None   # Optional domain-style code (e.g. "MATCH_WINNER")

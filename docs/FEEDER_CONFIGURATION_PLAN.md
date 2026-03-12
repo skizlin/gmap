@@ -25,7 +25,7 @@
 
 ## 3. Current state in the app
 
-- **Feeds** are stored in `backend/data/feeds.csv`: columns `domain_id`, `code`, `name` (e.g. Betfair, Bwin, Bet365, 1xBet, SBOBET).
+- **Feeds** are stored in `backend/data/feeds.csv`: columns `domain_id`, `code`, `name` (e.g. Betfair, Bwin, Bet365, 1xBet).
 - **Loaded at startup** in `main.py` via `_load_feeds()` into `FEEDS`; used everywhere we need feed list (mapping modal, entity_feed_mappings, market type mappings, etc.).
 - **No UI** today to manage feeders: the list is effectively static/config-driven.
 - **FEED_INTEGRATION_PLAN.md** mentions future per-feed config: base URL, API keys (env), auth type, etc. A Feeder Configuration page could later hold that.

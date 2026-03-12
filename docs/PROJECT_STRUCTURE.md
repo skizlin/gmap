@@ -11,7 +11,7 @@ backend/
   mock_data.py     # Loads feeder events from designs/feed_json_examples/
   data/            # CSV/JSON persistence (entities, events, mappings, feeds, brands, …)
   templates/       # Jinja2 HTML (layout, feeder/domain events, modal, entities, …)
-  markets/         # Market-type mapping, feed adapters (Bet365, Bwin, SBObet, …)
+  markets/         # Market-type mapping, feed adapters (Bet365, Bwin, …)
 
 designs/           # Feed JSON examples, prematch samples
 docs/              # Notes, API collections, this file

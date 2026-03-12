@@ -100,38 +100,6 @@
       "response": []
     },
     {
-      "name": "Events SBObet",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "https://api.b365api.com/v1/sbobet/upcoming?sport_id=1&token=YOUR-TOKEN",
-          "protocol": "https",
-          "host": [
-            "api",
-            "b365api",
-            "com"
-          ],
-          "path": [
-            "v1",
-            "sbobet",
-            "upcoming"
-          ],
-          "query": [
-            {
-              "key": "sport_id",
-              "value": "1"
-            },
-            {
-              "key": "token",
-              "value": "YOUR-TOKEN"
-            }
-          ]
-        }
-      },
-      "response": []
-    },
-    {
       "name": "Events 1xBet",
       "request": {
         "method": "GET",

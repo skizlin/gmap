@@ -1,7 +1,9 @@
 domain_id,code,name
 1,GL,Goal
-2,PTS,Point
+2,PT,Point
 3,CORNER,Corner
 4,FOUL,Foul
 5,SET,Set
 6,GAME,Game
+7,PERIOD,Period
+8,CARD,Card

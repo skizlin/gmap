@@ -2,7 +2,6 @@
 Pull feed events from live APIs and merge into stored feed data.
 Bet365: https://api.b365api.com/v1/bet365/upcoming?sport_id={id}&token=... with pagination.
 Betfair: https://api.b365api.com/v1/betfair/sb/upcoming?sport_id={id}&token=... with pagination.
-Sbobet: https://api.b365api.com/v1/sbobet/upcoming?sport_id=1&token=... (Soccer only).
 1xbet: https://api.b365api.com/v1/1xbet/upcoming?sport_id={id}&token=... with pagination.
 Bwin: https://api.b365api.com/v1/bwin/prematch?token=...&sport_id={id} per sport (100 per page).
 
@@ -33,8 +32,6 @@ BET365_API_BASE = "https://api.b365api.com/v1/bet365/upcoming"
 BET365_PER_PAGE = 50
 BETFAIR_API_BASE = "https://api.b365api.com/v1/betfair/sb/upcoming"
 BETFAIR_PER_PAGE = 50
-SBOBET_API_BASE = "https://api.b365api.com/v1/sbobet/upcoming"
-SBOBET_PER_PAGE = 50
 ONEXBET_API_BASE = "https://api.b365api.com/v1/1xbet/upcoming"
 ONEXBET_PER_PAGE = 50
 BWIN_API_BASE = "https://api.b365api.com/v1/bwin/prematch"
@@ -84,7 +81,7 @@ def save_stored_feed_events(feed_code: str, events: list[dict]) -> None:
 
 
 def _normalize_unified_item(item: dict, sport_id: str, sport_name: str, feed_provider: str) -> dict:
-    """Convert one unified API result item (Bet365/Betfair/Sbobet/1xbet) to our event shape.
+    """Convert one unified API result item (Bet365/Betfair/1xbet) to our event shape.
     Bet365 outrights: away is null in payload; extra.n = Race # (e.g. Horse Racing sport_id 2, Greyhounds sport_id 4).
     """
     raw_id = item.get("id")
@@ -265,69 +262,6 @@ async def pull_betfair_sport(sport_id: str, sport_name: str, token: str) -> dict
                     current.append(ev)
                     current_ids.add(eid)
             save_stored_feed_events("betfair", current)
-
-    return {"ok": True, "added": added, "skipped": skipped, "total": total_from_api, "error": None}
-
-
-async def pull_sbobet_sport(sport_id: str, sport_name: str, token: str) -> dict:
-    """
-    Pull all upcoming events for one Sbobet sport from the API (with pagination), merge into stored sbobet.json.
-    Sbobet only supports Soccer (sport_id=1).
-    Returns {"ok": bool, "added": int, "skipped": int, "total": int, "error": str | None}.
-    """
-    token = (token or "").strip()
-    if not token:
-        return {"ok": False, "added": 0, "skipped": 0, "total": 0, "error": "API key required"}
-
-    existing = load_stored_feed_events("sbobet")
-    existing_ids = {str(e.get("valid_id") or "").strip() for e in existing if (e.get("valid_id") or "").strip()}
-    added = 0
-    skipped = 0
-    total_from_api = 0
-    page = 1
-    all_new_events = []
-
-    while True:
-        url = f"{SBOBET_API_BASE}?sport_id={sport_id}&token={token}&page={page}&per_page={SBOBET_PER_PAGE}"
-        data, err = await _fetch_json_async(url)
-        if err:
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": err}
-
-        if not data.get("success"):
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": data.get("message", "API returned success=0")}
-
-        pager = data.get("pager") or {}
-        total_from_api = int(pager.get("total") or 0)
-        per_page = int(pager.get("per_page") or SBOBET_PER_PAGE)
-        results = data.get("results") or []
-
-        for item in results:
-            raw_id = item.get("id")
-            eid = str(raw_id).strip() if raw_id is not None else ""
-            if not eid:
-                continue
-            if eid in existing_ids:
-                skipped += 1
-                continue
-            normalized = _normalize_unified_item(item, sport_id, sport_name, "sbobet")
-            all_new_events.append(normalized)
-            existing_ids.add(eid)
-            added += 1
-
-        if not results or len(results) < per_page or page * per_page >= total_from_api:
-            break
-        page += 1
-
-    if all_new_events:
-        async with _feed_lock("sbobet"):
-            current = load_stored_feed_events("sbobet")
-            current_ids = {str(e.get("valid_id") or "").strip() for e in current}
-            for ev in all_new_events:
-                eid = str(ev.get("valid_id") or "").strip()
-                if eid and eid not in current_ids:
-                    current.append(ev)
-                    current_ids.add(eid)
-            save_stored_feed_events("sbobet", current)
 
     return {"ok": True, "added": added, "skipped": skipped, "total": total_from_api, "error": None}
 
@@ -566,7 +500,6 @@ async def pull_bwin_sport(sport_id: str, sport_name: str, token: str) -> dict:
 _PULL_ONE_SPORT: dict[str, Callable[..., object]] = {
     "bet365": pull_bet365_sport,
     "betfair": pull_betfair_sport,
-    "sbobet": pull_sbobet_sport,
     "1xbet": pull_1xbet_sport,
     "bwin": pull_bwin_sport,
 }

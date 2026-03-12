@@ -52,7 +52,7 @@ _ORG_PREFIXES = {
 
 def extract_category_from_league_name(league_name: str) -> str | None:
     """
-    Parse the category (country or organisation) from a bet365/sbobet league name.
+    Parse the category (country or organisation) from a bet365 league name.
     League names follow the pattern: '<Country/Org> <Competition Name>'
     e.g. 'Germany Bundesliga' → 'Germany'
          'UEFA Champions League Women' → 'UEFA'
@@ -120,7 +120,7 @@ def extract_category_1xbet(league_name: str) -> str | None:
 
         return None
     else:
-        # No dot: fall back to space-prefix extractor (same as bet365/sbobet)
+        # No dot: fall back to space-prefix extractor (same as bet365)
         return extract_category_from_league_name(league_name)
 
 def parse_bwin(file_path):
@@ -403,21 +403,6 @@ def load_all_mock_data():
     if not betfair_loaded_from_stored:
         if (MOCK_DIR / "betfair.json").exists():
             all_events.extend(parse_unified(MOCK_DIR / "betfair.json", "betfair"))
-
-    # Sbobet: use pulled data from feed_data/sbobet.json when present, else feed_json_examples
-    sbobet_loaded_from_stored = False
-    if FEED_DATA_DIR and (FEED_DATA_DIR / "sbobet.json").exists():
-        try:
-            with open(FEED_DATA_DIR / "sbobet.json", "r", encoding="utf-8") as f:
-                sbobet_stored = json.load(f)
-            if isinstance(sbobet_stored, list):
-                all_events.extend(sbobet_stored)
-                sbobet_loaded_from_stored = True
-        except (json.JSONDecodeError, OSError):
-            pass
-    if not sbobet_loaded_from_stored:
-        if (MOCK_DIR / "sbobet.json").exists():
-            all_events.extend(parse_unified(MOCK_DIR / "sbobet.json", "sbobet"))
 
     # 1xbet: use pulled data from feed_data/1xbet.json when present, else feed_json_examples
     onexbet_loaded_from_stored = False

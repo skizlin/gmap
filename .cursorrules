@@ -1,0 +1,7 @@
+# Project rules
+
+## Instructions for the human (and for AI)
+
+- **Always give step-by-step instructions.** Assume the reader is a beginner. Never use shorthand like "restart the app" or "rebuild the container" without writing out every single command, in order, that they must run.
+- **Every step = one clear action + the exact command.** No "e.g." or "for example" instead of the real command. If they need to run 5 commands, list all 5 with the exact text to copy-paste.
+- **Deploy and server tasks:** When telling the user to restart the app after a change, always include the full sequence: `docker stop gmap`, `docker rm gmap`, `docker build -t gmap .`, `docker run -d ...`, `docker ps`, in that order, with the full `docker run` line.

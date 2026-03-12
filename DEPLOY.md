@@ -1,5 +1,92 @@
 # Deploying PTC Global Mapper
 
+**How to use this guide:** Every step is written so you can copy-paste. There is no shorthand — if it says "run this", the exact command is in the box. Assume you are following it step-by-step with no prior knowledge.
+
+---
+
+# Deploy to server (step-by-step)
+
+**What you're doing:** Copy the latest code from GitHub to the server and restart the app. The server keeps its own data (competitions, events, logs); only code and a few config files come from GitHub.
+
+Use `/var/www/gmap` if that's where your app lives; otherwise replace with your path.
+
+---
+
+## First time only: set up the server
+
+Do this **once** when the server has never had the app, or when you first set up "protect data".
+
+| Step | What to do | Command |
+|------|------------|--------|
+| 1 | SSH into the server | `ssh root@YOUR_SERVER` |
+| 2 | Go to the app folder | `cd /var/www/gmap` |
+| 3 | If the repo is not there yet, clone it | `cd /var/www` then `git clone https://github.com/skizlin/gmap.git gmap` then `cd gmap` |
+| 4 | Run the "protect data" script (so future git pull won't overwrite server data) | `chmod +x scripts/server-protect-data.sh` then `./scripts/server-protect-data.sh` |
+| 5 | Build and run the app | Follow **Regular deploy** below from step 4 (docker build, etc.). |
+
+After step 4, use **Regular deploy** from then on.
+
+---
+
+## Regular deploy (every time you have new code)
+
+| Step | What to do | Command |
+|------|------------|--------|
+| 1 | SSH into the server | `ssh root@YOUR_SERVER` |
+| 2 | Go to the app folder | `cd /var/www/gmap` |
+| 3 | Get latest code | `git pull origin main` |
+| 4 | **If step 3 fails** with "local changes would be overwritten" | See **When git pull fails** below. Do those steps, then continue from step 5 here. |
+| 5 | (Optional) Keep old server log in the new place | `mkdir -p backend/data/audit` then `mv backend/data/feeder_event_log.csv backend/data/audit/` (only if that file exists and you want to keep it) |
+| 6 | Stop and remove the old container | `docker stop gmap` then `docker rm gmap` |
+| 7 | Build new image | `docker build -t gmap .` |
+| 8 | Start the app | `docker run -d --name gmap -p 8001:8001 -v /var/www/gmap/backend/data:/app/backend/data --restart unless-stopped gmap` |
+| 9 | Check it's running | `docker ps` |
+
+**Useful later:** `docker logs gmap` (view logs), `docker stop gmap`, `docker start gmap`
+
+---
+
+## When git pull fails ("Your local changes would be overwritten by merge")
+
+If step 3 says that `feeder_event_log.csv` or `scripts/server-protect-data.sh` would be overwritten, run this **once on the server**. It keeps your server log in the right place, then syncs with GitHub and pulls.
+
+**Copy-paste this whole block on the server:**
+
+```bash
+cd /var/www/gmap
+mkdir -p backend/data/audit
+mv backend/data/feeder_event_log.csv backend/data/audit/ 2>/dev/null || true
+rm -f backend/data/feeder_event_log.csv
+git fetch origin main
+git checkout origin/main -- scripts/server-protect-data.sh
+git rm --cached backend/data/feeder_event_log.csv 2>/dev/null || true
+git pull origin main
+```
+
+Then do **Regular deploy** from step 6 (docker stop, build, run).
+
+**What this does:** Moves your server log into `audit/` (so you keep it). Makes the two conflicting files match GitHub so the pull can run. Removes the old log path so the app only uses `audit/`. After this, future pulls should not hit this error.
+
+---
+
+## One-block deploy (when pull already works)
+
+If `git pull origin main` does not fail, you can run this whole block on the server:
+
+```bash
+cd /var/www/gmap
+git pull origin main
+docker stop gmap
+docker rm gmap
+docker build -t gmap .
+docker run -d --name gmap -p 8001:8001 -v /var/www/gmap/backend/data:/app/backend/data --restart unless-stopped gmap
+docker ps
+```
+
+---
+
+# Reference (details)
+
 ## RBAC data (admins and roles) – not in the repo
 
 The following files are **not** committed to the repo and are **not** overwritten on deploy:
@@ -19,38 +106,15 @@ The following files are **not** committed to the repo and are **not** overwritte
 
 ---
 
-## Server: keep your own data (only Sports & Feed Sports from GitHub)
+## Server: which data comes from GitHub
 
-Only two data files are meant to be **copied from GitHub** (they are not editable in the backoffice; you add data manually in the CSVs):
+After you run `scripts/server-protect-data.sh` once (see **First time only** above), `git pull` updates only:
 
-- **Configuration/Entities/Sports** → `backend/data/sports.csv`
-- **Configuration/Feeder/Feed Sports** → `backend/data/feed_sports.csv`
+- Code (Python, templates, scripts)
+- `backend/data/sports.csv` and `backend/data/feed_sports.csv`
+- `backend/data/markets/` reference files (e.g. market_score_type.csv, market_period_type.csv, market_templates.csv)
 
-All other data (brands, categories, competitions, domain events, margin config, mappings, etc.) is managed in the backoffice and should **stay on the server** — `git pull` must not overwrite those files.
-
-**One-time setup on the server:** From the repo root (e.g. `/var/www/gmap`), run:
-
-```bash
-cd /var/www/gmap
-chmod +x scripts/server-protect-data.sh
-./scripts/server-protect-data.sh
-```
-
-This marks all data CSVs **except** `sports.csv` and `feed_sports.csv` as **skip-worktree**. After that:
-
-- **`git pull origin main`** updates code and **only** `sports.csv` and `feed_sports.csv`; all other data CSVs on the server are left unchanged.
-- You edit Sports and Feed Sports in the repo (or manually on the server); everything else stays server-local.
-
-**To undo** (e.g. you want the server to get all CSV contents from the repo again):
-
-```bash
-git update-index --no-skip-worktree backend/data/brands.csv
-# ... repeat for each file listed in scripts/server-protect-data.sh
-```
-
-**Which files are protected:** See `scripts/server-protect-data.sh`. Only `sports.csv` and `feed_sports.csv` are excluded (so they are updated from GitHub).
-
-**Log/audit files:** All audit and log files live under `backend/data/audit/` (e.g. `feeder_event_log.csv`). The whole folder is in `.gitignore` — it is never in the repo, so no skip-worktree is needed. Local and server each keep their own logs. After upgrading to this layout, on the server you can optionally move an existing log into the new location: `mkdir -p backend/data/audit && mv backend/data/feeder_event_log.csv backend/data/audit/` (only if you want to keep old server log entries). If `backend/data/feeder_event_log.csv` was ever committed, run `git rm --cached backend/data/feeder_event_log.csv` and commit once so the repo stops tracking it; the app now uses `backend/data/audit/feeder_event_log.csv`.
+All other data (brands, categories, competitions, margin config, etc.) **stays on the server**. Log files live under `backend/data/audit/` and are never in the repo.
 
 ---
 
@@ -65,41 +129,6 @@ git rm --cached backend/data/brands.csv backend/data/categories.csv backend/data
 ```
 
 Then commit: `git commit -m "Stop tracking backoffice data; keep only code and sports/feed_sports in repo"`. After that, `git add .` will only pick up code and the two sports CSVs.
-
----
-
-## Line-by-line deploy (Docker, gmap.nomaths.com)
-
-SSH into the server, then run these in order (adjust path if yours is not `/var/www/gmap`).
-
-**First-time setup (clone + build + run once):**
-
-1. `cd /var/www`
-2. `git clone https://github.com/skizlin/gmap.git gmap`
-3. `cd gmap`
-4. `git pull origin main`
-5. `docker build -t gmap .`
-6. `docker run -d --name gmap -p 8001:8001 -v /var/www/gmap/backend/data:/app/backend/data --restart unless-stopped gmap`
-7. `docker ps`
-8. `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/`  
-   (expect `200`)
-
-**Every deploy after code changes:**
-
-1. `cd /var/www/gmap`
-2. `git pull origin main`  
-   (If you ran `scripts/server-protect-data.sh` once, only `sports.csv` and `feed_sports.csv` are updated; all other data CSVs stay as on the server.)
-3. `docker build -t gmap .`
-4. `docker rm -f gmap`
-5. `docker run -d --name gmap -p 8001:8001 -v /var/www/gmap/backend/data:/app/backend/data --restart unless-stopped gmap`
-6. `docker ps`  
-   (optional: `docker logs gmap` to confirm no errors)
-
-**Useful one-liners:**
-
-- View logs: `docker logs gmap`
-- Stop: `docker stop gmap`
-- Start again: `docker start gmap`
 
 ---
 

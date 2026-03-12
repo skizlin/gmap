@@ -1,8 +1,9 @@
 #!/bin/bash
 # Run this ONCE on the server (e.g. in /var/www/gmap) so Git never overwrites
-# these data files when you run "git pull". Only sports.csv and feed_sports.csv
-# are updated from GitHub (Configuration/Entities/Sports and Feeder/Feed Sports);
-# all other data is managed in backoffice and stays server-local.
+# these data files when you run "git pull". Updated from GitHub: sports.csv,
+# feed_sports.csv, and backend/data/markets/*.csv (market_score_type, market_period_type,
+# market_templates — reference data shared between environments). All other data
+# below is managed in backoffice and stays server-local.
 # To undo: git update-index --no-skip-worktree <file>
 
 set -e
@@ -38,4 +39,4 @@ for f in "${FILES[@]}"; do
     echo "Skip (not found): $f"
   fi
 done
-echo "Done. git pull will update only sports.csv and feed_sports.csv; these files stay local."
+echo "Done. git pull will update sports.csv, feed_sports.csv, and backend/data/markets/*.csv; these files stay local."

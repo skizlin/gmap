@@ -5,3 +5,18 @@ domain_id,code,name
 4,OT,Overtime
 5,PEN,Penalty
 6,SHOOTOUT,Shootout
+7,FLGMOT,Regular Time (inclding OT)
+8,1QRTR,1st Quarter
+9,2QRTR,2nd Quarter
+10,3QRTR,3rd Quarter
+11,4QRTR,4th Quarter
+12,1SET,1st Set
+13,2SET,2nd Set
+14,3SET,3rd Set
+15,4SET,4th Set
+16,5SET,5th Set
+17,1MAP,1st Map
+18,2MAP,2nd Map
+19,3MAP,3rd Map
+20,4MAP,4th Map
+21,5MAP,5th Map

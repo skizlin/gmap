@@ -8,12 +8,12 @@
 ## 1. Current State (Summary)
 
 ### 1.1 Data flow today
-- **Feeds** are defined in `backend/data/feeds.csv` (betfair, bwin, bet365, 1xbet, sbobet, b365racing).
+- **Feeds** are defined in `backend/data/feeds.csv` (betfair, bwin, bet365, 1xbet, b365racing).
 - **Static JSON** lives in `designs/feed_json_examples/` (e.g. `bet365.json`, `bwin.json`).
 - **`backend/mock_data.py`**:
   - `load_all_mock_data()` reads those files and returns a list of events.
   - **Two parsers:**
-    - **Unified format** (bet365, betfair, sbobet, 1xbet): `results[]` with `id`, `sport_id`, `time`, `league`, `home`, `away`, etc.
+    - **Unified format** (bet365, betfair, 1xbet): `results[]` with `id`, `sport_id`, `time`, `league`, `home`, `away`, etc.
     - **Bwin-specific**: `results[]` with `Id`, `SportName`, `RegionName`, `LeagueName`, `HomeTeam`, `AwayTeam`, `Date`, `Markets`, `IsOutright`, etc.
 - **`backend/main.py`**:
   - At startup: `DUMMY_EVENTS = load_all_mock_data()` (in-memory).
@@ -36,7 +36,7 @@ Before implementing, please provide **per feed** (or per API family):
 3. **Documentation** — link to API docs (or a short description of endpoints for “events” / “fixtures” and any pagination).
 4. **API key(s)** — we will **not** hardcode these; they will go in environment variables or a secure config (see below).
 
-If multiple feeds use the **same API** (e.g. one vendor supplying bet365, betfair, sbobet, 1xbet), one set of URL + auth + docs is enough and we can distinguish by a parameter or path.
+If multiple feeds use the **same API** (e.g. one vendor supplying bet365, betfair, 1xbet), one set of URL + auth + docs is enough and we can distinguish by a parameter or path.
 
 ---
 
