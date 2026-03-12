@@ -441,7 +441,20 @@
                     <tr
                         class="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
                         <th class="px-4 py-2.5 font-semibold">ID</th>
-                        <th class="px-4 py-2.5 font-semibold">Name</th>
+                        <th class="px-4 py-2.5 font-semibold">
+                            {% if key == 'sports' %}
+                            <a href="?sort_sports={{ 'asc' if sports_sort == 'desc' else 'desc' }}" class="inline-flex items-center gap-1 hover:text-white transition-colors" title="Sort by name (click to toggle)">
+                                Name
+                                {% if sports_sort == 'asc' %}
+                                <i class="fa-solid fa-sort-up text-[10px]"></i>
+                                {% else %}
+                                <i class="fa-solid fa-sort-down text-[10px]"></i>
+                                {% endif %}
+                            </a>
+                            {% else %}
+                            Name
+                            {% endif %}
+                        </th>
                         {% if key in ('sports', 'categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">Base ID</th>{% endif %}
                         {% if key in ('categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">
                             Sport</th>{% endif %}

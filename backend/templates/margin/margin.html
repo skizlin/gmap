@@ -39,7 +39,7 @@
         </form>
         <div class="flex items-center gap-2">
             <button type="button" class="text-secondary hover:text-blue-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-secondary/50">* Margin</button>
-            <button type="button" class="text-purple-400 hover:text-purple-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-purple-500/50">+ Copy from</button>
+            <button type="button" id="btn-copy-from" class="text-purple-400 hover:text-purple-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-purple-500/50">+ Copy from</button>
             <button type="button" class="text-purple-400 hover:text-purple-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600 hover:border-purple-500/50">+ Copy To</button>
             <button type="button" class="text-slate-400 hover:text-slate-300 text-xs font-medium px-2.5 py-1.5 rounded border border-slate-600">* Audit Log</button>
         </div>
@@ -395,6 +395,73 @@
         </div>
     </div>
 
+    <!-- Add/Remove Competitions modal (move between templates) -->
+    <div id="competitions-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+        <div class="absolute inset-0 bg-slate-900/80" id="competitions-modal-backdrop"></div>
+        <div class="relative bg-cardbg border border-slate-600 rounded-lg shadow-xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col">
+            <div class="sticky top-0 bg-cardbg border-b border-slate-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-sm font-semibold text-white">Add/Remove Competitions</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Template: <span id="competitions-modal-template-name" class="font-medium text-primary">—</span></p>
+                </div>
+                <button type="button" id="competitions-modal-close" class="p-1.5 text-slate-400 hover:text-white rounded" aria-label="Close">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 min-h-0">
+                <input type="hidden" id="competitions-modal-template-id" value="">
+                <input type="hidden" id="competitions-modal-brand-id" value="">
+                <input type="hidden" id="competitions-modal-sport-id" value="">
+                <div class="mb-3">
+                    <label for="competitions-search" class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Search</label>
+                    <input type="text" id="competitions-search" placeholder="Filter by competition or category name…"
+                        class="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-primary outline-none">
+                </div>
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div class="min-h-0 flex flex-col">
+                        <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">In this template</h4>
+                        <p class="text-[11px] text-slate-400 mb-2">Move competitions to another template.</p>
+                        <ul id="competitions-in-template" class="space-y-2 flex-1 min-h-[280px] max-h-[50vh] overflow-y-auto border border-slate-700 rounded-lg p-2">
+                            <li class="text-xs text-slate-500 py-2 text-center">Loading…</li>
+                        </ul>
+                    </div>
+                    <div class="min-h-0 flex flex-col">
+                        <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Add to this template</h4>
+                        <p class="text-[11px] text-slate-400 mb-2">Competitions in other templates or Uncategorized.</p>
+                        <ul id="competitions-not-in-template" class="space-y-2 flex-1 min-h-[280px] max-h-[50vh] overflow-y-auto border border-slate-700 rounded-lg p-2">
+                            <li class="text-xs text-slate-500 py-2 text-center">Loading…</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-shrink-0 px-4 py-3 border-t border-slate-700 flex justify-end">
+                <button type="button" id="competitions-modal-done" class="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-white rounded">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Copy from brand modal -->
+    <div id="copy-from-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4" aria-modal="true" role="dialog">
+        <div class="absolute inset-0 bg-slate-900/80" id="copy-from-modal-backdrop"></div>
+        <div class="relative bg-cardbg border border-slate-600 rounded-lg shadow-xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+            <div class="sticky top-0 bg-cardbg border-b border-slate-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
+                <div>
+                    <h3 class="text-sm font-semibold text-white">Copy from brand</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Copy all templates and settings to: <span id="copy-from-target-label" class="font-medium text-primary">—</span> for <span id="copy-from-sport-label" class="font-medium text-primary">—</span></p>
+                </div>
+                <button type="button" id="copy-from-modal-close" class="p-1.5 text-slate-400 hover:text-white rounded" aria-label="Close">&times;</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 min-h-0">
+                <p class="text-[11px] text-slate-400 mb-3">Select a brand to copy all its margin templates (and competition assignments) into the current brand and sport. This is a one-time copy; changes to the source brand later will not affect this one.</p>
+                <ul id="copy-from-brand-list" class="space-y-2 max-h-[50vh] overflow-y-auto border border-slate-700 rounded-lg p-2">
+                    <li class="text-xs text-slate-500 py-2 text-center">Loading…</li>
+                </ul>
+            </div>
+            <div class="flex-shrink-0 px-4 py-3 border-t border-slate-700 flex justify-end gap-2">
+                <button type="button" id="copy-from-modal-cancel" class="px-3 py-1.5 text-sm border border-slate-600 text-slate-300 rounded">Cancel</button>
+                <button type="button" id="copy-from-copy-btn" class="px-3 py-1.5 text-sm bg-primary hover:bg-emerald-600 text-white rounded" disabled>Copy</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Template modal -->
     <div id="add-template-modal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4" aria-modal="true" role="dialog">
         <div class="absolute inset-0 bg-slate-900/80" id="add-template-modal-backdrop"></div>
@@ -665,12 +732,163 @@
         });
     }
 
-    // Action menu options: Add/Remove Competitions, Add/Remove Markets (placeholders)
+    // ── Add/Remove Competitions modal ───────────────────────────────────────
+    var competitionsModal = document.getElementById('competitions-modal');
+    var competitionsModalTemplateId = document.getElementById('competitions-modal-template-id');
+    var competitionsModalTemplateName = document.getElementById('competitions-modal-template-name');
+    var competitionsModalBrandId = document.getElementById('margin-brand');
+    var competitionsModalSportId = document.getElementById('margin-sport');
+
+    function openCompetitionsModal(templateId, templateName) {
+        if (!templateId || !competitionsModal) return;
+        var sportId = competitionsModalSportId ? competitionsModalSportId.value : '';
+        if (!sportId) {
+            alert('Please select a Sport and click Apply first.');
+            return;
+        }
+        competitionsModalHadChange = false;
+        competitionsModalTemplateId.value = templateId;
+        competitionsModalTemplateName.textContent = templateName || '';
+        if (document.getElementById('competitions-modal-brand-id')) document.getElementById('competitions-modal-brand-id').value = competitionsModalBrandId ? competitionsModalBrandId.value : '';
+        if (document.getElementById('competitions-modal-sport-id')) document.getElementById('competitions-modal-sport-id').value = sportId;
+        competitionsModal.classList.remove('hidden');
+        loadCompetitionsModalData();
+    }
+
+    var competitionsModalData = null;
+    var competitionsSearchInput = document.getElementById('competitions-search');
+
+    function filterBySearch(items, q) {
+        if (!items || !q || !q.trim()) return items;
+        var lower = q.trim().toLowerCase();
+        return items.filter(function (c) {
+            var name = (c.name || '').toLowerCase();
+            var cat = (c.category_name || '').toLowerCase();
+            return name.indexOf(lower) !== -1 || cat.indexOf(lower) !== -1;
+        });
+    }
+
+    function renderCompetitionsModalLists() {
+        var data = competitionsModalData;
+        var inList = document.getElementById('competitions-in-template');
+        var notInList = document.getElementById('competitions-not-in-template');
+        if (!data || !inList || !notInList) return;
+        var q = competitionsSearchInput ? competitionsSearchInput.value : '';
+        var inFiltered = filterBySearch(data.in_template || [], q);
+        var notInFiltered = filterBySearch(data.not_in_template || [], q);
+        var opts = (data.other_templates || []).map(function (t) {
+            return '<option value="' + t.id + '">' + (t.name || '—') + '</option>';
+        }).join('');
+        if (inFiltered.length === 0) {
+            inList.innerHTML = data.in_template && data.in_template.length > 0
+                ? '<li class="text-xs text-slate-500 py-2 text-center">No matches for search.</li>'
+                : '<li class="text-xs text-slate-500 py-2 text-center">None. Add from the right column.</li>';
+        } else {
+            inList.innerHTML = inFiltered.map(function (c) {
+                var catLabel = c.category_name && c.category_name !== '—' ? ' <span class="text-slate-500 text-[10px]">(' + (c.category_name || '') + ')</span>' : '';
+                return '<li class="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-slate-800/50 text-slate-200 text-xs">' +
+                    '<span class="truncate min-w-0">' + (c.name || '') + catLabel + '</span>' +
+                    '<span class="flex items-center gap-1 flex-shrink-0">' +
+                    '<select class="competitions-move-to bg-slate-800 border border-slate-600 rounded px-2 py-1 text-[11px]" data-competition-id="' + c.competition_id + '">' +
+                    '<option value="">Move to…</option>' + opts + '</select>' +
+                    '<button type="button" class="competitions-move-btn px-2 py-1 bg-primary/80 hover:bg-primary text-white text-[11px] rounded" data-competition-id="' + c.competition_id + '">Move</button>' +
+                    '</span></li>';
+            }).join('');
+        }
+        if (notInFiltered.length === 0) {
+            notInList.innerHTML = data.not_in_template && data.not_in_template.length > 0
+                ? '<li class="text-xs text-slate-500 py-2 text-center">No matches for search.</li>'
+                : '<li class="text-xs text-slate-500 py-2 text-center">All competitions are in this template.</li>';
+        } else {
+            notInList.innerHTML = notInFiltered.map(function (c) {
+                var catLabel = c.category_name && c.category_name !== '—' ? ' <span class="text-slate-500 text-[10px]">(' + (c.category_name || '') + ')</span>' : '';
+                var tplLabel = ' <span class="text-slate-500 text-[10px]">(' + (c.current_template_name || '—') + ')</span>';
+                return '<li class="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-slate-800/50 text-slate-200 text-xs">' +
+                    '<span class="truncate min-w-0" title="' + (c.current_template_name || '') + '">' + (c.name || '') + catLabel + tplLabel + '</span>' +
+                    '<button type="button" class="competitions-add-btn px-2 py-1 bg-primary/80 hover:bg-primary text-white text-[11px] rounded flex-shrink-0" data-competition-id="' + c.competition_id + '">Add</button>' +
+                    '</li>';
+            }).join('');
+        }
+    }
+
+    function loadCompetitionsModalData() {
+        var tid = competitionsModalTemplateId ? competitionsModalTemplateId.value : '';
+        var brandId = document.getElementById('competitions-modal-brand-id') ? document.getElementById('competitions-modal-brand-id').value : (competitionsModalBrandId ? competitionsModalBrandId.value : '');
+        var sportId = document.getElementById('competitions-modal-sport-id') ? document.getElementById('competitions-modal-sport-id').value : (competitionsModalSportId ? competitionsModalSportId.value : '');
+        if (!tid || !sportId) return;
+        var url = '/api/margin-templates/' + tid + '/competitions?brand_id=' + encodeURIComponent(brandId) + '&sport_id=' + encodeURIComponent(sportId);
+        var inList = document.getElementById('competitions-in-template');
+        var notInList = document.getElementById('competitions-not-in-template');
+        if (inList) inList.innerHTML = '<li class="text-xs text-slate-500 py-2 text-center">Loading…</li>';
+        if (notInList) notInList.innerHTML = '<li class="text-xs text-slate-500 py-2 text-center">Loading…</li>';
+        if (competitionsSearchInput) competitionsSearchInput.value = '';
+        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+            competitionsModalData = data;
+            if (competitionsModalTemplateName && data.template_name) {
+                competitionsModalTemplateName.textContent = data.template_name;
+            }
+            renderCompetitionsModalLists();
+        }).catch(function () {
+            competitionsModalData = null;
+            if (inList) inList.innerHTML = '<li class="text-xs text-red-400 py-2 text-center">Failed to load.</li>';
+            if (notInList) notInList.innerHTML = '<li class="text-xs text-red-400 py-2 text-center">Failed to load.</li>';
+        });
+    }
+
+    if (competitionsSearchInput) {
+        competitionsSearchInput.addEventListener('input', function () {
+            if (competitionsModalData) renderCompetitionsModalLists();
+        });
+    }
+
+    var competitionsModalHadChange = false;
+    function closeCompetitionsModal() {
+        if (competitionsModal) competitionsModal.classList.add('hidden');
+        if (competitionsModalHadChange) { competitionsModalHadChange = false; window.location.reload(); }
+    }
+
+    document.getElementById('competitions-modal-backdrop')?.addEventListener('click', closeCompetitionsModal);
+    document.getElementById('competitions-modal-close')?.addEventListener('click', closeCompetitionsModal);
+    document.getElementById('competitions-modal-done')?.addEventListener('click', closeCompetitionsModal);
+
+    document.addEventListener('click', function (ev) {
+        var moveBtn = ev.target.closest('.competitions-move-btn');
+        if (moveBtn) {
+            var cid = moveBtn.getAttribute('data-competition-id');
+            var row = moveBtn.closest('li');
+            var sel = row ? row.querySelector('.competitions-move-to') : null;
+            var toTid = sel ? sel.value : '';
+            if (!toTid || !cid) return;
+            var tid = competitionsModalTemplateId ? competitionsModalTemplateId.value : '';
+            var brandId = document.getElementById('competitions-modal-brand-id') ? document.getElementById('competitions-modal-brand-id').value : (competitionsModalBrandId ? competitionsModalBrandId.value : '');
+            var sportId = document.getElementById('competitions-modal-sport-id') ? document.getElementById('competitions-modal-sport-id').value : (competitionsModalSportId ? competitionsModalSportId.value : '');
+            var payload = { template_id: parseInt(toTid, 10), competition_id: parseInt(cid, 10), brand_id: brandId ? parseInt(brandId, 10) : null, sport_id: sportId ? parseInt(sportId, 10) : null };
+            fetch('/api/margin-templates/competitions/assign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                .then(function (r) { if (r.ok) { competitionsModalHadChange = true; loadCompetitionsModalData(); } });
+            return;
+        }
+        var addBtn = ev.target.closest('.competitions-add-btn');
+        if (addBtn) {
+            var cid = addBtn.getAttribute('data-competition-id');
+            if (!cid) return;
+            var tid = competitionsModalTemplateId ? competitionsModalTemplateId.value : '';
+            var brandId = document.getElementById('competitions-modal-brand-id') ? document.getElementById('competitions-modal-brand-id').value : (competitionsModalBrandId ? competitionsModalBrandId.value : '');
+            var sportId = document.getElementById('competitions-modal-sport-id') ? document.getElementById('competitions-modal-sport-id').value : (competitionsModalSportId ? competitionsModalSportId.value : '');
+            var payload = { template_id: parseInt(tid, 10), competition_id: parseInt(cid, 10), brand_id: brandId ? parseInt(brandId, 10) : null, sport_id: sportId ? parseInt(sportId, 10) : null };
+            fetch('/api/margin-templates/competitions/assign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                .then(function (r) { if (r.ok) { competitionsModalHadChange = true; loadCompetitionsModalData(); } });
+            return;
+        }
+    });
+
+    // Action menu options: Add/Remove Competitions, Add/Remove Markets
     document.addEventListener('click', function (ev) {
         var leaguesBtn = ev.target.closest('.margin-action-leagues');
         if (leaguesBtn) {
             closeAllMarginMenus();
-            console.log('Add/Remove Competitions for template', leaguesBtn.getAttribute('data-template-id'));
+            var tid = leaguesBtn.getAttribute('data-template-id');
+            var tname = leaguesBtn.getAttribute('data-template-name') || '';
+            openCompetitionsModal(tid, tname);
             return;
         }
         var marketsBtn = ev.target.closest('.margin-action-markets');
@@ -815,6 +1033,127 @@
     var addTplBtn = document.getElementById('btn-add-template');
     if (addTplBtn) {
         addTplBtn.addEventListener('click', openAddTemplateModal);
+    }
+
+    // ── Copy from brand modal ───────────────────────────────────────────────
+    var copyFromModal = document.getElementById('copy-from-modal');
+    var copyFromTargetLabel = document.getElementById('copy-from-target-label');
+    var copyFromSportLabel = document.getElementById('copy-from-sport-label');
+    var copyFromBrandList = document.getElementById('copy-from-brand-list');
+    var copyFromCopyBtn = document.getElementById('copy-from-copy-btn');
+    var copyFromBrands = [];
+    var copyFromSelectedSourceBrandId = null;
+    var copyFromCurrentBrandId = '';
+    var copyFromCurrentBrandLabel = 'Global';
+    var copyFromSportId = '';
+    var copyFromSportLabel = '—';
+
+    function openCopyFromModal() {
+        var sportEl = document.getElementById('margin-sport');
+        var sportId = sportEl ? sportEl.value : '';
+        if (!sportId) {
+            alert('Please select a Sport and click Apply first.');
+            return;
+        }
+        var brandEl = document.getElementById('margin-brand');
+        var currentBrandId = brandEl ? brandEl.value : '';
+        var currentBrandLabel = 'Global';
+        if (currentBrandId && brandEl) {
+            var opt = brandEl.querySelector('option[value="' + currentBrandId.replace(/"/g, '&quot;') + '"]');
+            currentBrandLabel = opt ? (opt.textContent || '—').trim() : currentBrandId;
+        }
+        var sportLabel = '—';
+        if (sportEl) {
+            var sportOpt = sportEl.querySelector('option[value="' + sportId.replace(/"/g, '&quot;') + '"]');
+            sportLabel = sportOpt ? (sportOpt.textContent || '—').trim() : sportId;
+        }
+        copyFromCurrentBrandId = currentBrandId;
+        copyFromCurrentBrandLabel = currentBrandLabel;
+        copyFromSportId = sportId;
+        copyFromSportLabel = sportLabel;
+        if (copyFromTargetLabel) copyFromTargetLabel.textContent = currentBrandLabel;
+        if (copyFromSportLabel) copyFromSportLabel.textContent = sportLabel;
+        copyFromSelectedSourceBrandId = null;
+        if (copyFromCopyBtn) { copyFromCopyBtn.disabled = true; copyFromCopyBtn.textContent = 'Copy'; }
+        if (copyFromModal) copyFromModal.classList.remove('hidden');
+        if (copyFromBrandList) copyFromBrandList.innerHTML = '<li class="text-xs text-slate-500 py-2 text-center">Loading…</li>';
+        var q = 'sport_id=' + encodeURIComponent(sportId) + '&current_brand_id=' + encodeURIComponent(currentBrandId);
+        fetch('/api/margin-templates/copy-sources?' + q)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                copyFromBrands = data.brands || [];
+                renderCopyFromBrandList();
+            })
+            .catch(function () {
+                if (copyFromBrandList) copyFromBrandList.innerHTML = '<li class="text-xs text-red-400 py-2 text-center">Failed to load brands.</li>';
+            });
+    }
+
+    function renderCopyFromBrandList() {
+        if (!copyFromBrandList) return;
+        if (!copyFromBrands.length) {
+            copyFromBrandList.innerHTML = '<li class="text-xs text-slate-500 py-2 text-center">No other brands to copy from.</li>';
+            return;
+        }
+        copyFromBrandList.innerHTML = copyFromBrands.map(function (b) {
+            var bid = b.id;
+            var label = b.label || (bid == null ? 'Global' : String(bid));
+            var isSelected = copyFromSelectedSourceBrandId === bid || (bid == null && copyFromSelectedSourceBrandId === '');
+            var dataId = bid == null ? '' : bid;
+            return '<li class="copy-from-brand-item flex items-center gap-2 py-2 px-3 rounded cursor-pointer text-left text-xs ' +
+                (isSelected ? 'bg-primary/20 border border-primary/50 text-white' : 'bg-slate-800/50 border border-transparent text-slate-200 hover:bg-slate-700/50') +
+                '" data-source-brand-id="' + (dataId !== '' ? dataId : '') + '" role="button" tabindex="0">' +
+                '<span class="flex-shrink-0 w-4 h-4 rounded-full border-2 ' + (isSelected ? 'border-primary bg-primary' : 'border-slate-500') + '"></span>' +
+                '<span class="truncate min-w-0">' + (label.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</span></li>';
+        }).join('');
+        copyFromBrandList.querySelectorAll('.copy-from-brand-item').forEach(function (el) {
+            el.addEventListener('click', function () {
+                var val = el.getAttribute('data-source-brand-id');
+                copyFromSelectedSourceBrandId = (val === '' || val == null) ? null : parseInt(val, 10);
+                renderCopyFromBrandList();
+                if (copyFromCopyBtn) copyFromCopyBtn.disabled = false;
+            });
+        });
+    }
+
+    function closeCopyFromModal() {
+        if (copyFromModal) copyFromModal.classList.add('hidden');
+    }
+
+    document.getElementById('copy-from-modal-backdrop')?.addEventListener('click', closeCopyFromModal);
+    document.getElementById('copy-from-modal-close')?.addEventListener('click', closeCopyFromModal);
+    document.getElementById('copy-from-modal-cancel')?.addEventListener('click', closeCopyFromModal);
+    document.getElementById('btn-copy-from')?.addEventListener('click', openCopyFromModal);
+
+    if (copyFromCopyBtn) {
+        copyFromCopyBtn.addEventListener('click', function () {
+            var sourceBrandId = copyFromSelectedSourceBrandId;
+            if (sourceBrandId === undefined) { alert('Please select a brand to copy from.'); return; }
+            var targetBrandId = copyFromCurrentBrandId === '' ? null : parseInt(copyFromCurrentBrandId, 10);
+            if (isNaN(targetBrandId)) targetBrandId = null;
+            if (!copyFromSportId) return;
+            copyFromCopyBtn.disabled = true;
+            copyFromCopyBtn.textContent = 'Copying…';
+            var payload = { source_brand_id: sourceBrandId, target_brand_id: targetBrandId, sport_id: parseInt(copyFromSportId, 10) };
+            fetch('/api/margin-templates/copy-from', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function (res) {
+                if (res.ok) {
+                    closeCopyFromModal();
+                    window.location.reload();
+                } else {
+                    copyFromCopyBtn.disabled = false;
+                    copyFromCopyBtn.textContent = 'Copy';
+                    res.json().then(function (d) { alert(d.detail || 'Copy failed.'); }).catch(function () { alert('Copy failed.'); });
+                }
+            }).catch(function () {
+                copyFromCopyBtn.disabled = false;
+                copyFromCopyBtn.textContent = 'Copy';
+                alert('Copy failed.');
+            });
+        });
     }
 })();
 </script>

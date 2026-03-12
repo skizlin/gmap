@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 import json
 import os
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 # Initialize App
 app = FastAPI(title="PTC Global Mapper")
@@ -159,6 +159,59 @@ def _format_start_time(s: str | None) -> str:
     """Format start_time for display (DD/MM/YYYY HH:mm). Returns '' if invalid."""
     dt = _parse_start_time(s)
     return dt.strftime("%d/%m/%Y %H:%M") if dt else (s or "")
+
+
+def _date_range_from_param(date_str: str | None) -> tuple[date, date] | None:
+    """
+    Parse date filter param into (start_date, end_date) in UTC for filtering events by start_time.
+    date_str can be: today, tomorrow, yesterday, next_7_days, last_7_days, this_month, next_month,
+    or a single date YYYY-MM-DD. Returns None for 'custom', empty, or invalid (no date filter).
+    """
+    if not date_str or not (s := date_str.strip()):
+        return None
+    s = s.strip().lower()
+    if s == "custom":
+        return None
+    now = datetime.now(timezone.utc)
+    today = now.date()
+    if s == "today":
+        return (today, today)
+    if s == "tomorrow":
+        t = today + timedelta(days=1)
+        return (t, t)
+    if s == "yesterday":
+        y = today - timedelta(days=1)
+        return (y, y)
+    if s == "next_7_days":
+        end = today + timedelta(days=6)
+        return (today, end)
+    if s == "last_7_days":
+        start = today - timedelta(days=6)
+        return (start, today)
+    if s == "this_month":
+        start = today.replace(day=1)
+        # last day of current month
+        if today.month == 12:
+            end = today.replace(month=12, day=31)
+        else:
+            end = (today.replace(month=today.month + 1, day=1) - timedelta(days=1))
+        return (start, end)
+    if s == "next_month":
+        if today.month == 12:
+            start = today.replace(year=today.year + 1, month=1, day=1)
+        else:
+            start = today.replace(month=today.month + 1, day=1)
+        if start.month == 12:
+            end = start.replace(day=31)
+        else:
+            end = (start.replace(month=start.month + 1, day=1) - timedelta(days=1))
+        return (start, end)
+    # Single date YYYY-MM-DD
+    try:
+        d = datetime.strptime(s[:10], "%Y-%m-%d").date()
+        return (d, d)
+    except (ValueError, TypeError):
+        return None
 
 
 def _start_time_past(s: str | None) -> bool:
@@ -317,6 +370,8 @@ from backend.schemas import (
     TranslationUpsertRequest,
     CreateMarginTemplateRequest,
     UpdateMarginTemplateRequest,
+    AssignCompetitionToTemplateRequest,
+    CopyFromBrandRequest,
 )
 
 
@@ -558,6 +613,56 @@ def _assign_competition_to_margin_template(competition_id: int, template_id: int
         return
     rows.append({"template_id": template_id, "competition_id": competition_id})
     _save_margin_template_competitions(rows)
+
+
+def _competition_sport_to_risk_class_map() -> dict[tuple[int, str], dict]:
+    """
+    Build (competition_id, template_sport_id) -> risk_class from margin_template_competitions and margin_templates.
+    template_sport_id is the template's sport_id (scope); use '' for global. Used by Event Navigator to show bet class per event.
+    """
+    templates = _load_margin_templates()  # no filter: all templates
+    by_id = {t["id"]: t for t in templates if t.get("id")}
+    tcs = _load_margin_template_competitions()
+    out: dict[tuple[int, str], dict] = {}
+    for r in tcs:
+        tid = r.get("template_id")
+        cid = r.get("competition_id")
+        if not tid or not cid:
+            continue
+        t = by_id.get(tid)
+        if not t:
+            continue
+        sport_key = (t.get("sport_id") or "").strip()
+        rc = t.get("risk_class")
+        if rc:
+            out[(cid, sport_key)] = rc
+    return out
+
+
+def _event_risk_class(ev: dict, comp_sport_to_rc: dict[tuple[int, str], dict]) -> dict | None:
+    """
+    Resolve event's competition + sport to a margin template risk_class (bet class) for Event Navigator.
+    ev must have 'sport' and 'competition' (names). Uses DOMAIN_ENTITIES to resolve to ids, then comp_sport_to_rc.
+    """
+    sport_name = (ev.get("sport") or "").strip()
+    comp_name = (ev.get("competition") or "").strip()
+    if not comp_name:
+        return None
+    sport_id = None
+    for s in DOMAIN_ENTITIES.get("sports", []):
+        if (s.get("name") or "").strip() == sport_name:
+            sport_id = s.get("domain_id")
+            break
+    comp_id = None
+    for c in DOMAIN_ENTITIES.get("competitions", []):
+        if (c.get("name") or "").strip() == comp_name and c.get("sport_id") == sport_id:
+            comp_id = c.get("domain_id")
+            break
+    if comp_id is None:
+        return None
+    sport_key = str(sport_id) if sport_id is not None else ""
+    rc = comp_sport_to_rc.get((comp_id, sport_key)) or comp_sport_to_rc.get((comp_id, ""))
+    return rc
 
 
 def _load_market_templates() -> list[dict]:
@@ -2131,6 +2236,7 @@ async def create_entity(body: CreateEntityRequest):
             raise HTTPException(status_code=400, detail=f"Category '{body.category}' not found under sport '{body.sport}'.")
 
     # For teams/categories/competitions/markets: check if this feed already maps to a domain entity (idempotent)
+    # For categories/competitions, same feed_id can map to different domain entities per sport (e.g. Bwin 38 = Argentina Football vs Argentina Basketball)
     if body.entity_type in ("categories", "competitions", "teams", "markets") and body.feed_id and body.feed_provider_id:
         already_mapped = next((m for m in ENTITY_FEED_MAPPINGS
                               if m["entity_type"] == body.entity_type
@@ -2139,7 +2245,15 @@ async def create_entity(body: CreateEntityRequest):
         if already_mapped:
             e = next((x for x in bucket if x["domain_id"] == already_mapped["domain_id"]), None)
             if e:
-                return {"domain_id": e["domain_id"], "name": e["name"], "created": False}
+                # Only treat as "already mapped" if the entity is for the same sport (and category for competitions)
+                if body.entity_type == "categories" and (e.get("sport_id") or 0) != (sport_id or 0):
+                    pass  # different sport → create new category with new id
+                elif body.entity_type == "competitions" and ((e.get("sport_id") or 0) != (sport_id or 0) or (e.get("category_id") or 0) != (category_id or 0)):
+                    pass  # different sport/category → create new competition
+                elif body.entity_type == "teams" and (e.get("sport_id") or 0) != (sport_id or 0):
+                    pass  # different sport → create new team
+                else:
+                    return {"domain_id": e["domain_id"], "name": e["name"], "created": False}
 
     # Deduplication: same name+sport (and category for comp) → link this feed to existing entity
     if body.entity_type == "sports":
@@ -3287,6 +3401,7 @@ def _ensure_appeared_batch(events: list[dict]) -> None:
 async def feeder_events_view(
     request: Request,
     feed_provider: str = None,
+    date: str = None,
     sports: List[str] = Query(default=None),
     categories: List[str] = Query(default=None),
     competitions: List[str] = Query(default=None),
@@ -3325,6 +3440,14 @@ async def feeder_events_view(
     has_notes = _feeder_notes_has_set()
     if notes_only_active:
         filtered = [e for e in filtered if ((e.get("feed_provider") or "").strip(), (e.get("valid_id") or "").strip()) in has_notes]
+    date_filter = (date or "").strip() or "today"
+    date_range = _date_range_from_param(date_filter)
+    if date_range is not None:
+        start_d, end_d = date_range
+        filtered = [
+            e for e in filtered
+            if _parse_start_time(e.get("start_time")) and start_d <= _parse_start_time(e["start_time"]).date() <= end_d
+        ]
     # Sort by start time and paginate (same logic as feeder_events_table)
     sort_start_time = (request.query_params.get("sort_start_time") or "asc").strip().lower()
     if sort_start_time not in ("asc", "desc"):
@@ -3376,6 +3499,7 @@ async def feeder_events_view(
         "feeder_per_page": per_page,
         "feeder_total_pages": total_pages,
         "feeder_sort_start_time": sort_start_time,
+        "selected_date": date_filter,
     })
 
 @app.get("/feeder-events/sport-options", response_class=HTMLResponse)
@@ -3401,6 +3525,7 @@ EVENT_NAVIGATOR_PER_PAGE = 50
 async def feeder_events_table(
     request: Request,
     feed_provider: str = None,
+    date: str = None,
     mapping_status_filter: str = "",
     outright_filter: str = "",
     q: str = "",
@@ -3472,6 +3597,15 @@ async def feeder_events_table(
             if q_lower not in haystack:
                 continue
         filtered.append(e)
+
+    date_filter = (date or "").strip() or "today"
+    date_range = _date_range_from_param(date_filter)
+    if date_range is not None:
+        start_d, end_d = date_range
+        filtered = [
+            e for e in filtered
+            if _parse_start_time(e.get("start_time")) and start_d <= _parse_start_time(e["start_time"]).date() <= end_d
+        ]
 
     # Sort by start time (all data, then paginate)
     sort_asc = (sort_start_time or "asc").strip().lower() != "desc"
@@ -3641,16 +3775,13 @@ def _filter_domain_events(
 ) -> list[dict]:
     """Filter enriched domain events by optional date, sports, categories, competitions, and text search."""
     out = enriched
-    if date_str and date_str.strip():
-        try:
-            target = datetime.strptime(date_str.strip()[:10], "%Y-%m-%d").date()
-        except (ValueError, TypeError):
-            target = None
-        if target is not None:
-            out = [
-                ev for ev in out
-                if _parse_start_time(ev.get("start_time")) and _parse_start_time(ev["start_time"]).date() == target
-            ]
+    date_range = _date_range_from_param(date_str)
+    if date_range is not None:
+        start_d, end_d = date_range
+        out = [
+            ev for ev in out
+            if _parse_start_time(ev.get("start_time")) and start_d <= _parse_start_time(ev["start_time"]).date() <= end_d
+        ]
     if sports:
         out = [ev for ev in out if (ev.get("sport") or "") in sports]
     if categories:
@@ -3716,8 +3847,9 @@ async def event_navigator_view(
     selected_competitions = competitions or []
     brands_list = _load_brands()
     selected_brands = brands if brands else ["Global"]
+    date_filter = (date or "").strip() or "today"
     filtered = _filter_domain_events(
-        enriched, date, active_sports, q,
+        enriched, date_filter, active_sports, q,
         selected_categories if selected_categories else None,
         selected_competitions if selected_competitions else None,
     )
@@ -3743,6 +3875,9 @@ async def event_navigator_view(
     page = max(1, min(page, total_pages))
     start_idx = (page - 1) * per_page
     page_events = filtered[start_idx : start_idx + per_page]
+    comp_sport_to_rc = _competition_sport_to_risk_class_map()
+    for e in page_events:
+        e["risk_class"] = _event_risk_class(e, comp_sport_to_rc)
     return templates.TemplateResponse("event_navigator/event_navigator.html", {
         "request": request,
         "section": "domain",
@@ -3762,7 +3897,7 @@ async def event_navigator_view(
         "has_bets_only": "1" if has_bets_only == "1" else "0",
         "brands": brands_list,
         "selected_brands": selected_brands,
-        "selected_date": date or "",
+        "selected_date": date_filter,
         "search_q": q or "",
         "en_total_events": total_events,
         "en_page": page,
@@ -3810,8 +3945,9 @@ async def event_navigator_table(
     domain_sports = _domain_events_sports()
     selected_sports = sports if sports else domain_sports
     active_sports = selected_sports if sports else None
+    date_filter = (date or "").strip() or "today"
     filtered = _filter_domain_events(
-        enriched, date, active_sports, q,
+        enriched, date_filter, active_sports, q,
         categories if categories else None,
         competitions if competitions else None,
     )
@@ -3837,6 +3973,9 @@ async def event_navigator_table(
     page = max(1, min(page, total_pages))
     start_idx = (page - 1) * per_page
     page_events = filtered[start_idx : start_idx + per_page]
+    comp_sport_to_rc = _competition_sport_to_risk_class_map()
+    for e in page_events:
+        e["risk_class"] = _event_risk_class(e, comp_sport_to_rc)
     response = templates.TemplateResponse("event_navigator/_rows.html", {
         "request": request,
         "domain_events": page_events,
@@ -4926,14 +5065,246 @@ async def update_margin_template(template_id: int, body: UpdateMarginTemplateReq
     return {"ok": True, "template": template}
 
 
+@app.get("/api/margin-templates/copy-sources")
+async def margin_templates_copy_sources(
+    sport_id: str | None = None,
+    current_brand_id: str | None = None,
+):
+    """
+    List brands that can be copied from (for Copy from modal).
+    Returns brands with templates for this sport; excludes current brand to avoid copy-from-self.
+    """
+    brands = _load_brands()
+    current_bid = (current_brand_id or "").strip()
+    out = [{"id": None, "label": "Global"}]
+    for b in brands:
+        bid = str(b.get("id") or "").strip()
+        if not bid:
+            continue
+        if bid == current_bid:
+            continue
+        label = (b.get("name") or b.get("code") or bid)
+        out.append({"id": b.get("id"), "label": label})
+    return {"brands": out}
+
+
+@app.post("/api/margin-templates/copy-from")
+async def margin_templates_copy_from(body: CopyFromBrandRequest):
+    """
+    Copy all templates and their settings from source brand to target brand (same sport).
+    For each source template: find or create by name in target scope, copy config and competition assignments.
+    One-time copy; no link between source and target.
+    """
+    from fastapi import HTTPException
+    source_brand_key = "" if body.source_brand_id is None else str(body.source_brand_id).strip()
+    target_brand_key = "" if body.target_brand_id is None else str(body.target_brand_id).strip()
+    sport_key = str(body.sport_id).strip()
+    if not sport_key:
+        raise HTTPException(status_code=400, detail="sport_id is required")
+
+    # Ensure target scope has Uncategorized (so we have a scope to copy into)
+    _load_margin_templates(
+        int(target_brand_key) if target_brand_key else None,
+        int(sport_key) if sport_key else None,
+    )
+    all_rows = _load_margin_templates()
+
+    def in_scope(t: dict, b_key: str, s_key: str) -> bool:
+        rb = (t.get("brand_id") or "").strip()
+        rs = (t.get("sport_id") or "").strip()
+        brand_ok = rb == b_key
+        sport_ok = rs == s_key or (b_key == "" and rs == "")
+        return brand_ok and sport_ok
+
+    source_templates = [t for t in all_rows if in_scope(t, source_brand_key, sport_key)]
+    target_templates = [t for t in all_rows if in_scope(t, target_brand_key, sport_key)]
+    name_to_target = {(t.get("name") or "").strip(): t for t in target_templates}
+    source_id_to_name = {t["id"]: (t.get("name") or "").strip() for t in source_templates}
+    source_template_ids = {t["id"] for t in source_templates}
+
+    tcs = _load_margin_template_competitions()
+    source_assignments = [(r["template_id"], r["competition_id"]) for r in tcs if r["template_id"] in source_template_ids]
+
+    for s in source_templates:
+        name = (s.get("name") or "").strip()
+        target_t = name_to_target.get(name)
+        if target_t:
+            for key in ("short_name", "pm_margin", "ip_margin", "cashout", "betbuilder", "bet_delay", "risk_class_id"):
+                target_t[key] = s.get(key)
+            target_t["risk_class"] = s.get("risk_class")
+        else:
+            next_id = max((r.get("id") or 0 for r in all_rows), default=0) + 1
+            new_t = {
+                "id": next_id,
+                "name": name,
+                "short_name": s.get("short_name") or "",
+                "pm_margin": s.get("pm_margin") or "",
+                "ip_margin": s.get("ip_margin") or "",
+                "cashout": s.get("cashout") or "",
+                "betbuilder": s.get("betbuilder") or "",
+                "bet_delay": s.get("bet_delay") or "",
+                "risk_class_id": s.get("risk_class_id"),
+                "leagues_count": 0,
+                "markets_count": 0,
+                "is_default": s.get("is_default") if name.lower() == "uncategorized" else False,
+                "brand_id": target_brand_key,
+                "sport_id": sport_key,
+            }
+            all_rows.append(_enrich_margin_template_risk_class(new_t))
+            name_to_target[name] = new_t
+
+    _save_margin_templates(all_rows)
+
+    target_scope_ids = {t["id"] for t in all_rows if in_scope(t, target_brand_key, sport_key)}
+    name_to_target_id = {name: t["id"] for name, t in name_to_target.items()}
+    new_assignments = []
+    for stid, cid in source_assignments:
+        sname = source_id_to_name.get(stid)
+        if not sname:
+            continue
+        ttid = name_to_target_id.get(sname)
+        if ttid is not None:
+            new_assignments.append((ttid, cid))
+
+    tcs = _load_margin_template_competitions()
+    tcs = [r for r in tcs if r["template_id"] not in target_scope_ids]
+    for ttid, cid in new_assignments:
+        tcs.append({"template_id": ttid, "competition_id": cid})
+    _save_margin_template_competitions(tcs)
+
+    return {"ok": True, "templates_copied": len(source_templates), "competitions_copied": len(new_assignments)}
+
+
+def _template_ids_for_scope(brand_id: int | None, sport_id: int | None) -> list[int]:
+    """Return template IDs for the given (brand_id, sport_id) scope."""
+    templates = _load_margin_templates(brand_id, sport_id)
+    return [t["id"] for t in templates if t.get("id") is not None]
+
+
+@app.get("/api/margin-templates/{template_id:int}/competitions")
+async def margin_template_competitions(
+    template_id: int,
+    brand_id: str | None = None,
+    sport_id: str | None = None,
+):
+    """
+    List competitions in this template and not in this template (for current scope).
+    Used by Add/Remove Competitions modal. brand_id/sport_id define scope (query params).
+    """
+    from fastapi import HTTPException
+    b = (brand_id or "").strip()
+    s = (sport_id or "").strip()
+    try:
+        sport_id_int = int(s) if s else None
+    except (TypeError, ValueError):
+        sport_id_int = None
+    brand_id_int = None
+    if b:
+        try:
+            brand_id_int = int(b)
+        except (TypeError, ValueError):
+            pass
+    scope_templates = _load_margin_templates(brand_id_int, sport_id_int)
+    scope_template_ids = [t["id"] for t in scope_templates if t.get("id") is not None]
+    if template_id not in scope_template_ids:
+        raise HTTPException(status_code=404, detail="Template not in current scope")
+    template_name_by_id = {t["id"]: (t.get("name") or "").strip() or "—" for t in scope_templates}
+    categories = DOMAIN_ENTITIES.get("categories", [])
+    category_name_by_id = {cat["domain_id"]: (cat.get("name") or "").strip() or "—" for cat in categories}
+    competitions = DOMAIN_ENTITIES.get("competitions", [])
+    sport_competitions = [
+        {
+            "competition_id": c["domain_id"],
+            "name": (c.get("name") or "").strip() or "—",
+            "category_name": category_name_by_id.get(c.get("category_id"), "—"),
+        }
+        for c in competitions
+        if c.get("domain_id") is not None and c.get("sport_id") == sport_id_int
+    ] if sport_id_int else []
+    tcs = _load_margin_template_competitions()
+    comp_to_template: dict[int, int] = {}
+    for r in tcs:
+        tid, cid = r.get("template_id"), r.get("competition_id")
+        if tid in scope_template_ids and cid is not None:
+            comp_to_template[cid] = tid
+    is_uncategorized = (template_name_by_id.get(template_id) or "").strip().lower() == "uncategorized"
+    if is_uncategorized:
+        # Default bucket: in_template = explicitly in Uncategorized or not in any scope template
+        in_template = [
+            {"competition_id": c["competition_id"], "name": c["name"], "category_name": c.get("category_name", "—")}
+            for c in sport_competitions
+            if comp_to_template.get(c["competition_id"]) == template_id or comp_to_template.get(c["competition_id"]) is None
+        ]
+        not_in_template = [
+            {
+                "competition_id": c["competition_id"],
+                "name": c["name"],
+                "category_name": c.get("category_name", "—"),
+                "current_template_name": template_name_by_id.get(comp_to_template.get(c["competition_id"]), "—"),
+            }
+            for c in sport_competitions
+            if comp_to_template.get(c["competition_id"]) is not None and comp_to_template.get(c["competition_id"]) != template_id
+        ]
+    else:
+        in_template = [
+            {"competition_id": c["competition_id"], "name": c["name"], "category_name": c.get("category_name", "—")}
+            for c in sport_competitions
+            if comp_to_template.get(c["competition_id"]) == template_id
+        ]
+        not_in_template = [
+            {
+                "competition_id": c["competition_id"],
+                "name": c["name"],
+                "category_name": c.get("category_name", "—"),
+                "current_template_name": template_name_by_id.get(comp_to_template.get(c["competition_id"]), "—"),
+            }
+            for c in sport_competitions
+            if comp_to_template.get(c["competition_id"]) != template_id
+        ]
+    other_templates = [{"id": t["id"], "name": (t.get("name") or "").strip() or "—"} for t in scope_templates if t.get("id") != template_id]
+    return {
+        "template_id": template_id,
+        "template_name": template_name_by_id.get(template_id, "—"),
+        "in_template": in_template,
+        "not_in_template": not_in_template,
+        "other_templates": other_templates,
+    }
+
+
+@app.post("/api/margin-templates/competitions/assign")
+async def assign_competition_to_template(body: AssignCompetitionToTemplateRequest):
+    """
+    Move a competition into a margin template (within current scope).
+    Removes the competition from any other template in the same scope, then adds to the given template.
+    """
+    from fastapi import HTTPException
+    scope_templates = _load_margin_templates(body.brand_id, body.sport_id)
+    scope_template_ids = [t["id"] for t in scope_templates if t.get("id") is not None]
+    if body.template_id not in scope_template_ids:
+        raise HTTPException(status_code=400, detail="Template not in current scope")
+    competitions = DOMAIN_ENTITIES.get("competitions", [])
+    comp = next((c for c in competitions if c.get("domain_id") == body.competition_id), None)
+    if not comp or (body.sport_id is not None and comp.get("sport_id") != body.sport_id):
+        raise HTTPException(status_code=400, detail="Competition not found or not in selected sport")
+    rows = _load_margin_template_competitions()
+    rows = [r for r in rows if not (r.get("competition_id") == body.competition_id and r.get("template_id") in scope_template_ids)]
+    rows.append({"template_id": body.template_id, "competition_id": body.competition_id})
+    _save_margin_template_competitions(rows)
+    return {"ok": True, "template_id": body.template_id, "competition_id": body.competition_id}
+
+
 @app.get("/entities", response_class=HTMLResponse)
-async def entities_view(request: Request):
+async def entities_view(request: Request, sort_sports: str = "asc"):
     """
     Configuration > Entities page.
     Shows Sports, Categories, Competitions, Teams, Markets tabs.
+    Sports: sort by name (default asc); sort_sports=asc|desc toggles via Name column header.
     """
+    sports_list = list(DOMAIN_ENTITIES["sports"])
+    sort_asc = (sort_sports or "asc").strip().lower() != "desc"
+    sports_list.sort(key=lambda e: (e.get("name") or "").strip().lower(), reverse=not sort_asc)
     entities = {
-        "sports":       DOMAIN_ENTITIES["sports"],
+        "sports":       sports_list,
         "categories":   DOMAIN_ENTITIES["categories"],
         "competitions": DOMAIN_ENTITIES["competitions"],
         "teams":        DOMAIN_ENTITIES["teams"],
@@ -4976,6 +5347,7 @@ async def entities_view(request: Request):
         "section": "entities",
         "entities": entities,
         "stats": stats,
+        "sports_sort": "desc" if not sort_asc else "asc",
         "sports_by_id": sports_by_id,
         "categories_by_id": categories_by_id,
         "feeds_by_id": feeds_by_id,
@@ -5368,36 +5740,38 @@ async def margin_view(
             "score_types": [],
         })
 
-    # Load templates for this (brand, sport) scope; ensures Uncategorized exists per scope (see MARGIN_CONFIG_SPEC)
+    # Load templates for this (brand, sport) scope; ensures Uncategorized exists per scope (see MARGIN_CONFIG_SPEC).
+    # Uncategorized is kept empty by default; traders move competitions into their respective templates.
     margin_templates = _load_margin_templates(selected_brand_id, selected_sport_id)
     template_competitions = _load_margin_template_competitions()
-    # Backfill: assign competitions of the selected sport not yet in this scope's Uncategorized to it
-    uncat = next((t for t in margin_templates if (t.get("name") or "").strip().lower() == "uncategorized"), None)
-    uncategorized_id = int(uncat["id"]) if uncat and uncat.get("id") else 1
-    competition_ids_for_sport_set = {
-        int(c["domain_id"]) for c in DOMAIN_ENTITIES.get("competitions", [])
-        if c.get("domain_id") is not None and c.get("sport_id") == selected_sport_id
-    } if selected_sport_id else set()
-    assigned_to_scope_uncat = {r["competition_id"] for r in template_competitions if r.get("template_id") == uncategorized_id}
-    added = 0
-    for cid in competition_ids_for_sport_set:
-        if cid not in assigned_to_scope_uncat:
-            template_competitions.append({"template_id": uncategorized_id, "competition_id": cid})
-            assigned_to_scope_uncat.add(cid)
-            added += 1
-    if added:
-        _save_margin_template_competitions(template_competitions)
-    # Competition count per template: only competitions for the selected sport
+    # Competition count per template: only competitions for the selected sport.
+    # Uncategorized is the default bucket: count also competitions not assigned to any template in this scope.
     competition_ids_for_sport = {
         int(c["domain_id"]) for c in DOMAIN_ENTITIES.get("competitions", [])
         if c.get("domain_id") is not None and c.get("sport_id") == selected_sport_id
     } if selected_sport_id else set()
+    scope_template_ids = [t["id"] for t in margin_templates if t.get("id") is not None]
+    comp_to_scope_template: dict[int, int] = {}
+    for r in template_competitions:
+        tid, cid = r.get("template_id"), r.get("competition_id")
+        if tid in scope_template_ids and cid is not None:
+            comp_to_scope_template[cid] = tid
+    uncategorized_ids = {t["id"] for t in margin_templates if (t.get("name") or "").strip().lower() == "uncategorized"}
     for t in margin_templates:
         tid = t.get("id")
-        t["leagues_count"] = sum(
+        explicit = sum(
             1 for r in template_competitions
             if r.get("template_id") == tid and r.get("competition_id") in competition_ids_for_sport
         )
+        if tid in uncategorized_ids:
+            # Default bucket: add competitions of this sport not in any template of this scope
+            unassigned = sum(
+                1 for cid in competition_ids_for_sport
+                if comp_to_scope_template.get(cid) is None
+            )
+            t["leagues_count"] = explicit + unassigned
+        else:
+            t["leagues_count"] = explicit
     market_templates = _load_market_templates()
     market_period_types = _load_market_period_types()
     market_score_types = _load_market_score_types()

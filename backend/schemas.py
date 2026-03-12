@@ -170,6 +170,21 @@ class UpdateMarginTemplateRequest(BaseModel):
     risk_class_id: Optional[int] = None
 
 
+class AssignCompetitionToTemplateRequest(BaseModel):
+    """Move a competition into a margin template (within current scope)."""
+    template_id: int
+    competition_id: int
+    brand_id: Optional[int] = None  # scope: None/empty = Global
+    sport_id: Optional[int] = None  # scope: required when applying
+
+
+class CopyFromBrandRequest(BaseModel):
+    """Copy all margin templates and their settings from one brand to another (same sport)."""
+    source_brand_id: Optional[int] = None  # None = Global
+    target_brand_id: Optional[int] = None  # None = Global
+    sport_id: int
+
+
 # ── RBAC ───────────────────────────────────────────────────────────────────
 
 class CreateRbacUserRequest(BaseModel):

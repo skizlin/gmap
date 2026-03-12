@@ -441,32 +441,60 @@
         if (panel) panel.classList.toggle('hidden');
     }
 
-    const PERIOD_LABELS = {
-        today: '07/03/2026 - 07/03/2026',
-        tomorrow: '08/03/2026 - 08/03/2026',
-        next_7_days: '07/03/2026 - 14/03/2026',
-        this_month: '01/03/2026 - 31/03/2026',
-        next_month: '01/04/2026 - 30/04/2026',
-        yesterday: '06/03/2026 - 06/03/2026',
-        last_7_days: '28/02/2026 - 06/03/2026',
-        custom: 'Custom range'
-    };
+    function getDomainPeriodLabel(period) {
+        if (period === 'custom') return 'Custom range';
+        const d = new Date();
+        const fmt = function (x) { return (x.getDate()).toString().padStart(2,'0') + '/' + (x.getMonth()+1).toString().padStart(2,'0') + '/' + x.getFullYear(); };
+        const addDays = function (x, n) { const r = new Date(x); r.setDate(r.getDate() + n); return r; };
+        const today = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        if (period === 'today') return fmt(today) + ' - ' + fmt(today);
+        if (period === 'tomorrow') { const t = addDays(today, 1); return fmt(t) + ' - ' + fmt(t); }
+        if (period === 'yesterday') { const y = addDays(today, -1); return fmt(y) + ' - ' + fmt(y); }
+        if (period === 'next_7_days') return fmt(today) + ' - ' + fmt(addDays(today, 6));
+        if (period === 'last_7_days') return fmt(addDays(today, -6)) + ' - ' + fmt(today);
+        if (period === 'this_month') {
+            const start = new Date(today.getFullYear(), today.getMonth(), 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            return fmt(start) + ' - ' + fmt(end);
+        }
+        if (period === 'next_month') {
+            const start = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+            return fmt(start) + ' - ' + fmt(end);
+        }
+        return period;
+    }
+
+    function applyDomainPeriodSelection(period) {
+        const labelEl = document.getElementById('domain-period-label');
+        if (labelEl && period) labelEl.textContent = getDomainPeriodLabel(period);
+        document.querySelectorAll('.domain-period-option').forEach(function (o) {
+            o.classList.remove('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
+            o.classList.add('text-slate-300');
+            if (o.getAttribute('data-period') === period) {
+                o.classList.add('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
+                o.classList.remove('text-slate-300');
+            }
+        });
+    }
 
     document.addEventListener('DOMContentLoaded', function () {
+        var dateInput = document.getElementById('domain-date-filter');
+        var initialDate = dateInput && dateInput.value ? dateInput.value.trim().toLowerCase() : '';
+        if (initialDate && initialDate !== 'custom') {
+            applyDomainPeriodSelection(initialDate);
+        } else {
+            applyDomainPeriodSelection('custom');
+            if (dateInput && !dateInput.value) dateInput.value = '';
+        }
         document.querySelectorAll('.domain-period-option').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 const period = this.getAttribute('data-period');
-                const labelEl = document.getElementById('domain-period-label');
-                if (labelEl && period) {
-                    labelEl.textContent = PERIOD_LABELS[period] || period;
-                }
-                document.querySelectorAll('.domain-period-option').forEach(function (o) {
-                    o.classList.remove('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
-                    o.classList.add('text-slate-300');
-                });
-                this.classList.add('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
-                this.classList.remove('text-slate-300');
+                const dateInputEl = document.getElementById('domain-date-filter');
+                if (dateInputEl && period) dateInputEl.value = period;
+                applyDomainPeriodSelection(period);
                 document.getElementById('domain-period-panel').classList.add('hidden');
+                if (period && period !== 'custom') triggerDomainEventsTableRefresh();
             });
         });
     });

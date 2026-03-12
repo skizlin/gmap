@@ -20,7 +20,7 @@
                 <span id="fe-period-label">07/03/2026 - 07/03/2026</span>
                 <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
             </button>
-            <input type="hidden" name="date" id="feeder-date-input" value="2023-10-27">
+            <input type="hidden" name="date" id="feeder-date-input" value="{{ selected_date | default('') }}">
             <div id="fe-period-panel"
                 class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-56 py-1">
                 <button type="button" data-period="today" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors rounded-none text-white bg-primary/20 border-l-2 border-primary">
@@ -52,9 +52,9 @@
 
         <!-- 2. Feed filter -->
         <div class="relative">
-            <select id="feed-filter" name="feed_provider" hx-get="/feeder-events/table" hx-target="#feeder-events-body"
+            <select id="feed-filter" name="feed_provider"                 hx-get="/feeder-events/table" hx-target="#feeder-events-body"
                 hx-swap="innerHTML" hx-trigger="change"
-                hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']"
+                hx-include="#feed-filter,[name='date'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']"
                 onchange="document.getElementById('feeder-page-input').value = '1';"
                 class="bg-slate-900 text-white text-xs rounded border border-secondary/60 px-3 py-1.5 pr-7 appearance-none ring-1 ring-secondary/30">
                 {% for feed in feeds %}
@@ -266,7 +266,7 @@
             <input type="text" id="search-input" name="q" placeholder="Sport, category, competition, event…"
                 hx-get="/feeder-events/table" hx-target="#feeder-events-body" hx-swap="innerHTML"
                 hx-trigger="input changed delay:350ms"
-                hx-include="[name='feed_provider'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='sort_start_time'],[name='page'],[name='per_page']"
+                hx-include="[name='feed_provider'],[name='date'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='sort_start_time'],[name='page'],[name='per_page']"
                 class="bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full">
         </div>
 
@@ -318,7 +318,7 @@
                 </thead>
                 <tbody id="feeder-events-body" class="divide-y divide-slate-700/40 text-xs"
                     hx-get="/feeder-events/table" hx-trigger="reload" hx-swap="innerHTML"
-                    hx-include="#feed-filter,[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']">
+                    hx-include="#feed-filter,[name='date'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']">
                     {% include 'feeder_events/_rows.html' %}
                 </tbody>
 
@@ -376,38 +376,69 @@
         if (periodWrap && !periodWrap.contains(e.target)) document.getElementById('fe-period-panel').classList.add('hidden');
     });
 
-    // ── Period (Start Time) dropdown – presentation only, no filter logic ─────
+    // ── Period (Start Time) dropdown – filters events by date range ─────
     function toggleFeederPeriodDropdown() {
         const panel = document.getElementById('fe-period-panel');
         if (panel) panel.classList.toggle('hidden');
     }
 
-    const FE_PERIOD_LABELS = {
-        today: '07/03/2026 - 07/03/2026',
-        tomorrow: '08/03/2026 - 08/03/2026',
-        next_7_days: '07/03/2026 - 14/03/2026',
-        this_month: '01/03/2026 - 31/03/2026',
-        next_month: '01/04/2026 - 30/04/2026',
-        yesterday: '06/03/2026 - 06/03/2026',
-        last_7_days: '28/02/2026 - 06/03/2026',
-        custom: 'Custom range'
-    };
+    function getFeederPeriodLabel(period) {
+        if (period === 'custom') return 'Custom range';
+        const d = new Date();
+        const fmt = function (x) { return (x.getDate()).toString().padStart(2,'0') + '/' + (x.getMonth()+1).toString().padStart(2,'0') + '/' + x.getFullYear(); };
+        const addDays = function (x, n) { const r = new Date(x); r.setDate(r.getDate() + n); return r; };
+        const today = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        if (period === 'today') return fmt(today) + ' - ' + fmt(today);
+        if (period === 'tomorrow') { const t = addDays(today, 1); return fmt(t) + ' - ' + fmt(t); }
+        if (period === 'yesterday') { const y = addDays(today, -1); return fmt(y) + ' - ' + fmt(y); }
+        if (period === 'next_7_days') return fmt(today) + ' - ' + fmt(addDays(today, 6));
+        if (period === 'last_7_days') return fmt(addDays(today, -6)) + ' - ' + fmt(today);
+        if (period === 'this_month') {
+            const start = new Date(today.getFullYear(), today.getMonth(), 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            return fmt(start) + ' - ' + fmt(end);
+        }
+        if (period === 'next_month') {
+            const start = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+            return fmt(start) + ' - ' + fmt(end);
+        }
+        return period;
+    }
+
+    function applyFeederPeriodSelection(period) {
+        const labelEl = document.getElementById('fe-period-label');
+        if (labelEl && period) labelEl.textContent = getFeederPeriodLabel(period);
+        document.querySelectorAll('.fe-period-option').forEach(function (o) {
+            o.classList.remove('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
+            o.classList.add('text-slate-300');
+            if (o.getAttribute('data-period') === period) {
+                o.classList.add('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
+                o.classList.remove('text-slate-300');
+            }
+        });
+    }
 
     document.addEventListener('DOMContentLoaded', function () {
+        var dateInput = document.getElementById('feeder-date-input');
+        var initialDate = dateInput && dateInput.value ? dateInput.value.trim().toLowerCase() : '';
+        if (initialDate && initialDate !== 'custom') {
+            applyFeederPeriodSelection(initialDate);
+        } else {
+            applyFeederPeriodSelection('custom');
+            if (dateInput && !dateInput.value) dateInput.value = '';
+        }
         document.querySelectorAll('.fe-period-option').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 const period = this.getAttribute('data-period');
-                const labelEl = document.getElementById('fe-period-label');
-                if (labelEl && period) {
-                    labelEl.textContent = FE_PERIOD_LABELS[period] || period;
-                }
-                document.querySelectorAll('.fe-period-option').forEach(function (o) {
-                    o.classList.remove('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
-                    o.classList.add('text-slate-300');
-                });
-                this.classList.add('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
-                this.classList.remove('text-slate-300');
+                const dateInputEl = document.getElementById('feeder-date-input');
+                if (dateInputEl && period) dateInputEl.value = period;
+                applyFeederPeriodSelection(period);
                 document.getElementById('fe-period-panel').classList.add('hidden');
+                if (period && period !== 'custom') {
+                    document.getElementById('feeder-page-input').value = '1';
+                    htmx.trigger('#feeder-events-body', 'reload');
+                }
             });
         });
     });

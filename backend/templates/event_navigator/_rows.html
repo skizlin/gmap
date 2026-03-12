@@ -54,7 +54,13 @@
         </a>
     </td>
     <td class="px-3 py-2 text-slate-400 text-xs">Not Started</td>
-    <td class="px-3 py-2 text-slate-600 text-xs">—</td>
+    <td class="px-3 py-2">
+        {% if ev.risk_class %}
+        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-semibold text-white {{ ev.risk_class.circle_color }}" title="{{ ev.risk_class.name }}">{{ ev.risk_class.letter }}</span>
+        {% else %}
+        <span class="text-slate-600 text-xs">—</span>
+        {% endif %}
+    </td>
     <td class="px-3 py-2 text-slate-600 text-xs">—</td>
     <td class="px-3 py-2 text-slate-600 text-xs">—</td>
     <td class="px-3 py-2 text-slate-600 text-xs">—</td>

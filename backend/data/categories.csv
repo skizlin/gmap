@@ -4,3 +4,5 @@ domain_id,sport_id,name,baseid,jurisdiction,created_at,updated_at
 3,1,International,,-,2026-03-11T12:18:49,2026-03-11T12:18:49
 4,4,Brazil,,br,2026-03-11T21:38:14,2026-03-11T21:38:14
 5,3,Australia,,au,2026-03-11T22:32:12,2026-03-11T22:32:12
+6,4,Argentina,,ar,2026-03-12T09:21:32,2026-03-12T09:21:32
+7,1,Croatia,,hr,2026-03-12T10:14:12,2026-03-12T10:14:12
