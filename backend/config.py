@@ -87,7 +87,10 @@ DATA_NOTES_DIR = DATA_DIR / "notes"
 DATA_NOTES_DIR.mkdir(exist_ok=True)
 FEEDER_EVENT_NOTES_PATH = DATA_DIR / "feeder_event_notes.csv"  # legacy; migrated to platform_notes (in notes/)
 FEEDER_IGNORED_EVENTS_PATH = DATA_DIR / "feeder_ignored_events.csv"  # feed_provider, feed_valid_id — events to treat as ignored
-FEEDER_EVENT_LOG_PATH = DATA_DIR / "feeder_event_log.csv"  # feed_provider, feed_valid_id, action_type, details, created_at
+# Audit / log files: per-environment, not in repo (backend/data/audit/ is gitignored)
+DATA_AUDIT_DIR = DATA_DIR / "audit"
+DATA_AUDIT_DIR.mkdir(exist_ok=True)
+FEEDER_EVENT_LOG_PATH = DATA_AUDIT_DIR / "feeder_event_log.csv"  # feed_provider, feed_valid_id, action_type, details, created_at
 NOTES_PATH = DATA_NOTES_DIR / "platform_notes.csv"  # + created_by, updated_by, requires_confirmation
 NOTES_PATH_LEGACY = DATA_DIR / "platform_notes.csv"  # one-time move from here to NOTES_PATH if present
 EVENT_NAVIGATOR_NOTES_PATH = DATA_NOTES_DIR / "event_navigator_notes.csv"  # domain_event_id, note_text, updated_at (Event Navigator screen only)

@@ -50,6 +50,8 @@ git update-index --no-skip-worktree backend/data/brands.csv
 
 **Which files are protected:** See `scripts/server-protect-data.sh`. Only `sports.csv` and `feed_sports.csv` are excluded (so they are updated from GitHub).
 
+**Log/audit files:** All audit and log files live under `backend/data/audit/` (e.g. `feeder_event_log.csv`). The whole folder is in `.gitignore` — it is never in the repo, so no skip-worktree is needed. Local and server each keep their own logs. After upgrading to this layout, on the server you can optionally move an existing log into the new location: `mkdir -p backend/data/audit && mv backend/data/feeder_event_log.csv backend/data/audit/` (only if you want to keep old server log entries). If `backend/data/feeder_event_log.csv` was ever committed, run `git rm --cached backend/data/feeder_event_log.csv` and commit once so the repo stops tracking it; the app now uses `backend/data/audit/feeder_event_log.csv`.
+
 ---
 
 ## Local: don’t push backoffice data (use `git add .` safely)
@@ -59,7 +61,7 @@ The same data files are in **`.gitignore`**, so when you run `git add .` they ar
 **One-time:** If those files were already tracked, stop tracking them (files stay on disk, only Git forgets them):
 
 ```bash
-git rm --cached backend/data/brands.csv backend/data/categories.csv backend/data/competitions.csv backend/data/domain_events.csv backend/data/entity_feed_mappings.csv backend/data/event_mappings.csv backend/data/feeder_event_log.csv backend/data/feeder_config.csv backend/data/feeder_event_notes.csv backend/data/feeder_ignored_events.csv backend/data/feeds.csv backend/data/feed_time_statuses.csv backend/data/languages.csv backend/data/margin_template_competitions.csv backend/data/margin_templates.csv backend/data/partners.csv backend/data/sport_feed_mappings.csv backend/data/teams.csv backend/data/translations.csv
+git rm --cached backend/data/brands.csv backend/data/categories.csv backend/data/competitions.csv backend/data/domain_events.csv backend/data/entity_feed_mappings.csv backend/data/event_mappings.csv backend/data/feeder_config.csv backend/data/feeder_event_notes.csv backend/data/feeder_ignored_events.csv backend/data/feeds.csv backend/data/feed_time_statuses.csv backend/data/languages.csv backend/data/margin_template_competitions.csv backend/data/margin_templates.csv backend/data/partners.csv backend/data/sport_feed_mappings.csv backend/data/teams.csv backend/data/translations.csv
 ```
 
 Then commit: `git commit -m "Stop tracking backoffice data; keep only code and sports/feed_sports in repo"`. After that, `git add .` will only pick up code and the two sports CSVs.

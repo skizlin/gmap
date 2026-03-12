@@ -42,6 +42,9 @@ backend/data/feed_data/*.json
 # Last-pull timestamps (per-environment)
 backend/data/feed_last_pull.csv
 
+# Audit / log files: per-environment (local and server each have their own). Whole folder ignored.
+backend/data/audit/
+
 # Backoffice data: per-environment. In repo: sports.csv, feed_sports.csv, and backend/data/markets/ reference data (market_score_type.csv, market_period_type.csv, market_templates.csv — not editable in backoffice).
 backend/data/brands.csv
 backend/data/categories.csv
@@ -49,7 +52,6 @@ backend/data/competitions.csv
 backend/data/domain_events.csv
 backend/data/entity_feed_mappings.csv
 backend/data/event_mappings.csv
-backend/data/feeder_event_log.csv
 backend/data/feeder_config.csv
 backend/data/feeder_event_notes.csv
 backend/data/feeder_ignored_events.csv

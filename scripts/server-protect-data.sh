@@ -16,7 +16,6 @@ FILES=(
   backend/data/domain_events.csv
   backend/data/entity_feed_mappings.csv
   backend/data/event_mappings.csv
-  backend/data/feeder_event_log.csv
   backend/data/feeder_config.csv
   backend/data/feeder_event_notes.csv
   backend/data/feeder_ignored_events.csv
