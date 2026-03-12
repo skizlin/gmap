@@ -1,7 +1,0 @@
-id,name,code,partner_id,jurisdiction,language_ids,currencies,odds_formats,created_at,updated_at
-1,BlaBlaBet,bla,1,"ba,vg,bf","1,2",EUR,Decimal,2026-02-27 14:02:40,2026-03-10 11:18:16
-2,Strasbourg Bet,StrBet,2,,,,,2026-02-27 22:28:17,2026-03-10 11:18:41
-3,Turk88Bet,T88,2,tr,1,JPY,Decimal,2026-02-27 22:28:06,2026-03-10 11:18:45
-4,HSBC Germany,hsbc_germany,3,de,2,EUR,Decimal,2026-03-12 10:42:59,2026-03-12 10:42:59
-5,HSBC UK,hsbc_uk,3,gb,1,GBP,"Decimal,Fractional",2026-03-12 10:43:33,2026-03-12 10:43:33
-6,HSBC Spain,hsbc_spain,3,es,4,EUR,Decimal,2026-03-12 10:44:48,2026-03-12 10:44:48

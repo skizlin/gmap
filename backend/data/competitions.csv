@@ -1,9 +1,0 @@
-domain_id,sport_id,category_id,name,baseid,jurisdiction,underage_category_id,participant_type_id,is_amateur,created_at,updated_at
-1,1,1,Liga Profesional de Futbol,,ar,,1,0,2026-03-06T22:29:26,2026-03-06T22:29:26
-2,1,2,BFA Premier League,,bb,,1,0,2026-03-09T23:05:46,2026-03-09T23:06:44
-3,1,3,UEFA Champions League,,-,,1,0,2026-03-11T12:18:58,2026-03-11T12:18:58
-4,4,4,Brazil NBB,,br,,1,0,2026-03-11T21:38:41,2026-03-11T21:38:41
-5,3,5,NCL Women,,au,,2,0,2026-03-11T22:32:17,2026-03-11T22:32:17
-6,4,6,Liga Argentina,,ar,,1,0,2026-03-12T09:21:34,2026-03-12T09:21:34
-7,1,7,SHNL,,hr,,1,0,2026-03-12T10:14:29,2026-03-12T10:14:29
-8,1,3,UEFA Europa League,,-,,1,0,2026-03-12T10:22:04,2026-03-12T10:22:04
