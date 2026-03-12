@@ -3,3 +3,5 @@ domain_id,code,name
 2,PTS,Point
 3,CORNER,Corner
 4,FOUL,Foul
+5,SET,Set
+6,GAME,Game

@@ -42,7 +42,7 @@ backend/data/feed_data/*.json
 # Last-pull timestamps (per-environment)
 backend/data/feed_last_pull.csv
 
-# Backoffice data: per-environment. Only sports.csv and feed_sports.csv are in repo; rest stay local.
+# Backoffice data: per-environment. In repo: sports.csv, feed_sports.csv, and backend/data/markets/ reference data (market_score_type.csv, market_period_type.csv, market_templates.csv — not editable in backoffice).
 backend/data/brands.csv
 backend/data/categories.csv
 backend/data/competitions.csv
