@@ -19,6 +19,39 @@ The following files are **not** committed to the repo and are **not** overwritte
 
 ---
 
+## Server: keep your own data (only Sports & Feed Sports from GitHub)
+
+Only two data files are meant to be **copied from GitHub** (they are not editable in the backoffice; you add data manually in the CSVs):
+
+- **Configuration/Entities/Sports** → `backend/data/sports.csv`
+- **Configuration/Feeder/Feed Sports** → `backend/data/feed_sports.csv`
+
+All other data (brands, categories, competitions, domain events, margin config, mappings, etc.) is managed in the backoffice and should **stay on the server** — `git pull` must not overwrite those files.
+
+**One-time setup on the server:** From the repo root (e.g. `/var/www/gmap`), run:
+
+```bash
+cd /var/www/gmap
+chmod +x scripts/server-protect-data.sh
+./scripts/server-protect-data.sh
+```
+
+This marks all data CSVs **except** `sports.csv` and `feed_sports.csv` as **skip-worktree**. After that:
+
+- **`git pull origin main`** updates code and **only** `sports.csv` and `feed_sports.csv`; all other data CSVs on the server are left unchanged.
+- You edit Sports and Feed Sports in the repo (or manually on the server); everything else stays server-local.
+
+**To undo** (e.g. you want the server to get all CSV contents from the repo again):
+
+```bash
+git update-index --no-skip-worktree backend/data/brands.csv
+# ... repeat for each file listed in scripts/server-protect-data.sh
+```
+
+**Which files are protected:** See `scripts/server-protect-data.sh`. Only `sports.csv` and `feed_sports.csv` are excluded (so they are updated from GitHub).
+
+---
+
 ## Line-by-line deploy (Docker, gmap.nomaths.com)
 
 SSH into the server, then run these in order (adjust path if yours is not `/var/www/gmap`).
@@ -38,7 +71,8 @@ SSH into the server, then run these in order (adjust path if yours is not `/var/
 **Every deploy after code changes:**
 
 1. `cd /var/www/gmap`
-2. `git pull origin main`
+2. `git pull origin main`  
+   (If you ran `scripts/server-protect-data.sh` once, only `sports.csv` and `feed_sports.csv` are updated; all other data CSVs stay as on the server.)
 3. `docker build -t gmap .`
 4. `docker rm -f gmap`
 5. `docker run -d --name gmap -p 8001:8001 -v /var/www/gmap/backend/data:/app/backend/data --restart unless-stopped gmap`
