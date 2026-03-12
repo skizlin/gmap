@@ -42,7 +42,7 @@
     <!-- Category: darker when ignored -->
     {% set cat_display = event.category or (event.category_id | string) or '' %}
     {% set cat_id = event.category_id | string if event.category_id else event.category %}
-    {% set cat_mapped = cat_id and selected_feed_pid is not none and (selected_feed_pid, cat_id) in mapped_category_feed_ids %}
+    {% set cat_mapped = cat_id and selected_feed_pid is not none and event.domain_sport_id is not none and (selected_feed_pid, cat_id, event.domain_sport_id) in mapped_category_feed_ids %}
     <td class="px-3 py-1.5 {{ 'text-slate-500' if is_ignored else ('text-emerald-300' if cat_mapped else 'text-slate-400') }}">
         {% if cat_display %}
         <button type="button" class="feeder-filter-shortcut text-left w-full hover:underline" data-feeder-filter="category" data-feeder-value="{{ cat_display | e }}">{{ event.category or event.category_id or '—' }}</button>
@@ -53,7 +53,7 @@
     <!-- Competition: darker when ignored -->
     {% set comp_display = event.raw_league_name or (event.raw_league_id | string) or '' %}
     {% set comp_id = event.raw_league_id | string if event.raw_league_id else event.raw_league_name %}
-    {% set comp_mapped = comp_id and selected_feed_pid is not none and (selected_feed_pid, comp_id) in mapped_comp_feed_ids %}
+    {% set comp_mapped = comp_id and selected_feed_pid is not none and event.domain_sport_id is not none and (selected_feed_pid, comp_id, event.domain_sport_id) in mapped_comp_feed_ids %}
     <td class="px-3 py-1.5 max-w-[150px] truncate {{ 'text-slate-500' if is_ignored else ('text-emerald-300' if comp_mapped else 'text-slate-300') }}"
         title="{{ event.raw_league_name or '—' }}">
         {% if comp_display %}

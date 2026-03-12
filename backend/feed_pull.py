@@ -5,15 +5,27 @@ Betfair: https://api.b365api.com/v1/betfair/sb/upcoming?sport_id={id}&token=... 
 Sbobet: https://api.b365api.com/v1/sbobet/upcoming?sport_id=1&token=... (Soccer only).
 1xbet: https://api.b365api.com/v1/1xbet/upcoming?sport_id={id}&token=... with pagination.
 Bwin: https://api.b365api.com/v1/bwin/prematch?token=...&sport_id={id} per sport (100 per page).
+
+Uses async HTTP (httpx) so pulls can be run in parallel with a concurrency cap.
 """
 from __future__ import annotations
 
+import asyncio
 import json
-import urllib.request
-import urllib.error
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Callable, Optional
+
+import httpx
+
+# Per-feed locks so parallel pulls for the same feed serialize merge/save only (fetch stays parallel).
+_feed_locks: dict[str, asyncio.Lock] = {}
+
+
+def _feed_lock(feed_code: str) -> asyncio.Lock:
+    if feed_code not in _feed_locks:
+        _feed_locks[feed_code] = asyncio.Lock()
+    return _feed_locks[feed_code]
 
 # Config: set by main on init
 FEED_DATA_DIR: Optional[Path] = None
@@ -33,6 +45,21 @@ def _get_feed_data_path(feed_code: str) -> Path:
     if not FEED_DATA_DIR:
         raise RuntimeError("FEED_DATA_DIR not set")
     return FEED_DATA_DIR / f"{feed_code.strip().lower()}.json"
+
+
+async def _fetch_json_async(url: str, timeout: float = 60.0) -> tuple[Optional[dict], Optional[str]]:
+    """Fetch URL and parse JSON. Returns (data, None) on success or (None, error_message) on failure."""
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=timeout, headers={"User-Agent": "PTC-Global-Mapper/1.0"})
+            resp.raise_for_status()
+            data = resp.json()
+            return (data, None)
+    except httpx.HTTPStatusError as e:
+        body = (e.response.text or "")[:500]
+        return (None, f"HTTP {e.response.status_code}: {body}")
+    except (httpx.RequestError, json.JSONDecodeError, OSError) as e:
+        return (None, str(e))
 
 
 def load_stored_feed_events(feed_code: str) -> list[dict]:
@@ -114,7 +141,7 @@ def _normalize_unified_item(item: dict, sport_id: str, sport_name: str, feed_pro
     }
 
 
-def pull_bet365_sport(sport_id: str, sport_name: str, token: str) -> dict:
+async def pull_bet365_sport(sport_id: str, sport_name: str, token: str) -> dict:
     """
     Pull all upcoming events for one Bet365 sport from the API (with pagination), merge into stored bet365.json.
     - If event id already stored: skip.
@@ -135,21 +162,9 @@ def pull_bet365_sport(sport_id: str, sport_name: str, token: str) -> dict:
 
     while True:
         url = f"{BET365_API_BASE}?sport_id={sport_id}&token={token}&page={page}&per_page={BET365_PER_PAGE}"
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "PTC-Global-Mapper/1.0"})
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", errors="replace")[:500]
-            except Exception:
-                pass
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": f"HTTP {e.code}: {body}"}
-        except urllib.error.URLError as e:
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": str(e.reason)}
-        except (json.JSONDecodeError, OSError) as e:
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": str(e)}
+        data, err = await _fetch_json_async(url)
+        if err:
+            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": err}
 
         if not data.get("success"):
             return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": data.get("message", "API returned success=0")}
@@ -177,13 +192,20 @@ def pull_bet365_sport(sport_id: str, sport_name: str, token: str) -> dict:
         page += 1
 
     if all_new_events:
-        merged = existing + all_new_events
-        save_stored_feed_events("bet365", merged)
+        async with _feed_lock("bet365"):
+            current = load_stored_feed_events("bet365")
+            current_ids = {str(e.get("valid_id") or "").strip() for e in current}
+            for ev in all_new_events:
+                eid = str(ev.get("valid_id") or "").strip()
+                if eid and eid not in current_ids:
+                    current.append(ev)
+                    current_ids.add(eid)
+            save_stored_feed_events("bet365", current)
 
     return {"ok": True, "added": added, "skipped": skipped, "total": total_from_api, "error": None}
 
 
-def pull_betfair_sport(sport_id: str, sport_name: str, token: str) -> dict:
+async def pull_betfair_sport(sport_id: str, sport_name: str, token: str) -> dict:
     """
     Pull all upcoming events for one Betfair sport from the API (with pagination), merge into stored betfair.json.
     - If event id already stored: skip.
@@ -204,21 +226,9 @@ def pull_betfair_sport(sport_id: str, sport_name: str, token: str) -> dict:
 
     while True:
         url = f"{BETFAIR_API_BASE}?sport_id={sport_id}&token={token}&page={page}&per_page={BETFAIR_PER_PAGE}"
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "PTC-Global-Mapper/1.0"})
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", errors="replace")[:500]
-            except Exception:
-                pass
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": f"HTTP {e.code}: {body}"}
-        except urllib.error.URLError as e:
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": str(e.reason)}
-        except (json.JSONDecodeError, OSError) as e:
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": str(e)}
+        data, err = await _fetch_json_async(url)
+        if err:
+            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": err}
 
         if not data.get("success"):
             return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": data.get("message", "API returned success=0")}
@@ -246,13 +256,20 @@ def pull_betfair_sport(sport_id: str, sport_name: str, token: str) -> dict:
         page += 1
 
     if all_new_events:
-        merged = existing + all_new_events
-        save_stored_feed_events("betfair", merged)
+        async with _feed_lock("betfair"):
+            current = load_stored_feed_events("betfair")
+            current_ids = {str(e.get("valid_id") or "").strip() for e in current}
+            for ev in all_new_events:
+                eid = str(ev.get("valid_id") or "").strip()
+                if eid and eid not in current_ids:
+                    current.append(ev)
+                    current_ids.add(eid)
+            save_stored_feed_events("betfair", current)
 
     return {"ok": True, "added": added, "skipped": skipped, "total": total_from_api, "error": None}
 
 
-def pull_sbobet_sport(sport_id: str, sport_name: str, token: str) -> dict:
+async def pull_sbobet_sport(sport_id: str, sport_name: str, token: str) -> dict:
     """
     Pull all upcoming events for one Sbobet sport from the API (with pagination), merge into stored sbobet.json.
     Sbobet only supports Soccer (sport_id=1).
@@ -272,21 +289,9 @@ def pull_sbobet_sport(sport_id: str, sport_name: str, token: str) -> dict:
 
     while True:
         url = f"{SBOBET_API_BASE}?sport_id={sport_id}&token={token}&page={page}&per_page={SBOBET_PER_PAGE}"
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "PTC-Global-Mapper/1.0"})
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", errors="replace")[:500]
-            except Exception:
-                pass
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": f"HTTP {e.code}: {body}"}
-        except urllib.error.URLError as e:
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": str(e.reason)}
-        except (json.JSONDecodeError, OSError) as e:
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": str(e)}
+        data, err = await _fetch_json_async(url)
+        if err:
+            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": err}
 
         if not data.get("success"):
             return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": data.get("message", "API returned success=0")}
@@ -314,13 +319,20 @@ def pull_sbobet_sport(sport_id: str, sport_name: str, token: str) -> dict:
         page += 1
 
     if all_new_events:
-        merged = existing + all_new_events
-        save_stored_feed_events("sbobet", merged)
+        async with _feed_lock("sbobet"):
+            current = load_stored_feed_events("sbobet")
+            current_ids = {str(e.get("valid_id") or "").strip() for e in current}
+            for ev in all_new_events:
+                eid = str(ev.get("valid_id") or "").strip()
+                if eid and eid not in current_ids:
+                    current.append(ev)
+                    current_ids.add(eid)
+            save_stored_feed_events("sbobet", current)
 
     return {"ok": True, "added": added, "skipped": skipped, "total": total_from_api, "error": None}
 
 
-def pull_1xbet_sport(sport_id: str, sport_name: str, token: str) -> dict:
+async def pull_1xbet_sport(sport_id: str, sport_name: str, token: str) -> dict:
     """
     Pull all upcoming events for one 1xbet sport from the API (with pagination), merge into stored 1xbet.json.
     Returns {"ok": bool, "added": int, "skipped": int, "total": int, "error": str | None}.
@@ -339,21 +351,9 @@ def pull_1xbet_sport(sport_id: str, sport_name: str, token: str) -> dict:
 
     while True:
         url = f"{ONEXBET_API_BASE}?sport_id={sport_id}&token={token}&page={page}&per_page={ONEXBET_PER_PAGE}"
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "PTC-Global-Mapper/1.0"})
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", errors="replace")[:500]
-            except Exception:
-                pass
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": f"HTTP {e.code}: {body}"}
-        except urllib.error.URLError as e:
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": str(e.reason)}
-        except (json.JSONDecodeError, OSError) as e:
-            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": str(e)}
+        data, err = await _fetch_json_async(url)
+        if err:
+            return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": err}
 
         if not data.get("success"):
             return {"ok": False, "added": added, "skipped": skipped, "total": total_from_api, "error": data.get("message", "API returned success=0")}
@@ -381,8 +381,15 @@ def pull_1xbet_sport(sport_id: str, sport_name: str, token: str) -> dict:
         page += 1
 
     if all_new_events:
-        merged = existing + all_new_events
-        save_stored_feed_events("1xbet", merged)
+        async with _feed_lock("1xbet"):
+            current = load_stored_feed_events("1xbet")
+            current_ids = {str(e.get("valid_id") or "").strip() for e in current}
+            for ev in all_new_events:
+                eid = str(ev.get("valid_id") or "").strip()
+                if eid and eid not in current_ids:
+                    current.append(ev)
+                    current_ids.add(eid)
+            save_stored_feed_events("1xbet", current)
 
     return {"ok": True, "added": added, "skipped": skipped, "total": total_from_api, "error": None}
 
@@ -491,7 +498,7 @@ def _normalize_bwin_item(item: dict, sport_name_override: str | None = None) -> 
     }
 
 
-def pull_bwin_sport(sport_id: str, sport_name: str, token: str) -> dict:
+async def pull_bwin_sport(sport_id: str, sport_name: str, token: str) -> dict:
     """
     Pull prematch events for one Bwin sport from the API (sport_id param, 100 per page).
     Replaces/updates only this sport's events in stored bwin.json; other sports unchanged.
@@ -513,21 +520,9 @@ def pull_bwin_sport(sport_id: str, sport_name: str, token: str) -> dict:
 
     while True:
         url = f"{BWIN_API_BASE}?token={token}&sport_id={sport_id}&page={page}&per_page={BWIN_PER_PAGE}"
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "PTC-Global-Mapper/1.0"})
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = ""
-            try:
-                body = e.read().decode("utf-8", errors="replace")[:500]
-            except Exception:
-                pass
-            return {"ok": False, "added": added, "updated": updated, "total": total_from_api, "error": f"HTTP {e.code}: {body}"}
-        except urllib.error.URLError as e:
-            return {"ok": False, "added": added, "updated": updated, "total": total_from_api, "error": str(e.reason)}
-        except (json.JSONDecodeError, OSError) as e:
-            return {"ok": False, "added": added, "updated": updated, "total": total_from_api, "error": str(e)}
+        data, err = await _fetch_json_async(url)
+        if err:
+            return {"ok": False, "added": added, "updated": updated, "total": total_from_api, "error": err}
 
         if not data.get("success"):
             return {"ok": False, "added": added, "updated": updated, "total": total_from_api, "error": data.get("message", "API returned success=0")}
@@ -558,8 +553,63 @@ def pull_bwin_sport(sport_id: str, sport_name: str, token: str) -> dict:
         page += 1
 
     if api_by_id or sport_id_str:
-        other_sports = [e for e in existing if str(e.get("sport_id") or "").strip() != sport_id_str]
-        merged = other_sports + [api_by_id[eid] for eid in api_order]
-        save_stored_feed_events("bwin", merged)
+        async with _feed_lock("bwin"):
+            current = load_stored_feed_events("bwin")
+            other_sports = [e for e in current if str(e.get("sport_id") or "").strip() != sport_id_str]
+            merged = other_sports + [api_by_id[eid] for eid in api_order]
+            save_stored_feed_events("bwin", merged)
 
     return {"ok": True, "added": added, "updated": updated, "total": total_from_api, "error": None}
+
+
+# Map feed code to its async pull-one-sport function (sport_id, sport_name, token) -> result dict.
+_PULL_ONE_SPORT: dict[str, Callable[..., object]] = {
+    "bet365": pull_bet365_sport,
+    "betfair": pull_betfair_sport,
+    "sbobet": pull_sbobet_sport,
+    "1xbet": pull_1xbet_sport,
+    "bwin": pull_bwin_sport,
+}
+
+
+async def pull_feed_all_sports_async(
+    feed_provider: str,
+    sports: list[tuple[str, str]],
+    token: str,
+    concurrency: int = 5,
+) -> dict:
+    """
+    Pull all sports for one feed in parallel, with a concurrency cap.
+    sports: list of (sport_id, sport_name).
+    Returns {"ok": bool, "results": [per-sport result dicts], "error": str | None}.
+    If any sport fails, ok is False and error is the first error message; results still contain all outcomes.
+    """
+    feed = (feed_provider or "").strip().lower()
+    pull_one = _PULL_ONE_SPORT.get(feed)
+    if not pull_one or not sports:
+        return {"ok": False, "results": [], "error": "Unsupported feed or no sports"}
+
+    sem = asyncio.Semaphore(concurrency)
+
+    async def run_one(sport_id: str, sport_name: str):
+        async with sem:
+            return await pull_one(sport_id, sport_name, token)
+
+    results = await asyncio.gather(
+        *[run_one(sid, name) for sid, name in sports],
+        return_exceptions=True,
+    )
+    out = []
+    first_error = None
+    for i, r in enumerate(results):
+        if isinstance(r, Exception):
+            out.append({"ok": False, "error": str(r), "sport_id": sports[i][0], "sport_name": sports[i][1]})
+            if first_error is None:
+                first_error = str(r)
+        else:
+            out.append(r)
+    return {
+        "ok": first_error is None,
+        "results": out,
+        "error": first_error,
+    }

@@ -26,6 +26,11 @@
             <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
                 <span class="font-medium text-white">Bet365</span>
                 <span class="text-slate-400 text-sm">Upcoming events per sport (paginated)</span>
+                <span id="pull-all-result-bet365" class="pull-all-result text-sm hidden"></span>
+                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 rounded text-sm font-medium transition-colors"
+                        data-feed="bet365">
+                    <i class="fa-solid fa-download mr-1.5"></i> Pull all
+                </button>
                 <label class="flex items-center gap-2 ml-auto">
                     <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
                     <input type="password"
@@ -69,6 +74,11 @@
             <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
                 <span class="font-medium text-white">Betfair</span>
                 <span class="text-slate-400 text-sm">Upcoming events per sport (paginated)</span>
+                <span id="pull-all-result-betfair" class="pull-all-result text-sm hidden"></span>
+                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 rounded text-sm font-medium transition-colors"
+                        data-feed="betfair">
+                    <i class="fa-solid fa-download mr-1.5"></i> Pull all
+                </button>
                 <label class="flex items-center gap-2 ml-auto">
                     <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
                     <input type="password"
@@ -112,6 +122,11 @@
             <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
                 <span class="font-medium text-white">Sbobet</span>
                 <span class="text-slate-400 text-sm">Upcoming events (Soccer only, sport_id=1)</span>
+                <span id="pull-all-result-sbobet" class="pull-all-result text-sm hidden"></span>
+                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 rounded text-sm font-medium transition-colors"
+                        data-feed="sbobet">
+                    <i class="fa-solid fa-download mr-1.5"></i> Pull all
+                </button>
                 <label class="flex items-center gap-2 ml-auto">
                     <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
                     <input type="password"
@@ -155,6 +170,11 @@
             <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
                 <span class="font-medium text-white">1xbet</span>
                 <span class="text-slate-400 text-sm">Upcoming events per sport (paginated)</span>
+                <span id="pull-all-result-1xbet" class="pull-all-result text-sm hidden"></span>
+                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 rounded text-sm font-medium transition-colors"
+                        data-feed="1xbet">
+                    <i class="fa-solid fa-download mr-1.5"></i> Pull all
+                </button>
                 <label class="flex items-center gap-2 ml-auto">
                     <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
                     <input type="password"
@@ -198,6 +218,11 @@
             <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
                 <span class="font-medium text-white">Bwin</span>
                 <span class="text-slate-400 text-sm">Prematch events per sport (100 per page)</span>
+                <span id="pull-all-result-bwin" class="pull-all-result text-sm hidden"></span>
+                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 rounded text-sm font-medium transition-colors"
+                        data-feed="bwin">
+                    <i class="fa-solid fa-download mr-1.5"></i> Pull all
+                </button>
                 <label class="flex items-center gap-2 ml-auto">
                     <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
                     <input type="password"
@@ -300,6 +325,57 @@
         })
         .catch(function(err) {
             setResult(resultId, { error: err.message || 'Request failed' });
+        });
+    });
+
+    document.body.addEventListener('click', function(e) {
+        var btn = e.target.closest('.pull-all-btn');
+        if (!btn) return;
+        var feed = btn.getAttribute('data-feed');
+        var keyId = feed === 'bwin' ? 'bwin-api-key' : feed === 'betfair' ? 'betfair-api-key' : feed === 'sbobet' ? 'sbobet-api-key' : feed === '1xbet' ? '1xbet-api-key' : 'bet365-api-key';
+        var keyInput = document.getElementById(keyId);
+        var token = keyInput ? (keyInput.value || '').trim() : '';
+        var resultEl = document.getElementById('pull-all-result-' + feed);
+        if (!resultEl) return;
+        if (!token) {
+            resultEl.textContent = 'Enter API key first';
+            resultEl.classList.remove('hidden', 'text-emerald-400');
+            resultEl.classList.add('text-amber-400');
+            return;
+        }
+        resultEl.textContent = 'Pulling all sports…';
+        resultEl.classList.remove('hidden', 'text-red-400', 'text-emerald-400');
+        resultEl.classList.add('text-slate-400');
+        var form = new FormData();
+        form.append('feed_provider', feed);
+        form.append('api_token', token);
+        form.append('concurrency', '5');
+        fetch('/api/pull-feed-all', {
+            method: 'POST',
+            body: form,
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                resultEl.textContent = 'Done. ' + (data.results && data.results.length ? data.results.length + ' sports pulled.' : '');
+                resultEl.classList.remove('text-slate-400', 'text-red-400');
+                resultEl.classList.add('text-emerald-400');
+                if (data.last_pull_display) {
+                    document.querySelectorAll('[id^="last-pull-' + feed + '-"]').forEach(function(span) {
+                        span.textContent = 'Last pull: ' + data.last_pull_display;
+                    });
+                }
+            } else {
+                resultEl.textContent = 'Error: ' + (data.error || 'Pull failed');
+                resultEl.classList.remove('text-slate-400', 'text-emerald-400');
+                resultEl.classList.add('text-red-400');
+            }
+        })
+        .catch(function(err) {
+            resultEl.textContent = 'Error: ' + (err.message || 'Request failed');
+            resultEl.classList.remove('text-slate-400', 'text-emerald-400');
+            resultEl.classList.add('text-red-400');
         });
     });
 })();

@@ -1867,6 +1867,40 @@ def _register_sport_feed_id_filter():
 _register_sport_feed_id_filter()
 
 
+def _mapped_category_feed_ids_by_sport() -> set[tuple[int, str, int]]:
+    """Set of (feed_provider_id, feed_category_id, domain_sport_id) so category green is only for same sport."""
+    out: set[tuple[int, str, int]] = set()
+    for m in ENTITY_FEED_MAPPINGS:
+        if m.get("entity_type") != "categories":
+            continue
+        cat = next((c for c in DOMAIN_ENTITIES["categories"] if c.get("domain_id") == m.get("domain_id")), None)
+        if cat is not None:
+            sid = cat.get("sport_id")
+            if sid is not None:
+                try:
+                    out.add((int(m["feed_provider_id"]), str(m.get("feed_id") or "").strip(), int(sid)))
+                except (TypeError, ValueError):
+                    pass
+    return out
+
+
+def _mapped_comp_feed_ids_by_sport() -> set[tuple[int, str, int]]:
+    """Set of (feed_provider_id, feed_comp_id, domain_sport_id) so competition green is only for same sport."""
+    out: set[tuple[int, str, int]] = set()
+    for m in ENTITY_FEED_MAPPINGS:
+        if m.get("entity_type") != "competitions":
+            continue
+        comp = next((c for c in DOMAIN_ENTITIES["competitions"] if c.get("domain_id") == m.get("domain_id")), None)
+        if comp is not None:
+            sid = comp.get("sport_id")
+            if sid is not None:
+                try:
+                    out.add((int(m["feed_provider_id"]), str(m.get("feed_id") or "").strip(), int(sid)))
+                except (TypeError, ValueError):
+                    pass
+    return out
+
+
 def _load_feed_markets_for_sport(feed_code: str, feed_sport_id: int) -> list[dict]:
     """
     Load unique markets for a sport from a feed JSON file (e.g. designs/feed_json_examples/bwin.json).
@@ -1911,8 +1945,12 @@ def _load_feed_markets_for_sport(feed_code: str, feed_sport_id: int) -> list[dic
     return list(by_key.values())
 
 
-def _resolve_entity(etype: str, feed_id: str, feed_provider_id: int) -> dict | None:
-    """Look up a domain entity by its raw feed_id and provider (from entity_feed_mappings)."""
+def _resolve_entity(etype: str, feed_id: str, feed_provider_id: int, domain_sport_id: int | None = None) -> dict | None:
+    """
+    Look up a domain entity by its raw feed_id and provider (from entity_feed_mappings).
+    For categories and competitions: when domain_sport_id is given, only return an entity that belongs to that sport.
+    (Feeds like Bwin reuse the same category_id across sports; we must match within the event's sport.)
+    """
     if feed_id is None or feed_provider_id is None:
         return None
     feed_id_str = str(feed_id).strip()
@@ -1932,7 +1970,14 @@ def _resolve_entity(etype: str, feed_id: str, feed_provider_id: int) -> dict | N
                        and str(m["feed_id"]) == feed_id_str), None)
     if not mapping:
         return None
-    return next((e for e in DOMAIN_ENTITIES[etype] if e["domain_id"] == mapping["domain_id"]), None)
+    entity = next((e for e in DOMAIN_ENTITIES[etype] if e["domain_id"] == mapping["domain_id"]), None)
+    if not entity:
+        return None
+    # Categories and competitions are sport-scoped: only match if the entity's sport is the event's sport
+    if domain_sport_id is not None and etype in ("categories", "competitions"):
+        if (entity.get("sport_id") or 0) != domain_sport_id:
+            return None
+    return entity
 
 
 def _fuzzy_score(a: str, b: str) -> int:
@@ -2710,7 +2755,7 @@ async def api_pull_feed(
                     feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
                     break
             feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
-        result = feed_pull.pull_bet365_sport(feed_sport_id, feed_sport_name, token)
+        result = await feed_pull.pull_bet365_sport(feed_sport_id, feed_sport_name, token)
     elif feed_provider == "betfair":
         if not feed_sport_id:
             raise HTTPException(status_code=400, detail="feed_sport_id is required for Betfair.")
@@ -2722,7 +2767,7 @@ async def api_pull_feed(
                     feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
                     break
             feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
-        result = feed_pull.pull_betfair_sport(feed_sport_id, feed_sport_name, token)
+        result = await feed_pull.pull_betfair_sport(feed_sport_id, feed_sport_name, token)
     elif feed_provider == "sbobet":
         if not feed_sport_id:
             raise HTTPException(status_code=400, detail="feed_sport_id is required for Sbobet.")
@@ -2734,7 +2779,7 @@ async def api_pull_feed(
                     feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
                     break
             feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
-        result = feed_pull.pull_sbobet_sport(feed_sport_id, feed_sport_name, token)
+        result = await feed_pull.pull_sbobet_sport(feed_sport_id, feed_sport_name, token)
     elif feed_provider == "1xbet":
         if not feed_sport_id:
             raise HTTPException(status_code=400, detail="feed_sport_id is required for 1xbet.")
@@ -2746,7 +2791,7 @@ async def api_pull_feed(
                     feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
                     break
             feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
-        result = feed_pull.pull_1xbet_sport(feed_sport_id, feed_sport_name, token)
+        result = await feed_pull.pull_1xbet_sport(feed_sport_id, feed_sport_name, token)
     elif feed_provider == "bwin":
         if not feed_sport_id:
             raise HTTPException(status_code=400, detail="feed_sport_id is required for Bwin.")
@@ -2758,13 +2803,52 @@ async def api_pull_feed(
                     feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
                     break
             feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
-        result = feed_pull.pull_bwin_sport(feed_sport_id, feed_sport_name, token)
+        result = await feed_pull.pull_bwin_sport(feed_sport_id, feed_sport_name, token)
     else:
         raise HTTPException(status_code=400, detail="Only bet365, betfair, sbobet, 1xbet and bwin are supported.")
 
     if result.get("ok"):
         _save_feed_last_pull(feed_provider, feed_sport_id)
         result["last_pull_display"] = _format_last_pull(datetime.now(timezone.utc).isoformat())
+        global DUMMY_EVENTS
+        DUMMY_EVENTS = load_all_mock_data()
+        _enrich_feed_events_sport_names()
+    return result
+
+
+@app.post("/api/pull-feed-all")
+async def api_pull_feed_all(
+    feed_provider: str = Form(...),
+    api_token: str = Form(""),
+    concurrency: int = Form(5),
+):
+    """
+    Pull all sports for one feed in parallel (async, with concurrency cap).
+    Reloads DUMMY_EVENTS and updates last_pull for each sport on success.
+    """
+    from fastapi import HTTPException
+    feed_provider = (feed_provider or "").strip().lower()
+    token = (api_token or "").strip()
+    if not token:
+        return {"ok": False, "results": [], "error": "Please enter API key"}
+    if feed_provider not in ("bet365", "betfair", "sbobet", "1xbet", "bwin"):
+        raise HTTPException(status_code=400, detail="Unsupported feed.")
+    rows = _load_feed_sports_rows()
+    sports = [
+        ((r.get("feed_sport_id") or "").strip(), (r.get("feed_sport_name") or r.get("feed_sport_id") or "").strip())
+        for r in rows
+        if (r.get("feed_provider") or "").strip().lower() == feed_provider
+    ]
+    if not sports:
+        return {"ok": False, "results": [], "error": "No sports configured for this feed."}
+    concurrency = max(1, min(concurrency, 10))
+    result = await feed_pull.pull_feed_all_sports_async(feed_provider, sports, token, concurrency=concurrency)
+    if result.get("ok"):
+        now_iso = datetime.now(timezone.utc).isoformat()
+        last_pull_display = _format_last_pull(now_iso)
+        for sid, _ in sports:
+            _save_feed_last_pull(feed_provider, sid)
+        result["last_pull_display"] = last_pull_display
         global DUMMY_EVENTS
         DUMMY_EVENTS = load_all_mock_data()
         _enrich_feed_events_sport_names()
@@ -3254,14 +3338,17 @@ async def feeder_events_view(
     page = max(1, min(page, total_pages))
     start_idx = (page - 1) * per_page
     page_events = filtered[start_idx : start_idx + per_page]
+    for e in page_events:
+        r = _resolve_sport_alias(selected_feed_pid, e.get("sport_id")) if selected_feed_pid else None
+        e["domain_sport_id"] = r["domain_id"] if r else None
     available_categories = _feeder_categories(selected_feed, selected_sports)
     available_competitions = _feeder_competitions(selected_feed, selected_sports, selected_categories if selected_categories else None)
     _mk = lambda etype: {(m["feed_provider_id"], str(m["feed_id"])) for m in ENTITY_FEED_MAPPINGS if m["entity_type"] == etype}
     _mk_sport = lambda: {(m["feed_provider_id"], _normalize_sport_feed_id(m.get("feed_id"))) for m in ENTITY_FEED_MAPPINGS if m.get("entity_type") == "sports"}
     mapped_sport_feed_ids = _mk_sport()
-    mapped_category_feed_ids = _mk("categories")
-    mapped_comp_feed_ids     = _mk("competitions")
-    mapped_team_feed_ids     = _mk("teams")
+    mapped_category_feed_ids = _mapped_category_feed_ids_by_sport()
+    mapped_comp_feed_ids    = _mapped_comp_feed_ids_by_sport()
+    mapped_team_feed_ids    = _mk("teams")
     return templates.TemplateResponse("feeder_events/feeder_events.html", {
         "request": request,
         "section": "feeder",
@@ -3399,12 +3486,15 @@ async def feeder_events_table(
 
     _ensure_appeared_batch(page_events)
     selected_feed_pid = next((f["domain_id"] for f in FEEDS if (f.get("code") or "").strip().lower() == selected_feed), None)
+    for e in page_events:
+        r = _resolve_sport_alias(selected_feed_pid, e.get("sport_id")) if selected_feed_pid else None
+        e["domain_sport_id"] = r["domain_id"] if r else None
     has_notes = _feeder_notes_has_set()
     _mk = lambda etype: {(m["feed_provider_id"], str(m["feed_id"])) for m in ENTITY_FEED_MAPPINGS if m["entity_type"] == etype}
     _mk_sport = lambda: {(m["feed_provider_id"], _normalize_sport_feed_id(m.get("feed_id"))) for m in ENTITY_FEED_MAPPINGS if m.get("entity_type") == "sports"}
     mapped_sport_feed_ids = _mk_sport()
-    mapped_category_feed_ids = _mk("categories")
-    mapped_comp_feed_ids    = _mk("competitions")
+    mapped_category_feed_ids = _mapped_category_feed_ids_by_sport()
+    mapped_comp_feed_ids    = _mapped_comp_feed_ids_by_sport()
     mapped_team_feed_ids    = _mk("teams")
 
     response = templates.TemplateResponse("feeder_events/_rows.html", {
@@ -3899,13 +3989,14 @@ def _render_mapping_modal(request: Request, event_id: str):
         _sid = event.get("sport_id")
         if _sid not in (None, "") and str(_sid).strip():
             r_sport = _resolve_sport_alias(feed_pid, str(_sid).strip())
-    # Category and competition: resolve by feed ID only (not by name), so UI stays editable until user maps by ID
+    domain_sport_id = r_sport["domain_id"] if r_sport else None
+    # Category and competition: resolve by feed ID and require same sport (e.g. Bwin category 38 = Argentina in Football only, not Basketball)
     r_category = None
     if feed_pid and (event.get("category_id") not in (None, "")):
-        r_category = _resolve_entity("categories", str(event.get("category_id") or ""), feed_pid)
+        r_category = _resolve_entity("categories", str(event.get("category_id") or ""), feed_pid, domain_sport_id=domain_sport_id)
     r_competition = None
     if feed_pid and (event.get("raw_league_id") not in (None, "")):
-        r_competition = _resolve_entity("competitions", str(event.get("raw_league_id") or ""), feed_pid)
+        r_competition = _resolve_entity("competitions", str(event.get("raw_league_id") or ""), feed_pid, domain_sport_id=domain_sport_id)
     r_home = _resolve_entity("teams", str(event.get("raw_home_id") or event.get("raw_home_name") or ""), feed_pid) if feed_pid else None
     r_away = _resolve_entity("teams", str(event.get("raw_away_id") or event.get("raw_away_name") or ""), feed_pid) if feed_pid else None
 
