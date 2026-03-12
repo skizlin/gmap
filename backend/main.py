@@ -161,16 +161,32 @@ def _format_start_time(s: str | None) -> str:
     return dt.strftime("%d/%m/%Y %H:%M") if dt else (s or "")
 
 
-def _date_range_from_param(date_str: str | None) -> tuple[date, date] | None:
+def _date_range_from_param(
+    date_str: str | None,
+    date_from_str: str | None = None,
+    date_to_str: str | None = None,
+) -> tuple[date, date] | None:
     """
     Parse date filter param into (start_date, end_date) in UTC for filtering events by start_time.
     date_str can be: today, tomorrow, yesterday, next_7_days, last_7_days, this_month, next_month,
-    or a single date YYYY-MM-DD. Returns None for 'custom', empty, or invalid (no date filter).
+    or a single date YYYY-MM-DD. For 'custom', pass date_from_str and date_to_str (YYYY-MM-DD).
+    Returns None for empty or invalid (no date filter).
     """
     if not date_str or not (s := date_str.strip()):
         return None
     s = s.strip().lower()
     if s == "custom":
+        from_s = (date_from_str or "").strip()[:10]
+        to_s = (date_to_str or "").strip()[:10]
+        if from_s and to_s:
+            try:
+                d_from = datetime.strptime(from_s, "%Y-%m-%d").date()
+                d_to = datetime.strptime(to_s, "%Y-%m-%d").date()
+                if d_from <= d_to:
+                    return (d_from, d_to)
+                return (d_to, d_from)
+            except (ValueError, TypeError):
+                pass
         return None
     now = datetime.now(timezone.utc)
     today = now.date()
@@ -1324,6 +1340,14 @@ def _load_entities() -> dict:
                                 row[fk] = int(row[fk])
                             except (TypeError, ValueError):
                                 row[fk] = None
+                    if etype == "markets":
+                        if row.get("sport_id"):
+                            try:
+                                row["sport_id"] = int(row["sport_id"])
+                            except (TypeError, ValueError):
+                                row["sport_id"] = None
+                        else:
+                            row["sport_id"] = None
                     if etype == "competitions":
                         for fk in ("underage_category_id", "participant_type_id"):
                             if fk in row and row.get(fk):
@@ -2216,7 +2240,7 @@ async def create_entity(body: CreateEntityRequest):
     sport_id: Optional[int] = None
     category_id: Optional[int] = None
 
-    if body.entity_type in ("categories", "competitions", "teams") and body.sport:  # markets need no sport
+    if body.entity_type in ("categories", "competitions", "teams", "markets") and body.sport:
         sport_key = (body.sport or "").strip().lower()
         sp = next((s for s in DOMAIN_ENTITIES["sports"] if (s.get("name") or "").strip().lower() == sport_key), None)
         if sp:
@@ -2225,6 +2249,8 @@ async def create_entity(body: CreateEntityRequest):
             raise HTTPException(status_code=400, detail=f"Sport '{body.sport}' not found. Create it in Entities first.")
     if body.entity_type == "categories" and (not body.sport or not str(body.sport).strip()):
         raise HTTPException(status_code=400, detail="Sport is required to create a category. Ensure the feed's sport is mapped by the developer.")
+    if body.entity_type == "markets" and (not body.sport or not str(body.sport).strip()):
+        raise HTTPException(status_code=400, detail="Sport is required to create a market. Select the sport in which this market applies.")
 
     if body.entity_type == "competitions" and body.category:
         cp = next((c for c in DOMAIN_ENTITIES["categories"]
@@ -2259,7 +2285,7 @@ async def create_entity(body: CreateEntityRequest):
     if body.entity_type == "sports":
         existing = next((e for e in bucket if e["name"].lower() == body.name.lower()), None)
     elif body.entity_type == "markets":
-        existing = next((e for e in bucket if e["name"].lower() == body.name.lower()), None)
+        existing = next((e for e in bucket if (e.get("sport_id")) == sport_id and (e.get("name") or "").strip().lower() == (body.name or "").strip().lower()), None)
     elif body.entity_type == "categories":
         existing = next((e for e in bucket if e.get("sport_id") == sport_id
                          and e["name"].lower() == body.name.lower()), None)
@@ -2302,6 +2328,7 @@ async def create_entity(body: CreateEntityRequest):
                 raise HTTPException(status_code=400, detail=f"Another {body.entity_type[:-1]} already has baseid '{baseid_val}'.")
         entity["baseid"] = baseid_val
     if body.entity_type == "markets":
+        entity["sport_id"] = sport_id
         entity["code"] = (body.code or "").strip()
         entity["abb"] = (body.abb or "").strip()
         entity["market_type"] = (body.market_type or "").strip()
@@ -2313,7 +2340,7 @@ async def create_entity(body: CreateEntityRequest):
         entity["score_dependant"] = "1" if body.score_dependant else "0"
 
     if body.entity_type in ("sports", "markets"):
-        pass  # name only for sports; markets have code set above
+        pass  # name only for sports; markets have code and sport_id set above
     elif body.entity_type in ("categories", "teams"):
         entity["sport_id"] = sport_id
         entity["jurisdiction"] = (body.jurisdiction or "").strip() or COUNTRY_CODE_NONE
@@ -3402,6 +3429,8 @@ async def feeder_events_view(
     request: Request,
     feed_provider: str = None,
     date: str = None,
+    date_from: str = None,
+    date_to: str = None,
     sports: List[str] = Query(default=None),
     categories: List[str] = Query(default=None),
     competitions: List[str] = Query(default=None),
@@ -3441,7 +3470,7 @@ async def feeder_events_view(
     if notes_only_active:
         filtered = [e for e in filtered if ((e.get("feed_provider") or "").strip(), (e.get("valid_id") or "").strip()) in has_notes]
     date_filter = (date or "").strip() or "today"
-    date_range = _date_range_from_param(date_filter)
+    date_range = _date_range_from_param(date_filter, date_from, date_to)
     if date_range is not None:
         start_d, end_d = date_range
         filtered = [
@@ -3500,6 +3529,8 @@ async def feeder_events_view(
         "feeder_total_pages": total_pages,
         "feeder_sort_start_time": sort_start_time,
         "selected_date": date_filter,
+        "date_from": (date_from or "").strip() or "",
+        "date_to": (date_to or "").strip() or "",
     })
 
 @app.get("/feeder-events/sport-options", response_class=HTMLResponse)
@@ -3526,6 +3557,8 @@ async def feeder_events_table(
     request: Request,
     feed_provider: str = None,
     date: str = None,
+    date_from: str = None,
+    date_to: str = None,
     mapping_status_filter: str = "",
     outright_filter: str = "",
     q: str = "",
@@ -3599,7 +3632,7 @@ async def feeder_events_table(
         filtered.append(e)
 
     date_filter = (date or "").strip() or "today"
-    date_range = _date_range_from_param(date_filter)
+    date_range = _date_range_from_param(date_filter, date_from, date_to)
     if date_range is not None:
         start_d, end_d = date_range
         filtered = [
@@ -3772,10 +3805,12 @@ def _filter_domain_events(
     q: str | None = None,
     categories: list[str] | None = None,
     competitions: list[str] | None = None,
+    date_from_str: str | None = None,
+    date_to_str: str | None = None,
 ) -> list[dict]:
     """Filter enriched domain events by optional date, sports, categories, competitions, and text search."""
     out = enriched
-    date_range = _date_range_from_param(date_str)
+    date_range = _date_range_from_param(date_str, date_from_str, date_to_str)
     if date_range is not None:
         start_d, end_d = date_range
         out = [
@@ -3808,6 +3843,8 @@ def _filter_domain_events(
 async def event_navigator_view(
     request: Request,
     date: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     sports: List[str] = Query(default=None),
     categories: List[str] = Query(default=None),
     competitions: List[str] = Query(default=None),
@@ -3852,6 +3889,8 @@ async def event_navigator_view(
         enriched, date_filter, active_sports, q,
         selected_categories if selected_categories else None,
         selected_competitions if selected_competitions else None,
+        date_from_str=date_from,
+        date_to_str=date_to,
     )
     en_notes = _load_event_navigator_notes()
     for ev in filtered:
@@ -3898,6 +3937,8 @@ async def event_navigator_view(
         "brands": brands_list,
         "selected_brands": selected_brands,
         "selected_date": date_filter,
+        "date_from": (date_from or "").strip() or "",
+        "date_to": (date_to or "").strip() or "",
         "search_q": q or "",
         "en_total_events": total_events,
         "en_page": page,
@@ -3911,6 +3952,8 @@ async def event_navigator_view(
 async def event_navigator_table(
     request: Request,
     date: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     sports: List[str] = Query(default=None),
     categories: List[str] = Query(default=None),
     competitions: List[str] = Query(default=None),
@@ -3950,6 +3993,8 @@ async def event_navigator_table(
         enriched, date_filter, active_sports, q,
         categories if categories else None,
         competitions if competitions else None,
+        date_from_str=date_from,
+        date_to_str=date_to,
     )
     en_notes = _load_event_navigator_notes()
     for ev in filtered:
@@ -5294,21 +5339,34 @@ async def assign_competition_to_template(body: AssignCompetitionToTemplateReques
 
 
 @app.get("/entities", response_class=HTMLResponse)
-async def entities_view(request: Request, sort_sports: str = "asc"):
+async def entities_view(
+    request: Request,
+    sort_sports: str = "asc",
+    market_sport_id: str | None = None,
+):
     """
     Configuration > Entities page.
     Shows Sports, Categories, Competitions, Teams, Markets tabs.
     Sports: sort by name (default asc); sort_sports=asc|desc toggles via Name column header.
+    Markets: filter by sport when market_sport_id is set.
     """
     sports_list = list(DOMAIN_ENTITIES["sports"])
     sort_asc = (sort_sports or "asc").strip().lower() != "desc"
     sports_list.sort(key=lambda e: (e.get("name") or "").strip().lower(), reverse=not sort_asc)
+    markets_list = list(DOMAIN_ENTITIES["markets"])
+    market_sport_id_int: int | None = None
+    if market_sport_id and str(market_sport_id).strip():
+        try:
+            market_sport_id_int = int(market_sport_id)
+            markets_list = [m for m in markets_list if (m.get("sport_id")) == market_sport_id_int]
+        except (TypeError, ValueError):
+            pass
     entities = {
         "sports":       sports_list,
         "categories":   DOMAIN_ENTITIES["categories"],
         "competitions": DOMAIN_ENTITIES["competitions"],
         "teams":        DOMAIN_ENTITIES["teams"],
-        "markets":      DOMAIN_ENTITIES["markets"],
+        "markets":      markets_list,
     }
     stats = {k: len(v) for k, v in entities.items()}
 
@@ -5358,6 +5416,7 @@ async def entities_view(request: Request, sort_sports: str = "asc"):
         "market_score_types": market_score_types,
         "market_groups": market_groups,
         "participant_types_by_id": participant_types_by_id,
+        "market_sport_id": market_sport_id_int,
     })
 
 
@@ -5786,7 +5845,12 @@ async def margin_view(
         default_t = next((t for t in margin_templates if t.get("is_default")), margin_templates[0])
         selected_template_id = default_t.get("id")
 
-    markets = DOMAIN_ENTITIES.get("markets", [])
+    all_markets = DOMAIN_ENTITIES.get("markets", [])
+    # Only show markets for the selected sport (e.g. no Tennis markets under Football)
+    if selected_sport_id is not None:
+        markets = [m for m in all_markets if (m.get("sport_id")) == selected_sport_id]
+    else:
+        markets = []
     market_groups_list = _load_market_groups()
     if markets:
         group_codes = {(g.get("code") or "").strip() for g in market_groups_list}
@@ -5799,7 +5863,7 @@ async def margin_view(
         if orphan:
             market_groups_with_markets.append({"group": {"domain_id": 0, "code": "", "name": "Other"}, "markets": orphan})
     else:
-        market_groups_with_markets = [{"group": {"domain_id": 0, "code": "", "name": "Main"}, "markets": [{"domain_id": t.get("domain_id"), "code": t.get("code"), "name": (t.get("name") or "").strip() or t.get("code")} for t in market_templates]}]
+        market_groups_with_markets = [{"group": {"domain_id": 0, "code": "", "name": "Main"}, "markets": [{"domain_id": t.get("domain_id"), "code": t.get("code"), "name": (t.get("name") or "").strip() or t.get("code")} for t in market_templates]}] if selected_sport_id is None else []
 
     selected_template_name = ""
     template_prematch_dyn = ""

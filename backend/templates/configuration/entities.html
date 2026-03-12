@@ -115,10 +115,11 @@
         {# ─── Market Types (QNX design from PDF) ─── #}
         <!-- Top filters and actions -->
         <div class="flex flex-wrap items-center gap-3 bg-cardbg/80 border border-slate-700/50 rounded-lg p-3">
-            <select id="mt-sport" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none">
-                <option value="">— Sport —</option>
+            <label class="text-[10px] uppercase tracking-wider text-slate-500 self-center">Sport</label>
+            <select id="mt-sport" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none" title="Filter markets by sport" onchange="mtSportChange()">
+                <option value="">— All sports —</option>
                 {% for s in entities.sports %}
-                <option value="{{ s.name }}" data-domain-id="{{ s.domain_id }}">{{ s.name }}</option>
+                <option value="{{ s.domain_id }}" {% if market_sport_id is not none and market_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
             </select>
             <div class="flex items-center bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 min-w-[160px]">
@@ -139,7 +140,17 @@
         <!-- Create / Edit Market Type form (hidden by default) — fields match table columns -->
         <div id="mt-create-form" class="hidden bg-slate-900 border border-slate-700 rounded-lg p-5 space-y-4">
             <h3 class="text-sm font-semibold text-white">Create Market Type</h3>
+            <p class="text-[11px] text-slate-400">Markets are per sport. Select the sport first.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sport <span class="text-amber-400">(required)</span></label>
+                    <select id="mt-form-sport" required class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <option value="">— select sport —</option>
+                        {% for s in entities.sports %}
+                        <option value="{{ s.name }}" {% if market_sport_id is not none and market_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div>
                     <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
                     <input type="text" id="mt-form-name" placeholder="Market type name" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
@@ -294,6 +305,7 @@
                 <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
                     <tr>
                         <th class="px-3 py-2 font-semibold">ID</th>
+                        <th class="px-3 py-2 font-semibold">Sport</th>
                         <th class="px-3 py-2 font-semibold">Name</th>
                         <th class="px-3 py-2 font-semibold">Abb.</th>
                         <th class="px-3 py-2 font-semibold">Market Type</th>
@@ -324,6 +336,7 @@
                     {% for g in market_groups %}{% if g.code == entity.get('market_group') %}{% set _grp.g = g %}{% endif %}{% endfor %}
                     <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ (entity.name ~ ' ' ~ (entity.get('code') or '') ~ ' ' ~ (entity.get('abb') or '')) | lower }}">
                         <td class="px-3 py-2 font-mono text-slate-400">#{{ entity.domain_id }}</td>
+                        <td class="px-3 py-2 text-slate-400">{{ sports_by_id.get(entity.sport_id, '—') }}</td>
                         <td class="px-3 py-2 text-white font-medium">{{ entity.name }}</td>
                         <td class="px-3 py-2 text-slate-400">{{ entity.get('abb') or entity.get('code') or '—' }}</td>
                         <td class="px-3 py-2 text-slate-400">{{ entity.get('market_type') or '—' }}</td>
@@ -348,7 +361,7 @@
                     {% endfor %}
                     {% else %}
                     <tr class="entity-empty-row">
-                        <td colspan="14" class="px-4 py-10 text-center text-slate-600 italic">No market types yet. Use “+ create Market Type” or add data when ready.</td>
+                        <td colspan="15" class="px-4 py-10 text-center text-slate-600 italic">No market types yet. Use “+ create Market Type” or add data when ready.</td>
                     </tr>
                     {% endif %}
                 </tbody>
@@ -1112,6 +1125,19 @@
         if (sport) sport.value = '';
         if (name) name.value = '';
         if (active) active.checked = false;
+        var u = new URL(window.location.href);
+        u.searchParams.delete('market_sport_id');
+        u.searchParams.set('panel', 'markets');
+        window.location.href = u.toString();
+    }
+    function mtSportChange() {
+        var sel = document.getElementById('mt-sport');
+        if (!sel) return;
+        var v = sel.value;
+        var u = new URL(window.location.href);
+        if (v) u.searchParams.set('market_sport_id', v); else u.searchParams.delete('market_sport_id');
+        u.searchParams.set('panel', 'markets');
+        window.location.href = u.toString();
     }
     function mtSort() {
         alert('Sort Market Types: UI coming soon. Order will define display order on site.');
@@ -1121,6 +1147,9 @@
         if (form) form.classList.toggle('hidden');
     }
     async function mtSaveMarketType() {
+        const sportEl = document.getElementById('mt-form-sport');
+        const sport = sportEl?.value?.trim() || null;
+        if (!sport) { alert('Sport is required. Select the sport for this market.'); return; }
         const name = document.getElementById('mt-form-name')?.value?.trim();
         if (!name) { alert('Name required.'); return; }
         const abb = document.getElementById('mt-form-abb')?.value?.trim() || null;
@@ -1135,6 +1164,7 @@
         const payload = {
             entity_type: 'markets',
             name,
+            sport,
             code,
             abb,
             market_type: marketType,

@@ -37,7 +37,7 @@ ENTITY_FIELDS = {
         "underage_category_id", "participant_type_id", "is_amateur", "created_at", "updated_at",
     ],
     "markets":       [
-        "domain_id", "code", "name", "abb", "market_type", "market_group",
+        "domain_id", "sport_id", "code", "name", "abb", "market_type", "market_group",
         "template", "period_type", "score_type", "side_type", "score_dependant",
         "created_at", "updated_at",
     ],

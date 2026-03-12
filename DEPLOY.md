@@ -52,6 +52,20 @@ git update-index --no-skip-worktree backend/data/brands.csv
 
 ---
 
+## Local: don’t push backoffice data (use `git add .` safely)
+
+The same data files are in **`.gitignore`**, so when you run `git add .` they are **not** staged. Only code and `sports.csv` / `feed_sports.csv` get committed and pushed.
+
+**One-time:** If those files were already tracked, stop tracking them (files stay on disk, only Git forgets them):
+
+```bash
+git rm --cached backend/data/brands.csv backend/data/categories.csv backend/data/competitions.csv backend/data/domain_events.csv backend/data/entity_feed_mappings.csv backend/data/event_mappings.csv backend/data/feeder_event_log.csv backend/data/feeder_config.csv backend/data/feeder_event_notes.csv backend/data/feeder_ignored_events.csv backend/data/feeds.csv backend/data/feed_time_statuses.csv backend/data/languages.csv backend/data/margin_template_competitions.csv backend/data/margin_templates.csv backend/data/partners.csv backend/data/sport_feed_mappings.csv backend/data/teams.csv backend/data/translations.csv
+```
+
+Then commit: `git commit -m "Stop tracking backoffice data; keep only code and sports/feed_sports in repo"`. After that, `git add .` will only pick up code and the two sports CSVs.
+
+---
+
 ## Line-by-line deploy (Docker, gmap.nomaths.com)
 
 SSH into the server, then run these in order (adjust path if yours is not `/var/www/gmap`).

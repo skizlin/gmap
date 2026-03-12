@@ -41,3 +41,24 @@ backend/data/feed_data/*.json
 
 # Last-pull timestamps (per-environment)
 backend/data/feed_last_pull.csv
+
+# Backoffice data: per-environment. Only sports.csv and feed_sports.csv are in repo; rest stay local.
+backend/data/brands.csv
+backend/data/categories.csv
+backend/data/competitions.csv
+backend/data/domain_events.csv
+backend/data/entity_feed_mappings.csv
+backend/data/event_mappings.csv
+backend/data/feeder_event_log.csv
+backend/data/feeder_config.csv
+backend/data/feeder_event_notes.csv
+backend/data/feeder_ignored_events.csv
+backend/data/feeds.csv
+backend/data/feed_time_statuses.csv
+backend/data/languages.csv
+backend/data/margin_template_competitions.csv
+backend/data/margin_templates.csv
+backend/data/partners.csv
+backend/data/sport_feed_mappings.csv
+backend/data/teams.csv
+backend/data/translations.csv
