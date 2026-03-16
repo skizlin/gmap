@@ -98,3 +98,12 @@ If the app has never been on this server:
 1. Put the code there: `cd /var/www` then `git clone https://github.com/skizlin/gmap.git gmap` then `cd gmap`.
 2. Run the protect script so your server data isn't overwritten later: `chmod +x scripts/server-protect-data.sh` then `./scripts/server-protect-data.sh`.
 3. Then do Step 4 through Step 7 above (build and start the app).
+
+---
+
+## Sports and sport–feed mappings (developer data)
+
+Domain sports (`backend/data/sports.csv`) and sport–feed mappings (`backend/data/sport_feed_mappings.csv`) are **in the repo** so they deploy with the code. You can’t create sports or map feed sports to domain sports in the UI; that’s done by a developer and committed.
+
+- **If you add or change sports or sport–feed mappings on your local machine:** commit `sports.csv` and/or `sport_feed_mappings.csv`, push to GitHub, then on the server run `git pull origin main` and rebuild/restart the app (Steps 3–7). The server will then have the same sports and mappings (e.g. Volleyball for Bet365/Bwin).
+- **If the server is missing mappings:** ensure your local `backend/data/sport_feed_mappings.csv` is committed and pushed (it’s no longer gitignored), then pull on the server and redeploy.
