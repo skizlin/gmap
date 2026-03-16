@@ -47,3 +47,15 @@ Market-related CSV files live here. They are **not** cleared by "Dump CSV data" 
 **Who maintains it:** Users can create groups via the modal; developers can also edit the CSV.
 
 **Used by:** Market Group dropdown in Create Market Type form; Market Group column in the Market Types table (display: name (code)).
+
+---
+
+## market_type_mappings.csv
+
+**Purpose:** Stores which feed market (feed_provider_id + feed_market_id) maps to which domain market (domain_market_id), per phase (prematch/live). Used to hide already-mapped feed markets from the “Available markets” list in the Market Mapper.
+
+**Per-environment:** This file is **not** in the repo (see `.gitignore`). Each instance (local, server) has its own. Mapping on the server does not use data from your local machine.
+
+**Columns:** `domain_market_id`, `feed_provider_id`, `feed_market_id`, `feed_market_name`, `phase`.
+
+**Who maintains it:** Users via the Market Mapper UI (Entities → Markets tab → Map on a market).

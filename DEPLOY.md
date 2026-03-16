@@ -101,6 +101,18 @@ If the app has never been on this server:
 
 ---
 
+## What goes in the repo vs per-environment
+
+| In repo (deployed with code) | Per-environment (not in repo; each instance has its own) |
+|------------------------------|---------------------------------------------------------|
+| `sports.csv`, `sport_feed_mappings.csv`, `feed_sports.csv` | `markets.csv`, `market_type_mappings.csv`, `entity_feed_mappings.csv`, `domain_events.csv`, `event_mappings.csv` |
+| `backend/data/markets/`: `market_templates.csv`, `market_groups.csv`, `market_outcomes.csv`, `market_period_type.csv`, `market_score_type.csv` | All other backoffice CSVs (brands, categories, competitions, teams, feeds, etc.) |
+
+- **Market type mappings** (`backend/data/markets/market_type_mappings.csv`): which feed market maps to which domain market. This file is **not** in the repo. Local and server each have their own; the “Available markets” list on the server will not be affected by mappings you did locally.
+- **After first deploy with this setup:** On the server, remove the old file so the app uses empty mappings:  
+  `rm -f backend/data/markets/market_type_mappings.csv`  
+  Then restart the app (Steps 4–7). After that, you can map feed markets to domain markets on the server independently.
+
 ## Sports and sport–feed mappings (developer data)
 
 Domain sports (`backend/data/sports.csv`) and sport–feed mappings (`backend/data/sport_feed_mappings.csv`) are **in the repo** so they deploy with the code. You can’t create sports or map feed sports to domain sports in the UI; that’s done by a developer and committed.

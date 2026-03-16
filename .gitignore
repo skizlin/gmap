@@ -48,7 +48,8 @@ backend/data/feed_last_pull.csv
 # Audit / log files: per-environment (local and server each have their own). Whole folder ignored.
 backend/data/audit/
 
-# Backoffice data: per-environment. In repo: sports.csv, sport_feed_mappings.csv, feed_sports.csv, and backend/data/markets/ reference data (market_score_type.csv, market_period_type.csv, market_templates.csv — not editable in backoffice). Sport and sport–feed mappings are developer-controlled and deployed with code.
+# ─── Per-environment (NOT in repo): each instance (local, server) has its own. Do not commit. ───
+# In repo / deployed with code: sports.csv, sport_feed_mappings.csv, feed_sports.csv; backend/data/markets/: market_templates.csv, market_groups.csv, market_outcomes.csv, market_period_type.csv, market_score_type.csv (reference only).
 backend/data/brands.csv
 backend/data/categories.csv
 backend/data/competitions.csv
@@ -64,6 +65,7 @@ backend/data/languages.csv
 backend/data/margin_template_competitions.csv
 backend/data/margin_templates.csv
 backend/data/markets.csv
+backend/data/markets/market_type_mappings.csv
 backend/data/partners.csv
 backend/data/teams.csv
 backend/data/translations.csv
