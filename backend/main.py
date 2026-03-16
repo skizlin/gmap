@@ -2250,11 +2250,15 @@ def _load_feed_markets_for_sport(
         return []
 
     if feed_lower == "bet365":
-        return _parse_bet365_feed_markets(data)
-    if feed_lower == "1xbet":
-        return _parse_1xbet_feed_markets(data)
-    # Bwin (and any other with Bwin-style structure)
-    return _parse_bwin_feed_markets(data, feed_sport_id, used_sport_specific)
+        markets = _parse_bet365_feed_markets(data)
+    elif feed_lower == "1xbet":
+        markets = _parse_1xbet_feed_markets(data)
+    else:
+        markets = _parse_bwin_feed_markets(data, feed_sport_id, used_sport_specific)
+    sport_name = _get_feed_sport_name(feed_lower, feed_sport_id)
+    for m in markets:
+        m.setdefault("sport_name", sport_name)
+    return markets
 
 
 def _parse_bwin_feed_markets(
@@ -5007,9 +5011,11 @@ async def api_feed_markets(
     feed_code = (feed.get("code") or "").strip() or ""
     feed_name = (feed.get("name") or feed_code) or ""
     markets = _load_feed_markets_for_sport(feed_code, feed_sport_id, domain_sport_id)
+    sport_display = _get_feed_sport_name(feed_code, feed_sport_id)
     for m in markets:
         m["feed_name"] = feed_name
-        m.setdefault("sport_name", "")
+        # Always fill sport_name when empty (Bet365/1xbet stored events often lack SportName)
+        m["sport_name"] = (m.get("sport_name") or "").strip() or sport_display
     return {"feed_name": feed_name, "markets": markets}
 
 
@@ -5949,6 +5955,10 @@ async def entities_view(
     underage_categories = _load_underage_categories()
     underage_categories_by_id = {u["id"]: u["name"] for u in underage_categories}
 
+    # Feeds that have at least one sport mapping (for market mapper dropdown; hides removed feeds like SBObet)
+    feed_ids_with_sport_mappings = {m["feed_provider_id"] for m in SPORT_FEED_MAPPINGS}
+    mapper_feeds = [f for f in FEEDS if f.get("domain_id") in feed_ids_with_sport_mappings]
+
     return templates.TemplateResponse("configuration/entities.html", {
         "participant_types": participant_types,
         "underage_categories": underage_categories,
@@ -5964,6 +5974,7 @@ async def entities_view(
         "categories_by_id": categories_by_id,
         "feeds_by_id": feeds_by_id,
         "feeds": FEEDS,
+        "mapper_feeds": mapper_feeds,
         "entity_feed_refs_by_key": entity_feed_refs_by_key,
         "market_templates": market_templates,
         "market_period_types": market_period_types,

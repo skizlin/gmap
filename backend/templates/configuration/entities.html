@@ -116,8 +116,8 @@
         <!-- Top filters and actions -->
         <div class="flex flex-wrap items-center gap-3 bg-cardbg/80 border border-slate-700/50 rounded-lg p-3">
             <label class="text-[10px] uppercase tracking-wider text-slate-500 self-center">Sport</label>
-            <select id="mt-sport" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none" title="Filter markets by sport" onchange="mtSportChange()">
-                <option value="">— All sports —</option>
+            <select id="mt-sport" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none" title="Select a sport to view its market types" onchange="mtSportChange()">
+                <option value="">— Select sport —</option>
                 {% for s in entities.sports %}
                 <option value="{{ s.domain_id }}" {% if market_sport_id is not none and market_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
@@ -260,7 +260,7 @@
                         <div class="flex flex-wrap gap-2">
                             <select id="market-mapper-feed" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-primary outline-none">
                                 <option value="">— Feed —</option>
-                                {% for f in feeds %}
+                                {% for f in (mapper_feeds if mapper_feeds is defined else feeds) %}
                                 <option value="{{ f.domain_id }}">{{ f.name }}</option>
                                 {% endfor %}
                             </select>
@@ -322,6 +322,9 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-700/40 entity-tbody" data-panel="markets">
+                    <tr id="mt-no-sport-row" class="mt-select-sport-placeholder" style="display: none;">
+                        <td colspan="15" class="px-4 py-10 text-center text-slate-500">Select a sport above to view market types.</td>
+                    </tr>
                     {% set entity_data = entities.markets %}
                     {% if entity_data %}
                     {% for entity in entity_data %}
@@ -745,6 +748,7 @@
         if (key === 'categories' && typeof applyCategoriesFilters === 'function') applyCategoriesFilters();
         if (key === 'teams' && typeof applyTeamsFilters === 'function') applyTeamsFilters();
         if (key === 'competitions' && typeof applyCompetitionsFilters === 'function') applyCompetitionsFilters();
+        if (key === 'markets' && typeof mtApplyFilters === 'function') mtApplyFilters();
         window.location.hash = key;
     }
     function getCurrentEntityTab() {
@@ -1443,18 +1447,23 @@
         console.log('Activate/Deactivate:', el.checked ? 'active' : 'inactive');
     }
     function mtApplyFilters() {
-        const sport = (document.getElementById('mt-sport')?.value || '').trim().toLowerCase();
+        const sportVal = (document.getElementById('mt-sport')?.value || '').trim();
         const nameQuery = (document.getElementById('mt-name')?.value || '').trim().toLowerCase();
         const tbody = document.querySelector('.entity-tbody[data-panel="markets"]');
         if (!tbody) return;
-        tbody.querySelectorAll('.entity-row').forEach(function (tr) {
+        const noSportRow = document.getElementById('mt-no-sport-row');
+        if (noSportRow) noSportRow.style.display = sportVal ? 'none' : '';
+        tbody.querySelectorAll('.entity-row, .entity-empty-row').forEach(function (tr) {
+            if (tr.classList.contains('mt-select-sport-placeholder')) return;
             if (tr.classList.contains('entity-empty-row')) {
-                tr.style.display = (nameQuery || sport) ? 'none' : '';
+                tr.style.display = sportVal ? '' : 'none';
                 return;
             }
+            const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
+            const matchSport = sportVal && rowSportId === sportVal;
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
             const matchName = !nameQuery || searchText.indexOf(nameQuery) !== -1;
-            tr.style.display = matchName ? '' : 'none';
+            tr.style.display = (matchSport && matchName) ? '' : 'none';
         });
     }
     document.getElementById('mt-sport')?.addEventListener('change', mtApplyFilters);
