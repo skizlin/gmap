@@ -1,0 +1,1553 @@
+{
+    "success": 1,
+    "results": [
+        {
+            "Id": "19146558",
+            "updated_at": "1773348496",
+            "SportId": 18,
+            "SportName": "Volleyball",
+            "RegionId": 33,
+            "RegionName": "Brazil",
+            "LeagueId": 9198,
+            "LeagueName": "Superliga - Women",
+            "BetRadarId": 66320128,
+            "our_event_id": 11070748,
+            "IsPreMatch": true,
+            "Date": "2026-03-13T21:30:00Z",
+            "HomeTeam": "Maringa",
+            "HomeTeamId": 2967517,
+            "HomeTeamShort": "Maringa",
+            "AwayTeam": "Sorocaba",
+            "AwayTeamId": 2880361,
+            "AwayTeamShort": "Sorocaba",
+            "Markets": [
+                {
+                    "isMain": true,
+                    "results": [
+                        {
+                            "name": {
+                                "value": "Maringa"
+                            },
+                            "numerator": 1,
+                            "odds": 1.09,
+                            "playerId": 2967517,
+                            "visibility": "Visible",
+                            "denominator": 11,
+                            "version": 10319895057,
+                            "sourceName": {
+                                "value": "1"
+                            },
+                            "id": -161714552,
+                            "americanOdds": -1100
+                        },
+                        {
+                            "odds": 6.25,
+                            "numerator": 21,
+                            "name": {
+                                "value": "Sorocaba"
+                            },
+                            "americanOdds": 525,
+                            "id": -161714551,
+                            "sourceName": {
+                                "value": "2"
+                            },
+                            "version": 10319895752,
+                            "denominator": 4,
+                            "playerId": 2880361,
+                            "visibility": "Visible"
+                        }
+                    ],
+                    "templateId": 1545,
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "templateCategory": {
+                        "dynamicCategories": [],
+                        "category": "Gridable",
+                        "name": {
+                            "value": "2Way - Who will win?"
+                        },
+                        "id": 93
+                    },
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "orderType": "None",
+                                "displayType": "Regular",
+                                "marketGroupId": "86ac2823-2449-425b-bf57-7e8d5c16bf6c",
+                                "marketGroupItemId": "f88cada8-de8f-48c9-89d7-3f6c3a1383f3"
+                            }
+                        ],
+                        "gridGroups": [
+                            "hrw6l1vwy"
+                        ]
+                    },
+                    "id": 1471826944,
+                    "combo2": "Single",
+                    "name": {
+                        "value": "2Way - Who will win?"
+                    },
+                    "category": "Gridable",
+                    "visibility": "Visible",
+                    "categoryId": 93,
+                    "combo1": "NoEventCombo"
+                },
+                {
+                    "combo1": "NoEventCombo",
+                    "categoryId": 95,
+                    "category": "Other",
+                    "visibility": "Visible",
+                    "combo2": "Single",
+                    "name": {
+                        "value": "Set Bet (best-of-five)"
+                    },
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "id": 1476266501,
+                    "grouping": {
+                        "gridGroups": [],
+                        "detailed": [
+                            {
+                                "marketGroupItemId": "bc750af4-e0f4-4a3b-a304-24378a8508d9",
+                                "orderType": "None",
+                                "marketGroupId": "86ac2823-2449-425b-bf57-7e8d5c16bf6c",
+                                "displayType": "Regular"
+                            }
+                        ]
+                    },
+                    "templateCategory": {
+                        "name": {
+                            "value": "Set related bets"
+                        },
+                        "category": "Other",
+                        "dynamicCategories": [],
+                        "id": 95
+                    },
+                    "templateId": 499,
+                    "results": [
+                        {
+                            "id": -150355487,
+                            "americanOdds": -105,
+                            "visibility": "Visible",
+                            "denominator": 20,
+                            "version": 10319895753,
+                            "numerator": 19,
+                            "odds": 1.95,
+                            "name": {
+                                "value": "3-0"
+                            }
+                        },
+                        {
+                            "numerator": 9,
+                            "odds": 2.8,
+                            "name": {
+                                "value": "3-1"
+                            },
+                            "id": -150355486,
+                            "americanOdds": 180,
+                            "visibility": "Visible",
+                            "version": 10319895753,
+                            "denominator": 5
+                        },
+                        {
+                            "name": {
+                                "value": "3-2"
+                            },
+                            "numerator": 15,
+                            "odds": 8.75,
+                            "visibility": "Visible",
+                            "denominator": 2,
+                            "version": 10319895753,
+                            "id": -150355485,
+                            "americanOdds": 775
+                        },
+                        {
+                            "visibility": "Visible",
+                            "version": 10319895076,
+                            "denominator": 1,
+                            "id": -150355484,
+                            "americanOdds": 1200,
+                            "name": {
+                                "value": "2-3"
+                            },
+                            "numerator": 12,
+                            "odds": 13
+                        },
+                        {
+                            "denominator": 1,
+                            "version": 10319895076,
+                            "visibility": "Visible",
+                            "americanOdds": 2200,
+                            "id": -150355483,
+                            "name": {
+                                "value": "1-3"
+                            },
+                            "odds": 23,
+                            "numerator": 22
+                        },
+                        {
+                            "id": -150355482,
+                            "americanOdds": 2500,
+                            "visibility": "Visible",
+                            "version": 10319895753,
+                            "denominator": 1,
+                            "numerator": 25,
+                            "odds": 26,
+                            "name": {
+                                "value": "0-3"
+                            }
+                        }
+                    ],
+                    "isMain": false
+                },
+                {
+                    "results": [
+                        {
+                            "version": 10319895756,
+                            "denominator": 5,
+                            "visibility": "Visible",
+                            "americanOdds": -130,
+                            "id": -150355479,
+                            "name": {
+                                "value": "Over 148,5"
+                            },
+                            "odds": 1.78,
+                            "numerator": 4
+                        },
+                        {
+                            "odds": 1.9,
+                            "numerator": 9,
+                            "name": {
+                                "value": "Under 148,5"
+                            },
+                            "americanOdds": -110,
+                            "id": -150355478,
+                            "version": 10319895756,
+                            "denominator": 10,
+                            "visibility": "Visible"
+                        }
+                    ],
+                    "spread": 0.12,
+                    "attr": "148,5",
+                    "balanced": 1,
+                    "isMain": false,
+                    "resultOrder": "Default",
+                    "isBetBuilder": false,
+                    "id": 1476266503,
+                    "templateCategory": {
+                        "dynamicCategories": [],
+                        "category": "Gridable",
+                        "name": {
+                            "value": "Totals"
+                        },
+                        "id": 462
+                    },
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "displayType": "OverUnder",
+                                "marketGroupId": "088faecf-9267-493e-8361-300096e9507b",
+                                "orderType": "None",
+                                "marketGroupItemId": "a773cf40-4643-41f8-8638-716b3289da2f",
+                                "subIndex": 0
+                            }
+                        ],
+                        "gridGroups": [
+                            "qcae8odby"
+                        ]
+                    },
+                    "templateId": 9210,
+                    "oddsKey": 108.81,
+                    "combo2": "Single",
+                    "name": {
+                        "value": "How many points will be scored in total?"
+                    },
+                    "combo1": "NoEventCombo",
+                    "categoryId": 462,
+                    "category": "Gridable",
+                    "visibility": "Visible"
+                },
+                {
+                    "templateId": 1548,
+                    "templateCategory": {
+                        "name": {
+                            "value": "Handicap (two way)"
+                        },
+                        "dynamicCategories": [],
+                        "category": "Other",
+                        "id": 96
+                    },
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "marketGroupItemId": "92f611f5-1e5b-44f9-a393-525dfa689d60",
+                                "subIndex": 0,
+                                "marketGroupId": "843fa2ac-0f11-4082-83fb-1fdff921dd9b",
+                                "displayType": "Regular",
+                                "orderType": "None"
+                            }
+                        ],
+                        "gridGroups": []
+                    },
+                    "id": 1476266510,
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "isMain": false,
+                    "attr": "-3,5",
+                    "results": [
+                        {
+                            "name": {
+                                "value": "Maringa -3,5"
+                            },
+                            "numerator": 7,
+                            "odds": 1.7,
+                            "playerId": 2967517,
+                            "visibility": "Visible",
+                            "version": 10319895079,
+                            "denominator": 10,
+                            "id": -150355465,
+                            "americanOdds": -145
+                        },
+                        {
+                            "playerId": 2880361,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895079,
+                            "id": -150355464,
+                            "americanOdds": 100,
+                            "name": {
+                                "value": "Sorocaba +3,5"
+                            },
+                            "numerator": 1,
+                            "odds": 2
+                        }
+                    ],
+                    "visibility": "Visible",
+                    "category": "Other",
+                    "combo1": "NoEventCombo",
+                    "categoryId": 96,
+                    "name": {
+                        "value": "Who will win the first set? Handicap"
+                    },
+                    "combo2": "Single"
+                },
+                {
+                    "categoryId": 96,
+                    "combo1": "NoEventCombo",
+                    "visibility": "Visible",
+                    "category": "Other",
+                    "name": {
+                        "value": "Who will win the match (set handicap)?"
+                    },
+                    "combo2": "Single",
+                    "grouping": {
+                        "gridGroups": [],
+                        "detailed": [
+                            {
+                                "displayType": "Regular",
+                                "marketGroupId": "843fa2ac-0f11-4082-83fb-1fdff921dd9b",
+                                "orderType": "None",
+                                "marketGroupItemId": "580e4dab-cb86-40e4-9a2d-b8c3b8e63ca6",
+                                "subIndex": 0
+                            }
+                        ]
+                    },
+                    "templateCategory": {
+                        "name": {
+                            "value": "Handicap (two way)"
+                        },
+                        "dynamicCategories": [],
+                        "category": "Other",
+                        "id": 96
+                    },
+                    "id": 1476266514,
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "templateId": 9206,
+                    "attr": "-2,5",
+                    "results": [
+                        {
+                            "odds": 1.95,
+                            "numerator": 19,
+                            "name": {
+                                "value": "Maringa -2,5"
+                            },
+                            "americanOdds": -105,
+                            "id": -150355457,
+                            "version": 10319895758,
+                            "denominator": 20,
+                            "playerId": 2967517,
+                            "visibility": "Visible"
+                        },
+                        {
+                            "visibility": "Visible",
+                            "playerId": 2880361,
+                            "denominator": 11,
+                            "version": 10319895758,
+                            "id": -150355456,
+                            "americanOdds": -140,
+                            "name": {
+                                "value": "Sorocaba +2,5"
+                            },
+                            "numerator": 8,
+                            "odds": 1.72
+                        }
+                    ],
+                    "isMain": false
+                },
+                {
+                    "category": "Gridable",
+                    "visibility": "Visible",
+                    "combo1": "NoEventCombo",
+                    "categoryId": 96,
+                    "combo2": "Single",
+                    "name": {
+                        "value": "Total Points Handicap"
+                    },
+                    "oddsKey": 109.5,
+                    "templateId": 13809,
+                    "resultOrder": "Default",
+                    "isBetBuilder": false,
+                    "id": 1476266518,
+                    "grouping": {
+                        "gridGroups": [
+                            "y9xc5rbum"
+                        ],
+                        "detailed": [
+                            {
+                                "marketGroupId": "843fa2ac-0f11-4082-83fb-1fdff921dd9b",
+                                "displayType": "Regular",
+                                "orderType": "None",
+                                "marketGroupItemId": "1179aa57-f19d-4e23-9151-99bca16c5a36",
+                                "subIndex": 0
+                            }
+                        ]
+                    },
+                    "templateCategory": {
+                        "id": 96,
+                        "category": "Gridable",
+                        "dynamicCategories": [],
+                        "name": {
+                            "value": "Handicap (two way)"
+                        }
+                    },
+                    "isMain": false,
+                    "balanced": 1,
+                    "results": [
+                        {
+                            "name": {
+                                "value": "Maringa -14,5"
+                            },
+                            "odds": 1.75,
+                            "numerator": 3,
+                            "attr": "-14,5",
+                            "version": 10319895759,
+                            "denominator": 4,
+                            "visibility": "Visible",
+                            "playerId": 2967517,
+                            "americanOdds": -135,
+                            "id": -150355451
+                        },
+                        {
+                            "name": {
+                                "value": "Sorocaba +14,5"
+                            },
+                            "odds": 1.91,
+                            "numerator": 10,
+                            "attr": "+14,5",
+                            "version": 10319895759,
+                            "denominator": 11,
+                            "playerId": 2880361,
+                            "visibility": "Visible",
+                            "americanOdds": -110,
+                            "id": -150355450
+                        }
+                    ],
+                    "spread": 0.16
+                },
+                {
+                    "category": "Other",
+                    "visibility": "Visible",
+                    "categoryId": 384,
+                    "combo1": "NoEventCombo",
+                    "combo2": "Single",
+                    "name": {
+                        "value": "Will the match be decided in the 5th set?"
+                    },
+                    "templateId": 14484,
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "id": 1476266521,
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "marketGroupItemId": "a5f90cff-0078-4e83-a0e5-6d9e3cea945a",
+                                "displayType": "Regular",
+                                "marketGroupId": "9c43f362-7e58-4625-854f-8c7285f748df",
+                                "orderType": "None"
+                            }
+                        ],
+                        "gridGroups": []
+                    },
+                    "templateCategory": {
+                        "id": 384,
+                        "name": {
+                            "value": "Number of sets"
+                        },
+                        "category": "Other",
+                        "dynamicCategories": []
+                    },
+                    "isMain": false,
+                    "results": [
+                        {
+                            "name": {
+                                "value": "Yes"
+                            },
+                            "odds": 5.25,
+                            "numerator": 17,
+                            "version": 10319895769,
+                            "denominator": 4,
+                            "visibility": "Visible",
+                            "americanOdds": 425,
+                            "id": -150355443
+                        },
+                        {
+                            "id": -150355442,
+                            "americanOdds": -750,
+                            "visibility": "Visible",
+                            "version": 10319895769,
+                            "denominator": 15,
+                            "numerator": 2,
+                            "odds": 1.13,
+                            "name": {
+                                "value": "No"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "combo1": "NoEventCombo",
+                    "categoryId": 614,
+                    "category": "Other",
+                    "visibility": "Visible",
+                    "combo2": "Single",
+                    "name": {
+                        "value": "Will the total number of points in the match be odd or even?"
+                    },
+                    "resultOrder": "Default",
+                    "isBetBuilder": false,
+                    "id": 1476266530,
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "marketGroupItemId": "8fa3e41b-eeb6-4493-9c8e-d8883256c1a7",
+                                "marketGroupId": "f4dba2dd-5714-4efc-8172-4f0cd221424c",
+                                "displayType": "Regular",
+                                "orderType": "None"
+                            }
+                        ],
+                        "gridGroups": []
+                    },
+                    "templateCategory": {
+                        "dynamicCategories": [],
+                        "category": "Other",
+                        "name": {
+                            "value": "Points"
+                        },
+                        "id": 614
+                    },
+                    "templateId": 14437,
+                    "results": [
+                        {
+                            "americanOdds": -120,
+                            "id": -150355425,
+                            "version": 10319895103,
+                            "denominator": 6,
+                            "visibility": "Visible",
+                            "odds": 1.83,
+                            "numerator": 5,
+                            "name": {
+                                "value": "Odd"
+                            }
+                        },
+                        {
+                            "numerator": 5,
+                            "odds": 1.83,
+                            "name": {
+                                "value": "Even"
+                            },
+                            "id": -150355424,
+                            "americanOdds": -120,
+                            "visibility": "Visible",
+                            "version": 10319895103,
+                            "denominator": 6
+                        }
+                    ],
+                    "isMain": false
+                },
+                {
+                    "name": {
+                        "value": "Result after first 2 sets"
+                    },
+                    "combo2": "Single",
+                    "categoryId": 95,
+                    "combo1": "NoEventCombo",
+                    "visibility": "Visible",
+                    "category": "Other",
+                    "results": [
+                        {
+                            "americanOdds": -170,
+                            "id": -150355423,
+                            "denominator": 100,
+                            "version": 10319895805,
+                            "visibility": "Visible",
+                            "playerId": 2967517,
+                            "odds": 1.59,
+                            "numerator": 59,
+                            "name": {
+                                "value": "Maringa"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "X"
+                            },
+                            "odds": 2.6,
+                            "numerator": 8,
+                            "version": 10319895805,
+                            "denominator": 5,
+                            "visibility": "Visible",
+                            "americanOdds": 160,
+                            "id": -150355422
+                        },
+                        {
+                            "id": -150355421,
+                            "americanOdds": 1050,
+                            "playerId": 2880361,
+                            "visibility": "Visible",
+                            "version": 10319895805,
+                            "denominator": 1,
+                            "numerator": 10,
+                            "odds": 11.5,
+                            "name": {
+                                "value": "Sorocaba"
+                            }
+                        }
+                    ],
+                    "isMain": false,
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "marketGroupItemId": "f1007c1d-71de-4b5d-966d-5536f487effa",
+                                "marketGroupId": "86ac2823-2449-425b-bf57-7e8d5c16bf6c",
+                                "displayType": "Regular",
+                                "orderType": "None"
+                            }
+                        ],
+                        "gridGroups": []
+                    },
+                    "templateCategory": {
+                        "dynamicCategories": [],
+                        "category": "Other",
+                        "name": {
+                            "value": "Set related bets"
+                        },
+                        "id": 95
+                    },
+                    "id": 1476266531,
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "templateId": 16875
+                },
+                {
+                    "combo2": "Single",
+                    "name": {
+                        "value": "Which team will win the 1st set?"
+                    },
+                    "description": "Set 1",
+                    "categoryId": 95,
+                    "combo1": "NoEventCombo",
+                    "category": "Gridable",
+                    "visibility": "Visible",
+                    "results": [
+                        {
+                            "visibility": "Visible",
+                            "playerId": 2967517,
+                            "denominator": 4,
+                            "version": 10319895821,
+                            "id": -150355418,
+                            "americanOdds": -400,
+                            "name": {
+                                "value": "Maringa"
+                            },
+                            "numerator": 1,
+                            "odds": 1.25
+                        },
+                        {
+                            "playerId": 2880361,
+                            "visibility": "Visible",
+                            "version": 10319895821,
+                            "denominator": 5,
+                            "id": -150355417,
+                            "americanOdds": 260,
+                            "name": {
+                                "value": "Sorocaba"
+                            },
+                            "numerator": 13,
+                            "odds": 3.6
+                        }
+                    ],
+                    "isMain": false,
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "id": 1476266533,
+                    "templateCategory": {
+                        "id": 95,
+                        "dynamicCategories": [],
+                        "category": "Gridable",
+                        "name": {
+                            "value": "Set related bets"
+                        }
+                    },
+                    "grouping": {
+                        "detailed": [
+                            {
+                                "marketGroupItemId": "9dd65646-c35d-489d-ab76-665d88a39e71",
+                                "orderType": "None",
+                                "displayType": "Regular",
+                                "marketGroupId": "86ac2823-2449-425b-bf57-7e8d5c16bf6c"
+                            }
+                        ],
+                        "gridGroups": [
+                            "rlu7m6dhj"
+                        ]
+                    },
+                    "templateId": 1547
+                },
+                {
+                    "category": "Other",
+                    "visibility": "Visible",
+                    "categoryId": 614,
+                    "combo1": "NoEventCombo",
+                    "combo2": "Single",
+                    "name": {
+                        "value": "Will the number of points in the 1st set be odd or even?"
+                    },
+                    "templateId": 11950,
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "id": 1476266536,
+                    "templateCategory": {
+                        "id": 614,
+                        "category": "Other",
+                        "dynamicCategories": [],
+                        "name": {
+                            "value": "Points"
+                        }
+                    },
+                    "grouping": {
+                        "gridGroups": [],
+                        "detailed": [
+                            {
+                                "marketGroupId": "f4dba2dd-5714-4efc-8172-4f0cd221424c",
+                                "displayType": "Regular",
+                                "orderType": "None",
+                                "marketGroupItemId": "cd1ac103-6cf0-437e-b848-69d29e1e052a"
+                            }
+                        ]
+                    },
+                    "isMain": false,
+                    "results": [
+                        {
+                            "visibility": "Visible",
+                            "version": 10319895857,
+                            "denominator": 50,
+                            "id": -150355412,
+                            "americanOdds": 118,
+                            "name": {
+                                "value": "Odd"
+                            },
+                            "numerator": 59,
+                            "odds": 2.18
+                        },
+                        {
+                            "visibility": "Visible",
+                            "denominator": 5,
+                            "version": 10319895109,
+                            "id": -150355411,
+                            "americanOdds": -165,
+                            "name": {
+                                "value": "Even"
+                            },
+                            "numerator": 3,
+                            "odds": 1.6
+                        }
+                    ]
+                },
+                {
+                    "visibility": "Visible",
+                    "category": "Gridable",
+                    "combo1": "NoEventCombo",
+                    "categoryId": 747,
+                    "name": {
+                        "value": "How many points will be scored in the 1st set?"
+                    },
+                    "combo2": "Single",
+                    "oddsKey": 107.6,
+                    "templateId": 6356,
+                    "grouping": {
+                        "gridGroups": [
+                            "6shd0ugym"
+                        ],
+                        "detailed": [
+                            {
+                                "marketGroupItemId": "b24a8aee-6037-4398-b690-ba689aea5a47",
+                                "subIndex": 0,
+                                "marketGroupId": "088faecf-9267-493e-8361-300096e9507b",
+                                "displayType": "OverUnder",
+                                "orderType": "None"
+                            }
+                        ]
+                    },
+                    "templateCategory": {
+                        "dynamicCategories": [],
+                        "category": "Gridable",
+                        "name": {
+                            "value": "Set Totals"
+                        },
+                        "id": 747
+                    },
+                    "id": 1476266537,
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "balanced": 1,
+                    "isMain": false,
+                    "attr": "45,5",
+                    "spread": 0.35,
+                    "results": [
+                        {
+                            "numerator": 21,
+                            "odds": 2.05,
+                            "name": {
+                                "value": "Over 45,5"
+                            },
+                            "id": -150355410,
+                            "americanOdds": 105,
+                            "visibility": "Visible",
+                            "version": 10319895111,
+                            "denominator": 20
+                        },
+                        {
+                            "version": 10319895111,
+                            "denominator": 10,
+                            "visibility": "Visible",
+                            "americanOdds": -145,
+                            "id": -150355409,
+                            "name": {
+                                "value": "Under 45,5"
+                            },
+                            "odds": 1.7,
+                            "numerator": 7
+                        }
+                    ]
+                },
+                {
+                    "templateId": 31895,
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "id": 1476266542,
+                    "grouping": {
+                        "gridGroups": [],
+                        "detailed": [
+                            {
+                                "displayType": "Regular",
+                                "marketGroupId": "f4dba2dd-5714-4efc-8172-4f0cd221424c",
+                                "orderType": "None",
+                                "marketGroupItemId": "5de5fc07-a211-4ad2-a038-0bda598995c5"
+                            }
+                        ]
+                    },
+                    "templateCategory": {
+                        "name": {
+                            "value": "Points"
+                        },
+                        "category": "Other",
+                        "dynamicCategories": [],
+                        "id": 614
+                    },
+                    "isMain": false,
+                    "results": [
+                        {
+                            "visibility": "Visible",
+                            "version": 10319895112,
+                            "denominator": 4,
+                            "id": -150355400,
+                            "americanOdds": 525,
+                            "name": {
+                                "value": "Yes"
+                            },
+                            "numerator": 21,
+                            "odds": 6.25
+                        },
+                        {
+                            "denominator": 14,
+                            "version": 10319895870,
+                            "visibility": "Visible",
+                            "americanOdds": -1400,
+                            "id": -150355399,
+                            "name": {
+                                "value": "No"
+                            },
+                            "odds": 1.07,
+                            "numerator": 1
+                        }
+                    ],
+                    "category": "Other",
+                    "visibility": "Visible",
+                    "combo1": "NoEventCombo",
+                    "categoryId": 614,
+                    "combo2": "Single",
+                    "name": {
+                        "value": "1st Set Extra Points Required?"
+                    }
+                },
+                {
+                    "category": "NonGridable",
+                    "visibility": "Visible",
+                    "categoryId": 14,
+                    "combo1": "NoEventCombo",
+                    "combo2": "Single",
+                    "name": {
+                        "value": "Correct Score (Set 1)"
+                    },
+                    "templateId": 31815,
+                    "isBetBuilder": false,
+                    "resultOrder": "Default",
+                    "id": 1476266545,
+                    "templateCategory": {
+                        "name": {
+                            "value": "Miscellaneous"
+                        },
+                        "category": "NonGridable",
+                        "dynamicCategories": [],
+                        "id": 1
+                    },
+                    "grouping": {
+                        "gridGroups": [],
+                        "detailed": [
+                            {
+                                "orderType": "None",
+                                "marketGroupId": "9c43f362-7e58-4625-854f-8c7285f748df",
+                                "displayType": "Regular",
+                                "marketGroupItemId": "a13f3e32-5e07-415a-8624-ceb1db00dbe7"
+                            }
+                        ]
+                    },
+                    "isMain": false,
+                    "results": [
+                        {
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "id": -150355394,
+                            "americanOdds": 25000,
+                            "name": {
+                                "value": "25:0"
+                            },
+                            "numerator": 250,
+                            "odds": 251
+                        },
+                        {
+                            "numerator": 250,
+                            "odds": 251,
+                            "name": {
+                                "value": "0:25"
+                            },
+                            "id": -150355393,
+                            "americanOdds": 25000,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895115
+                        },
+                        {
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "id": -150355392,
+                            "americanOdds": 25000,
+                            "name": {
+                                "value": "25:1"
+                            },
+                            "numerator": 250,
+                            "odds": 251
+                        },
+                        {
+                            "odds": 251,
+                            "numerator": 250,
+                            "name": {
+                                "value": "1:25"
+                            },
+                            "americanOdds": 25000,
+                            "id": -150355391,
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "visibility": "Visible"
+                        },
+                        {
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "visibility": "Visible",
+                            "americanOdds": 25000,
+                            "id": -150355390,
+                            "name": {
+                                "value": "25:2"
+                            },
+                            "odds": 251,
+                            "numerator": 250
+                        },
+                        {
+                            "name": {
+                                "value": "2:25"
+                            },
+                            "numerator": 250,
+                            "odds": 251,
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "id": -150355389,
+                            "americanOdds": 25000
+                        },
+                        {
+                            "odds": 251,
+                            "numerator": 250,
+                            "name": {
+                                "value": "25:3"
+                            },
+                            "americanOdds": 25000,
+                            "id": -150355388,
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "visibility": "Visible"
+                        },
+                        {
+                            "americanOdds": 25000,
+                            "id": -150355387,
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "visibility": "Visible",
+                            "odds": 251,
+                            "numerator": 250,
+                            "name": {
+                                "value": "3:25"
+                            }
+                        },
+                        {
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "id": -150355386,
+                            "americanOdds": 25000,
+                            "name": {
+                                "value": "25:4"
+                            },
+                            "numerator": 250,
+                            "odds": 251
+                        },
+                        {
+                            "name": {
+                                "value": "4:25"
+                            },
+                            "odds": 251,
+                            "numerator": 250,
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "visibility": "Visible",
+                            "americanOdds": 25000,
+                            "id": -150355385
+                        },
+                        {
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "id": -150355384,
+                            "americanOdds": 25000,
+                            "name": {
+                                "value": "25:5"
+                            },
+                            "numerator": 250,
+                            "odds": 251
+                        },
+                        {
+                            "id": -150355383,
+                            "americanOdds": 25000,
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "numerator": 250,
+                            "odds": 251,
+                            "name": {
+                                "value": "5:25"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "25:6"
+                            },
+                            "numerator": 250,
+                            "odds": 251,
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "id": -150355382,
+                            "americanOdds": 25000
+                        },
+                        {
+                            "name": {
+                                "value": "6:25"
+                            },
+                            "odds": 251,
+                            "numerator": 250,
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "visibility": "Visible",
+                            "americanOdds": 25000,
+                            "id": -150355381
+                        },
+                        {
+                            "id": -150355380,
+                            "americanOdds": 25000,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "numerator": 250,
+                            "odds": 251,
+                            "name": {
+                                "value": "25:7"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "7:25"
+                            },
+                            "odds": 251,
+                            "numerator": 250,
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "visibility": "Visible",
+                            "americanOdds": 25000,
+                            "id": -150355379
+                        },
+                        {
+                            "numerator": 250,
+                            "odds": 251,
+                            "name": {
+                                "value": "25:8"
+                            },
+                            "id": -150355378,
+                            "americanOdds": 25000,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895115
+                        },
+                        {
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "id": -150355377,
+                            "americanOdds": 25000,
+                            "name": {
+                                "value": "8:25"
+                            },
+                            "numerator": 250,
+                            "odds": 251
+                        },
+                        {
+                            "name": {
+                                "value": "25:9"
+                            },
+                            "numerator": 250,
+                            "odds": 251,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895890,
+                            "id": -150355376,
+                            "americanOdds": 25000
+                        },
+                        {
+                            "odds": 251,
+                            "numerator": 250,
+                            "name": {
+                                "value": "9:25"
+                            },
+                            "americanOdds": 25000,
+                            "id": -150355375,
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "visibility": "Visible"
+                        },
+                        {
+                            "odds": 201,
+                            "numerator": 200,
+                            "name": {
+                                "value": "25:10"
+                            },
+                            "americanOdds": 20000,
+                            "id": -150355374,
+                            "denominator": 1,
+                            "version": 10319895890,
+                            "visibility": "Visible"
+                        },
+                        {
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "visibility": "Visible",
+                            "americanOdds": 25000,
+                            "id": -150355373,
+                            "name": {
+                                "value": "10:25"
+                            },
+                            "odds": 251,
+                            "numerator": 250
+                        },
+                        {
+                            "americanOdds": 5000,
+                            "id": -150355372,
+                            "version": 10319895890,
+                            "denominator": 1,
+                            "visibility": "Visible",
+                            "odds": 51,
+                            "numerator": 50,
+                            "name": {
+                                "value": "25:11"
+                            }
+                        },
+                        {
+                            "id": -150355371,
+                            "americanOdds": 25000,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "numerator": 250,
+                            "odds": 251,
+                            "name": {
+                                "value": "11:25"
+                            }
+                        },
+                        {
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "id": -150355370,
+                            "americanOdds": 4000,
+                            "name": {
+                                "value": "25:12"
+                            },
+                            "numerator": 40,
+                            "odds": 41
+                        },
+                        {
+                            "name": {
+                                "value": "12:25"
+                            },
+                            "numerator": 250,
+                            "odds": 251,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "id": -150355369,
+                            "americanOdds": 25000
+                        },
+                        {
+                            "name": {
+                                "value": "25:13"
+                            },
+                            "odds": 26,
+                            "numerator": 25,
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "visibility": "Visible",
+                            "americanOdds": 2500,
+                            "id": -150355368
+                        },
+                        {
+                            "numerator": 250,
+                            "odds": 251,
+                            "name": {
+                                "value": "13:25"
+                            },
+                            "id": -150355367,
+                            "americanOdds": 25000,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895115
+                        },
+                        {
+                            "id": -150355366,
+                            "americanOdds": 1900,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895890,
+                            "numerator": 19,
+                            "odds": 20,
+                            "name": {
+                                "value": "25:14"
+                            }
+                        },
+                        {
+                            "id": -150355365,
+                            "americanOdds": 25000,
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "numerator": 250,
+                            "odds": 251,
+                            "name": {
+                                "value": "14:25"
+                            }
+                        },
+                        {
+                            "visibility": "Visible",
+                            "version": 10319895890,
+                            "denominator": 1,
+                            "id": -150355364,
+                            "americanOdds": 1500,
+                            "name": {
+                                "value": "25:15"
+                            },
+                            "numerator": 15,
+                            "odds": 16
+                        },
+                        {
+                            "americanOdds": 20000,
+                            "id": -150355363,
+                            "version": 10319895890,
+                            "denominator": 1,
+                            "visibility": "Visible",
+                            "odds": 201,
+                            "numerator": 200,
+                            "name": {
+                                "value": "15:25"
+                            }
+                        },
+                        {
+                            "odds": 13.5,
+                            "numerator": 12,
+                            "name": {
+                                "value": "25:16"
+                            },
+                            "americanOdds": 1250,
+                            "id": -150355362,
+                            "version": 10319895890,
+                            "denominator": 1,
+                            "visibility": "Visible"
+                        },
+                        {
+                            "odds": 126,
+                            "numerator": 125,
+                            "name": {
+                                "value": "16:25"
+                            },
+                            "americanOdds": 12500,
+                            "id": -150355361,
+                            "denominator": 1,
+                            "version": 10319895890,
+                            "visibility": "Visible"
+                        },
+                        {
+                            "name": {
+                                "value": "25:17"
+                            },
+                            "odds": 11.5,
+                            "numerator": 10,
+                            "version": 10319895890,
+                            "denominator": 1,
+                            "visibility": "Visible",
+                            "americanOdds": 1050,
+                            "id": -150355360
+                        },
+                        {
+                            "visibility": "Visible",
+                            "version": 10319895890,
+                            "denominator": 1,
+                            "id": -150355359,
+                            "americanOdds": 4000,
+                            "name": {
+                                "value": "17:25"
+                            },
+                            "numerator": 40,
+                            "odds": 41
+                        },
+                        {
+                            "americanOdds": 950,
+                            "id": -150355358,
+                            "denominator": 2,
+                            "version": 10319895115,
+                            "visibility": "Visible",
+                            "odds": 10.5,
+                            "numerator": 19,
+                            "name": {
+                                "value": "25:18"
+                            }
+                        },
+                        {
+                            "name": {
+                                "value": "18:25"
+                            },
+                            "odds": 41,
+                            "numerator": 40,
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "visibility": "Visible",
+                            "americanOdds": 4000,
+                            "id": -150355357
+                        },
+                        {
+                            "name": {
+                                "value": "25:19"
+                            },
+                            "numerator": 9,
+                            "odds": 10,
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "id": -150355356,
+                            "americanOdds": 900
+                        },
+                        {
+                            "name": {
+                                "value": "19:25"
+                            },
+                            "odds": 31,
+                            "numerator": 30,
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "visibility": "Visible",
+                            "americanOdds": 3000,
+                            "id": -150355355
+                        },
+                        {
+                            "odds": 9.75,
+                            "numerator": 17,
+                            "name": {
+                                "value": "25:20"
+                            },
+                            "americanOdds": 875,
+                            "id": -150355354,
+                            "denominator": 2,
+                            "version": 10319895115,
+                            "visibility": "Visible"
+                        },
+                        {
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "visibility": "Visible",
+                            "americanOdds": 2200,
+                            "id": -150355353,
+                            "name": {
+                                "value": "20:25"
+                            },
+                            "odds": 23,
+                            "numerator": 22
+                        },
+                        {
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "id": -150355352,
+                            "americanOdds": 900,
+                            "name": {
+                                "value": "25:21"
+                            },
+                            "numerator": 9,
+                            "odds": 10
+                        },
+                        {
+                            "numerator": 20,
+                            "odds": 21,
+                            "name": {
+                                "value": "21:25"
+                            },
+                            "id": -150355351,
+                            "americanOdds": 2000,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895890
+                        },
+                        {
+                            "numerator": 19,
+                            "odds": 10.5,
+                            "name": {
+                                "value": "25:22"
+                            },
+                            "id": -150355350,
+                            "americanOdds": 950,
+                            "visibility": "Visible",
+                            "denominator": 2,
+                            "version": 10319895115
+                        },
+                        {
+                            "name": {
+                                "value": "22:25"
+                            },
+                            "numerator": 16,
+                            "odds": 17.5,
+                            "visibility": "Visible",
+                            "version": 10319895115,
+                            "denominator": 1,
+                            "id": -150355349,
+                            "americanOdds": 1650
+                        },
+                        {
+                            "id": -150355348,
+                            "americanOdds": 1000,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "numerator": 10,
+                            "odds": 11,
+                            "name": {
+                                "value": "25:23"
+                            }
+                        },
+                        {
+                            "numerator": 14,
+                            "odds": 15.5,
+                            "name": {
+                                "value": "23:25"
+                            },
+                            "id": -150355347,
+                            "americanOdds": 1450,
+                            "visibility": "Visible",
+                            "denominator": 1,
+                            "version": 10319895890
+                        },
+                        {
+                            "americanOdds": 1000,
+                            "id": -150355346,
+                            "denominator": 1,
+                            "version": 10319895115,
+                            "visibility": "Visible",
+                            "odds": 11,
+                            "numerator": 10,
+                            "name": {
+                                "value": "Player 1 to win by any other score"
+                            }
+                        },
+                        {
+                            "odds": 16,
+                            "numerator": 15,
+                            "name": {
+                                "value": "Player 2 to win by any other score"
+                            },
+                            "americanOdds": 1500,
+                            "id": -150355345,
+                            "denominator": 1,
+                            "version": 10319895890,
+                            "visibility": "Visible"
+                        }
+                    ]
+                }
+            ],
+            "optionMarkets": []
+        }
+    ]
+}

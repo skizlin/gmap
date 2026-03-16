@@ -8,23 +8,23 @@
 {% block content %}
 <div class="flex flex-col h-full space-y-3">
 
-    <!-- Localization tabs -->
-    <div class="flex border-b border-slate-700 gap-0">
-        <button onclick="locSwitchTab('translations')" id="loc-tab-translations"
-            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-primary border-primary">
+    <!-- Localization tabs (hash-based: #translations, #languages, #countries for direct links) -->
+    <div class="flex border-b border-slate-700 gap-0" role="tablist">
+        <a href="#translations" id="loc-tab-translations" data-tab-key="translations" onclick="event.preventDefault(); locSwitchTab('translations');"
+            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-primary border-primary no-underline cursor-pointer">
             <i class="fa-solid fa-table-list text-xs"></i>
             Translations
-        </button>
-        <button onclick="locSwitchTab('languages')" id="loc-tab-languages"
-            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white">
+        </a>
+        <a href="#languages" id="loc-tab-languages" data-tab-key="languages" onclick="event.preventDefault(); locSwitchTab('languages');"
+            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white no-underline cursor-pointer">
             <i class="fa-solid fa-language text-xs"></i>
             Languages
-        </button>
-        <button onclick="locSwitchTab('countries')" id="loc-tab-countries"
-            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white">
+        </a>
+        <a href="#countries" id="loc-tab-countries" data-tab-key="countries" onclick="event.preventDefault(); locSwitchTab('countries');"
+            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white no-underline cursor-pointer">
             <i class="fa-solid fa-flag text-xs"></i>
             Countries
-        </button>
+        </a>
     </div>
 
     <!-- Translations panel -->
@@ -329,8 +329,10 @@
 
 {% block scripts %}
 <script>
+    var LOC_TAB_KEYS = ['translations', 'languages', 'countries'];
     function locSwitchTab(key) {
-        const tabs = ['translations', 'languages', 'countries'];
+        if (!LOC_TAB_KEYS.includes(key)) key = 'translations';
+        const tabs = LOC_TAB_KEYS;
         tabs.forEach(function (t) {
             const tabBtn = document.getElementById('loc-tab-' + t);
             const panel = document.getElementById('loc-panel-' + t);
@@ -345,7 +347,18 @@
                 tabBtn.classList.add('text-slate-400', 'border-transparent');
             }
         });
+        window.location.hash = key;
     }
+    function applyLocTabFromHash() {
+        var hash = (window.location.hash || '#translations').replace('#', '').toLowerCase();
+        if (LOC_TAB_KEYS.includes(hash)) locSwitchTab(hash);
+        else locSwitchTab('translations');
+    }
+    window.addEventListener('hashchange', applyLocTabFromHash);
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.location.hash) window.location.hash = 'translations';
+        applyLocTabFromHash();
+    });
 
     function locResetCountryForm() {
         document.getElementById('loc-country-original-cc').value = '';

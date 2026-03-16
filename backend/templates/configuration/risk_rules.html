@@ -8,23 +8,23 @@
 {% block content %}
 <div class="flex flex-col h-full space-y-3">
 
-    <!-- Tabs: Configurations | Classes | Categories -->
-    <div class="flex border-b border-slate-700 gap-0">
-        <button type="button" id="risk-tab-configurations" onclick="switchRiskRulesTab('configurations')"
-            class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-primary border-primary">
+    <!-- Tabs (hash-based: #configurations, #classes, #categories for direct links) -->
+    <div class="flex border-b border-slate-700 gap-0" role="tablist">
+        <a href="#configurations" id="risk-tab-configurations" data-tab-key="configurations" onclick="event.preventDefault(); switchRiskRulesTab('configurations');"
+            class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-primary border-primary no-underline cursor-pointer">
             <i class="fa-solid fa-sliders text-xs"></i>
             Configurations
-        </button>
-        <button type="button" id="risk-tab-classes" onclick="switchRiskRulesTab('classes')"
-            class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white">
+        </a>
+        <a href="#classes" id="risk-tab-classes" data-tab-key="classes" onclick="event.preventDefault(); switchRiskRulesTab('classes');"
+            class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white no-underline cursor-pointer">
             <i class="fa-solid fa-layer-group text-xs"></i>
             Classes
-        </button>
-        <button type="button" id="risk-tab-categories" onclick="switchRiskRulesTab('categories')"
-            class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white">
+        </a>
+        <a href="#categories" id="risk-tab-categories" data-tab-key="categories" onclick="event.preventDefault(); switchRiskRulesTab('categories');"
+            class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white no-underline cursor-pointer">
             <i class="fa-solid fa-tags text-xs"></i>
             Categories
-        </button>
+        </a>
     </div>
 
     <!-- Panel: Configurations -->
@@ -238,7 +238,9 @@
 </div>
 
 <script>
+var RISK_TAB_KEYS = ['configurations', 'classes', 'categories'];
 function switchRiskRulesTab(tabKey) {
+    if (!RISK_TAB_KEYS.includes(tabKey)) tabKey = 'configurations';
     document.querySelectorAll('.risk-rules-tab').forEach(function (btn) {
         btn.classList.remove('text-primary', 'border-primary');
         btn.classList.add('text-slate-400', 'border-transparent');
@@ -253,7 +255,18 @@ function switchRiskRulesTab(tabKey) {
         tabBtn.classList.add('text-primary', 'border-primary');
     }
     if (panel) panel.classList.remove('hidden');
+    window.location.hash = tabKey;
 }
+function applyRiskRulesTabFromHash() {
+    var hash = (window.location.hash || '#configurations').replace('#', '');
+    if (RISK_TAB_KEYS.includes(hash)) switchRiskRulesTab(hash);
+    else switchRiskRulesTab('configurations');
+}
+window.addEventListener('hashchange', applyRiskRulesTabFromHash);
+document.addEventListener('DOMContentLoaded', function () {
+    if (!window.location.hash) window.location.hash = 'configurations';
+    applyRiskRulesTabFromHash();
+});
 
 // ── Risk Classes: kebab menu (Edit only) ─────────────────────────
 (function () {

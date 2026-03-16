@@ -1,2 +1,20 @@
 domain_market_id,feed_provider_id,feed_market_id,feed_market_name,phase
 1,2,0,Match Result,prematch
+5,2,499,Set Bet (best-of-five),prematch
+5,3,910201,Correct Set Score,prematch
+3,2,1545,2Way - Who will win?,prematch
+3,3,910000,Game Lines - Winner,prematch
+4,2,9206,Who will win the match (set handicap)?,prematch
+4,3,910000,Game Lines - Handicap,prematch
+8,2,13809,Total Points Handicap,prematch
+8,3,910216,Match Handicap (Points),prematch
+11,2,14437,Will the total number of points in the match be odd or even?,prematch
+11,3,910217,Match Total Odd/Even,prematch
+12,2,11950,Will the number of points in the 1st set be odd or even?,prematch
+12,3,910218,Set 1 Total Odd/Even,prematch
+7,2,1548,Who will win the first set? Handicap,prematch
+7,3,910204,Set 1 Lines - Handicap,prematch
+9,3,910204,Set 1 Lines - Winner,prematch
+10,2,6356,How many points will be scored in the 1st set?,prematch
+10,3,910204,Set 1 Lines - Total,prematch
+6,2,9210,How many points will be scored in total?,prematch

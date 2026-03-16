@@ -8,19 +8,19 @@
 {% block content %}
 <div class="flex flex-col space-y-4 pb-6">
 
-    <!-- Tabs: Configuration | Feed Sports -->
-    <div class="flex border-b border-slate-700 gap-0">
-        <button type="button" id="feeder-tab-config" onclick="switchFeederTab('config')"
-            class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-primary border-primary">
+    <!-- Tabs (hash-based: #config, #feed_sports for direct links) -->
+    <div class="flex border-b border-slate-700 gap-0" role="tablist">
+        <a href="#config" id="feeder-tab-config" data-tab-key="config" onclick="event.preventDefault(); switchFeederTab('config');"
+            class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-primary border-primary no-underline cursor-pointer">
             <i class="fa-solid fa-sliders text-xs"></i>
             Configuration
-        </button>
-        <button type="button" id="feeder-tab-feed_sports" onclick="switchFeederTab('feed_sports')"
-            class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white">
+        </a>
+        <a href="#feed_sports" id="feeder-tab-feed_sports" data-tab-key="feed_sports" onclick="event.preventDefault(); switchFeederTab('feed_sports');"
+            class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white no-underline cursor-pointer">
             <i class="fa-solid fa-satellite-dish text-xs"></i>
             Feed Sports
             <span class="text-slate-500 text-xs">({{ feed_sports_count|default(0) }})</span>
-        </button>
+        </a>
     </div>
 
     <!-- Panel: Configuration (feeder settings + incidents) -->
@@ -231,7 +231,9 @@
 </div>
 
 <script>
+var FEEDER_TAB_KEYS = ['config', 'feed_sports'];
 function switchFeederTab(tabKey) {
+    if (!FEEDER_TAB_KEYS.includes(tabKey)) tabKey = 'config';
     document.querySelectorAll('.feeder-tab').forEach(function (btn) {
         btn.classList.remove('text-primary', 'border-primary');
         btn.classList.add('text-slate-400', 'border-transparent');
@@ -246,7 +248,18 @@ function switchFeederTab(tabKey) {
         tabBtn.classList.add('text-primary', 'border-primary');
     }
     if (panel) panel.classList.remove('hidden');
+    window.location.hash = tabKey;
 }
+function applyFeederTabFromHash() {
+    var hash = (window.location.hash || '#config').replace('#', '');
+    if (FEEDER_TAB_KEYS.includes(hash)) switchFeederTab(hash);
+    else switchFeederTab('config');
+}
+window.addEventListener('hashchange', applyFeederTabFromHash);
+document.addEventListener('DOMContentLoaded', function () {
+    if (!window.location.hash) window.location.hash = 'config';
+    applyFeederTabFromHash();
+});
 
 (function () {
     const level = {{ config_level | tojson if config_level else 'null' }};

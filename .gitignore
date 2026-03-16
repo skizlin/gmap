@@ -39,6 +39,9 @@ backend/data/rbac/rbac_audit_log.csv
 # Pulled feed data (per-environment; each env pulls from APIs)
 backend/data/feed_data/*.json
 
+# Cached event-details API responses (fetched when domain event is created or mapped; token from .env)
+backend/data/feed_event_details/
+
 # Last-pull timestamps (per-environment)
 backend/data/feed_last_pull.csv
 

@@ -5,3 +5,9 @@
 - **Always give step-by-step instructions.** Assume the reader is a beginner. Never use shorthand like "restart the app" or "rebuild the container" without writing out every single command, in order, that they must run.
 - **Every step = one clear action + the exact command.** No "e.g." or "for example" instead of the real command. If they need to run 5 commands, list all 5 with the exact text to copy-paste.
 - **Deploy and server tasks:** When telling the user to restart the app after a change, always include the full sequence: `docker stop gmap`, `docker rm gmap`, `docker build -t gmap .`, `docker run -d ...`, `docker ps`, in that order, with the full `docker run` line.
+
+## Deploy and git pull (see also .cursor/rules/deploy-and-git-data.mdc)
+
+- **Per-environment files:** Any file that should not be overwritten on the server (e.g. markets.csv, categories.csv) must be in BOTH `.gitignore` and `scripts/server-protect-data.sh`. Change both in the same edit.
+- **When fixing a git pull error:** Fix EVERY file mentioned in the error in one procedure. Never give a fix that only addresses one of several conflicting files — include one complete copy-paste block that resolves all of them, then pull, then deploy.
+- **"Would be removed by merge" (untracked file):** On the server, move the file aside, pull, then move it back. Include that in the procedure.

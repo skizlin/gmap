@@ -5,4 +5,5 @@ jinja2
 python-multipart
 aiofiles
 httpx
+python-dotenv>=1.0.0
 pypdf>=4.0.0

@@ -55,7 +55,7 @@
                         <ul class="space-y-1 pl-5">
                             {% for m in item.markets %}
                             <li class="flex items-center gap-2">
-                                <input type="checkbox" id="market-{{ m.domain_id }}" data-market-id="{{ m.domain_id }}" data-market-name="{{ m.name }}" data-market-code="{{ m.code or '' }}" class="event-detail-market-cb rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary"
+                                <input type="checkbox" id="market-{{ m.domain_id }}" data-market-id="{{ m.domain_id }}" data-market-name="{{ m.name }}" data-market-code="{{ m.code or '' }}" data-outcome-count="{{ template_outcome_count(m) }}" data-market-has-line="{{ 1 if market_has_line(m) else 0 }}" data-outcome-labels='{{ (m.outcome_labels or []) | tojson }}' class="event-detail-market-cb rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary"
                                     aria-label="Select {{ m.name }}">
                                 <label for="market-{{ m.domain_id }}" class="text-xs text-slate-300 cursor-pointer flex-1">{{ m.name }}</label>
                                 {% if m.abb %}<span class="text-[10px] font-mono text-slate-500">{{ m.abb }}</span>{% endif %}
@@ -110,9 +110,13 @@
                         <thead>
                             <tr class="text-slate-500 border-b border-slate-700">
                                 <th id="brand-overview-first-col-header" class="py-1.5 pr-2 font-medium text-slate-300">Brand</th>
+                                <th id="brand-overview-col-L" class="py-1.5 px-2 font-medium brand-col-L">L</th>
                                 <th id="brand-overview-col-1" class="py-1.5 px-2 font-medium">S1</th>
                                 <th id="brand-overview-col-2" class="py-1.5 px-2 font-medium">S2</th>
                                 <th id="brand-overview-col-3" class="py-1.5 px-2 font-medium">S3</th>
+                                <th id="brand-overview-col-4" class="py-1.5 px-2 font-medium brand-col-4">S4</th>
+                                <th id="brand-overview-col-5" class="py-1.5 px-2 font-medium brand-col-5">S5</th>
+                                <th id="brand-overview-col-6" class="py-1.5 px-2 font-medium brand-col-6">S6</th>
                                 <th class="py-1.5 px-2 font-medium">M</th>
                                 <th class="py-1.5 px-2 font-medium">Liab.</th>
                             </tr>
@@ -121,16 +125,42 @@
                             {% for brand in brands %}
                             <tr class="border-b border-slate-700/50 brand-overview-row" data-brand-id="{{ brand.id }}">
                                 <td class="py-1.5 pr-2">{{ brand.name }}</td>
+                                <td class="py-1.5 px-2 font-mono text-slate-400 brand-odds-L">—</td>
                                 <td class="py-1.5 px-2 font-mono text-amber-400/90 brand-odds-1">—</td>
                                 <td class="py-1.5 px-2 font-mono text-amber-400/90 brand-odds-2">—</td>
                                 <td class="py-1.5 px-2 font-mono text-amber-400/90 brand-odds-3">—</td>
+                                <td class="py-1.5 px-2 font-mono text-amber-400/90 brand-odds-4">—</td>
+                                <td class="py-1.5 px-2 font-mono text-amber-400/90 brand-odds-5">—</td>
+                                <td class="py-1.5 px-2 font-mono text-amber-400/90 brand-odds-6">—</td>
                                 <td class="py-1.5 px-2 font-mono text-slate-400 brand-margin">—</td>
                                 <td class="py-1.5 px-2 font-mono text-slate-400 brand-liab">—</td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="6" class="py-2 text-xs text-slate-500 italic">No brands configured.</td></tr>
+                            <tr><td colspan="10" class="py-2 text-xs text-slate-500 italic">No brands configured.</td></tr>
                             {% endfor %}
                         </tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="feed-odds-card" class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg p-4 flex-shrink-0 overflow-x-auto">
+                <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Feed Odds<span id="feed-odds-market-name" class="font-normal normal-case text-slate-400 ml-1"></span></h2>
+                <p id="feed-odds-empty" class="text-xs text-slate-500 italic">Select a market from the center (radio in header) to see odds from each feed.</p>
+                <div id="feed-odds-content" class="hidden">
+                    <table class="w-full text-left text-[11px] border-collapse">
+                        <thead>
+                            <tr class="text-slate-500 border-b border-slate-700">
+                                <th class="py-1.5 pr-2 font-medium text-slate-300">Feed</th>
+                                <th id="feed-odds-col-L" class="py-1.5 px-2 font-medium feed-col-L">L</th>
+                                <th id="feed-odds-col-1" class="py-1.5 px-2 font-medium">S1</th>
+                                <th id="feed-odds-col-2" class="py-1.5 px-2 font-medium">S2</th>
+                                <th id="feed-odds-col-3" class="py-1.5 px-2 font-medium">S3</th>
+                                <th id="feed-odds-col-4" class="py-1.5 px-2 font-medium feed-odds-col-4">S4</th>
+                                <th id="feed-odds-col-5" class="py-1.5 px-2 font-medium feed-odds-col-5">S5</th>
+                                <th id="feed-odds-col-6" class="py-1.5 px-2 font-medium feed-odds-col-6">S6</th>
+                                <th class="py-1.5 px-2 font-medium">M</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feed-odds-tbody" class="text-slate-300"></tbody>
                     </table>
                 </div>
             </div>
@@ -163,11 +193,15 @@
 
 <script>
 (function () {
+    var domainEventId = {{ event.id | tojson }};
     const overviewEmpty = document.getElementById('markets-overview-empty');
     const overviewRows = document.getElementById('markets-overview-rows');
     const marketCheckboxes = document.querySelectorAll('.event-detail-market-cb');
     const groupCheckboxes = document.querySelectorAll('.event-detail-group-cb');
     const groupContainers = document.querySelectorAll('.event-detail-group');
+    const feedOddsEmpty = document.getElementById('feed-odds-empty');
+    const feedOddsContent = document.getElementById('feed-odds-content');
+    const feedOddsTbody = document.getElementById('feed-odds-tbody');
     if (!overviewEmpty || !overviewRows) return;
 
     function getSelectedMarketIds() {
@@ -180,7 +214,17 @@
 
     function getMarketInfo(id) {
         const cb = document.querySelector('.event-detail-market-cb[data-market-id="' + id + '"]');
-        return cb ? { id: id, name: cb.dataset.marketName || ('Market #' + id), code: cb.dataset.marketCode || '' } : null;
+        if (!cb) return null;
+        var outcomeCount = parseInt(cb.dataset.outcomeCount, 10);
+        if (isNaN(outcomeCount) || outcomeCount < 1) outcomeCount = 3;
+        var hasLine = (cb.dataset.marketHasLine || '') === '1';
+        var outcomeLabels = [];
+        try {
+            var raw = (cb.getAttribute('data-outcome-labels') || '').trim();
+            if (raw) outcomeLabels = JSON.parse(raw);
+        } catch (e) { outcomeLabels = []; }
+        if (!Array.isArray(outcomeLabels)) outcomeLabels = [];
+        return { id: id, name: cb.dataset.marketName || ('Market #' + id), code: cb.dataset.marketCode || '', outcomeCount: outcomeCount, hasLine: hasLine, outcomeLabels: outcomeLabels };
     }
 
     function escapeHtml(s) {
@@ -188,27 +232,28 @@
     }
 
     function isTwoWayMultiLine(code) {
-        return code === 'HCP2' || code === 'OU';
+        return code === 'HCP2' || code === 'OU' || code === 'SetHcp';
     }
 
     function marketCardHtml(info) {
         var name = escapeHtml(info.name || 'Market #' + info.id);
         var code = (info.code || '').trim();
         var codeEsc = escapeHtml(info.code);
+        var hasLine = info.hasLine || isTwoWayMultiLine(code);
         var cardId = 'market-card-' + info.id;
-        var header = '<div class="bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden" data-market-row="' + info.id + '" id="' + cardId + '" data-market-name="' + escapeHtml(info.name || '') + '" data-market-code="' + escapeHtml(code) + '">' +
+        var outcomeLabelsAttr = (info.outcomeLabels && info.outcomeLabels.length) ? escapeHtml(JSON.stringify(info.outcomeLabels)) : '';
+        var header = '<div class="bg-slate-800/50 border border-slate-700/50 rounded-lg overflow-hidden" data-market-row="' + info.id + '" id="' + cardId + '" data-market-name="' + escapeHtml(info.name || '') + '" data-market-code="' + escapeHtml(code) + '" data-outcome-count="' + (info.outcomeCount || 3) + '" data-market-has-line="' + (hasLine ? '1' : '0') + '" data-outcome-labels="' + outcomeLabelsAttr + '">' +
             '<div class="px-3 py-2 border-b border-slate-700/50 flex items-center gap-2">' +
             '<input type="radio" name="brand-overview-market" value="' + info.id + '" class="brand-overview-radio rounded-full border-slate-500 bg-slate-800 text-primary focus:ring-primary" aria-label="Show in Brand Overview">' +
             '<span class="text-xs font-medium text-white">' + name + '</span>' +
             (codeEsc ? '<span class="text-[10px] font-mono text-slate-500">' + codeEsc + '</span>' : '') +
             '</div>';
 
-        if (isTwoWayMultiLine(code)) {
-            var lineLabels = code === 'HCP2'
-                ? ['-0.5', '-1', '-1.5', '-2', '-2.5']
-                : ['2.5', '3', '3.5', '4', '4.5'];
-            var selA = code === 'HCP2' ? 'Home' : 'Over';
-            var selB = code === 'HCP2' ? 'Away' : 'Under';
+        if (hasLine) {
+            var lineLabels = (code === 'OU') ? ['2.5', '3', '3.5', '4', '4.5'] : ['-0.5', '-1', '-1.5', '-2', '-2.5'];
+            var lineOutcomes = info.outcomeLabels || [];
+            var selA = (lineOutcomes[0] !== undefined && lineOutcomes[0] !== '') ? lineOutcomes[0] : ((code === 'OU') ? 'Over' : 'Home');
+            var selB = (lineOutcomes[1] !== undefined && lineOutcomes[1] !== '') ? lineOutcomes[1] : ((code === 'OU') ? 'Under' : 'Away');
             var lineMenu = '<div class="px-3 py-2 border-b border-slate-700/50">' +
                 '<div class="inline-flex rounded-lg border border-slate-600 bg-slate-800/80 p-0.5" role="group" aria-label="Select line">';
             lineLabels.forEach(function (label, idx) {
@@ -222,9 +267,9 @@
                 '<th class="py-1.5 px-2 font-medium whitespace-nowrap">Price</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">Original</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">Status</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">#Units</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">Stake</th>' +
                 '<th class="py-1.5 px-2 font-medium whitespace-nowrap">RunOn(1)</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">AllWin</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">ToWin</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">Liability</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">MDL</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">MSW</th>' +
                 '<th class="py-1.5 px-2 w-8"></th></tr></thead><tbody>';
-            var lineData = code === 'HCP2'
-                ? [{ a: ['0.0,-0.5', '1.400', '1.00', 'ACTIVE'], b: ['0.0,+0.5', '2.850', '2.80', 'ACTIVE'] }, { a: ['-0.5', '1.650', '1.60', 'ACTIVE'], b: ['+0.5', '2.200', '2.25', 'ACTIVE'] }, { a: ['-0.5,-1.0', '1.900', '1.85', 'ACTIVE'], b: ['+0.5,+1.0', '1.950', '1.90', 'ACTIVE'] }, { a: ['-1', '2.350', '2.30', 'ACTIVE'], b: ['+1', '1.575', '1.60', 'ACTIVE'] }, { a: ['-1.0,-1.5', '2.750', '2.70', 'ACTIVE'], b: ['+1.0,+1.5', '1.425', '1.45', 'ACTIVE'] }]
-                : [{ a: ['3', '1.260', '1.25', 'ACTIVE'], b: ['3', '3.700', '3.80', 'ACTIVE'] }, { a: ['3.0,3.5', '1.525', '1.50', 'ACTIVE'], b: ['3.0,3.5', '2.425', '2.45', 'ACTIVE'] }, { a: ['3.5', '1.800', '1.75', 'ACTIVE'], b: ['3.5', '2.050', '2.00', 'ACTIVE'] }, { a: ['3.5,4.0', '2.050', '2.00', 'ACTIVE'], b: ['3.5,4.0', '1.750', '1.80', 'ACTIVE'] }, { a: ['4', '2.600', '2.55', 'ACTIVE'], b: ['4', '1.475', '1.50', 'ACTIVE'] }];
+            var lineData = (code === 'OU')
+                ? [{ a: ['3', '1.260', '1.25', 'ACTIVE'], b: ['3', '3.700', '3.80', 'ACTIVE'] }, { a: ['3.0,3.5', '1.525', '1.50', 'ACTIVE'], b: ['3.0,3.5', '2.425', '2.45', 'ACTIVE'] }, { a: ['3.5', '1.800', '1.75', 'ACTIVE'], b: ['3.5', '2.050', '2.00', 'ACTIVE'] }, { a: ['3.5,4.0', '2.050', '2.00', 'ACTIVE'], b: ['3.5,4.0', '1.750', '1.80', 'ACTIVE'] }, { a: ['4', '2.600', '2.55', 'ACTIVE'], b: ['4', '1.475', '1.50', 'ACTIVE'] }]
+                : [{ a: ['0.0,-0.5', '1.400', '1.00', 'ACTIVE'], b: ['0.0,+0.5', '2.850', '2.80', 'ACTIVE'] }, { a: ['-0.5', '1.650', '1.60', 'ACTIVE'], b: ['+0.5', '2.200', '2.25', 'ACTIVE'] }, { a: ['-0.5,-1.0', '1.900', '1.85', 'ACTIVE'], b: ['+0.5,+1.0', '1.950', '1.90', 'ACTIVE'] }, { a: ['-1', '2.350', '2.30', 'ACTIVE'], b: ['+1', '1.575', '1.60', 'ACTIVE'] }, { a: ['-1.0,-1.5', '2.750', '2.70', 'ACTIVE'], b: ['+1.0,+1.5', '1.425', '1.45', 'ACTIVE'] }];
             var statusClass = 'bg-emerald-500/20 text-emerald-400';
             lineData.forEach(function (line, idx) {
                 var rowVis = idx === 0 ? '' : ' hidden';
@@ -240,6 +285,7 @@
             return header + lineMenu + table + footer + '</div>';
         }
 
+        var outcomeCount = Math.max(1, parseInt(info.outcomeCount, 10) || 3);
         var table = '<div class="overflow-x-auto"><table class="w-full text-left text-[11px] border-collapse">' +
             '<thead><tr class="bg-slate-900/60 text-slate-400 border-b border-slate-700">' +
             '<th class="py-1.5 px-2 font-medium whitespace-nowrap">Selections</th>' +
@@ -255,21 +301,25 @@
             '<th class="py-1.5 px-2 font-medium whitespace-nowrap">MDL</th>' +
             '<th class="py-1.5 px-2 font-medium whitespace-nowrap">MSW</th>' +
             '<th class="py-1.5 px-2 w-8"></th></tr></thead><tbody>';
-        var rows = [
-            { name: 'Selection 1', price: '1.01', orig: '1.00', status: 'SUSPENDED', statusClass: 'bg-slate-500/30 text-slate-300' },
-            { name: 'Selection 2', price: '16.00', orig: '16.20', status: 'ACTIVE', statusClass: 'bg-emerald-500/20 text-emerald-400' },
-            { name: 'Selection 3', price: '34.00', orig: '35.00', status: 'ACTIVE', statusClass: 'bg-emerald-500/20 text-emerald-400' }
-        ];
-        rows.forEach(function (r) {
+        var statusClass = 'bg-emerald-500/20 text-emerald-400';
+        var outcomeLabels = info.outcomeLabels || [];
+        for (var i = 0; i < outcomeCount; i++) {
+            var name = (outcomeLabels[i] !== undefined && outcomeLabels[i] !== '') ? outcomeLabels[i] : ('Selection ' + (i + 1));
+            var price = '—';
+            var status = 'ACTIVE';
+            var sc = statusClass;
+            if (i === 0) { price = '1.01'; status = 'SUSPENDED'; sc = 'bg-slate-500/30 text-slate-300'; }
+            else if (i === 1) price = '16.00';
+            else if (i === 2) price = '34.00';
             table += '<tr class="border-b border-slate-700/40 text-slate-300">' +
-                '<td class="py-1.5 px-2 font-medium">' + escapeHtml(r.name) + '</td>' +
-                '<td class="py-1.5 px-2 font-mono">' + r.price + '</td>' +
-                '<td class="py-1.5 px-2 font-mono text-slate-500">' + r.orig + '</td>' +
-                '<td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + r.statusClass + '">' + r.status + '</span></td>' +
+                '<td class="py-1.5 px-2 font-medium">' + escapeHtml(name) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-amber-400/90">' + price + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-slate-500">' + (price !== '—' ? price : '—') + '</td>' +
+                '<td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + sc + '">' + status + '</span></td>' +
                 '<td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td>' +
                 '<td class="py-1.5 px-2 font-mono text-slate-400">60,000</td><td class="py-1.5 px-2 font-mono text-slate-400">6,000</td>' +
                 '<td class="py-1.5 px-2"><button type="button" class="text-slate-500 hover:text-white p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
-        });
+        }
         table += '</tbody></table></div>';
         var footer = '<div class="px-3 py-2 border-t border-slate-700/50 flex flex-wrap items-center gap-2 bg-slate-900/30">' +
             '<span class="text-[10px] text-slate-500">Margin</span><input type="text" value="108 %" class="w-16 bg-slate-800 border border-slate-600 rounded px-1.5 py-0.5 text-[11px] font-mono text-slate-300">' +
@@ -356,10 +406,89 @@
         });
     });
 
-    function updateBrandOverview(marketId, marketName, marketCode) {
+    function feedOddsMargin(outcomes) {
+        var n = outcomes.length;
+        if (n < 2) return '—';
+        var inv = 0;
+        for (var i = 0; i < n; i++) {
+            var p = parseFloat(outcomes[i] && outcomes[i].price);
+            if (isNaN(p) || p <= 0) return '—';
+            inv += 1 / p;
+        }
+        return (inv * 100).toFixed(1) + ' %';
+    }
+
+    async function updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels) {
+        if (!feedOddsEmpty || !feedOddsContent || !feedOddsTbody || !marketId) return;
+        var feedOddsTitleEl = document.getElementById('feed-odds-market-name');
+        if (feedOddsTitleEl) feedOddsTitleEl.textContent = marketName ? ' · ' + marketName : '';
+        feedOddsContent.classList.add('hidden');
+        feedOddsEmpty.classList.remove('hidden');
+        var outCount = Math.max(1, parseInt(outcomeCount, 10) || 3);
+        var showL = !!hasLine;
+        var labels = Array.isArray(outcomeLabels) ? outcomeLabels : [];
+        try {
+            var res = await fetch('/api/event-details/feed-odds?domain_event_id=' + encodeURIComponent(domainEventId) + '&domain_market_id=' + encodeURIComponent(marketId));
+            if (!res.ok) return;
+            var data = await res.json();
+            var rows = data.feed_odds || [];
+            if (rows.length === 0) {
+                feedOddsEmpty.textContent = 'No feed odds for this market.';
+                return;
+            }
+            feedOddsEmpty.classList.add('hidden');
+            feedOddsContent.classList.remove('hidden');
+            feedOddsTbody.innerHTML = rows.map(function (r) {
+                var o = r.outcomes || [];
+                var s1 = o[0] ? (o[0].price || '—') : '—';
+                var s2 = o[1] ? (o[1].price || '—') : '—';
+                var s3 = o[2] ? (o[2].price || '—') : '—';
+                var s4 = o[3] ? (o[3].price || '—') : '—';
+                var s5 = o[4] ? (o[4].price || '—') : '—';
+                var s6 = o[5] ? (o[5].price || '—') : '—';
+                var lineVal = (r.line != null && r.line !== '') ? String(r.line) : '—';
+                var margin = feedOddsMargin(o);
+                var cells = '<tr class="border-b border-slate-700/50">' +
+                    '<td class="py-1.5 pr-2">' + escapeHtml(r.feed_name || '') + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono text-slate-400 feed-odds-L">' + escapeHtml(lineVal) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono text-amber-400/90">' + escapeHtml(s1) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono text-amber-400/90">' + escapeHtml(s2) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono text-amber-400/90 feed-odds-s3">' + escapeHtml(s3) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono text-amber-400/90 feed-odds-s4">' + escapeHtml(s4) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono text-amber-400/90 feed-odds-s5">' + escapeHtml(s5) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono text-amber-400/90 feed-odds-s6">' + escapeHtml(s6) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono text-slate-400">' + escapeHtml(margin) + '</td></tr>';
+                return cells;
+            }).join('');
+            var feedColL = document.getElementById('feed-odds-col-L');
+            var feedCol1 = document.getElementById('feed-odds-col-1');
+            var feedCol2 = document.getElementById('feed-odds-col-2');
+            var feedCol3 = document.getElementById('feed-odds-col-3');
+            var feedCol4 = document.getElementById('feed-odds-col-4');
+            var feedCol5 = document.getElementById('feed-odds-col-5');
+            var feedCol6 = document.getElementById('feed-odds-col-6');
+            if (feedColL) feedColL.style.display = showL ? '' : 'none';
+            if (feedCol1) feedCol1.textContent = (labels[0] !== undefined && labels[0] !== '') ? labels[0] : 'S1';
+            if (feedCol2) feedCol2.textContent = (labels[1] !== undefined && labels[1] !== '') ? labels[1] : 'S2';
+            if (feedCol3) { feedCol3.style.display = outCount >= 3 ? '' : 'none'; feedCol3.textContent = (labels[2] !== undefined && labels[2] !== '') ? labels[2] : 'S3'; }
+            if (feedCol4) { feedCol4.style.display = outCount >= 4 ? '' : 'none'; feedCol4.textContent = (labels[3] !== undefined && labels[3] !== '') ? labels[3] : 'S4'; }
+            if (feedCol5) { feedCol5.style.display = outCount >= 5 ? '' : 'none'; feedCol5.textContent = (labels[4] !== undefined && labels[4] !== '') ? labels[4] : 'S5'; }
+            if (feedCol6) { feedCol6.style.display = outCount >= 6 ? '' : 'none'; feedCol6.textContent = (labels[5] !== undefined && labels[5] !== '') ? labels[5] : 'S6'; }
+            feedOddsContent.querySelectorAll('.feed-odds-L').forEach(function (el) { el.style.display = showL ? '' : 'none'; });
+            feedOddsContent.querySelectorAll('.feed-odds-s3').forEach(function (el) { el.style.display = outCount >= 3 ? '' : 'none'; });
+            feedOddsContent.querySelectorAll('.feed-odds-s4').forEach(function (el) { el.style.display = outCount >= 4 ? '' : 'none'; });
+            feedOddsContent.querySelectorAll('.feed-odds-s5').forEach(function (el) { el.style.display = outCount >= 5 ? '' : 'none'; });
+            feedOddsContent.querySelectorAll('.feed-odds-s6').forEach(function (el) { el.style.display = outCount >= 6 ? '' : 'none'; });
+        } catch (e) {
+            feedOddsEmpty.textContent = 'Could not load feed odds.';
+        }
+    }
+
+    function updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels) {
         var emptyEl = document.getElementById('brand-overview-empty');
         var contentEl = document.getElementById('brand-overview-content');
         var firstColHeader = document.getElementById('brand-overview-first-col-header');
+        var colL = document.getElementById('brand-overview-col-L');
         var col1 = document.getElementById('brand-overview-col-1');
         var col2 = document.getElementById('brand-overview-col-2');
         var col3 = document.getElementById('brand-overview-col-3');
@@ -373,35 +502,38 @@
         contentEl.classList.remove('hidden');
         var displayName = marketName || 'Market #' + marketId;
         if (firstColHeader) firstColHeader.textContent = displayName;
-        var code = (marketCode || '').trim();
-        var is2way = code === 'HCP2' || code === 'OU';
-        if (code === 'HCP2') {
-            col1.textContent = 'S1';
-            col2.textContent = 'S2';
-            col3.textContent = '—';
-        } else if (code === 'OU') {
-            col1.textContent = 'S1';
-            col2.textContent = 'S2';
-            col3.textContent = '—';
-        } else {
-            col1.textContent = 'S1';
-            col2.textContent = 'S2';
-            col3.textContent = 'S3';
-        }
-        var rows = contentEl.querySelectorAll('.brand-overview-row');
-        var placeholder3 = is2way ? ['1.95', '2.10', '—'] : ['1.95', '2.10', '3.20'];
-        var placeholder2 = ['1.85', '2.00', '—'];
-        var odds = is2way ? placeholder2 : placeholder3;
-        rows.forEach(function (row) {
+        var outCount = Math.max(1, parseInt(outcomeCount, 10) || 3);
+        var showL = !!hasLine;
+        var labels = Array.isArray(outcomeLabels) ? outcomeLabels : [];
+        if (colL) { colL.style.display = showL ? '' : 'none'; colL.textContent = 'L'; }
+        var col4 = document.getElementById('brand-overview-col-4');
+        var col5 = document.getElementById('brand-overview-col-5');
+        var col6 = document.getElementById('brand-overview-col-6');
+        if (col1) col1.textContent = (labels[0] !== undefined && labels[0] !== '') ? labels[0] : 'S1';
+        if (col2) col2.textContent = (labels[1] !== undefined && labels[1] !== '') ? labels[1] : 'S2';
+        if (col3) { col3.style.display = outCount >= 3 ? '' : 'none'; col3.textContent = (labels[2] !== undefined && labels[2] !== '') ? labels[2] : 'S3'; }
+        if (col4) { col4.style.display = outCount >= 4 ? '' : 'none'; col4.textContent = (labels[3] !== undefined && labels[3] !== '') ? labels[3] : 'S4'; }
+        if (col5) { col5.style.display = outCount >= 5 ? '' : 'none'; col5.textContent = (labels[4] !== undefined && labels[4] !== '') ? labels[4] : 'S5'; }
+        if (col6) { col6.style.display = outCount >= 6 ? '' : 'none'; col6.textContent = (labels[5] !== undefined && labels[5] !== '') ? labels[5] : 'S6'; }
+        contentEl.querySelectorAll('.brand-odds-L').forEach(function (el) { el.style.display = showL ? '' : 'none'; });
+        contentEl.querySelectorAll('.brand-overview-row').forEach(function (row) {
+            var cellL = row.querySelector('.brand-odds-L');
             var c1 = row.querySelector('.brand-odds-1');
             var c2 = row.querySelector('.brand-odds-2');
             var c3 = row.querySelector('.brand-odds-3');
+            var c4 = row.querySelector('.brand-odds-4');
+            var c5 = row.querySelector('.brand-odds-5');
+            var c6 = row.querySelector('.brand-odds-6');
             var m = row.querySelector('.brand-margin');
             var liab = row.querySelector('.brand-liab');
-            if (c1) c1.textContent = odds[0];
-            if (c2) c2.textContent = odds[1];
-            if (c3) c3.textContent = odds[2];
-            if (m) m.textContent = '108 %';
+            if (cellL) { cellL.style.display = showL ? '' : 'none'; cellL.textContent = showL ? '—' : ''; }
+            if (c1) c1.textContent = '—';
+            if (c2) c2.textContent = '—';
+            if (c3) { c3.style.display = outCount >= 3 ? '' : 'none'; c3.textContent = '—'; }
+            if (c4) { c4.style.display = outCount >= 4 ? '' : 'none'; c4.textContent = '—'; }
+            if (c5) { c5.style.display = outCount >= 5 ? '' : 'none'; c5.textContent = '—'; }
+            if (c6) { c6.style.display = outCount >= 6 ? '' : 'none'; c6.textContent = '—'; }
+            if (m) m.textContent = '—';
             if (liab) liab.textContent = '—';
         });
     }
@@ -414,7 +546,16 @@
         var marketId = radio.value;
         var marketName = (card.getAttribute('data-market-name') || '').trim() || ('Market #' + marketId);
         var marketCode = (card.getAttribute('data-market-code') || '').trim();
-        updateBrandOverview(marketId, marketName, marketCode);
+        var outcomeCount = parseInt(card.getAttribute('data-outcome-count') || '3', 10) || 3;
+        var hasLine = (card.getAttribute('data-market-has-line') || '') === '1';
+        var outcomeLabels = [];
+        try {
+            var raw = (card.getAttribute('data-outcome-labels') || '').trim();
+            if (raw) outcomeLabels = JSON.parse(raw);
+        } catch (err) { outcomeLabels = []; }
+        if (!Array.isArray(outcomeLabels)) outcomeLabels = [];
+        updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels);
+        updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels);
     });
 })();
 </script>

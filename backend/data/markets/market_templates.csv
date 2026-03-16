@@ -3,3 +3,5 @@ domain_id,code,name,params
 2,WINNER2D,Match Betting,
 3,HANDICAP2,Handicap,
 4,OVERUNDER,Total,
+5,CORRECT_SCORE,Correct Score,
+6,ODD_EVEN,Odd Even,

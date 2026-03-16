@@ -37,6 +37,12 @@ ONEXBET_PER_PAGE = 50
 BWIN_API_BASE = "https://api.b365api.com/v1/bwin/prematch"
 BWIN_PER_PAGE = 100
 
+# Event-details API (BetsAPI): token from .env (BETSAPI_TOKEN). Used when domain event is created or mapped.
+# 1xbet: /v1/1xbet/event?token=...&event_id=...   bwin: /v1/bwin/event?token=...&event_id=...   bet365 prematch: /v4/bet365/prematch?token=...&FI=...
+ONEXBET_EVENT_DETAILS_BASE = "https://api.b365api.com/v1/1xbet/event"
+BWIN_EVENT_DETAILS_BASE = "https://api.b365api.com/v1/bwin/event"
+BET365_PREMATCH_DETAILS_BASE = "https://api.b365api.com/v4/bet365/prematch"
+
 
 def _get_feed_data_path(feed_code: str) -> Path:
     if not FEED_DATA_DIR:
@@ -57,6 +63,54 @@ async def _fetch_json_async(url: str, timeout: float = 60.0) -> tuple[Optional[d
         return (None, f"HTTP {e.response.status_code}: {body}")
     except (httpx.RequestError, json.JSONDecodeError, OSError) as e:
         return (None, str(e))
+
+
+def _sanitize_feed_valid_id_for_path(feed_valid_id: str) -> str:
+    """Safe filename from feed_valid_id (no path separators or reserved chars)."""
+    s = (feed_valid_id or "").strip()
+    for c in ("/", "\\", ":", "*", "?", '"', "<", ">", "|"):
+        s = s.replace(c, "_")
+    return s or "unknown"
+
+
+async def fetch_event_details_async(
+    feed_code: str, feed_valid_id: str, token: str
+) -> Optional[dict]:
+    """
+    Fetch event details from BetsAPI (b365api.com). Used when a domain event is created or mapped.
+    - 1xbet: event_id param (prematch + inplay).
+    - bwin: event_id param (prematch + inplay).
+    - bet365: FI param (prematch only; inplay out of scope for now).
+    Returns full API response dict or None on failure. Accepts 1 id for now (up to 10 later).
+    """
+    feed = (feed_code or "").strip().lower()
+    fid = (feed_valid_id or "").strip()
+    if not fid or not token:
+        return None
+    if feed == "1xbet":
+        url = f"{ONEXBET_EVENT_DETAILS_BASE}?token={token}&event_id={fid}"
+    elif feed == "bwin":
+        url = f"{BWIN_EVENT_DETAILS_BASE}?token={token}&event_id={fid}"
+    elif feed == "bet365":
+        url = f"{BET365_PREMATCH_DETAILS_BASE}?token={token}&FI={fid}"
+    else:
+        return None
+    data, err = await _fetch_json_async(url, timeout=30.0)
+    return data
+
+
+def save_event_details(feed_code: str, feed_valid_id: str, data: dict) -> None:
+    """Persist event-details API response under feed_event_details/{feed_code}/{feed_valid_id}.json."""
+    from backend import config
+    base = config.FEED_EVENT_DETAILS_DIR
+    feed = (feed_code or "").strip().lower()
+    safe_id = _sanitize_feed_valid_id_for_path(feed_valid_id)
+    if not feed:
+        return
+    path = base / feed / f"{safe_id}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 
 def load_stored_feed_events(feed_code: str) -> list[dict]:

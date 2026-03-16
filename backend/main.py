@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -48,6 +49,7 @@ MARKET_PERIOD_TYPE_PATH = config.MARKET_PERIOD_TYPE_PATH
 MARKET_SCORE_TYPE_PATH = config.MARKET_SCORE_TYPE_PATH
 MARKET_GROUPS_PATH = config.MARKET_GROUPS_PATH
 MARKET_TYPE_MAPPINGS_PATH = config.MARKET_TYPE_MAPPINGS_PATH
+MARKET_OUTCOMES_PATH = config.MARKET_OUTCOMES_PATH
 COUNTRIES_PATH = config.COUNTRIES_PATH
 PARTICIPANT_TYPE_PATH = config.PARTICIPANT_TYPE_PATH
 UNDERAGE_CATEGORIES_PATH = config.UNDERAGE_CATEGORIES_PATH
@@ -725,6 +727,42 @@ def _load_market_groups() -> list[dict]:
     """Load market_groups.csv (domain_id, code, name). Populated from Create Market Group modal."""
     return _load_market_csv(MARKET_GROUPS_PATH)
 
+
+def _load_market_outcomes() -> list[dict]:
+    """Load market_outcomes.csv (template outcomes: o1..o50, outcome_type fixed|dynamic)."""
+    if not MARKET_OUTCOMES_PATH.exists():
+        return []
+    with open(MARKET_OUTCOMES_PATH, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+def _get_outcome_labels_for_market(market: dict, sport_id: int | None = None) -> tuple[list[str], str]:
+    """
+    Resolve outcome labels and type for a market from market_outcomes.csv.
+    Returns (outcome_labels, outcome_type). For fixed templates, labels come from o1, o2, ...; for dynamic, labels are empty (UI can show S1/S2/... or handle later).
+    """
+    template = (market.get("template") or "").strip().upper()
+    if not template:
+        return [], "dynamic"
+    rows = _load_market_outcomes()
+    candidates = [r for r in rows if (r.get("market_template_code") or "").strip().upper() == template]
+    if not candidates:
+        return [], "dynamic"
+    # If multiple rows (e.g. CORRECT_SCORE best_of 5 vs 3), prefer by sport: volleyball (8) -> best_of 5
+    row = candidates[0]
+    if len(candidates) > 1 and sport_id == 8 and template == "CORRECT_SCORE":
+        by_best = next((r for r in candidates if str(r.get("best_of") or "").strip() == "5"), None)
+        if by_best:
+            row = by_best
+    outcome_type = (row.get("outcome_type") or "").strip().lower() or "dynamic"
+    labels: list[str] = []
+    for i in range(1, 51):
+        val = (row.get("o" + str(i)) or "").strip()
+        if val:
+            labels.append(val)
+    return labels, outcome_type
+
+
 def _save_market_group(code: str, name: str) -> int:
     """Append one market group to market_groups.csv; return new domain_id."""
     groups = _load_market_groups()
@@ -737,6 +775,26 @@ def _save_market_group(code: str, name: str) -> int:
             w.writeheader()
         w.writerow(row)
     return next_id
+
+
+def _markets_by_group(sport_id: int | None = None) -> list[dict]:
+    """Build list of { group, markets } for event details left column. If sport_id is set, only include markets created for that sport.
+    Only includes groups that have at least one market (so e.g. HALF, CORNERS, CARDS are hidden when they have no markets for that sport)."""
+    market_groups = _load_market_groups()
+    markets = DOMAIN_ENTITIES.get("markets") or []
+    if sport_id is not None:
+        markets = [m for m in markets if (m.get("sport_id") or 0) == sport_id]
+    group_codes = {(g.get("code") or "").strip() for g in market_groups}
+    result: list[dict] = []
+    for g in market_groups:
+        code = (g.get("code") or "").strip()
+        group_markets = [m for m in markets if (m.get("market_group") or "").strip() == code]
+        if group_markets:
+            result.append({"group": g, "markets": group_markets})
+    orphan = [m for m in markets if (m.get("market_group") or "").strip() not in group_codes]
+    if orphan:
+        result.append({"group": {"domain_id": 0, "code": "", "name": "Other"}, "markets": orphan})
+    return result
 
 
 # Special country code for "no jurisdiction" (e.g. International category, Champions League). Not persisted.
@@ -1628,6 +1686,29 @@ def _load_entity_feed_mappings() -> list[dict]:
                 rows.append(_parse_row(row))
     return rows
 
+
+def _load_sport_feed_mappings() -> list[dict]:
+    """Load sport_feed_mappings.csv only. Used for resolving feed sport id by domain sport (e.g. feed-markets API)."""
+    out: list[dict] = []
+    if not SPORT_FEED_MAPPINGS_PATH.exists():
+        return out
+    with open(SPORT_FEED_MAPPINGS_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if (row.get("entity_type") or "").strip().lower() != "sports":
+                continue
+            try:
+                out.append({
+                    "entity_type": "sports",
+                    "domain_id": int(row["domain_id"]),
+                    "feed_provider_id": int(row["feed_provider_id"]),
+                    "feed_id": row.get("feed_id", ""),
+                    "domain_name": (row.get("domain_name") or "").strip(),
+                })
+            except (KeyError, TypeError, ValueError):
+                continue
+    return out
+
+
 def _domain_entity_name(entity_type: str, domain_id: int) -> str:
     """Return display name for a domain entity (from DOMAIN_ENTITIES). Empty if not found or not yet loaded."""
     try:
@@ -1804,6 +1885,7 @@ _migrate_entity_baseid_if_needed()
 _migrate_entity_underage_participant_amateur_if_needed()
 DOMAIN_ENTITIES: dict[str, list[dict]] = _load_entities()
 ENTITY_FEED_MAPPINGS: list[dict] = _load_entity_feed_mappings()
+SPORT_FEED_MAPPINGS: list[dict] = _load_sport_feed_mappings()
 
 
 def _deduplicate_sport_feed_mappings() -> None:
@@ -2030,48 +2112,426 @@ def _mapped_comp_feed_ids_by_sport() -> set[tuple[int, str, int]]:
     return out
 
 
-def _load_feed_markets_for_sport(feed_code: str, feed_sport_id: int) -> list[dict]:
+def _get_sport_slug(domain_sport_id: int) -> str:
+    """Return lowercase sport name with no spaces for sport-specific feed filenames (e.g. volleyball)."""
+    sports = DOMAIN_ENTITIES.get("sports") or []
+    sport = next((s for s in sports if s.get("domain_id") == domain_sport_id), None)
+    if not sport:
+        return ""
+    name = (sport.get("name") or "").strip()
+    return name.lower().replace(" ", "") if name else ""
+
+
+def _load_feed_markets_from_event_details(
+    feed_code: str, feed_sport_id: int, domain_sport_id: int | None
+) -> list[dict]:
     """
-    Load unique markets for a sport from a feed JSON file (e.g. designs/feed_json_examples/bwin.json).
-    feed_sport_id is the feed's sport id (e.g. 4 for Football in Bwin).
-    Uniqueness is by templateCategory:id (feed_market_id). Display name from templateCategory:name:value.
-    Returns list of { "id", "name", "is_prematch" }. If event has no IsPreMatch, treat as prematch.
+    Load unique markets from stored event-details JSONs (feed_event_details/{feed_code}/*.json).
+    Each file is one event-details API response. Filter by feed_sport_id when event has SportId.
+    If sport filter yields no events, include all stored events so at least one cached event shows markets.
     """
-    path = FEED_JSON_DIR / f"{feed_code}.json"
-    if not path.exists():
+    feed_lower = (feed_code or "").strip().lower()
+    if feed_lower not in ("bwin", "bet365", "1xbet"):
         return []
-    try:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, OSError):
+    details_dir = config.FEED_EVENT_DETAILS_DIR / feed_lower
+    if not details_dir.exists():
         return []
-    results = data.get("results") or []
-    # Unique by (templateCategory.id, display_name) so we get 8 distinct markets when feed uses id 0 for all (e.g. Football)
-    by_key: dict[tuple, dict] = {}
-    for event in results:
-        if event.get("SportId") != feed_sport_id:
-            continue
-        is_prematch = event.get("IsPreMatch", True)  # prematch if not in feed
-        for item in (event.get("Markets") or []) + (event.get("optionMarkets") or []):
-            tc = item.get("templateCategory")
-            if not tc:
+
+    def _sport_match(ev: dict, fsid: int | None) -> bool:
+        if fsid is None:
+            return True
+        if ev.get("SportId") == fsid or ev.get("sport_id") == fsid:
+            return True
+        if ev.get("SportId") is None and ev.get("sport_id") is None:
+            return True
+        return False
+
+    def _collect_events() -> list[dict]:
+        out: list[dict] = []
+        for path in details_dir.glob("*.json"):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    raw = json.load(f)
+            except (json.JSONDecodeError, OSError):
                 continue
-            mid = tc.get("id")
-            if mid is None:
+            event = None
+            if isinstance(raw, dict):
+                if "results" in raw and isinstance(raw["results"], list):
+                    for ev in raw["results"]:
+                        if isinstance(ev, dict) and _sport_match(ev, feed_sport_id):
+                            out.append(ev)
+                    continue
+                if "result" in raw and isinstance(raw["result"], dict):
+                    event = raw["result"]
+                else:
+                    event = raw
+            if isinstance(event, dict) and _sport_match(event, feed_sport_id):
+                out.append(event)
+        return out
+
+    results = _collect_events()
+    # If sport filter excluded everything (e.g. "All sports" -> Football, but only Volleyball events cached), use all events
+    if not results:
+        for path in details_dir.glob("*.json"):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    raw = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                continue
+            if isinstance(raw, dict):
+                if "results" in raw and isinstance(raw["results"], list):
+                    for ev in raw["results"]:
+                        if isinstance(ev, dict):
+                            results.append(ev)
+                elif "result" in raw and isinstance(raw["result"], dict):
+                    results.append(raw["result"])
+                elif raw.get("Markets") is not None or raw.get("main") is not None or raw.get("Value") is not None:
+                    results.append(raw)
+    if not results:
+        return []
+    # Attach sport_name from each event and dedupe by (id, name, sport_name)
+    def _with_sport_dedupe(parse_fn, *args):
+        all_markets: list[dict] = []
+        for event in results:
+            sport_name = (event.get("SportName") or event.get("sport_name") or "").strip() or ""
+            markets = parse_fn([event], *args) if args else parse_fn([event])
+            for m in markets:
+                m["sport_name"] = sport_name
+                all_markets.append(m)
+        seen: set[tuple] = set()
+        out: list[dict] = []
+        for m in all_markets:
+            key = (m.get("id"), m.get("name"), m.get("sport_name", ""), m.get("line") or "")
+            if key not in seen:
+                seen.add(key)
+                out.append(m)
+        return out
+
+    if feed_lower == "bet365":
+        return _with_sport_dedupe(_parse_bet365_feed_markets)
+    if feed_lower == "1xbet":
+        return _with_sport_dedupe(_parse_1xbet_feed_markets)
+    return _with_sport_dedupe(_parse_bwin_feed_markets, feed_sport_id, True)
+
+
+def _load_feed_markets_for_sport(
+    feed_code: str, feed_sport_id: int, domain_sport_id: int | None = None
+) -> list[dict]:
+    """
+    Load unique markets for a sport from feed JSON. Prefers stored event-details (from create/map),
+    then sport-specific example file, then generic feed file.
+    Returns list of { "id", "name", "is_prematch" } for the mapping modal.
+    """
+    feed_lower = (feed_code or "").strip().lower()
+    # 1) Stored event details (from event-details API when domain event created/mapped)
+    from_stored = _load_feed_markets_from_event_details(feed_code, feed_sport_id, domain_sport_id)
+    if from_stored:
+        return from_stored
+
+    sport_slug = _get_sport_slug(domain_sport_id) if domain_sport_id is not None else ""
+    paths_to_try: list[Path] = []
+    if sport_slug:
+        paths_to_try.append(FEED_JSON_DIR / f"{feed_code}{sport_slug}.json")
+    paths_to_try.append(FEED_DATA_DIR / f"{feed_code}.json")
+    paths_to_try.append(FEED_JSON_DIR / f"{feed_code}.json")
+
+    data = None
+    used_sport_specific = False
+    for path in paths_to_try:
+        if path.exists():
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+                used_sport_specific = sport_slug and sport_slug in path.name
+                break
+            except (json.JSONDecodeError, OSError):
+                continue
+    if not data:
+        return []
+
+    if feed_lower == "bet365":
+        return _parse_bet365_feed_markets(data)
+    if feed_lower == "1xbet":
+        return _parse_1xbet_feed_markets(data)
+    # Bwin (and any other with Bwin-style structure)
+    return _parse_bwin_feed_markets(data, feed_sport_id, used_sport_specific)
+
+
+def _parse_bwin_feed_markets(
+    data: dict | list, feed_sport_id: int, skip_sport_filter: bool = False
+) -> list[dict]:
+    """Extract unique markets from Bwin-style results. Uses templateId as market ID. One entry per market ID;
+    line (attr) is not part of identity - lines vary per match, so we do not create separate list entries per line."""
+    if isinstance(data, list):
+        results = data
+    else:
+        results = data.get("results") or []
+    by_key: dict[int, dict] = {}
+    for event in results:
+        if not skip_sport_filter and event.get("SportId") != feed_sport_id:
+            continue
+        is_prematch = event.get("IsPreMatch", True)
+        for item in (event.get("Markets") or []) + (event.get("optionMarkets") or []):
+            tc = item.get("templateCategory") or {}
+            template_id = item.get("templateId")
+            if template_id is None:
+                template_id = tc.get("id")
+            if template_id is None:
                 continue
             try:
-                mid = int(mid)
+                mid = int(template_id)
             except (TypeError, ValueError):
                 continue
-            name = (tc.get("name") or {}).get("value") or ""
-            if not name:
-                name = (item.get("name") or {}).get("value") or ""
-            name = name or ("(id " + str(mid) + ")")
-            key = (mid, name)
-            if key in by_key:
+            if mid in by_key:
                 continue
-            by_key[key] = {"id": mid, "name": name, "is_prematch": is_prematch}
+            name = (item.get("name") or {}).get("value") or ""
+            if not name:
+                name = (tc.get("name") or {}).get("value") or ""
+            name = (name or "").strip() or ("(id " + str(mid) + ")")
+            by_key[mid] = {"id": mid, "name": name, "is_prematch": is_prematch, "line": None}
     return list(by_key.values())
+
+
+# Bet365: Game Lines (910000) and Set 1 Lines (910204) each contain 3 market types in one block; split into 3 virtual markets.
+_BET365_GAME_LINES_ID = "910000"
+_BET365_SET1_LINES_ID = "910204"
+_BET365_GAME_LINES_SUBMARKETS = (
+    ("Winner", "1", "Game Lines - Winner"),
+    ("Handicap", "2", "Game Lines - Handicap"),
+    ("Total", "3", "Game Lines - Total"),
+)
+_BET365_SET1_LINES_SUBMARKETS = (
+    ("Winner", "1", "Set 1 Lines - Winner"),
+    ("Handicap", "2", "Set 1 Lines - Handicap"),
+    ("Total", "3", "Set 1 Lines - Total"),
+)
+
+
+def _bet365_lines_split(block: dict, base_id: str, base_name: str, submarkets: tuple) -> list[dict]:
+    """If block has Winner/Handicap/Total submarkets, return 3 markets (base_id_1, _2, _3). Else return single market."""
+    odds = block.get("odds") or []
+    if not isinstance(odds, list):
+        return [{"id": base_id, "name": base_name, "is_prematch": True}]
+    seen_names: set[str] = set()
+    for o in odds:
+        if isinstance(o, dict):
+            n = (o.get("name") or "").strip()
+            if n in ("Winner", "Handicap", "Total"):
+                seen_names.add(n)
+    if not seen_names:
+        return [{"id": base_id, "name": base_name, "is_prematch": True}]
+    out: list[dict] = []
+    for sub_name, suffix, display_name in submarkets:
+        if sub_name in seen_names:
+            out.append({"id": f"{base_id}_{suffix}", "name": display_name, "is_prematch": True})
+    return out if out else [{"id": base_id, "name": base_name, "is_prematch": True}]
+
+
+def _parse_bet365_feed_markets(data: dict | list) -> list[dict]:
+    """Extract unique market types from Bet365 results (main.sp + others[].sp). Game Lines (910000) and Set 1 Lines (910204) split into Winner/Handicap/Total."""
+    if isinstance(data, list):
+        results = data
+    else:
+        results = data.get("results") or []
+    by_key: dict[tuple, dict] = {}
+
+    def _process_sp(sp: dict) -> None:
+        for market_key, block in (sp or {}).items():
+            if not isinstance(block, dict):
+                continue
+            mid = str(block.get("id") or market_key)
+            base_name = (block.get("name") or market_key.replace("_", " ").title()).strip()
+            if mid == _BET365_GAME_LINES_ID:
+                for m in _bet365_lines_split(block, mid, base_name, _BET365_GAME_LINES_SUBMARKETS):
+                    key = (m["id"], m["name"])
+                    if key not in by_key:
+                        by_key[key] = m
+            elif mid == _BET365_SET1_LINES_ID:
+                for m in _bet365_lines_split(block, mid, base_name, _BET365_SET1_LINES_SUBMARKETS):
+                    key = (m["id"], m["name"])
+                    if key not in by_key:
+                        by_key[key] = m
+            else:
+                key = (mid, base_name)
+                if key not in by_key:
+                    by_key[key] = {"id": mid, "name": base_name, "is_prematch": True}
+
+    for event in results:
+        main_sp = (event.get("main") or {}).get("sp") or {}
+        _process_sp(main_sp)
+        for other in event.get("others") or []:
+            sp = (other or {}).get("sp") or {}
+            _process_sp(sp)
+    return list(by_key.values())
+
+
+def _parse_1xbet_feed_markets(data: dict | list) -> list[dict]:
+    """Extract unique market types from 1xbet results (Value.SG segments + MEC)."""
+    if isinstance(data, list):
+        results = data
+    else:
+        results = data.get("results") or []
+    by_key: dict[tuple, dict] = {}
+    for event in results:
+        value = event.get("Value") or event.get("value") or {}
+        for seg in value.get("SG") or []:
+            if not isinstance(seg, dict):
+                continue
+            seg_id = seg.get("I") or seg.get("N")
+            pn = (seg.get("PN") or "").strip() or "Match"
+            for mec in seg.get("MEC") or []:
+                if not isinstance(mec, dict):
+                    continue
+                mt = mec.get("MT")
+                n = (mec.get("N") or "").strip()
+                if not n or n == "All markets":
+                    continue
+                mid = f"{seg_id}_{mt}"
+                name = f"{pn} – {n}" if pn else n
+                key = (mid, name)
+                if key not in by_key:
+                    by_key[key] = {"id": mid, "name": name, "is_prematch": True}
+    return list(by_key.values())
+
+
+def _extract_bwin_market_odds(events_data: list[dict] | dict, feed_market_id: str) -> dict:
+    """From Bwin event details, extract outcomes and line (attr) for market by templateId (or categoryId for legacy). Returns {outcomes: [...], line: str}.
+    For OVERUNDER/total markets (e.g. 6356, 9210), line comes from attr; if attr is missing, derive from outcome names (e.g. 'Over 45,5' -> '45,5')."""
+    import re
+    results = events_data if isinstance(events_data, list) else (events_data.get("results") or [])
+    fid = str(feed_market_id).strip()
+    for event in results:
+        for m in (event.get("Markets") or []) + (event.get("optionMarkets") or []):
+            template_id = m.get("templateId")
+            if template_id is not None and str(template_id).strip() == fid:
+                pass
+            else:
+                tc = m.get("templateCategory")
+                cid = m.get("categoryId")
+                tid = (tc.get("id") if isinstance(tc, dict) else None) or cid
+                if tid is None or str(tid).strip() != fid:
+                    continue
+            outcomes = []
+            for r in m.get("results") or []:
+                name = (r.get("name") or {}).get("value") or (r.get("sourceName") or {}).get("value") or ""
+                odds = r.get("odds")
+                if odds is not None:
+                    outcomes.append({"name": str(name).strip() or "—", "price": str(odds)})
+            line = (m.get("attr") or "").strip() or ""
+            # Fallback for OVERUNDER/total (6356, 9210): parse line from outcome names if attr missing
+            if not line and len(outcomes) >= 2:
+                first_name = (outcomes[0].get("name") or "").strip()
+                # e.g. "Over 45,5" or "Over 148,5" -> "45,5" / "148,5"
+                match = re.search(r"(?:Over|Under)\s+([\d,\.]+)", first_name, re.IGNORECASE)
+                if match:
+                    line = match.group(1).strip()
+            return {"outcomes": outcomes, "line": line}
+    return {"outcomes": [], "line": ""}
+
+
+def _extract_bet365_market_odds(events_data: list[dict] | dict, feed_market_id: str) -> list[dict]:
+    """From Bet365 event details, extract outcomes for market. Handles 910000_1/2/3 (Game Lines) and 910204_1/2/3 (Set 1 Lines) submarkets."""
+    results = events_data if isinstance(events_data, list) else (events_data.get("results") or [])
+    fid = str(feed_market_id).strip()
+    base_id, suffix = (fid.split("_", 1) + [""])[:2]  # e.g. "910000_1" -> base "910000", suffix "1"
+
+    def from_sp(sp: dict) -> list[dict]:
+        if not sp:
+            return []
+        for block in (sp or {}).values():
+            if not isinstance(block, dict):
+                continue
+            bid = str(block.get("id") or "").strip()
+            if bid != base_id:
+                continue
+            odds_list = block.get("odds") or []
+            if suffix == "1":  # Winner
+                sub = [o for o in odds_list if isinstance(o, dict) and (o.get("name") or "").strip() == "Winner"]
+            elif suffix == "2":  # Handicap
+                sub = [o for o in odds_list if isinstance(o, dict) and (o.get("name") or "").strip() == "Handicap"]
+            elif suffix == "3":  # Total
+                sub = [o for o in odds_list if isinstance(o, dict) and (o.get("name") or "").strip() == "Total"]
+            else:
+                sub = odds_list
+            outcomes = []
+            for o in sub:
+                if not isinstance(o, dict):
+                    continue
+                header = str(o.get("header") or "").strip()
+                price = o.get("odds")
+                if price is not None:
+                    outcomes.append({"name": header or "—", "price": str(price)})
+            return outcomes
+        return []
+
+    for event in results:
+        main_sp = (event.get("main") or {}).get("sp") or {}
+        out = from_sp(main_sp)
+        if out:
+            return out
+        for other in event.get("others") or []:
+            out = from_sp((other or {}).get("sp") or {})
+            if out:
+                return out
+    return []
+
+
+def _extract_1xbet_market_odds(_events_data: list[dict] | dict, _feed_market_id: str) -> list[dict]:
+    """From 1xbet event details, extract outcomes for market. Structure differs; return empty for now."""
+    return []
+
+
+def _get_feed_odds_for_event_market(domain_event_id: str, domain_market_id: int) -> list[dict]:
+    """Return list of { feed_name, feed_market_id, outcomes: [{ name, price }] } from cached event details and market type mappings."""
+    event_mappings = [m for m in _load_event_mappings() if (m.get("domain_event_id") or "").strip() == str(domain_event_id).strip()]
+    mt_mappings = [m for m in _load_market_type_mappings() if m.get("domain_market_id") == domain_market_id]
+    feed_by_id = {f["domain_id"]: f for f in FEEDS}
+    code_by_id = {f["domain_id"]: (f.get("code") or "").strip().lower() for f in FEEDS}
+    result: list[dict] = []
+    for em in event_mappings:
+        feed_provider_str = (em.get("feed_provider") or "").strip().lower()
+        feed_valid_id = (em.get("feed_valid_id") or "").strip()
+        if not feed_valid_id:
+            continue
+        feed_obj = next((f for f in FEEDS if (f.get("code") or "").strip().lower() == feed_provider_str), None)
+        if not feed_obj:
+            continue
+        feed_provider_id = feed_obj["domain_id"]
+        feed_name = feed_obj.get("name") or feed_obj.get("code") or feed_provider_str
+        mt = next((m for m in mt_mappings if m.get("feed_provider_id") == feed_provider_id), None)
+        if not mt:
+            result.append({"feed_name": feed_name, "feed_market_id": "", "outcomes": []})
+            continue
+        feed_market_id = str(mt.get("feed_market_id") or "").strip()
+        if feed_provider_str == "bet365" and feed_market_id == "910000":
+            feed_market_id = "910000_1"
+        if feed_provider_str == "bet365" and feed_market_id == "910204":
+            feed_market_id = "910204_1"
+        path = config.FEED_EVENT_DETAILS_DIR / feed_provider_str / f"{feed_valid_id}.json"
+        if not path.exists():
+            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": []})
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": []})
+            continue
+        events_list = data.get("results") if isinstance(data, dict) else (data if isinstance(data, list) else [])
+        if feed_provider_str == "bwin":
+            bwin_data = _extract_bwin_market_odds(events_list or data, feed_market_id)
+            outcomes = bwin_data.get("outcomes") or []
+            line = bwin_data.get("line") or ""
+            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": outcomes, "line": line})
+        elif feed_provider_str == "bet365":
+            outcomes = _extract_bet365_market_odds(events_list or data, feed_market_id)
+            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": outcomes})
+        elif feed_provider_str == "1xbet":
+            outcomes = _extract_1xbet_market_odds(events_list or data, feed_market_id)
+            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": outcomes})
+        else:
+            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": []})
+    return result
 
 
 def _resolve_entity(etype: str, feed_id: str, feed_provider_id: int, domain_sport_id: int | None = None) -> dict | None:
@@ -2535,6 +2995,22 @@ async def update_market(domain_id: int, body: UpdateMarketRequest):
     return {"domain_id": domain_id, "updated_at": _now}
 
 
+async def _fetch_and_save_event_details(feed_provider: str, feed_valid_id: str) -> None:
+    """Background: fetch event details from BetsAPI and save under feed_event_details/{feed}/{id}.json. Token from .env (BETSAPI_TOKEN)."""
+    token = (config.BETSAPI_TOKEN or "").strip()
+    if not token:
+        return
+    feed_code = (feed_provider or "").strip().lower()
+    if feed_code not in ("bwin", "bet365", "1xbet"):
+        return
+    try:
+        data = await feed_pull.fetch_event_details_async(feed_code, feed_valid_id, token)
+        if data:
+            feed_pull.save_event_details(feed_code, feed_valid_id, data)
+    except Exception:
+        pass  # Don't fail create/map if details fetch fails
+
+
 @app.post("/api/domain-events")
 async def create_domain_event(body: CreateDomainEventRequest):
     """
@@ -2560,6 +3036,10 @@ async def create_domain_event(body: CreateDomainEventRequest):
     _save_domain_event(new_event)
     # Record the originating feed mapping in event_mappings.csv (join table)
     _save_event_mapping(new_id, body.feeder_provider, body.feeder_valid_id)
+
+    # Fetch event details in background (BetsAPI token from .env) so we have markets for mapping modal
+    if config.BETSAPI_TOKEN and body.feeder_provider and body.feeder_valid_id:
+        asyncio.create_task(_fetch_and_save_event_details(body.feeder_provider, body.feeder_valid_id))
 
     # Also mark the feeder event as MAPPED in memory
     for e in DUMMY_EVENTS:
@@ -2620,6 +3100,9 @@ async def map_event_to_domain(
     )
     if not already:
         _save_event_mapping(domain_id_selected, feeder_provider, feeder_valid_id)
+    # Fetch event details in background (BetsAPI token from .env) so we have markets for mapping modal
+    if config.BETSAPI_TOKEN and feeder_provider and feeder_valid_id:
+        asyncio.create_task(_fetch_and_save_event_details(feeder_provider, feeder_valid_id))
     _append_feeder_event_log(feeder_provider, feeder_valid_id, "mapped", details=domain_id_selected)
 
     # Mark feeder event as MAPPED in memory
@@ -2987,10 +3470,11 @@ async def dump_csv_data(request: Request):
     Reloads in-memory state and redirects to dashboard.
     """
     _dump_entity_and_relation_csvs()
-    global DOMAIN_EVENTS, DOMAIN_ENTITIES, ENTITY_FEED_MAPPINGS
+    global DOMAIN_EVENTS, DOMAIN_ENTITIES, ENTITY_FEED_MAPPINGS, SPORT_FEED_MAPPINGS
     DOMAIN_EVENTS = _load_domain_events()
     DOMAIN_ENTITIES = _load_entities()
     ENTITY_FEED_MAPPINGS = _load_entity_feed_mappings()
+    SPORT_FEED_MAPPINGS = _load_sport_feed_mappings()
     return RedirectResponse(url="/", status_code=303)
 
 
@@ -4021,20 +4505,39 @@ async def event_navigator_table(
     return response
 
 
-def _markets_by_group() -> list[dict]:
-    """Build list of { group, markets } for event details left column. Group order follows market_groups; markets use market_group (code)."""
-    market_groups = _load_market_groups()
-    markets = DOMAIN_ENTITIES.get("markets") or []
-    group_codes = {(g.get("code") or "").strip() for g in market_groups}
-    result: list[dict] = []
-    for g in market_groups:
-        code = (g.get("code") or "").strip()
-        group_markets = [m for m in markets if (m.get("market_group") or "").strip() == code]
-        result.append({"group": g, "markets": group_markets})
-    orphan = [m for m in markets if (m.get("market_group") or "").strip() not in group_codes]
-    if orphan:
-        result.append({"group": {"domain_id": 0, "code": "", "name": "Other"}, "markets": orphan})
-    return result
+def _template_outcome_count(market: dict) -> int:
+    """Return number of outcomes for a market from its template/code or from market_outcomes (outcome_labels). Match Winner (WINNER2/2way)=2, 3way=3, HCP2/OU/HANDICAP2/SetHcp=2; default 3."""
+    labels = market.get("outcome_labels")
+    if labels and isinstance(labels, list) and len(labels) > 0:
+        return len(labels)
+    template = (market.get("template") or "").strip().upper()
+    code = (market.get("code") or "").strip().lower()
+    if template in ("WINNER2",) or code in ("2way",):
+        return 2
+    if template in ("WINNER2D",) or code in ("3way",):
+        return 3
+    if template in ("HCP2", "OU", "HANDICAP2") or code in ("hcp2", "ou", "sethcp"):
+        return 2
+    return 3
+
+
+def _market_has_line(market: dict) -> bool:
+    """True if this market has a line (e.g. handicap or over/under) with multiple lines to pick."""
+    template = (market.get("template") or "").strip().upper()
+    code = (market.get("code") or "").strip().lower()
+    return template in ("HCP2", "OU", "HANDICAP2") or code in ("hcp2", "ou", "sethcp")
+
+
+def _event_sport_id(ev: dict) -> int | None:
+    """Resolve event sport name to domain sport_id. Returns None if not found."""
+    sport_name = (ev.get("sport") or "").strip()
+    if not sport_name:
+        return None
+    sports = DOMAIN_ENTITIES.get("sports") or []
+    for s in sports:
+        if (s.get("name") or "").strip() == sport_name:
+            return s.get("domain_id")
+    return None
 
 
 @app.get("/event-navigator/event_details/{domain_id}", response_class=HTMLResponse)
@@ -4045,8 +4548,16 @@ async def event_navigator_event_details(request: Request, domain_id: str):
     if not ev:
         raise HTTPException(status_code=404, detail="Domain event not found")
     mappings = [m for m in _load_event_mappings() if m.get("domain_event_id") == domain_id]
-    markets_by_group = _markets_by_group()
+    sport_id = _event_sport_id(ev)
+    markets_by_group = _markets_by_group(sport_id)
+    for item in markets_by_group:
+        for m in item.get("markets") or []:
+            labels, otype = _get_outcome_labels_for_market(m, sport_id)
+            m["outcome_labels"] = labels
+            m["outcome_type"] = otype
     brands = _load_brands()
+    template_outcome_count = _template_outcome_count
+    market_has_line = _market_has_line
     return templates.TemplateResponse("event_details.html", {
         "request": request,
         "section": "domain",
@@ -4054,6 +4565,8 @@ async def event_navigator_event_details(request: Request, domain_id: str):
         "mappings": mappings,
         "markets_by_group": markets_by_group,
         "brands": brands,
+        "template_outcome_count": template_outcome_count,
+        "market_has_line": market_has_line,
     })
 
 
@@ -4472,13 +4985,12 @@ async def api_feed_markets(
 ):
     """
     Return unique markets from a feed JSON for the given feed and sport.
-    Resolves feed sport id from entity_feed_mappings (sports). If no mapping, returns [].
+    Resolves feed sport id from sport_feed_mappings.csv. If no mapping, returns [].
     Each item: { id, name, is_prematch, feed_name }.
     """
     mapping = next(
-        (m for m in ENTITY_FEED_MAPPINGS
-         if m.get("entity_type") == "sports"
-         and m.get("domain_id") == domain_sport_id
+        (m for m in SPORT_FEED_MAPPINGS
+         if m.get("domain_id") == domain_sport_id
          and m.get("feed_provider_id") == feed_provider_id),
         None,
     )
@@ -4494,10 +5006,57 @@ async def api_feed_markets(
     feed = next((f for f in FEEDS if f.get("domain_id") == feed_provider_id), None)
     feed_code = (feed.get("code") or "").strip() or ""
     feed_name = (feed.get("name") or feed_code) or ""
-    markets = _load_feed_markets_for_sport(feed_code, feed_sport_id)
+    markets = _load_feed_markets_for_sport(feed_code, feed_sport_id, domain_sport_id)
     for m in markets:
         m["feed_name"] = feed_name
+        m.setdefault("sport_name", "")
     return {"feed_name": feed_name, "markets": markets}
+
+
+@app.get("/api/event-details/feed-odds")
+async def api_event_details_feed_odds(
+    domain_event_id: str = Query(..., description="Domain event id (e.g. G-xxx)"),
+    domain_market_id: int = Query(..., description="Domain market type id"),
+):
+    """Return feed odds for the selected market from each mapped feed (from cached event details)."""
+    rows = _get_feed_odds_for_event_market(domain_event_id, domain_market_id)
+    return {"feed_odds": rows}
+
+
+@app.get("/api/market-type-mappings/all-mapped")
+async def api_get_all_mapped_feed_market_keys():
+    """Return all (feed_provider_id, feed_market_id) keys that are mapped to any domain market. Used to hide those from Available markets in the mapper.
+    Bet365 Game Lines (910000) and Set 1 Lines (910204): only the specific sub-market (_1/2/3) that is mapped is added."""
+    mappings = _load_market_type_mappings()
+    bet365_codes = {f["domain_id"] for f in FEEDS if (f.get("code") or "").strip().lower() == "bet365"}
+    game_lines_names = {"Game Lines - Winner": "1", "Game Lines - Handicap": "2", "Game Lines - Total": "3"}
+    set1_lines_names = {"Set 1 Lines - Winner": "1", "Set 1 Lines - Handicap": "2", "Set 1 Lines - Total": "3"}
+    keys: set[str] = set()
+    for m in mappings:
+        fid = str(m.get("feed_market_id") or "").strip()
+        pid = m.get("feed_provider_id")
+        if fid and pid is not None:
+            if pid in bet365_codes and fid == "910000":
+                name = (m.get("feed_market_name") or "").strip()
+                suffix = game_lines_names.get(name)
+                if suffix:
+                    keys.add(f"{pid}|910000_{suffix}")
+                else:
+                    keys.add(f"{pid}|910000_1")
+                    keys.add(f"{pid}|910000_2")
+                    keys.add(f"{pid}|910000_3")
+            elif pid in bet365_codes and fid == "910204":
+                name = (m.get("feed_market_name") or "").strip()
+                suffix = set1_lines_names.get(name)
+                if suffix:
+                    keys.add(f"{pid}|910204_{suffix}")
+                else:
+                    keys.add(f"{pid}|910204_1")
+                    keys.add(f"{pid}|910204_2")
+                    keys.add(f"{pid}|910204_3")
+            else:
+                keys.add(f"{pid}|{fid}")
+    return {"mapped_keys": list(keys)}
 
 
 @app.get("/api/market-type-mappings")
@@ -4509,6 +5068,10 @@ async def api_get_market_type_mappings(
     prematch = []
     live = []
     feeds_by_id = {f["domain_id"]: f.get("name") or f.get("code") or "" for f in FEEDS}
+    # Bet365 Game Lines (910000) and Set 1 Lines (910204) legacy: normalize to composite id so left shows _1/2/3
+    bet365_codes = {f["domain_id"] for f in FEEDS if (f.get("code") or "").strip().lower() == "bet365"}
+    game_lines_names = {"Game Lines - Winner": "1", "Game Lines - Handicap": "2", "Game Lines - Total": "3"}
+    set1_lines_names = {"Set 1 Lines - Winner": "1", "Set 1 Lines - Handicap": "2", "Set 1 Lines - Total": "3"}
     for m in mappings:
         if m["domain_market_id"] != domain_market_id:
             continue
@@ -4517,11 +5080,18 @@ async def api_get_market_type_mappings(
             item_id = int(fid_raw) if fid_raw.isdigit() else fid_raw or None
         except (TypeError, ValueError):
             item_id = fid_raw or None
+        name = (m.get("feed_market_name") or "").strip()
+        if (item_id == 910000 or (isinstance(item_id, str) and item_id == "910000")) and m["feed_provider_id"] in bet365_codes and name in game_lines_names:
+            item_id = "910000_" + game_lines_names[name]
+            fid_raw = item_id
+        elif (item_id == 910204 or (isinstance(item_id, str) and item_id == "910204")) and m["feed_provider_id"] in bet365_codes and name in set1_lines_names:
+            item_id = "910204_" + set1_lines_names[name]
+            fid_raw = item_id
         item = {
             "feed_provider_id": m["feed_provider_id"],
             "id": item_id,
-            "name": (m.get("feed_market_name") or "").strip(),
-            "feed_market_name": (m.get("feed_market_name") or "").strip(),
+            "name": name or fid_raw,
+            "feed_market_name": name or fid_raw,
             "feed_name": feeds_by_id.get(m["feed_provider_id"], ""),
         }
         if (m.get("phase") or "").strip().lower() == "live":
@@ -5842,7 +6412,9 @@ async def margin_view(
         for g in market_groups_list:
             code = (g.get("code") or "").strip()
             group_markets = [{"domain_id": m.get("domain_id"), "code": m.get("code"), "name": m.get("name") or m.get("code"), "market_group": m.get("market_group")} for m in markets if (m.get("market_group") or "").strip() == code]
-            market_groups_with_markets.append({"group": g, "markets": group_markets})
+            # Only show market groups that have at least one market (hide empty Half, Corners, Cards, etc.)
+            if group_markets:
+                market_groups_with_markets.append({"group": g, "markets": group_markets})
         orphan = [{"domain_id": m.get("domain_id"), "code": m.get("code"), "name": m.get("name") or m.get("code"), "market_group": m.get("market_group")} for m in markets if (m.get("market_group") or "").strip() not in group_codes]
         if orphan:
             market_groups_with_markets.append({"group": {"domain_id": 0, "code": "", "name": "Other"}, "markets": orphan})

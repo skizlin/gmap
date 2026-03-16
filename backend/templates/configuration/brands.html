@@ -8,16 +8,16 @@
 {% block content %}
 <div class="flex flex-col h-full space-y-3">
 
-    <!-- Tabs -->
-    <div class="flex border-b border-slate-700">
-        <button type="button" id="tab-partners" onclick="switchBrandsTab('partners')"
-            class="brands-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-white transition-colors">
+    <!-- Tabs (hash-based: #partners, #brands for direct links) -->
+    <div class="flex border-b border-slate-700" role="tablist">
+        <a href="#partners" id="tab-partners" data-tab-key="partners" onclick="event.preventDefault(); switchBrandsTab('partners');"
+            class="brands-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-white transition-colors no-underline cursor-pointer">
             <i class="fa-solid fa-handshake mr-1.5"></i> Partners
-        </button>
-        <button type="button" id="tab-brands" onclick="switchBrandsTab('brands')"
-            class="brands-tab px-4 py-2.5 text-sm font-medium border-b-2 border-primary text-primary">
+        </a>
+        <a href="#brands" id="tab-brands" data-tab-key="brands" onclick="event.preventDefault(); switchBrandsTab('brands');"
+            class="brands-tab px-4 py-2.5 text-sm font-medium border-b-2 border-primary text-primary no-underline cursor-pointer">
             <i class="fa-solid fa-building mr-1.5"></i> Brands
-        </button>
+        </a>
     </div>
 
     <!-- Partners panel -->
@@ -345,7 +345,9 @@
 </div>
 
 <script>
+    var BRANDS_TAB_KEYS = ['partners', 'brands'];
     function switchBrandsTab(tab) {
+        if (!BRANDS_TAB_KEYS.includes(tab)) tab = 'brands';
         const panels = { partners: document.getElementById('panel-partners'), brands: document.getElementById('panel-brands') };
         const tabs = { partners: document.getElementById('tab-partners'), brands: document.getElementById('tab-brands') };
         ['partners', 'brands'].forEach(function(key) {
@@ -360,7 +362,18 @@
                 tabs[key].classList.toggle('text-slate-400', key !== tab);
             }
         });
+        window.location.hash = tab;
     }
+    function applyBrandsTabFromHash() {
+        var hash = (window.location.hash || '#brands').replace('#', '').toLowerCase();
+        if (BRANDS_TAB_KEYS.includes(hash)) switchBrandsTab(hash);
+        else switchBrandsTab('brands');
+    }
+    window.addEventListener('hashchange', applyBrandsTabFromHash);
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.location.hash) window.location.hash = 'brands';
+        applyBrandsTabFromHash();
+    });
 
     function partnersShowAddForm() {
         document.getElementById('partner-add-form').classList.remove('hidden');
@@ -398,6 +411,8 @@
             }
             statusEl.textContent = 'Saved. Reloading…';
             statusEl.className = 'text-xs text-primary';
+            var t = document.querySelector('.brands-tab.text-primary');
+            if (t && t.dataset.tabKey) window.location.hash = t.dataset.tabKey;
             window.location.reload();
         } catch (e) {
             statusEl.textContent = 'Request failed: ' + e.message;
@@ -440,6 +455,8 @@
             }
             statusEl.textContent = 'Saved. Reloading…';
             statusEl.className = 'text-xs text-primary';
+            var t = document.querySelector('.brands-tab.text-primary');
+            if (t && t.dataset.tabKey) window.location.hash = t.dataset.tabKey;
             window.location.reload();
         } catch (e) {
             statusEl.textContent = 'Request failed: ' + e.message;
@@ -512,6 +529,8 @@
             }
             statusEl.textContent = 'Saved. Reloading…';
             statusEl.className = 'text-xs text-primary';
+            var t = document.querySelector('.brands-tab.text-primary');
+            if (t && t.dataset.tabKey) window.location.hash = t.dataset.tabKey;
             window.location.reload();
         } catch (e) {
             statusEl.textContent = 'Request failed: ' + e.message;
@@ -597,6 +616,8 @@
             }
             statusEl.textContent = 'Saved. Reloading…';
             statusEl.className = 'text-xs text-primary';
+            var t = document.querySelector('.brands-tab.text-primary');
+            if (t && t.dataset.tabKey) window.location.hash = t.dataset.tabKey;
             window.location.reload();
         } catch (e) {
             statusEl.textContent = 'Request failed: ' + e.message;

@@ -85,8 +85,8 @@
         <span id="nef-status" class="text-xs shrink-0"></span>
     </div>
 
-    <!-- Entity type tabs -->
-    <div class="flex border-b border-slate-700 gap-0">
+    <!-- Entity type tabs (hash-based: #sports, #categories, #competitions, #teams, #markets for direct links) -->
+    <div class="flex border-b border-slate-700 gap-0" role="tablist">
         {% set tabs = [
         ('sports', 'fa-futbol', 'Sports', stats.sports),
         ('categories', 'fa-earth-europe', 'Categories', stats.categories),
@@ -95,14 +95,14 @@
         ('markets', 'fa-chart-line', 'Markets', stats.markets),
         ] %}
         {% for key, icon, label, count in tabs %}
-        <button onclick="switchEntityTab('{{ key }}')" id="tab-{{ key }}"
-            class="entity-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2
+        <a href="#{{ key }}" id="tab-{{ key }}" data-tab-key="{{ key }}" onclick="event.preventDefault(); switchEntityTab('{{ key }}');"
+            class="entity-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 no-underline cursor-pointer
                    {% if loop.first %}text-primary border-primary{% else %}text-slate-400 border-transparent hover:text-white{% endif %}">
             <i class="fa-solid {{ icon }} text-xs"></i>
             {{ label }}
             <span class="text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-mono">{{ count
                 }}</span>
-        </button>
+        </a>
         {% endfor %}
     </div>
 
@@ -231,7 +231,7 @@
 
         <!-- Market Mapper modal (Mapping [name] market type) -->
         <div id="market-mapper-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 overflow-y-auto" aria-modal="true">
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-5xl my-8" onclick="event.stopPropagation()">
+            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-[90rem] my-8" onclick="event.stopPropagation()">
                 <div class="p-4 border-b border-slate-700">
                     <h2 id="market-mapper-title" class="text-lg font-semibold text-white">Mapping <span id="market-mapper-name">—</span> market type</h2>
                 </div>
@@ -255,7 +255,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="lg:w-80 flex-shrink-0 space-y-2">
+                    <div class="lg:w-[32rem] xl:w-[36rem] flex-shrink-0 space-y-2">
                         <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Available markets</h3>
                         <div class="flex flex-wrap gap-2">
                             <select id="market-mapper-feed" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-primary outline-none">
@@ -264,10 +264,10 @@
                                 <option value="{{ f.domain_id }}">{{ f.name }}</option>
                                 {% endfor %}
                             </select>
-                            <input type="text" id="market-mapper-name-filter" placeholder="Name" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white flex-1 min-w-0" title="Filter list by market name">
+                            <input type="text" id="market-mapper-name-filter" placeholder="Name" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white flex-1 min-w-[12rem]" title="Filter list by market name">
                         </div>
-                        <div id="market-mapper-available-list" class="border border-slate-700 rounded max-h-64 overflow-y-auto p-2 space-y-1">
-                            <p class="text-slate-500 italic text-[11px]">Select a feed to load its markets for the current sport (e.g. Football).</p>
+                        <div id="market-mapper-available-list" class="border border-slate-700 rounded max-h-[28rem] overflow-y-auto p-2 space-y-1">
+                            <p class="text-slate-500 italic text-[11px]">Select a feed to load its markets for the current sport (e.g. Volleyball).</p>
                         </div>
                     </div>
                 </div>
@@ -334,7 +334,7 @@
                     {% for s in market_score_types %}{% if s.code == entity.get('score_type') %}{% set _scr.s = s %}{% endif %}{% endfor %}
                     {% set _grp = namespace(g=None) %}
                     {% for g in market_groups %}{% if g.code == entity.get('market_group') %}{% set _grp.g = g %}{% endif %}{% endfor %}
-                    <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ (entity.name ~ ' ' ~ (entity.get('code') or '') ~ ' ' ~ (entity.get('abb') or '')) | lower }}">
+                    <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ (entity.name ~ ' ' ~ (entity.get('code') or '') ~ ' ' ~ (entity.get('abb') or '')) | lower }}" data-sport-id="{{ entity.get('sport_id') or '' }}">
                         <td class="px-3 py-2 font-mono text-slate-400">#{{ entity.domain_id }}</td>
                         <td class="px-3 py-2 text-slate-400">{{ sports_by_id.get(entity.sport_id, '—') }}</td>
                         <td class="px-3 py-2 text-white font-medium">{{ entity.name }}</td>
@@ -722,7 +722,9 @@
     .entity-kebab-dropdown:not([data-entity-panel="markets"]) .entity-action-map { display: none; }
 </style>
 <script>
+    var ENTITY_TAB_KEYS = ['sports', 'categories', 'competitions', 'teams', 'markets'];
     function switchEntityTab(key) {
+        if (!ENTITY_TAB_KEYS.includes(key)) key = 'sports';
         document.querySelectorAll('.entity-tab').forEach(t => {
             t.classList.remove('text-primary', 'border-primary');
             t.classList.add('text-slate-400', 'border-transparent');
@@ -730,9 +732,12 @@
         document.querySelectorAll('[id^=panel-]').forEach(p => p.classList.add('hidden'));
 
         const tab = document.getElementById('tab-' + key);
-        tab.classList.add('text-primary', 'border-primary');
-        tab.classList.remove('text-slate-400', 'border-transparent');
-        document.getElementById('panel-' + key).classList.remove('hidden');
+        if (tab) {
+            tab.classList.add('text-primary', 'border-primary');
+            tab.classList.remove('text-slate-400', 'border-transparent');
+        }
+        const panel = document.getElementById('panel-' + key);
+        if (panel) panel.classList.remove('hidden');
         const form = document.getElementById('new-entity-form');
         if (key === 'sports' && form) form.classList.add('hidden');
         const sel = document.getElementById('nef-type');
@@ -740,7 +745,26 @@
         if (key === 'categories' && typeof applyCategoriesFilters === 'function') applyCategoriesFilters();
         if (key === 'teams' && typeof applyTeamsFilters === 'function') applyTeamsFilters();
         if (key === 'competitions' && typeof applyCompetitionsFilters === 'function') applyCompetitionsFilters();
+        window.location.hash = key;
     }
+    function getCurrentEntityTab() {
+        const t = document.querySelector('.entity-tab.text-primary');
+        return t ? (t.dataset.tabKey || t.id.replace('tab-', '')) : 'sports';
+    }
+    function reloadPreservingTab() {
+        window.location.hash = getCurrentEntityTab();
+        window.location.reload();
+    }
+    function applyEntityTabFromHash() {
+        var hash = (window.location.hash || '#sports').replace('#', '').toLowerCase();
+        if (ENTITY_TAB_KEYS.includes(hash)) switchEntityTab(hash);
+        else switchEntityTab('sports');
+    }
+    window.addEventListener('hashchange', applyEntityTabFromHash);
+    document.addEventListener('DOMContentLoaded', function () {
+        if (!window.location.hash) window.location.hash = 'sports';
+        applyEntityTabFromHash();
+    });
 
     function toggleNewEntityForm() {
         const activeTab = document.querySelector('.entity-tab.text-primary');
@@ -825,7 +849,7 @@
         if (res.ok && data.created) {
             statusEl.textContent = `Created #${data.domain_id}`;
             statusEl.className = 'text-xs text-emerald-400 shrink-0';
-            setTimeout(() => location.reload(), 600);
+            setTimeout(reloadPreservingTab, 600);
         } else if (res.ok) {
             statusEl.textContent = `Already exists #${data.domain_id}`;
             statusEl.className = 'text-xs text-amber-400 shrink-0';
@@ -957,7 +981,7 @@
             }
             statusEl.textContent = 'Saved.';
             statusEl.className = 'text-xs text-primary self-center';
-            setTimeout(() => { closeEntityEditModal(); window.location.reload(); }, 400);
+            setTimeout(function () { closeEntityEditModal(); reloadPreservingTab(); }, 400);
         } catch (e) {
             statusEl.textContent = 'Request failed.';
             statusEl.className = 'text-xs text-red-400 self-center';
@@ -1038,7 +1062,9 @@
                         if (panel === 'markets') openMarketEditModal(id);
                         else openEntityEditModal(panel, id);
                     } else if (actionType === 'map') {
-                        if (typeof openMarketMapper === 'function') openMarketMapper(id, name);
+                        var row = dropdown.closest('tr');
+                        var sportId = row ? (row.getAttribute('data-sport-id') || '').trim() : '';
+                        if (typeof openMarketMapper === 'function') openMarketMapper(id, name, sportId ? parseInt(sportId, 10) : undefined);
                     } else if (actionType === 'remove-mappings') {
                         console.log('Remove Mappings – placeholder for', panel, id);
                     } else if (actionType === 'active-inactive') {
@@ -1109,7 +1135,7 @@
                 return;
             }
             statusEl.textContent = 'Saved.';
-            setTimeout(function () { closeMarketEditModal(); location.reload(); }, 400);
+            setTimeout(function () { closeMarketEditModal(); reloadPreservingTab(); }, 400);
         } catch (e) {
             statusEl.textContent = 'Request failed.';
         } finally {
@@ -1127,7 +1153,7 @@
         if (active) active.checked = false;
         var u = new URL(window.location.href);
         u.searchParams.delete('market_sport_id');
-        u.searchParams.set('panel', 'markets');
+        u.hash = 'markets';
         window.location.href = u.toString();
     }
     function mtSportChange() {
@@ -1136,7 +1162,7 @@
         var v = sel.value;
         var u = new URL(window.location.href);
         if (v) u.searchParams.set('market_sport_id', v); else u.searchParams.delete('market_sport_id');
-        u.searchParams.set('panel', 'markets');
+        u.hash = 'markets';
         window.location.href = u.toString();
     }
     function mtSort() {
@@ -1180,8 +1206,8 @@
             const data = await res.json();
             if (res.ok) {
                 mtToggleCreateForm();
-                if (data.created) location.reload();
-                else location.reload();
+                if (data.created) reloadPreservingTab();
+                else reloadPreservingTab();
             } else {
                 alert(data.detail || 'Error saving market type.');
             }
@@ -1210,7 +1236,7 @@
             const data = await res.json();
             if (res.ok) {
                 closeMarketGroupModal();
-                location.reload();
+                reloadPreservingTab();
             } else {
                 alert(data.detail || 'Error creating market group.');
             }
@@ -1221,6 +1247,7 @@
 
     // Market Mapper modal
     let currentMarketMapperId = null;
+    let currentMarketMapperSportId = null; // domain sport of the market we're mapping (e.g. 8 = Volleyball)
     let mapperPrematchList = [];
     let mapperLiveList = [];
     let currentMapperFeedName = '';
@@ -1251,21 +1278,29 @@
                 const idx = parseInt(div.getAttribute('data-idx'), 10);
                 if (phase === 'prematch') { mapperPrematchList.splice(idx, 1); } else { mapperLiveList.splice(idx, 1); }
                 renderMapperPrematchLive();
+                renderMarketMapperAvailableList();
             });
         });
     }
 
-    async function openMarketMapper(marketId, marketName) {
+    async function openMarketMapper(marketId, marketName, domainSportId) {
         currentMarketMapperId = marketId;
+        currentMarketMapperSportId = (domainSportId != null && !isNaN(domainSportId)) ? domainSportId : null;
         document.getElementById('market-mapper-name').textContent = marketName || '—';
         document.getElementById('market-mapper-details').textContent = 'Market type: ' + (marketName || '—') + ' (ID: ' + marketId + ')';
         mapperPrematchList = [];
         mapperLiveList = [];
+        marketMapperGloballyMappedKeys = {};
         try {
-            const res = await fetch('/api/market-type-mappings?domain_market_id=' + marketId);
-            const data = await res.json();
+            const [mapRes, allRes] = await Promise.all([
+                fetch('/api/market-type-mappings?domain_market_id=' + marketId),
+                fetch('/api/market-type-mappings/all-mapped')
+            ]);
+            const data = await mapRes.json();
             if (data.prematch) mapperPrematchList = data.prematch.slice();
             if (data.live) mapperLiveList = data.live.slice();
+            const allData = await allRes.json();
+            (allData.mapped_keys || []).forEach(function (k) { marketMapperGloballyMappedKeys[k] = true; });
         } catch (e) { /* ignore */ }
         renderMapperPrematchLive();
         document.getElementById('market-mapper-modal').classList.remove('hidden');
@@ -1273,6 +1308,7 @@
     function closeMarketMapper() {
         document.getElementById('market-mapper-modal').classList.add('hidden');
         currentMarketMapperId = null;
+        currentMarketMapperSportId = null;
         mapperPrematchList = [];
         mapperLiveList = [];
     }
@@ -1287,7 +1323,7 @@
             const res = await fetch('/api/market-type-mappings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (res.ok) {
                 closeMarketMapper();
-                location.reload();
+                reloadPreservingTab();
             } else {
                 const err = await res.json().catch(function () { return {}; });
                 alert(err.detail || 'Failed to save mappings.');
@@ -1301,12 +1337,16 @@
     });
 
     let marketMapperFeedMarkets = [];
+    let marketMapperGloballyMappedKeys = {};
     function getMapperDomainSportId() {
+        // Use the domain market's sport (e.g. Volleyball) so we show that sport's feed markets, not the panel filter
+        if (currentMarketMapperSportId != null && currentMarketMapperSportId > 0) return currentMarketMapperSportId;
         const sel = document.getElementById('mt-sport');
-        if (!sel || sel.selectedIndex < 0) return 1;
-        const opt = sel.options[sel.selectedIndex];
-        const id = opt && opt.getAttribute('data-domain-id');
-        return id ? parseInt(id, 10) : 1;
+        if (!sel) return 1;
+        const val = (sel.value || '').trim();
+        if (!val) return 1;
+        const id = parseInt(val, 10);
+        return isNaN(id) ? 1 : id;
     }
     async function loadFeedMarkets() {
         const feedSelect = document.getElementById('market-mapper-feed');
@@ -1334,10 +1374,25 @@
     function renderMarketMapperAvailableList() {
         const listEl = document.getElementById('market-mapper-available-list');
         const nameFilter = (document.getElementById('market-mapper-name-filter')?.value || '').trim().toLowerCase();
+        const feedSelect = document.getElementById('market-mapper-feed');
+        const feedProviderId = feedSelect && feedSelect.value ? parseInt(feedSelect.value, 10) : null;
         if (!listEl) return;
         let items = marketMapperFeedMarkets;
         if (nameFilter) {
             items = items.filter(function (m) { return (m.name || '').toLowerCase().indexOf(nameFilter) !== -1; });
+        }
+        var mappedSet = {};
+        Object.keys(marketMapperGloballyMappedKeys || {}).forEach(function (k) { mappedSet[k] = true; });
+        mapperPrematchList.concat(mapperLiveList).forEach(function (m) {
+            var idStr = m.id != null ? String(m.id) : '';
+            var pk = (m.feed_provider_id != null ? m.feed_provider_id : '') + '|' + idStr;
+            mappedSet[pk] = true;
+        });
+        if (feedProviderId != null) {
+            items = items.filter(function (m) {
+                var k = feedProviderId + '|' + (m.id != null ? String(m.id) : '');
+                return !mappedSet[k];
+            });
         }
         if (items.length === 0) {
             listEl.innerHTML = '<p class="text-slate-500 italic text-[11px]">No markets found.</p>';
@@ -1347,9 +1402,12 @@
         listEl.innerHTML = items.map(function (m) {
             const phase = m.is_prematch ? 'PreMatch' : 'Live';
             const phaseCls = m.is_prematch ? 'bg-slate-600' : 'bg-emerald-600/80';
-            return '<div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded hover:bg-slate-700/50 mapper-available-row" data-market-id="' + (m.id != null ? m.id : '') + '" data-market-name="' + (m.name || '').replace(/"/g, '&quot;') + '" data-is-prematch="' + (m.is_prematch ? '1' : '0') + '">' +
-                '<div class="min-w-0 flex-1"><span class="text-white text-xs truncate block">' + (m.name || '—') + '</span>' +
-                '<span class="text-[10px] text-slate-500">' + (feedName ? feedName + ' · ' : '') + '<span class="' + phaseCls + ' text-white/90 px-1 rounded">' + phase + '</span></span></div>' +
+            const idStr = m.id != null ? String(m.id) : '—';
+            const sportStr = (m.sport_name || '').trim() || '—';
+            const linePart = (m.line && String(m.line).trim()) ? ' · ' + String(m.line).trim() : '';
+            const line = idStr + ' · ' + (m.name || '—') + linePart + ' · ' + sportStr + ' · ' + (feedName || '') + ' · ' + phase;
+            return '<div class="flex items-center justify-between gap-2 py-1 px-2 rounded hover:bg-slate-700/50 mapper-available-row text-xs" data-market-id="' + (m.id != null ? String(m.id) : '') + '" data-market-name="' + (m.name || '').replace(/"/g, '&quot;') + '" data-is-prematch="' + (m.is_prematch ? '1' : '0') + '">' +
+                '<span class="text-white truncate min-w-0 flex-1" title="' + (m.name || '').replace(/"/g, '&quot;') + '">' + line + '</span>' +
                 '<button type="button" class="mapper-add-btn text-secondary hover:text-blue-300 p-1 rounded shrink-0" title="Add to ' + phase + ' mapping"><i class="fa-solid fa-plus"></i></button></div>';
         }).join('');
         listEl.querySelectorAll('.mapper-add-btn').forEach(function (btn) {
@@ -1371,6 +1429,7 @@
                     mapperLiveList.push(item);
                 }
                 renderMapperPrematchLive();
+                renderMarketMapperAvailableList();
             });
         });
     }

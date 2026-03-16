@@ -2,6 +2,7 @@
 Application configuration: paths, directory layout, and CSV/entity schema constants.
 No runtime state (no loaded data); safe to import from any module.
 """
+import os
 from pathlib import Path
 
 # ── Directories ─────────────────────────────────────────────────────────────
@@ -11,14 +12,26 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
 DATA_DIR = BASE_DIR / "data"
 PROJECT_ROOT = BASE_DIR.parent
+
+# Load .env from project root so BETSAPI_TOKEN and others are available
+try:
+    from dotenv import load_dotenv
+    load_dotenv(PROJECT_ROOT / ".env")
+except ImportError:
+    pass
+
+# API token for event-details (BetsAPI/b365api). Used when creating/mapping domain events. Set in .env.
+BETSAPI_TOKEN = (os.environ.get("BETSAPI_TOKEN") or "").strip()
 FEED_JSON_DIR = PROJECT_ROOT / "designs" / "feed_json_examples"
 FEED_DATA_DIR = DATA_DIR / "feed_data"  # Pulled feed events (e.g. bet365 from API); used instead of feed_json_examples when present
+FEED_EVENT_DETAILS_DIR = DATA_DIR / "feed_event_details"  # Cached event-details API responses (per feed + feed_valid_id)
 DATA_COUNTRIES_DIR = DATA_DIR / "countries"
 DATA_MARKETS_DIR = DATA_DIR / "markets"
 
 # Ensure data dirs exist (idempotent)
 DATA_DIR.mkdir(exist_ok=True)
 FEED_DATA_DIR.mkdir(exist_ok=True)
+FEED_EVENT_DETAILS_DIR.mkdir(exist_ok=True)
 DATA_COUNTRIES_DIR.mkdir(exist_ok=True)
 DATA_MARKETS_DIR.mkdir(exist_ok=True)
 
@@ -62,6 +75,7 @@ MARKET_PERIOD_TYPE_PATH = DATA_MARKETS_DIR / "market_period_type.csv"
 MARKET_SCORE_TYPE_PATH = DATA_MARKETS_DIR / "market_score_type.csv"
 MARKET_GROUPS_PATH = DATA_MARKETS_DIR / "market_groups.csv"
 MARKET_TYPE_MAPPINGS_PATH = DATA_MARKETS_DIR / "market_type_mappings.csv"
+MARKET_OUTCOMES_PATH = DATA_MARKETS_DIR / "market_outcomes.csv"
 MARKET_TYPE_MAPPING_FIELDS = ["domain_market_id", "feed_provider_id", "feed_market_id", "feed_market_name", "phase"]
 MARKET_TEMPLATE_FIELDS = ["domain_id", "code", "name", "params"]
 
