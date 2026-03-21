@@ -69,3 +69,6 @@ backend/data/markets/market_type_mappings.csv
 backend/data/partners.csv
 backend/data/teams.csv
 backend/data/translations.csv
+# Per-environment notes / country overrides (local vs server)
+backend/data/notes/platform_notes.csv
+backend/data/countries/countries.json
