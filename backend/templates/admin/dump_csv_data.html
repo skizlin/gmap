@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+
+{% block page_heading %}Dump CSV data{% endblock %}
+{% block page_description %}Clear entity and relation data. This page is not linked in the menu; use only when you need to reset data.{% endblock %}
+
+{% block title %}Dump CSV data{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="glass-panel rounded-lg p-6 border-2 border-red-900/50 bg-red-950/20">
+        <h2 class="text-lg font-semibold text-red-300 mb-2">
+            <i class="fa-solid fa-triangle-exclamation mr-2"></i> Destructive action
+        </h2>
+        <p class="text-slate-300 text-sm mb-4">
+            This will <strong>clear all data</strong> in: categories, competitions, teams, domain events, event mappings, entity feed mappings.
+            Files are reset to header-only. <strong>feeds.csv</strong>, <strong>sports.csv</strong> and <strong>sport_feed_mappings.csv</strong> are not changed.
+        </p>
+        <p class="text-slate-400 text-xs mb-6">
+            Use only when you intentionally want to wipe entity/relation data (e.g. fresh start). This action cannot be undone.
+        </p>
+
+        <form method="post" action="/api/dump-csv-data" id="dump-form" class="space-y-4" onsubmit="return confirm('Last chance: this will delete all entity and relation data. Continue?');">
+            <div>
+                <label for="dump-confirm" class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">
+                    Type <code class="px-1.5 py-0.5 rounded bg-slate-700 text-amber-300 font-mono">DUMP</code> to enable the button:
+                </label>
+                <input type="text" id="dump-confirm" name="confirm" autocomplete="off"
+                    class="w-full max-w-xs bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white font-mono placeholder-slate-500 focus:border-red-500 focus:ring-1 focus:ring-red-500/30 outline-none"
+                    placeholder="Type DUMP here">
+            </div>
+            <div class="flex items-center gap-4">
+                <button type="submit" id="dump-submit" disabled
+                    class="inline-flex items-center px-4 py-2 bg-slate-700 text-slate-500 border border-slate-600 rounded-lg cursor-not-allowed font-medium"
+                    title="Type DUMP above to enable">
+                    <i class="fa-solid fa-trash-can mr-2"></i> Dump CSV data
+                </button>
+                <a href="/" class="text-slate-400 hover:text-white text-sm">Cancel and go to Dashboard</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function () {
+    var input = document.getElementById('dump-confirm');
+    var btn = document.getElementById('dump-submit');
+    if (!input || !btn) return;
+    function check() {
+        var ok = (input.value || '').trim().toUpperCase() === 'DUMP';
+        btn.disabled = !ok;
+        if (ok) {
+            btn.classList.remove('bg-slate-700', 'text-slate-500', 'cursor-not-allowed');
+            btn.classList.add('bg-red-900/60', 'text-red-200', 'hover:bg-red-800/60', 'cursor-pointer');
+            btn.removeAttribute('title');
+        } else {
+            btn.classList.add('bg-slate-700', 'text-slate-500', 'cursor-not-allowed');
+            btn.classList.remove('bg-red-900/60', 'text-red-200', 'hover:bg-red-800/60', 'cursor-pointer');
+            btn.setAttribute('title', 'Type DUMP above to enable');
+        }
+    }
+    input.addEventListener('input', check);
+    input.addEventListener('keyup', check);
+    check();
+})();
+</script>
+{% endblock %}

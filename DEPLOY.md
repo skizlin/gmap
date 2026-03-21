@@ -102,6 +102,37 @@ You should see a row with `gmap`. Then open your site in the browser (e.g. https
 
 ---
 
+## Automatic feed pulls (server only)
+
+The app can **rotate full “pull all sports” jobs** in the background: **one feed per UTC hour** (`bet365` → `betfair` → `1xbet` → `bwin` → repeat). It uses **`BETSAPI_TOKEN`** from the environment (same token as the Pull Feeds screen).
+
+- **Local:** leave `SCHEDULED_FEED_PULL` unset — nothing runs automatically; keep using manual pulls.
+- **Server:** set `SCHEDULED_FEED_PULL=1` and ensure `BETSAPI_TOKEN` is set (e.g. Docker `--env-file` or `-e`).
+
+Optional env vars (see `.env.example`):
+
+| Variable | Purpose |
+|----------|---------|
+| `SCHEDULED_FEED_PULL` | `1` / `true` to enable |
+| `SCHEDULED_FEED_PULL_FEEDS` | Comma list, default `bet365,betfair,1xbet,bwin` |
+| `SCHEDULED_FEED_PULL_CONCURRENCY` | `1`–`10`, default `5` |
+| `SCHEDULED_FEED_PULL_START_DELAY_SEC` | Seconds after startup before first pull, default `60` |
+
+**Docker example** (add to your `docker run` or compose):
+
+```bash
+docker run -d --name gmap -p 8001:8001 \
+  -v /var/www/gmap/backend/data:/app/backend/data \
+  --env-file /var/www/gmap/.env \
+  --restart unless-stopped gmap
+```
+
+Put in `.env` on the server: `SCHEDULED_FEED_PULL=1` and `BETSAPI_TOKEN=...`.
+
+Use **a single uvicorn worker** (default in the project `Dockerfile`). Multiple workers would start duplicate schedulers.
+
+---
+
 ## First time on the server (only once)
 
 If the app has never been on this server:

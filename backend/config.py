@@ -22,6 +22,33 @@ except ImportError:
 
 # API token for event-details (BetsAPI/b365api). Used when creating/mapping domain events. Set in .env.
 BETSAPI_TOKEN = (os.environ.get("BETSAPI_TOKEN") or "").strip()
+
+
+def _env_truthy(name: str, default: bool = False) -> bool:
+    v = (os.environ.get(name) or "").strip().lower()
+    if v in ("1", "true", "yes", "on"):
+        return True
+    if v in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
+# Server-only: background task pulls one feed per UTC hour, rotating through SCHEDULED_FEED_PULL_ORDER.
+# Local: leave unset or false; use Pull Feeds Data UI with manual API key entry.
+SCHEDULED_FEED_PULL_ENABLED = _env_truthy("SCHEDULED_FEED_PULL", False)
+_scheduled_feeds_raw = (os.environ.get("SCHEDULED_FEED_PULL_FEEDS") or "bet365,betfair,1xbet,bwin").strip()
+SCHEDULED_FEED_PULL_ORDER: tuple[str, ...] = tuple(
+    x.strip().lower() for x in _scheduled_feeds_raw.split(",") if x.strip()
+) or ("bet365", "betfair", "1xbet", "bwin")
+try:
+    SCHEDULED_FEED_PULL_CONCURRENCY = max(1, min(int(os.environ.get("SCHEDULED_FEED_PULL_CONCURRENCY") or "5"), 10))
+except (TypeError, ValueError):
+    SCHEDULED_FEED_PULL_CONCURRENCY = 5
+# Seconds to wait after app startup before the first scheduled pull (lets the process settle).
+try:
+    SCHEDULED_FEED_PULL_START_DELAY_SEC = max(0, int(os.environ.get("SCHEDULED_FEED_PULL_START_DELAY_SEC") or "60"))
+except (TypeError, ValueError):
+    SCHEDULED_FEED_PULL_START_DELAY_SEC = 60
 FEED_JSON_DIR = PROJECT_ROOT / "designs" / "feed_json_examples"
 FEED_DATA_DIR = DATA_DIR / "feed_data"  # Pulled feed events (e.g. bet365 from API); used instead of feed_json_examples when present
 FEED_EVENT_DETAILS_DIR = DATA_DIR / "feed_event_details"  # Cached event-details API responses (per feed + feed_valid_id)

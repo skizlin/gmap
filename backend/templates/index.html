@@ -6,107 +6,96 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <!-- Stat Card 1 -->
-    <div class="glass-panel p-6 rounded-lg relative overflow-hidden group">
-        <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <i class="fa-solid fa-satellite-dish text-6xl text-primary"></i>
+<!-- Two columns: Per-feed summary | What's new -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Per-feed summary (real data) -->
+    <div class="glass-panel p-6 rounded-lg">
+        <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-chart-simple text-slate-500"></i> Per-feed summary
+        </h3>
+        <p class="text-slate-500 text-xs mb-4">Go to <a href="/feeder-events" class="text-primary hover:text-emerald-400">Feeder Events</a> to map events.</p>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-slate-500 border-b border-slate-700">
+                        <th class="pb-2 pr-4 font-medium">Feed</th>
+                        <th class="pb-2 pr-4 font-medium text-right">Total</th>
+                        <th class="pb-2 pr-4 font-medium text-right text-primary">Mapped</th>
+                        <th class="pb-2 pr-4 font-medium text-right text-amber-400">Unmapped</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in feed_stats %}
+                    <tr class="border-b border-slate-700/50 last:border-0">
+                        <td class="py-2 pr-4 text-white">{{ s.feed_name }}</td>
+                        <td class="py-2 pr-4 text-right text-slate-300">{{ s.total }}</td>
+                        <td class="py-2 pr-4 text-right text-primary">{{ s.mapped }}</td>
+                        <td class="py-2 pr-4 text-right text-amber-400/90">{{ s.unmapped }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="py-4 text-slate-500 italic">No feed data yet. Pull feeds to see counts.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        <h3 class="text-slate-400 text-sm font-medium uppercase">Incoming Events</h3>
-        <p class="text-3xl font-bold text-white mt-2">1,248</p>
-        <p class="text-xs text-primary mt-2 flex items-center">
-            <i class="fa-solid fa-arrow-up mr-1"></i> +120 new today
-        </p>
     </div>
 
-    <!-- Stat Card 2 -->
-    <div class="glass-panel p-6 rounded-lg relative overflow-hidden group">
-        <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <i class="fa-solid fa-link text-6xl text-secondary"></i>
+    <!-- What's new -->
+    <div class="glass-panel p-6 rounded-lg">
+        <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-slate-500"></i> What's new
+        </h3>
+        <div class="space-y-4">
+            {% for release in changelog %}
+            <div class="border-l-2 border-slate-600 pl-4">
+                <p class="text-white font-medium">Version {{ release.version }}{% if release.date %} <span class="text-slate-500 font-normal">({{ release.date }})</span>{% endif %}</p>
+                <ul class="mt-1 text-slate-400 text-sm space-y-0.5">
+                    {% for item in release["items"] %}
+                    <li>· {{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% else %}
+            <p class="text-slate-500 italic">No release notes yet.</p>
+            {% endfor %}
         </div>
-        <h3 class="text-slate-400 text-sm font-medium uppercase">Mapped Successfully</h3>
-        <p class="text-3xl font-bold text-white mt-2">845</p>
-        <p class="text-xs text-slate-500 mt-2">67% Coverage</p>
-    </div>
-
-    <!-- Stat Card 3 -->
-    <div class="glass-panel p-6 rounded-lg relative overflow-hidden group">
-        <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <i class="fa-solid fa-triangle-exclamation text-6xl text-red-500"></i>
-        </div>
-        <h3 class="text-slate-400 text-sm font-medium uppercase">Pending Action</h3>
-        <p class="text-3xl font-bold text-white mt-2">403</p>
-        <p class="text-xs text-red-400 mt-2">Needs Manual Review</p>
     </div>
 </div>
 
-<!-- Application stack card -->
-<div class="glass-panel p-6 rounded-lg mb-8">
-    <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-4 flex items-center gap-2">
-        <i class="fa-solid fa-layer-group text-slate-500"></i> Application stack
-    </h3>
-    <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-        <li class="flex items-center gap-2 text-slate-300">
-            <span class="font-mono text-primary/90">Python</span>
-            <span class="text-slate-500 text-xs">runtime</span>
-        </li>
-        <li class="flex items-center gap-2 text-slate-300">
-            <span class="font-mono text-primary/90">FastAPI</span>
-            <span class="text-slate-500 text-xs">web framework</span>
-        </li>
-        <li class="flex items-center gap-2 text-slate-300">
-            <span class="font-mono text-primary/90">Uvicorn</span>
-            <span class="text-slate-500 text-xs">ASGI server</span>
-        </li>
-        <li class="flex items-center gap-2 text-slate-300">
-            <span class="font-mono text-primary/90">Jinja2</span>
-            <span class="text-slate-500 text-xs">templating</span>
-        </li>
-        <li class="flex items-center gap-2 text-slate-300">
-            <span class="font-mono text-primary/90">Pydantic</span>
-            <span class="text-slate-500 text-xs">validation</span>
-        </li>
-        <li class="flex items-center gap-2 text-slate-300">
-            <span class="font-mono text-primary/90">Tailwind CSS</span>
-            <span class="text-slate-500 text-xs">styling</span>
-        </li>
-        <li class="flex items-center gap-2 text-slate-300">
-            <span class="font-mono text-primary/90">HTMX</span>
-            <span class="text-slate-500 text-xs">dynamic UI</span>
-        </li>
-        <li class="flex items-center gap-2 text-slate-300">
-            <span class="font-mono text-primary/90">Font Awesome</span>
-            <span class="text-slate-500 text-xs">icons</span>
-        </li>
-        <li class="flex items-center gap-2 text-slate-300">
-            <span class="font-mono text-primary/90">CSV / JSON</span>
-            <span class="text-slate-500 text-xs">data layer</span>
-        </li>
-    </ul>
-</div>
-
-<div class="glass-panel rounded-lg p-8 text-center border-dashed border-2 border-slate-700 bg-transparent">
-    <h2 class="text-xl font-semibold text-white mb-2">Welcome to the Global Map Prototype</h2>
-    <p class="text-slate-400 max-w-lg mx-auto mb-6">
-        This system demonstrates the normalization pipeline. Go to <strong>Feeder Events</strong> to start mapping raw
-        data to the Domain Model.
-    </p>
-    <div class="flex flex-wrap items-center justify-center gap-4">
-        <a href="/feeder-events"
-            class="inline-flex items-center px-6 py-3 bg-primary hover:bg-emerald-600 text-white rounded-lg transition-all font-medium">
-            Go to Mapping Tool <i class="fa-solid fa-arrow-right ml-2"></i>
-        </a>
-        <a href="/pull-feeds"
-            class="inline-flex items-center px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-lg transition-all font-medium">
-            <i class="fa-solid fa-download mr-2"></i> Pull Feeds Data
-        </a>
-        <form method="post" action="/api/dump-csv-data" class="inline"
-            onsubmit="return confirm('This will delete all data in categories, competitions, teams, domain events, event mappings, and entity feed mappings. feeds.csv, sports.csv and sport_feed_mappings.csv will not be changed. Continue?');">
-            <button type="submit"
-                class="inline-flex items-center px-6 py-3 bg-slate-700 hover:bg-red-900/50 text-slate-300 hover:text-red-300 border border-slate-600 rounded-lg transition-all font-medium">
-                <i class="fa-solid fa-trash-can mr-2"></i> Dump CSV data
-            </button>
-        </form>
+<!-- Footer: Application stack (3 cols) + Pull Feeds Data (1 col) -->
+<footer class="glass-panel p-6 rounded-lg border-t border-slate-700/50 mt-auto">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div>
+            <h3 class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">Application stack</h3>
+            <ul class="space-y-1.5 text-sm">
+                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Python</span><span class="text-slate-500 text-xs">runtime</span></li>
+                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">FastAPI</span><span class="text-slate-500 text-xs">web framework</span></li>
+                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Uvicorn</span><span class="text-slate-500 text-xs">ASGI server</span></li>
+            </ul>
+        </div>
+        <div>
+            <h3 class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">&nbsp;</h3>
+            <ul class="space-y-1.5 text-sm">
+                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Jinja2</span><span class="text-slate-500 text-xs">templating</span></li>
+                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Pydantic</span><span class="text-slate-500 text-xs">validation</span></li>
+                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Tailwind CSS</span><span class="text-slate-500 text-xs">styling</span></li>
+            </ul>
+        </div>
+        <div>
+            <h3 class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">&nbsp;</h3>
+            <ul class="space-y-1.5 text-sm">
+                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">HTMX</span><span class="text-slate-500 text-xs">dynamic UI</span></li>
+                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Font Awesome</span><span class="text-slate-500 text-xs">icons</span></li>
+                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">CSV / JSON</span><span class="text-slate-500 text-xs">data layer</span></li>
+            </ul>
+        </div>
+        <div class="lg:text-right">
+            <h3 class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">Data</h3>
+            <a href="/pull-feeds"
+                class="inline-flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-lg transition-all font-medium text-sm">
+                <i class="fa-solid fa-download mr-2"></i> Pull Feeds Data
+            </a>
+        </div>
     </div>
-</div>
+</footer>
 {% endblock %}

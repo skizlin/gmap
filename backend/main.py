@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import json
+import logging
 import os
 from pathlib import Path
 from datetime import date, datetime, timedelta, timezone
@@ -633,12 +634,21 @@ def _assign_competition_to_margin_template(competition_id: int, template_id: int
     _save_margin_template_competitions(rows)
 
 
-def _competition_sport_to_risk_class_map() -> dict[tuple[int, str], dict]:
+def _competition_sport_to_risk_class_map(brand_id: str | int | None = None) -> dict[tuple[int, str], dict]:
     """
     Build (competition_id, template_sport_id) -> risk_class from margin_template_competitions and margin_templates.
     template_sport_id is the template's sport_id (scope); use '' for global. Used by Event Navigator to show bet class per event.
+    Filters templates by brand_id: None or empty string = Global (brand_id == "").
     """
-    templates = _load_margin_templates()  # no filter: all templates
+    # Normalize brand_id: "Global" or None -> empty string (Global), else keep as-is
+    if brand_id is None or (isinstance(brand_id, str) and brand_id.strip().lower() in ("", "global")):
+        brand_filter = ""
+    else:
+        brand_filter = str(brand_id).strip()
+    
+    # Load all templates, then filter by brand
+    all_templates = _load_margin_templates()
+    templates = [t for t in all_templates if (t.get("brand_id") or "").strip() == brand_filter]
     by_id = {t["id"]: t for t in templates if t.get("id")}
     tcs = _load_margin_template_competitions()
     out: dict[tuple[int, str], dict] = {}
@@ -1622,6 +1632,129 @@ def _load_domain_events() -> list[dict]:
                 "start_time":  row.get("start_time", ""),
             })
         return rows
+
+def _sync_domain_events_entity_names() -> None:
+    """
+    One-time sync: update domain_events.csv to use current entity names from competitions/categories/sports.
+    Fixes cases where entities were renamed but domain_events.csv still has old names.
+    """
+    if not DOMAIN_EVENTS_PATH.exists():
+        return
+    # Build name maps: entity_id -> current_name
+    comp_id_to_name = {c["domain_id"]: (c.get("name") or "").strip() for c in DOMAIN_ENTITIES.get("competitions", []) if c.get("domain_id")}
+    cat_id_to_name = {c["domain_id"]: (c.get("name") or "").strip() for c in DOMAIN_ENTITIES.get("categories", []) if c.get("domain_id")}
+    sport_id_to_name = {s["domain_id"]: (s.get("name") or "").strip() for s in DOMAIN_ENTITIES.get("sports", []) if s.get("domain_id")}
+    # Also build reverse: name -> id (for lookup by name in domain_events)
+    comp_name_to_id = {}
+    for c in DOMAIN_ENTITIES.get("competitions", []):
+        name = (c.get("name") or "").strip()
+        if name:
+            comp_name_to_id[name] = c.get("domain_id")
+    cat_name_to_id = {}
+    for c in DOMAIN_ENTITIES.get("categories", []):
+        name = (c.get("name") or "").strip()
+        if name:
+            cat_name_to_id[name] = c.get("domain_id")
+    sport_name_to_id = {}
+    for s in DOMAIN_ENTITIES.get("sports", []):
+        name = (s.get("name") or "").strip()
+        if name:
+            sport_name_to_id[name] = s.get("domain_id")
+    # Build competition lookup by (sport_id, category_id) -> list of competitions
+    comps_by_sport_cat: dict[tuple[int, int], list[dict]] = {}
+    for c in DOMAIN_ENTITIES.get("competitions", []):
+        sport_id = c.get("sport_id")
+        cat_id = c.get("category_id")
+        if sport_id is not None and cat_id is not None:
+            key = (int(sport_id), int(cat_id))
+            if key not in comps_by_sport_cat:
+                comps_by_sport_cat[key] = []
+            comps_by_sport_cat[key].append(c)
+    rows = []
+    updated = False
+    with open(DOMAIN_EVENTS_PATH, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # Check competition: first try direct name match, then try sport+category match
+            comp_name = (row.get("competition") or "").strip()
+            if comp_name:
+                comp_id = comp_name_to_id.get(comp_name)
+                if comp_id and comp_id in comp_id_to_name:
+                    current_name = comp_id_to_name[comp_id]
+                    if comp_name != current_name:
+                        row["competition"] = current_name
+                        updated = True
+                elif comp_id is None:
+                    # Name doesn't exist in current competitions - try to match by sport+category
+                    sport_name = (row.get("sport") or "").strip()
+                    cat_name = (row.get("category") or "").strip()
+                    if sport_name and cat_name:
+                        sport_id = sport_name_to_id.get(sport_name)
+                        cat_id = cat_name_to_id.get(cat_name)
+                        if sport_id is not None and cat_id is not None:
+                            key = (int(sport_id), int(cat_id))
+                            matching_comps = comps_by_sport_cat.get(key, [])
+                            # If exactly one competition for this sport+category, assume it's the renamed one
+                            if len(matching_comps) == 1:
+                                new_comp_name = (matching_comps[0].get("name") or "").strip()
+                                if new_comp_name and new_comp_name != comp_name:
+                                    row["competition"] = new_comp_name
+                                    updated = True
+            # Same for category: direct name match
+            cat_name = (row.get("category") or "").strip()
+            if cat_name:
+                cat_id = cat_name_to_id.get(cat_name)
+                if cat_id and cat_id in cat_id_to_name:
+                    current_name = cat_id_to_name[cat_id]
+                    if cat_name != current_name:
+                        row["category"] = current_name
+                        updated = True
+            # Same for sport: direct name match
+            sport_name = (row.get("sport") or "").strip()
+            if sport_name:
+                sport_id = sport_name_to_id.get(sport_name)
+                if sport_id and sport_id in sport_id_to_name:
+                    current_name = sport_id_to_name[sport_id]
+                    if sport_name != current_name:
+                        row["sport"] = current_name
+                        updated = True
+            rows.append(row)
+    if updated:
+        with open(DOMAIN_EVENTS_PATH, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=_DOMAIN_EVENT_FIELDS)
+            writer.writeheader()
+            writer.writerows(rows)
+        global DOMAIN_EVENTS
+        DOMAIN_EVENTS = _load_domain_events()
+
+
+def _update_domain_events_entity_name(entity_type: str, old_name: str, new_name: str) -> None:
+    """
+    Update domain_events.csv when a sport, category, or competition is renamed.
+    Replaces old_name with new_name in the corresponding column (sport/category/competition).
+    """
+    if entity_type not in ("sports", "categories", "competitions"):
+        return
+    if not DOMAIN_EVENTS_PATH.exists():
+        return
+    column = entity_type[:-1]  # "sports" -> "sport", "categories" -> "category", "competitions" -> "competition"
+    rows = []
+    updated = False
+    with open(DOMAIN_EVENTS_PATH, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if (row.get(column) or "").strip() == old_name:
+                row[column] = new_name
+                updated = True
+            rows.append(row)
+    if updated:
+        with open(DOMAIN_EVENTS_PATH, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=_DOMAIN_EVENT_FIELDS)
+            writer.writeheader()
+            writer.writerows(rows)
+        global DOMAIN_EVENTS
+        DOMAIN_EVENTS = _load_domain_events()
+
 
 def _save_domain_event(event: dict) -> None:
     """Append one domain event row to domain_events.csv (no feeder info)."""
@@ -2877,6 +3010,7 @@ async def update_entity_name(body: UpdateEntityNameRequest):
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
 
+    old_name = (entity.get("name") or "").strip()
     _now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
     jurisdiction_val: str | None = None
     baseid_val: str | None = None
@@ -2925,6 +3059,13 @@ async def update_entity_name(body: UpdateEntityNameRequest):
     for m in ENTITY_FEED_MAPPINGS:
         if m["entity_type"] == body.entity_type and m["domain_id"] == body.domain_id:
             m["domain_name"] = new_name
+
+    # Update domain_events.csv when competition or category is renamed (they store names, not IDs)
+    if body.entity_type in ("competitions", "categories", "sports") and old_name != new_name:
+        _update_domain_events_entity_name(body.entity_type, old_name, new_name)
+        # Reload DOMAIN_EVENTS so Event Navigator shows updated names immediately
+        global DOMAIN_EVENTS
+        DOMAIN_EVENTS = _load_domain_events()
 
     return {"domain_id": body.domain_id, "name": new_name, "jurisdiction": jurisdiction_val, "baseid": baseid_val}
 
@@ -3260,14 +3401,40 @@ async def search_domain_events(q: str = ""):
 
 # --- Views ---
 
+def _dashboard_feed_stats() -> list[dict]:
+    """Per-feed counts: total, mapped, unmapped (from DUMMY_EVENTS)."""
+    stats: list[dict] = []
+    for feed in FEEDS:
+        code = (feed.get("code") or "").strip().lower()
+        name = (feed.get("name") or feed.get("code") or code) or "—"
+        events = [e for e in DUMMY_EVENTS if (e.get("feed_provider") or "").strip().lower() == code]
+        total = len(events)
+        mapped = sum(1 for e in events if e.get("mapping_status") == "MAPPED")
+        unmapped = sum(1 for e in events if e.get("mapping_status") == "UNMAPPED")
+        stats.append({"feed_name": name, "feed_code": code, "total": total, "mapped": mapped, "unmapped": unmapped})
+    return stats
+
+
+# Changelog for dashboard (new features / bugs fixed per version). Edit here or move to a file.
+DASHBOARD_CHANGELOG = [
+    {"version": "1.0", "date": "2026-03", "items": [
+        "Market type mappings per environment (local vs server).",
+        "Markets tab: require sport selection before showing markets.",
+        "Feed mapper: sport name in Available markets (Bwin, Bet365, 1xbet); mapper feed list from sport mappings only.",
+    ]},
+]
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """
-    Main Dashboard View.
+    Main Dashboard View. Shows per-feed mapped/unmapped summary and changelog.
     """
     return templates.TemplateResponse("index.html", {
         "request": request,
-        "section": "dashboard"
+        "section": "dashboard",
+        "feed_stats": _dashboard_feed_stats(),
+        "changelog": DASHBOARD_CHANGELOG,
     })
 
 
@@ -3428,6 +3595,96 @@ async def api_pull_feed(
     return result
 
 
+async def _pull_all_sports_for_feed_internal(
+    feed_provider: str,
+    token: str,
+    concurrency: int = 5,
+) -> dict:
+    """
+    Pull all sports for one feed (same as /api/pull-feed-all but callable from scheduler).
+    Uses token from argument (e.g. BETSAPI_TOKEN). Reloads DUMMY_EVENTS on success.
+    """
+    feed_provider = (feed_provider or "").strip().lower()
+    token = (token or "").strip()
+    if not token:
+        return {"ok": False, "results": [], "error": "Please enter API key"}
+    if feed_provider not in ("bet365", "betfair", "1xbet", "bwin"):
+        return {"ok": False, "results": [], "error": f"Unsupported feed: {feed_provider}"}
+    rows = _load_feed_sports_rows()
+    sports = [
+        ((r.get("feed_sport_id") or "").strip(), (r.get("feed_sport_name") or r.get("feed_sport_id") or "").strip())
+        for r in rows
+        if (r.get("feed_provider") or "").strip().lower() == feed_provider
+    ]
+    if not sports:
+        return {"ok": False, "results": [], "error": "No sports configured for this feed."}
+    concurrency = max(1, min(concurrency, 10))
+    result = await feed_pull.pull_feed_all_sports_async(feed_provider, sports, token, concurrency=concurrency)
+    if result.get("ok"):
+        now_iso = datetime.now(timezone.utc).isoformat()
+        result["last_pull_display"] = _format_last_pull(now_iso)
+        for sid, _ in sports:
+            _save_feed_last_pull(feed_provider, sid)
+        global DUMMY_EVENTS
+        DUMMY_EVENTS = load_all_mock_data()
+        _enrich_feed_events_sport_names()
+    return result
+
+
+async def _scheduled_feed_pull_worker() -> None:
+    """
+    One full pull-all-sports per UTC hour, rotating feeds (bet365 → betfair → 1xbet → bwin → …).
+    Only runs when SCHEDULED_FEED_PULL=1 and BETSAPI_TOKEN is set. Intended for server deploys.
+    """
+    log = logging.getLogger("uvicorn.error")
+    if not getattr(config, "SCHEDULED_FEED_PULL_ENABLED", False):
+        return
+    token = (getattr(config, "BETSAPI_TOKEN", None) or "").strip()
+    feeds = tuple(getattr(config, "SCHEDULED_FEED_PULL_ORDER", ()) or ())
+    if not feeds:
+        log.warning("Scheduled feed pull: SCHEDULED_FEED_PULL_ORDER is empty; worker not started")
+        return
+    if not token:
+        log.warning("Scheduled feed pull enabled but BETSAPI_TOKEN is empty; worker not started")
+        return
+    conc = int(getattr(config, "SCHEDULED_FEED_PULL_CONCURRENCY", 5) or 5)
+    delay = int(getattr(config, "SCHEDULED_FEED_PULL_START_DELAY_SEC", 60) or 0)
+    log.info(
+        "Scheduled feed pull worker will start in %ss (one feed per UTC hour, order=%s)",
+        delay,
+        ",".join(feeds),
+    )
+    await asyncio.sleep(max(0, delay))
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            hour_bucket = int(now.timestamp() // 3600)
+            idx = hour_bucket % len(feeds)
+            feed = feeds[idx]
+            log.info(
+                "Scheduled feed pull: %s (UTC hour bucket %s, slot %s/%s)",
+                feed,
+                hour_bucket,
+                idx + 1,
+                len(feeds),
+            )
+            res = await _pull_all_sports_for_feed_internal(feed, token, conc)
+            if res.get("ok"):
+                log.info("Scheduled feed pull finished OK: %s", feed)
+            else:
+                log.warning("Scheduled feed pull failed for %s: %s", feed, res.get("error"))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("Scheduled feed pull worker error")
+            await asyncio.sleep(60)
+        now2 = datetime.now(timezone.utc)
+        next_boundary = now2.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        wait_sec = max(1.0, (next_boundary - now2).total_seconds())
+        log.debug("Scheduled feed pull: sleeping %.0fs until next UTC hour", wait_sec)
+        await asyncio.sleep(wait_sec)
+
+
 @app.post("/api/pull-feed-all")
 async def api_pull_feed_all(
     feed_provider: str = Form(...),
@@ -3445,26 +3702,22 @@ async def api_pull_feed_all(
         return {"ok": False, "results": [], "error": "Please enter API key"}
     if feed_provider not in ("bet365", "betfair", "1xbet", "bwin"):
         raise HTTPException(status_code=400, detail="Unsupported feed.")
-    rows = _load_feed_sports_rows()
-    sports = [
-        ((r.get("feed_sport_id") or "").strip(), (r.get("feed_sport_name") or r.get("feed_sport_id") or "").strip())
-        for r in rows
-        if (r.get("feed_provider") or "").strip().lower() == feed_provider
-    ]
-    if not sports:
-        return {"ok": False, "results": [], "error": "No sports configured for this feed."}
     concurrency = max(1, min(concurrency, 10))
-    result = await feed_pull.pull_feed_all_sports_async(feed_provider, sports, token, concurrency=concurrency)
-    if result.get("ok"):
-        now_iso = datetime.now(timezone.utc).isoformat()
-        last_pull_display = _format_last_pull(now_iso)
-        for sid, _ in sports:
-            _save_feed_last_pull(feed_provider, sid)
-        result["last_pull_display"] = last_pull_display
-        global DUMMY_EVENTS
-        DUMMY_EVENTS = load_all_mock_data()
-        _enrich_feed_events_sport_names()
-    return result
+    return await _pull_all_sports_for_feed_internal(feed_provider, token, concurrency)
+
+
+@app.on_event("startup")
+async def _startup_scheduled_feed_pull() -> None:
+    if getattr(config, "SCHEDULED_FEED_PULL_ENABLED", False):
+        asyncio.create_task(_scheduled_feed_pull_worker())
+
+
+@app.get("/admin/dump-csv-data", response_class=HTMLResponse)
+async def dump_csv_data_page(request: Request):
+    """
+    Hidden page (not in menu). Dump CSV data tool. Access only via URL.
+    """
+    return templates.TemplateResponse("admin/dump_csv_data.html", {"request": request})
 
 
 @app.post("/api/dump-csv-data", response_class=HTMLResponse)
@@ -4336,6 +4589,8 @@ async def event_navigator_view(
     """
     global DOMAIN_EVENTS
     DOMAIN_EVENTS = _load_domain_events()
+    # Sync domain_events.csv entity names with current entity names (fixes renames like SHNL -> HNL)
+    _sync_domain_events_entity_names()
     mappings_by_event: dict[str, list[dict]] = {}
     for m in _load_event_mappings():
         mappings_by_event.setdefault(m["domain_event_id"], []).append(m)
@@ -4356,6 +4611,17 @@ async def event_navigator_view(
     selected_competitions = competitions or []
     brands_list = _load_brands()
     selected_brands = brands if brands else ["Global"]
+    # Get brand_id for risk class lookup: "Global" -> empty string, else use first selected brand's id
+    selected_brand_id = None
+    if selected_brands and len(selected_brands) > 0:
+        if "Global" in selected_brands:
+            selected_brand_id = ""
+        else:
+            # Get first brand's id from brands_list
+            first_brand_name = selected_brands[0]
+            brand_obj = next((b for b in brands_list if (b.get("name") or "").strip() == first_brand_name), None)
+            if brand_obj:
+                selected_brand_id = brand_obj.get("domain_id")
     date_filter = (date or "").strip() or "today"
     filtered = _filter_domain_events(
         enriched, date_filter, active_sports, q,
@@ -4386,7 +4652,7 @@ async def event_navigator_view(
     page = max(1, min(page, total_pages))
     start_idx = (page - 1) * per_page
     page_events = filtered[start_idx : start_idx + per_page]
-    comp_sport_to_rc = _competition_sport_to_risk_class_map()
+    comp_sport_to_rc = _competition_sport_to_risk_class_map(selected_brand_id)
     for e in page_events:
         e["risk_class"] = _event_risk_class(e, comp_sport_to_rc)
     return templates.TemplateResponse("event_navigator/event_navigator.html", {
@@ -4446,6 +4712,8 @@ async def event_navigator_table(
     """
     global DOMAIN_EVENTS
     DOMAIN_EVENTS = _load_domain_events()
+    # Sync domain_events.csv entity names with current entity names (fixes renames like SHNL -> HNL)
+    _sync_domain_events_entity_names()
     mappings_by_event: dict[str, list[dict]] = {}
     for m in _load_event_mappings():
         mappings_by_event.setdefault(m["domain_event_id"], []).append(m)
@@ -4460,6 +4728,19 @@ async def event_navigator_table(
     domain_sports = _domain_events_sports()
     selected_sports = sports if sports else domain_sports
     active_sports = selected_sports if sports else None
+    brands_list = _load_brands()
+    selected_brands = brands if brands else ["Global"]
+    # Get brand_id for risk class lookup: "Global" -> empty string, else use first selected brand's id
+    selected_brand_id = None
+    if selected_brands and len(selected_brands) > 0:
+        if "Global" in selected_brands:
+            selected_brand_id = ""
+        else:
+            # Get first brand's id from brands_list
+            first_brand_name = selected_brands[0]
+            brand_obj = next((b for b in brands_list if (b.get("name") or "").strip() == first_brand_name), None)
+            if brand_obj:
+                selected_brand_id = brand_obj.get("domain_id")
     date_filter = (date or "").strip() or "today"
     filtered = _filter_domain_events(
         enriched, date_filter, active_sports, q,
@@ -4490,7 +4771,7 @@ async def event_navigator_table(
     page = max(1, min(page, total_pages))
     start_idx = (page - 1) * per_page
     page_events = filtered[start_idx : start_idx + per_page]
-    comp_sport_to_rc = _competition_sport_to_risk_class_map()
+    comp_sport_to_rc = _competition_sport_to_risk_class_map(selected_brand_id)
     for e in page_events:
         e["risk_class"] = _event_risk_class(e, comp_sport_to_rc)
     response = templates.TemplateResponse("event_navigator/_rows.html", {
@@ -6170,15 +6451,21 @@ async def feeders_view(
     feeder_config_rows = _load_feeder_config()
     feeder_incident_rows = _load_feeder_incidents()
 
-    sid_int = int(sport_id) if sport_id and sport_id.strip() else None
+    # Handle "all" for All Sports (special value)
+    is_all_sports = sport_id and sport_id.strip().lower() == "all"
+    sid_int = None if is_all_sports else (int(sport_id) if sport_id and sport_id.strip() else None)
     cid_int = int(category_id) if category_id and category_id.strip() else None
     lid_int = int(league_id) if league_id and league_id.strip() else None
-    level = "league" if lid_int is not None else "category" if cid_int is not None else "sport" if sid_int is not None else None
+    level = "all_sports" if is_all_sports else ("league" if lid_int is not None else "category" if cid_int is not None else "sport" if sid_int is not None else None)
 
     config_lookup = {}
     for r in feeder_config_rows:
         rsid, rcid, rlid = r.get("sport_id"), r.get("category_id"), r.get("league_id")
-        if level == "sport" and rsid == sid_int and rcid is None and rlid is None:
+        if level == "all_sports" and rsid is None and rcid is None and rlid is None:
+            fid, key = r.get("feed_provider_id"), r.get("setting_key")
+            if fid is not None and key:
+                config_lookup[(fid, key)] = (r.get("value") or "").strip() or "Not set"
+        elif level == "sport" and rsid == sid_int and rcid is None and rlid is None:
             fid, key = r.get("feed_provider_id"), r.get("setting_key")
             if fid is not None and key:
                 config_lookup[(fid, key)] = (r.get("value") or "").strip() or "Not set"
@@ -6192,7 +6479,8 @@ async def feeders_view(
                 config_lookup[(fid, key)] = (r.get("value") or "").strip() or "Not set"
 
     incident_lookup = {}
-    if sid_int is not None:
+    # Feeder Incidents only shown for specific sport (not All Sports)
+    if sid_int is not None and not is_all_sports:
         for r in feeder_incident_rows:
             if r.get("sport_id") == sid_int:
                 fid, itype = r.get("feed_provider_id"), r.get("incident_type")
@@ -6216,7 +6504,7 @@ async def feeders_view(
         "feeder_incident_lookup": incident_lookup,
         "system_actions": FEEDER_SYSTEM_ACTIONS,
         "incident_types": FEEDER_INCIDENT_TYPES,
-        "selected_sport_id": sid_int,
+        "selected_sport_id": "all" if is_all_sports else sid_int,
         "selected_category_id": cid_int,
         "selected_league_id": lid_int,
         "config_level": level,
@@ -6237,18 +6525,26 @@ async def api_save_feeder_config(request: Request):
     category_id = body.get("category_id")
     league_id = body.get("league_id")
     settings = body.get("settings") or []
-    if level not in ("sport", "category", "league") or sport_id is None:
-        return JSONResponse({"detail": "level and sport_id required"}, status_code=400)
-    cid = int(category_id) if category_id is not None else None
-    lid = int(league_id) if league_id is not None else None
-    sid = int(sport_id)
-    if level == "category" and cid is None:
-        return JSONResponse({"detail": "category_id required for category level"}, status_code=400)
-    if level == "league" and (cid is None or lid is None):
-        return JSONResponse({"detail": "category_id and league_id required for league level"}, status_code=400)
+    is_all_sports = level == "all_sports"
+    if level not in ("all_sports", "sport", "category", "league"):
+        return JSONResponse({"detail": "level must be all_sports, sport, category, or league"}, status_code=400)
+    if is_all_sports:
+        sid, cid, lid = None, None, None
+    else:
+        if sport_id is None:
+            return JSONResponse({"detail": "sport_id required for sport/category/league level"}, status_code=400)
+        cid = int(category_id) if category_id is not None else None
+        lid = int(league_id) if league_id is not None else None
+        sid = int(sport_id)
+        if level == "category" and cid is None:
+            return JSONResponse({"detail": "category_id required for category level"}, status_code=400)
+        if level == "league" and (cid is None or lid is None):
+            return JSONResponse({"detail": "category_id and league_id required for league level"}, status_code=400)
     existing = _load_feeder_config()
     def match_row(r):
         rsid, rcid, rlid = r.get("sport_id"), r.get("category_id"), r.get("league_id")
+        if level == "all_sports":
+            return rsid is None and rcid is None and rlid is None
         if level == "sport":
             return rsid == sid and rcid is None and rlid is None
         if level == "category":
