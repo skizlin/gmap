@@ -43,7 +43,7 @@ As a Product Owner, I see category suggestions only when match is at least 55% s
 - **AC:** Given the feed has category "Barbados" and domain has "Argentina", When the modal opens, Then the domain side suggests Barbados (or Create), not Argentina at 100%. Domain category suggestions (Map) appear only when fuzzy match ≥ 55%.
 
 **MM-8**  
-As a Product Owner, I can select a jurisdiction (country) and type or search category so that I create or map a category.  
+As a Product Owner, I can select a country and type or search category so that I create or map a category.  
 - **AC:** Given I am on the Category row and sport is resolved, When I select a country in the Jurisdiction dropdown and type in the category input, Then I can select an existing domain category (Map) or create a new one (Create). Dropdowns and labels use "Name ID 123" format.
 
 ---

@@ -59,7 +59,7 @@ As a Product Owner, I can create a new category via the quick-add form so that I
 - **AC:** Given I am on the Categories tab, When I click "New Category", Then a form appears with Type (Category), Sport (required), optional Jurisdiction, Base ID, Name, Feed ID. When I fill Name and Sport and click Create, Then the category is created and I see feedback (e.g. "Created #id" or "Already exists #id"); form hides or page reloads.
 
 **ENT-12**  
-As a Product Owner, I can edit a category's name, jurisdiction, and base ID from the action menu so that I keep data correct.  
+As a Product Owner, I can edit a category's name, country, and base ID from the action menu so that I keep data correct.  
 - **AC:** Given I am on the Categories tab, When I click the kebab on a category row and choose Edit, Then the Edit modal opens with Name, Jurisdiction, and Base ID. When I save, Then the category is updated and the modal closes.
 
 **ENT-13**  
@@ -83,7 +83,7 @@ As a Product Owner, I can create a new competition via the quick-add form so tha
 - **AC:** Given I am on the Competitions tab, When I click "New Competition", Then a form appears with Type Competition, Sport, Category (required), optional Jurisdiction, Base ID, Name, Feed ID. When I fill required fields and click Create, Then the competition is created and I see feedback.
 
 **ENT-17**  
-As a Product Owner, I can edit a competition's name, jurisdiction, base ID, amateur, and age category from the action menu so that I keep competition data correct.  
+As a Product Owner, I can edit a competition's name, country, base ID, amateur, and age category from the action menu so that I keep competition data correct.  
 - **AC:** Given I am on the Competitions tab, When I click the kebab and choose Edit, Then the Edit modal shows Name, Jurisdiction, Base ID, Amateur (checkbox), Age category. When I save, Then the competition is updated.
 
 ---
@@ -103,7 +103,7 @@ As a Product Owner, I can create a new team via the quick-add form so that I add
 - **AC:** Given I am on the Teams tab, When I click "New Team", Then a form appears with Type Team, Sport (required), optional Jurisdiction, Base ID, Name, Feed ID. When I fill Name and Sport and click Create, Then the team is created and I see feedback.
 
 **ENT-21**  
-As a Product Owner, I can edit a team's name, jurisdiction, base ID, type (participant type), amateur, and age category from the action menu so that I keep team data correct.  
+As a Product Owner, I can edit a team's name, country, base ID, type (participant type), amateur, and age category from the action menu so that I keep team data correct.  
 - **AC:** Given I am on the Teams tab, When I click the kebab and choose Edit, Then the Edit modal shows Name, Jurisdiction, Base ID, Type (participant type), Amateur, Age category. When I save, Then the team is updated.
 
 ---
@@ -140,7 +140,7 @@ As a Product Owner, I can close the Edit modal without saving so that I discard 
 
 **ENT-27**  
 As a Product Owner, after I create or edit an entity the list reflects the change so that I see up-to-date data.  
-- **AC:** Given I have just created or edited an entity, When the form or modal completes (e.g. page reload or partial refresh), Then the table shows the new or updated entity (name, jurisdiction, etc.).
+- **AC:** Given I have just created or edited an entity, When the form or modal completes (e.g. page reload or partial refresh), Then the table shows the new or updated entity (name, country, etc.).
 
 **ENT-28**  
 As a Product Owner, category options in the quick-add form depend on the selected sport when creating a competition so that I pick a valid category.  

@@ -37,7 +37,7 @@ Link a **feed event** to the domain: either **Confirm Mapping** (link to an exis
 ## Category row
 
 - **Source:** Feed category name and optional category_id.
-- **Domain:** If category is already resolved for this feed (entity_feed_mapping exists), show category name and **ID &lt;domain_id&gt;**; **Matched** badge; category textbox **editable** (user can change country/name). If not resolved: Jurisdiction (country) dropdown, then category search/text input; **100%** badge when suggestion matches; **Map** when a domain category exists and match ≥ 55% (or jurisdiction set); **Create** when no match or &lt; 55%.
+- **Domain:** If category is already resolved for this feed (entity_feed_mapping exists), show category name and **ID &lt;domain_id&gt;**; **Matched** badge; category textbox **editable** (user can change country/name). If not resolved: **Country** dropdown, then category search/text input; **100%** badge when suggestion matches; **Map** when a domain category exists and match ≥ 55% (or country set); **Create** when no match or &lt; 55%.
 - **Suggestion rule:** Category suggestion from feed (e.g. "Barbados") → suggest Barbados (or Create). Domain suggestions (e.g. from suggested_domain_event) used only when fuzzy match ≥ 55%. Otherwise show feed value with Create.
 - **Display format:** Domain entities and dropdowns use **Name ID 123** (name before ID), not "#123 Name".
 

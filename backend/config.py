@@ -64,16 +64,17 @@ DATA_MARKETS_DIR.mkdir(exist_ok=True)
 
 # ── Entity CSV field schemas ────────────────────────────────────────────────
 # Entity tables store domain data only; feed refs live in entity_feed_mappings.csv
+# Categories/competitions/teams use column `country` (ISO code or '-' for international). Brands use `jurisdiction` (Compliance).
 ENTITY_FIELDS = {
     "feeds":         ["domain_id", "code", "name"],
     "sports":        ["domain_id", "name", "baseid", "created_at", "updated_at"],
-    "categories":    ["domain_id", "sport_id", "name", "baseid", "jurisdiction", "created_at", "updated_at"],
+    "categories":    ["domain_id", "sport_id", "name", "baseid", "country", "created_at", "updated_at"],
     "competitions":  [
-        "domain_id", "sport_id", "category_id", "name", "baseid", "jurisdiction",
+        "domain_id", "sport_id", "category_id", "name", "baseid", "country",
         "underage_category_id", "participant_type_id", "is_amateur", "created_at", "updated_at",
     ],
     "teams":         [
-        "domain_id", "sport_id", "name", "baseid", "jurisdiction",
+        "domain_id", "sport_id", "name", "baseid", "country",
         "underage_category_id", "participant_type_id", "is_amateur", "created_at", "updated_at",
     ],
     "markets":       [
@@ -362,5 +363,5 @@ _collect_always_granted(RBAC_MENU_SOURCE, _always_set)
 RBAC_ALWAYS_GRANTED_PERMISSIONS = frozenset(_always_set)
 
 # ── Constants ──────────────────────────────────────────────────────────────
-# Country code for "no jurisdiction" (e.g. International category, Champions League)
+# Country code for "no country" / international scope in entity CSVs (e.g. Champions League). Not Compliance "jurisdiction".
 COUNTRY_CODE_NONE = "-"

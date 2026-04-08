@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block page_heading %}Feeder Configuration{% endblock %}
-{% block page_description %}Configure automation of the mapping process per feed, per sport, category, and league.{% endblock %}
+{% block page_description %}Per-feed automation for categories, competitions, teams, and events. Sports are created and mapped by development—there is no sport auto-creation here. Event auto-creation is only meaningful once category, competition and teams exist. Scope settings with Sport (or All Sports), Category, and Competition.{% endblock %}
 
 {% block title %}Feeder Configuration{% endblock %}
 
@@ -34,7 +34,7 @@
                 <option value="">— select —</option>
                 <option value="all" {% if selected_sport_id == 'all' %}selected{% endif %}>All Sports</option>
                 {% for s in sports %}
-                <option value="{{ s.domain_id }}" {% if selected_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
+                <option value="{{ s.domain_id }}" {% if entity_ids_equal(selected_sport_id, s.domain_id) %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -45,38 +45,39 @@
                 {% if not selected_sport_id or selected_sport_id == 'all' %}disabled{% endif %}>
                 <option value="">— select —</option>
                 {% for c in categories %}
-                {% if selected_sport_id and selected_sport_id != 'all' and c.sport_id == selected_sport_id %}
-                <option value="{{ c.domain_id }}" {% if selected_category_id == c.domain_id %}selected{% endif %}>{{ c.name }}</option>
+                {% if selected_sport_id and selected_sport_id != 'all' and entity_ids_equal(c.sport_id, selected_sport_id) %}
+                <option value="{{ c.domain_id }}" {% if entity_ids_equal(selected_category_id, c.domain_id) %}selected{% endif %}>{{ c.name }}</option>
                 {% endif %}
                 {% endfor %}
             </select>
         </div>
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">League</label>
-            <select name="league_id" id="feeder-filter-league" onchange="this.form.submit()"
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Competition</label>
+            <select name="competition_id" id="feeder-filter-competition" onchange="this.form.submit()"
                 class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]"
                 {% if not selected_category_id or selected_sport_id == 'all' %}disabled{% endif %}>
                 <option value="">— select —</option>
-                {% for c in competitions %}
-                {% if selected_category_id and c.category_id == selected_category_id %}
-                <option value="{{ c.domain_id }}" {% if selected_league_id == c.domain_id %}selected{% endif %}>{{ c.name }}</option>
+                {% for comp in competitions %}
+                {% if selected_category_id and entity_ids_equal(comp.category_id, selected_category_id) %}
+                <option value="{{ comp.domain_id }}" {% if entity_ids_equal(selected_competition_id, comp.domain_id) %}selected{% endif %}>{{ comp.name }}</option>
                 {% endif %}
                 {% endfor %}
             </select>
         </div>
-        <button type="button" onclick="document.getElementById('feeder-filter-sport').value=''; document.getElementById('feeder-filter-category').value=''; document.getElementById('feeder-filter-league').value=''; document.getElementById('feeder-filter-category').disabled=false; document.getElementById('feeder-filter-league').disabled=false; document.getElementById('feeder-filters-form').submit();"
+        <button type="button" onclick="document.getElementById('feeder-filter-sport').value=''; document.getElementById('feeder-filter-category').value=''; document.getElementById('feeder-filter-competition').value=''; document.getElementById('feeder-filter-category').disabled=false; document.getElementById('feeder-filter-competition').disabled=false; document.getElementById('feeder-filters-form').submit();"
             class="text-slate-500 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
     </form>
 
     {% if not selected_sport_id %}
     <div class="bg-cardbg/80 border border-slate-700/50 rounded-lg p-8 text-center text-slate-500 text-sm">
-        Select <strong>All Sports</strong> or a specific <strong>Sport</strong> (and optionally Category and League) above to configure feeder settings for that level.
+        Select <strong>All Sports</strong> or a specific <strong>Sport</strong> (and optionally Category and Competition) above to configure feeder settings for that level.
     </div>
     {% else %}
 
     <!-- Feeder configuration grid (settings as rows, feeders as columns) -->
     <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-hidden">
         <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 border-b border-slate-700/50">Feeder configuration</h2>
+        <p class="text-[11px] text-slate-500 px-4 py-2 border-b border-slate-700/50">Only the options below are active in this product. Values are stored per scope (All Sports, sport, category, or competition) and are not applied by the runtime yet.</p>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
                 <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700">
@@ -88,31 +89,32 @@
                     </tr>
                 </thead>
                 <tbody class="text-slate-300">
-                    {% for key, label in system_actions %}
+                    {% for key, label, hint in system_actions %}
                     <tr class="border-b border-slate-700/40 hover:bg-white/3">
-                        <td class="px-3 py-2 font-medium text-white sticky left-0 bg-cardbg/95 z-10">{{ label }}</td>
+                        <td class="px-3 py-2 font-medium text-white sticky left-0 bg-cardbg/95 z-10 align-middle">
+                            <span class="inline-flex items-center gap-1.5 flex-wrap">
+                                <span>{{ label }}</span>
+                                {% if hint %}
+                                <span class="relative inline-flex shrink-0 group">
+                                    <button type="button" class="cursor-help rounded p-0.5 text-slate-500 hover:text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-primary bg-transparent border-0"
+                                        aria-label="Prerequisites for this setting">
+                                        <i class="fa-regular fa-circle-question text-[13px]" aria-hidden="true"></i>
+                                    </button>
+                                    <span class="pointer-events-none absolute left-1/2 bottom-full z-[45] mb-1.5 hidden w-max max-w-[min(17rem,calc(100vw-3rem))] -translate-x-1/2 rounded-md border border-slate-600 bg-slate-800 px-2.5 py-2 text-left text-[10px] font-normal text-slate-300 shadow-lg leading-snug group-hover:block group-focus-within:block">
+                                        {{ hint }}
+                                    </span>
+                                </span>
+                                {% endif %}
+                            </span>
+                        </td>
                         {% for feed in feeds %}
                         <td class="px-2 py-2">
-                            {% if key == 'market_mapping_behavior' %}
-                            <select name="fc_{{ feed.domain_id }}_{{ key }}" class="feeder-config-cell bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-[11px] w-full max-w-[140px]"
-                                data-feed-id="{{ feed.domain_id }}" data-setting="{{ key }}">
-                                <option value="Not set" {% if feeder_config_lookup.get((feed.domain_id, key), 'Not set') == 'Not set' %}selected{% endif %}>Not set</option>
-                                <option value="At least one active" {% if feeder_config_lookup.get((feed.domain_id, key)) == 'At least one active' %}selected{% endif %}>At least one active</option>
-                                <option value="All active" {% if feeder_config_lookup.get((feed.domain_id, key)) == 'All active' %}selected{% endif %}>All active</option>
-                            </select>
-                            {% elif key == 'automapping_start_time_threshold_hours' or key == 'auto_update_start_time_rank' %}
-                            <input type="number" name="fc_{{ feed.domain_id }}_{{ key }}" min="0" step="1" placeholder="—"
-                                value="{{ feeder_config_lookup.get((feed.domain_id, key), '') if feeder_config_lookup.get((feed.domain_id, key)) not in ('Not set', '', None) else '' }}"
-                                class="feeder-config-cell bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-[11px] w-16"
-                                data-feed-id="{{ feed.domain_id }}" data-setting="{{ key }}">
-                            {% else %}
                             <select name="fc_{{ feed.domain_id }}_{{ key }}" class="feeder-config-cell bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-[11px] w-full max-w-[90px]"
                                 data-feed-id="{{ feed.domain_id }}" data-setting="{{ key }}">
-                                <option value="Not set" {% if feeder_config_lookup.get((feed.domain_id, key), 'Not set') == 'Not set' %}selected{% endif %}>Not set</option>
-                                <option value="Yes" {% if feeder_config_lookup.get((feed.domain_id, key)) == 'Yes' %}selected{% endif %}>Yes</option>
-                                <option value="No" {% if feeder_config_lookup.get((feed.domain_id, key)) == 'No' %}selected{% endif %}>No</option>
+                                {% set fc_val = feeder_config_lookup.get((feed.domain_id, key), 'No') %}
+                                <option value="No" {% if fc_val != 'Yes' %}selected{% endif %}>No</option>
+                                <option value="Yes" {% if fc_val == 'Yes' %}selected{% endif %}>Yes</option>
                             </select>
-                            {% endif %}
                         </td>
                         {% endfor %}
                     </tr>
@@ -266,24 +268,24 @@ document.addEventListener('DOMContentLoaded', function () {
     var sportSel = document.getElementById('feeder-filter-sport');
     if (sportSel && sportSel.value === 'all') {
         document.getElementById('feeder-filter-category').disabled = true;
-        document.getElementById('feeder-filter-league').disabled = true;
+        document.getElementById('feeder-filter-competition').disabled = true;
     }
 });
 function feederSportChange() {
     var sportSel = document.getElementById('feeder-filter-sport');
     var categorySel = document.getElementById('feeder-filter-category');
-    var leagueSel = document.getElementById('feeder-filter-league');
+    var competitionSel = document.getElementById('feeder-filter-competition');
     if (!sportSel) return;
     var sportVal = sportSel.value;
     if (sportVal === 'all') {
         categorySel.value = '';
-        leagueSel.value = '';
+        competitionSel.value = '';
         categorySel.disabled = true;
-        leagueSel.disabled = true;
+        competitionSel.disabled = true;
     } else {
         categorySel.disabled = false;
-        if (!categorySel.value) leagueSel.disabled = true;
-        else leagueSel.disabled = false;
+        if (!categorySel.value) competitionSel.disabled = true;
+        else competitionSel.disabled = false;
     }
     document.getElementById('feeder-filters-form').submit();
 }
@@ -292,7 +294,7 @@ function feederSportChange() {
     const level = {{ config_level | tojson if config_level else 'null' }};
     const sportId = {{ selected_sport_id | tojson if selected_sport_id else 'null' }};
     const categoryId = {{ selected_category_id | tojson if selected_category_id else 'null' }};
-    const leagueId = {{ selected_league_id | tojson if selected_league_id else 'null' }};
+    const competitionId = {{ selected_competition_id | tojson if selected_competition_id else 'null' }};
 
     document.getElementById('fs-add-btn')?.addEventListener('click', async function () {
         var feed = document.getElementById('fs-feed').value.trim();
@@ -332,12 +334,12 @@ function feederSportChange() {
         if (level !== 'all_sports' && !sportId) return;
         const status = document.getElementById('feeder-config-status');
         status.textContent = 'Saving…';
-        const payload = { level, sport_id: (level === 'all_sports' ? null : sportId), category_id: categoryId || null, league_id: leagueId || null, settings: [] };
+        const payload = { level, sport_id: (level === 'all_sports' ? null : sportId), category_id: categoryId || null, competition_id: competitionId || null, settings: [] };
         document.querySelectorAll('.feeder-config-cell').forEach(function (el) {
             const feedId = el.getAttribute('data-feed-id');
             const setting = el.getAttribute('data-setting');
             const value = el.tagName === 'SELECT' ? el.value : (el.value || '').trim() || null;
-            if (feedId && setting) payload.settings.push({ feed_provider_id: parseInt(feedId, 10), setting_key: setting, value: value || 'Not set' });
+            if (feedId && setting) payload.settings.push({ feed_provider_id: parseInt(feedId, 10), setting_key: setting, value: (value === 'Yes' ? 'Yes' : 'No') });
         });
         try {
             const res = await fetch('/api/feeder-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });

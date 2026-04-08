@@ -123,16 +123,16 @@
                 {% if resolved.category %}
                 {# LOCKED: category already exists for this feed_id #}
                 <input type="hidden" name="new_category" value="{{ resolved.category.name }}">
-                <input type="hidden" name="category_country" value="{{ resolved.category.jurisdiction or '-' }}">
+                <input type="hidden" name="category_country" value="{{ (resolved.category.country or resolved.category.jurisdiction or '-') if resolved.category else '-' }}">
                 <span class="text-sm text-emerald-300 font-medium flex-1">{{ resolved.category.name }} <span class="text-[10px] font-mono text-slate-400 bg-slate-800/80 px-1 py-0.5 rounded">ID {{ resolved.category.domain_id }}</span></span>
                 <span class="text-[10px] text-emerald-500/80 border border-emerald-700/50 px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0"><i class="fa-solid fa-lock text-[8px]"></i> Matched</span>
                 {% else %}
-                <input type="hidden" name="new_category" id="hidden-new-category" value="{{ suggested_entities.category.name if (suggested_entities and suggested_entities.category and (suggested_entities.category.get('jurisdiction') or '') and suggested_entities.category.get('jurisdiction') != '-') else '' }}">
+                <input type="hidden" name="new_category" id="hidden-new-category" value="{{ suggested_entities.category.name if (suggested_entities and suggested_entities.category and (suggested_entities.category.get('country') or suggested_entities.category.get('jurisdiction') or '') and (suggested_entities.category.get('country') or suggested_entities.category.get('jurisdiction')) != '-') else '' }}">
                 <div class="flex flex-1 min-w-0 items-center gap-2 flex-nowrap">
                     <select id="category-country" name="category_country"{% if not resolved.sport %} disabled{% endif %}
                         class="shrink-0 w-[130px] bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                         {% for c in countries %}
-                        <option value="{{ c.cc }}"{% if suggested_entities and suggested_entities.category and (suggested_entities.category.get('jurisdiction') or '') and suggested_entities.category.get('jurisdiction') == c.cc %} selected{% elif c.cc == '-' and not (suggested_entities and suggested_entities.category and (suggested_entities.category.get('jurisdiction') or '') and suggested_entities.category.get('jurisdiction') != '-') %} selected{% endif %}>{{ c.name }}</option>
+                        <option value="{{ c.cc }}"{% set _scc = (suggested_entities.category.get('country') or suggested_entities.category.get('jurisdiction') or '') if suggested_entities and suggested_entities.category else '' %}{% if suggested_entities and suggested_entities.category and _scc and _scc == c.cc %} selected{% elif c.cc == '-' and not (suggested_entities and suggested_entities.category and _scc and _scc != '-') %} selected{% endif %}>{{ c.name }}</option>
                         {% endfor %}
                     </select>
                     <div id="category-exception-wrap" class="flex-1 min-w-0 relative flex items-center">
@@ -146,7 +146,8 @@
                         <div id="category-dropdown" class="hidden absolute top-full left-0 right-0 mt-0.5 z-20 max-h-32 overflow-y-auto bg-slate-800 border border-slate-600 rounded shadow-xl py-1"></div>
                     </div>
                 </div>
-                {% if suggested_entities and suggested_entities.category and suggested_entities.category.get('domain_id') and (suggested_entities.category.get('match_pct') == 100 or (suggested_entities.category.get('jurisdiction') and suggested_entities.category.get('jurisdiction') != '-')) %}
+                {% set _catc = (suggested_entities.category.get('country') or suggested_entities.category.get('jurisdiction') or '') if suggested_entities and suggested_entities.category else '' %}
+                {% if suggested_entities and suggested_entities.category and suggested_entities.category.get('domain_id') and (suggested_entities.category.get('match_pct') == 100 or (_catc and _catc != '-')) %}
                 <span class="text-[10px] font-bold text-primary bg-primary/20 px-1.5 py-0.5 rounded shrink-0">100%</span>
                 <button type="button" id="btn-map-category" onclick="confirmCategoryMapping()"{% if not resolved.sport %} disabled{% endif %}
                     class="shrink-0 text-[10px] px-2.5 py-1.5 rounded border border-primary/50 text-primary hover:bg-primary/20 transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">Map</button>
@@ -685,7 +686,7 @@
     }
     function getExceptionCategoriesForDropdown() {
         const sportId = getSelectedSportId();
-        const exceptionOnly = (c) => (c.jurisdiction || '').trim() === '-';
+        const exceptionOnly = (c) => ((c.country || c.jurisdiction || '').trim() === '-');
         const list = ALL_CATEGORIES.filter(exceptionOnly);
         return sportId ? list.filter(c => c.sport_id === sportId) : list;
     }
@@ -706,7 +707,7 @@
         const categories = getCategoriesForDropdown();
         const filtered = q ? categories.filter(c => (c.name || '').toLowerCase().includes(q)) : categories;
         dd.innerHTML = filtered.length
-            ? filtered.map(c => { const j = (c.jurisdiction || '').trim(); return `<div class="px-3 py-2 text-xs text-slate-200 hover:bg-white/10 cursor-pointer" data-id="${c.domain_id}" data-name="${(c.name || '').replace(/"/g, '&quot;')}" data-jurisdiction="${j}">${(c.name || '').replace(/</g, '&lt;')} <span class="text-[10px] font-mono text-slate-400">ID ${c.domain_id}</span></div>`; }).join('')
+            ? filtered.map(c => { const j = (c.country || c.jurisdiction || '').trim(); return `<div class="px-3 py-2 text-xs text-slate-200 hover:bg-white/10 cursor-pointer" data-id="${c.domain_id}" data-name="${(c.name || '').replace(/"/g, '&quot;')}" data-country="${j}">${(c.name || '').replace(/</g, '&lt;')} <span class="text-[10px] font-mono text-slate-400">ID ${c.domain_id}</span></div>`; }).join('')
             : '<div class="px-3 py-2 text-xs text-slate-500">No categories match. Type a name and use Create.</div>';
         dd.classList.remove('hidden');
     }
@@ -948,7 +949,7 @@
             catInput.value = row.dataset.name || '';
             const hiddenCat = document.querySelector('input[name="new_category"]');
             if (hiddenCat) hiddenCat.value = (row.dataset.name || '').trim();
-            const j = (row.dataset.jurisdiction || '').trim();
+            const j = (row.dataset.country || row.dataset.jurisdiction || '').trim();
             if (j && j !== '-') {
                 const countrySel = document.getElementById('category-country');
                 if (countrySel) { countrySel.value = j; syncCategoryCountryUI(); }
@@ -1046,7 +1047,7 @@
 
         const catVal = getCategoryNameForFilter() || null;
         const categoryCountryEl = document.getElementById('category-country');
-        const jurisdiction = (categoryCountryEl && categoryCountryEl.value) ? categoryCountryEl.value : '-';
+        const countryCode = (categoryCountryEl && categoryCountryEl.value) ? categoryCountryEl.value : '-';
         const participantTypeEl = document.getElementById('participant-type-select');
         const participantTypeId = participantTypeEl && participantTypeEl.value ? parseInt(participantTypeEl.value, 10) : null;
 
@@ -1060,7 +1061,7 @@
             name,
             sport: sportName,
             category: catVal,
-            jurisdiction: jurisdiction,
+            country: countryCode,
             participant_type_id: participantTypeId
         };
         if (entityType === 'categories') {

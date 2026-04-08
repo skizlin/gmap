@@ -36,6 +36,9 @@ backend/data/rbac/user_brands.csv
 backend/data/rbac/role_permissions.csv
 backend/data/rbac/rbac_audit_log.csv
 
+# One-time domain id migration marker (S-/G-/C-/P-/M-/E-); per environment
+backend/data/.domain_ids_prefixed_v1
+
 # Pulled feed data (per-environment; each env pulls from APIs)
 backend/data/feed_data/*.json
 
@@ -72,3 +75,6 @@ backend/data/translations.csv
 # Per-environment notes / country overrides (local vs server)
 backend/data/notes/platform_notes.csv
 backend/data/countries/countries.json
+
+# Internal / disposable planning docs (not tracked)
+docs/Phase 1 - Initial delivery/

@@ -28,7 +28,7 @@ class CreateEntityRequest(BaseModel):
     feed_sport_id: Optional[str] = None
     sport: Optional[str] = None
     category: Optional[str] = None
-    jurisdiction: Optional[str] = None
+    country: Optional[str] = None  # ISO country code or '-' for categories/competitions/teams
     baseid: Optional[str] = None
     participant_type_id: Optional[int] = None
     underage_category_id: Optional[int] = None
@@ -45,19 +45,19 @@ class CreateEntityRequest(BaseModel):
 
 class UpdateEntityNameRequest(BaseModel):
     entity_type: str  # "sports" | "categories" | "competitions" | "teams"
-    domain_id: int
+    domain_id: str  # e.g. S-1, G-2, C-3, P-4
     name: str
-    jurisdiction: Optional[str] = None
+    country: Optional[str] = None  # categories/competitions/teams only
     baseid: Optional[str] = None
     participant_type_id: Optional[int] = None
     underage_category_id: Optional[int] = None
     is_amateur: Optional[bool] = None
 
 
-class UpdateEntityJurisdictionRequest(BaseModel):
+class UpdateEntityCountryRequest(BaseModel):
     entity_type: str  # "categories" | "competitions" | "teams"
-    domain_id: int
-    jurisdiction: str
+    domain_id: str
+    country: str
 
 
 class UpdateMarketRequest(BaseModel):
@@ -119,7 +119,7 @@ class MarketTypeMappingItem(BaseModel):
 
 
 class SaveMarketTypeMappingsRequest(BaseModel):
-    domain_market_id: int
+    domain_market_id: str  # e.g. M-3
     prematch: List[MarketTypeMappingItem] = []
     live: List[MarketTypeMappingItem] = []
 
@@ -156,7 +156,7 @@ class CreateMarginTemplateRequest(BaseModel):
     betbuilder: Optional[str] = None
     bet_delay: Optional[str] = None
     brand_id: Optional[int] = None  # None/empty = Global
-    sport_id: Optional[int] = None
+    sport_id: Optional[str] = None  # domain sport e.g. S-1
 
 
 class UpdateMarginTemplateRequest(BaseModel):
@@ -173,16 +173,16 @@ class UpdateMarginTemplateRequest(BaseModel):
 class AssignCompetitionToTemplateRequest(BaseModel):
     """Move a competition into a margin template (within current scope)."""
     template_id: int
-    competition_id: int
+    competition_id: str  # e.g. C-12
     brand_id: Optional[int] = None  # scope: None/empty = Global
-    sport_id: Optional[int] = None  # scope: required when applying
+    sport_id: Optional[str] = None  # domain sport id e.g. S-1
 
 
 class CopyFromBrandRequest(BaseModel):
     """Copy all margin templates and their settings from one brand to another (same sport)."""
     source_brand_id: Optional[int] = None  # None = Global
     target_brand_id: Optional[int] = None  # None = Global
-    sport_id: int
+    sport_id: str  # domain sport id e.g. S-1
 
 
 # ── RBAC ───────────────────────────────────────────────────────────────────

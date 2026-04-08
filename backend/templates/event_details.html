@@ -207,7 +207,7 @@
     function getSelectedMarketIds() {
         const ids = new Set();
         marketCheckboxes.forEach(function (cb) {
-            if (cb.checked) ids.add(parseInt(cb.dataset.marketId, 10));
+            if (cb.checked && cb.dataset.marketId) ids.add(String(cb.dataset.marketId));
         });
         return ids;
     }
@@ -342,7 +342,7 @@
         }
         overviewEmpty.classList.add('hidden');
         overviewRows.classList.remove('hidden');
-        const order = Array.from(ids).sort(function (a, b) { return a - b; });
+        const order = Array.from(ids).sort(function (a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true }); });
         overviewRows.innerHTML = order.map(function (id) {
             const info = getMarketInfo(id);
             if (!info) return '';
@@ -363,7 +363,7 @@
     groupContainers.forEach(function (container) {
         const groupCb = container.querySelector('.event-detail-group-cb');
         const idsStr = container.getAttribute('data-group-market-ids') || '';
-        const ids = idsStr ? idsStr.split(',').map(function (x) { return parseInt(x.trim(), 10); }).filter(Boolean) : [];
+        const ids = idsStr ? idsStr.split(',').map(function (x) { return x.trim(); }).filter(Boolean) : [];
         if (groupCb) {
             groupCb.addEventListener('change', function () {
                 ids.forEach(function (id) {

@@ -44,10 +44,10 @@
                 <option value="">— select sport first —</option>
             </select>
         </div>
-        <!-- Jurisdiction: shown for categories, competitions, teams -->
-        <div id="nef-jurisdiction-wrap" class="hidden">
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Jurisdiction</label>
-            <select id="nef-jurisdiction"
+        <!-- Country (ISO / None): categories, competitions, teams -->
+        <div id="nef-country-wrap" class="hidden">
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Country</label>
+            <select id="nef-country"
                 class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-w-[140px]">
                 {% for c in countries %}
                 <option value="{{ c.cc }}">{{ c.name }}</option>
@@ -338,7 +338,7 @@
                     {% set _grp = namespace(g=None) %}
                     {% for g in market_groups %}{% if g.code == entity.get('market_group') %}{% set _grp.g = g %}{% endif %}{% endfor %}
                     <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ (entity.name ~ ' ' ~ (entity.get('code') or '') ~ ' ' ~ (entity.get('abb') or '')) | lower }}" data-sport-id="{{ entity.get('sport_id') or '' }}">
-                        <td class="px-3 py-2 font-mono text-slate-400">#{{ entity.domain_id }}</td>
+                        <td class="px-3 py-2 font-mono text-slate-400">{{ entity.domain_id }}</td>
                         <td class="px-3 py-2 text-slate-400">{{ sports_by_id.get(entity.sport_id, '—') }}</td>
                         <td class="px-3 py-2 text-white font-medium">{{ entity.name }}</td>
                         <td class="px-3 py-2 text-slate-400">{{ entity.get('abb') or entity.get('code') or '—' }}</td>
@@ -477,7 +477,7 @@
                         {% if key == 'competitions' %}<th class="px-4 py-2.5 font-semibold">Category</th>{% endif %}
                         {% if key == 'teams' %}<th class="px-4 py-2.5 font-semibold">Type</th>{% endif %}
                         {% if key in ('teams', 'competitions') %}<th class="px-4 py-2.5 font-semibold">Amateur</th><th class="px-4 py-2.5 font-semibold">Age category</th>{% endif %}
-                        {% if key in ('categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">Jurisdiction</th>{% endif %}
+                        {% if key in ('categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">Country</th>{% endif %}
                         <th class="px-4 py-2.5 font-semibold">Mapped feeds</th>
                         <th class="px-4 py-2.5 font-semibold whitespace-nowrap">Created</th>
                         <th class="px-4 py-2.5 font-semibold whitespace-nowrap">Last edited</th>
@@ -492,7 +492,7 @@
                     {% set ns = namespace(parts=[entity.domain_id | string, entity.name, (entity.get('code') or ''), (sports_by_id.get(entity.get('sport_id'), '') or ''), (categories_by_id.get(entity.get('category_id'), '') or '')]) %}
                     {% for r in refs %}{% set ns.parts = ns.parts + [feeds_by_id.get(r.feed_provider_id, '') or '', r.feed_id] %}{% endfor %}
                     <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ ns.parts | join(' ') | lower }}" data-entity-id="{{ entity.domain_id }}"{% if key == 'categories' %} data-sport-id="{{ entity.get('sport_id') or '' }}"{% endif %}{% if key == 'teams' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-participant-type-id="{{ entity.get('participant_type_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}{% if key == 'competitions' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}>
-                        <td class="px-4 py-2.5 font-mono text-slate-400">#{{ entity.domain_id }}</td>
+                        <td class="px-4 py-2.5 font-mono text-slate-400">{{ entity.domain_id }}</td>
                         <td class="px-4 py-2.5 text-white font-medium" data-entity-name="1">{{ entity.name }}</td>
                         {% if key in ('sports', 'categories', 'competitions', 'teams') %}
                         <td class="px-4 py-2.5 text-slate-400 font-mono" data-entity-baseid="{{ entity.get('baseid') or '' }}">{{ entity.get('baseid') or '—' }}</td>
@@ -512,7 +512,7 @@
                         <td class="px-4 py-2.5 text-slate-400" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
                         {% endif %}
                         {% if key in ('categories', 'competitions', 'teams') %}
-                        <td class="px-4 py-2.5 text-slate-400" data-entity-jurisdiction="{{ entity.get('jurisdiction') or '-' }}">{{ countries_by_cc.get(entity.get('jurisdiction') or '-', '—') }}</td>
+                        <td class="px-4 py-2.5 text-slate-400" data-entity-country="{{ entity.get('country') or '-' }}" title="Country">{{ countries_by_cc.get(entity.get('country') or '-', '—') }}</td>
                         {% endif %}
                         <td class="px-4 py-2.5">
                             {# All entity types (sports, categories, competitions, teams, markets): feed refs from entity_feed_mappings #}
@@ -554,7 +554,7 @@
     </div>
     {% endfor %}
 
-    <!-- Edit entity modal (name + jurisdiction for cat/comp/team) -->
+    <!-- Edit entity modal (name + country for cat/comp/team) -->
     <div id="entity-edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" aria-modal="true" onclick="if (event.target === this) closeEntityEditModal()">
         <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-md p-5" onclick="event.stopPropagation()">
             <h3 id="entity-edit-modal-title" class="text-sm font-semibold text-white mb-4">Edit</h3>
@@ -566,9 +566,9 @@
                     <input type="text" id="entity-edit-name" placeholder="Name"
                         class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 </div>
-                <div id="entity-edit-jurisdiction-wrap" class="hidden">
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Jurisdiction</label>
-                    <select id="entity-edit-jurisdiction"
+                <div id="entity-edit-country-wrap" class="hidden">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Country</label>
+                    <select id="entity-edit-country"
                         class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         {% for c in countries %}
                         <option value="{{ c.cc }}">{{ c.name }}</option>
@@ -805,13 +805,13 @@
         const type = document.getElementById('nef-type').value;
         const needsSport = ['categories', 'competitions', 'teams'].includes(type);
         const needsCategory = type === 'competitions';
-        const needsJurisdiction = ['categories', 'competitions', 'teams'].includes(type);
+        const needsCountry = ['categories', 'competitions', 'teams'].includes(type);
         const needsBaseid = ['sports', 'categories', 'competitions', 'teams'].includes(type);
         const needsFeedId = ['categories', 'competitions', 'teams', 'markets'].includes(type);
         const needsCode = type === 'markets';
         document.getElementById('nef-sport-wrap').classList.toggle('hidden', !needsSport);
         document.getElementById('nef-category-wrap').classList.toggle('hidden', !needsCategory);
-        document.getElementById('nef-jurisdiction-wrap').classList.toggle('hidden', !needsJurisdiction);
+        document.getElementById('nef-country-wrap').classList.toggle('hidden', !needsCountry);
         document.getElementById('nef-baseid-wrap').classList.toggle('hidden', !needsBaseid);
         document.getElementById('nef-feedid-wrap').classList.toggle('hidden', !needsFeedId);
         document.getElementById('nef-code-wrap').classList.toggle('hidden', !needsCode);
@@ -838,8 +838,8 @@
         const payload = { entity_type: type, feed_id: feedId, name, sport, category };
         if (type === 'markets') payload.code = (document.getElementById('nef-code')?.value || '').trim() || null;
         if (['categories', 'competitions', 'teams'].includes(type)) {
-            const jurSel = document.getElementById('nef-jurisdiction');
-            payload.jurisdiction = jurSel ? (jurSel.value || '').trim() || null : null;
+            const countrySel = document.getElementById('nef-country');
+            payload.country = countrySel ? (countrySel.value || '').trim() || null : null;
         }
         if (['sports', 'categories', 'competitions', 'teams'].includes(type)) {
             const baseidEl = document.getElementById('nef-baseid');
@@ -851,11 +851,11 @@
         });
         const data = await res.json();
         if (res.ok && data.created) {
-            statusEl.textContent = `Created #${data.domain_id}`;
+            statusEl.textContent = `Created ${data.domain_id}`;
             statusEl.className = 'text-xs text-emerald-400 shrink-0';
             setTimeout(reloadPreservingTab, 600);
         } else if (res.ok) {
-            statusEl.textContent = `Already exists #${data.domain_id}`;
+            statusEl.textContent = `Already exists ${data.domain_id}`;
             statusEl.className = 'text-xs text-amber-400 shrink-0';
         } else {
             statusEl.textContent = 'Error.';
@@ -870,8 +870,8 @@
         if (!row) return;
         const nameCell = row.querySelector('[data-entity-name]');
         const currentName = (nameCell?.textContent || '').trim();
-        const jurisdictionCell = row.querySelector('[data-entity-jurisdiction]');
-        const currentJurisdiction = jurisdictionCell ? (jurisdictionCell.getAttribute('data-entity-jurisdiction') || '-') : '-';
+        const countryCell = row.querySelector('[data-entity-country]');
+        const currentCountry = countryCell ? (countryCell.getAttribute('data-entity-country') || '-') : '-';
         const baseidCell = row.querySelector('[data-entity-baseid]');
         const currentBaseid = baseidCell ? (baseidCell.getAttribute('data-entity-baseid') || '') : '';
         const typeCell = row.querySelector('[data-entity-participant-type-id]');
@@ -882,13 +882,13 @@
         document.getElementById('entity-edit-name').value = currentName;
         const singular = panelKey.endsWith('s') ? panelKey.slice(0, -1) : panelKey;
         document.getElementById('entity-edit-modal-title').textContent = 'Edit ' + singular;
-        const jurWrap = document.getElementById('entity-edit-jurisdiction-wrap');
-        const jurSel = document.getElementById('entity-edit-jurisdiction');
+        const countryWrap = document.getElementById('entity-edit-country-wrap');
+        const countrySel = document.getElementById('entity-edit-country');
         if (['categories', 'competitions', 'teams'].includes(panelKey)) {
-            jurWrap.classList.remove('hidden');
-            if (jurSel) jurSel.value = currentJurisdiction;
+            countryWrap.classList.remove('hidden');
+            if (countrySel) countrySel.value = currentCountry;
         } else {
-            jurWrap.classList.add('hidden');
+            countryWrap.classList.add('hidden');
         }
         const baseidWrap = document.getElementById('entity-edit-baseid-wrap');
         const baseidInput = document.getElementById('entity-edit-baseid');
@@ -934,7 +934,7 @@
 
     document.getElementById('entity-edit-save').addEventListener('click', async function () {
         const panelKey = document.getElementById('entity-edit-type').value;
-        const domainId = parseInt(document.getElementById('entity-edit-domain-id').value, 10);
+        const domainId = (document.getElementById('entity-edit-domain-id').value || '').trim();
         const name = document.getElementById('entity-edit-name').value.trim();
         const statusEl = document.getElementById('entity-edit-status');
         if (!name) {
@@ -944,8 +944,8 @@
         }
         const payload = { entity_type: panelKey, domain_id: domainId, name };
         if (['categories', 'competitions', 'teams'].includes(panelKey)) {
-            const jurSel = document.getElementById('entity-edit-jurisdiction');
-            payload.jurisdiction = jurSel ? (jurSel.value || '').trim() || null : null;
+            const editCountrySel = document.getElementById('entity-edit-country');
+            payload.country = editCountrySel ? (editCountrySel.value || '').trim() || null : null;
         }
         if (['sports', 'categories', 'competitions', 'teams'].includes(panelKey)) {
             const baseidEl = document.getElementById('entity-edit-baseid');
@@ -1059,7 +1059,7 @@
                 if (action) {
                     var actionType = action.getAttribute('data-action');
                     var panel = dropdown.getAttribute('data-entity-panel') || '';
-                    var id = parseInt(dropdown.getAttribute('data-entity-id'), 10);
+                    var id = (dropdown.getAttribute('data-entity-id') || '').trim();
                     var name = dropdown.getAttribute('data-entity-name') || '';
                     closeEntityKebab();
                     if (actionType === 'edit') {
@@ -1068,7 +1068,7 @@
                     } else if (actionType === 'map') {
                         var row = dropdown.closest('tr');
                         var sportId = row ? (row.getAttribute('data-sport-id') || '').trim() : '';
-                        if (typeof openMarketMapper === 'function') openMarketMapper(id, name, sportId ? parseInt(sportId, 10) : undefined);
+                        if (typeof openMarketMapper === 'function') openMarketMapper(id, name, sportId || undefined);
                     } else if (actionType === 'remove-mappings') {
                         console.log('Remove Mappings – placeholder for', panel, id);
                     } else if (actionType === 'active-inactive') {
@@ -1091,7 +1091,7 @@
         document.getElementById('market-edit-domain-id').value = domainId;
         document.getElementById('market-edit-modal').classList.remove('hidden');
         try {
-            var res = await fetch('/api/entities/markets/' + domainId);
+            var res = await fetch('/api/entities/markets/' + encodeURIComponent(domainId));
             if (!res.ok) { statusEl.textContent = 'Market not found.'; return; }
             var m = await res.json();
             document.getElementById('market-edit-name').value = m.name || '';
@@ -1109,7 +1109,7 @@
         }
     }
     document.getElementById('market-edit-save').addEventListener('click', async function () {
-        var domainId = parseInt(document.getElementById('market-edit-domain-id').value, 10);
+        var domainId = (document.getElementById('market-edit-domain-id').value || '').trim();
         var statusEl = document.getElementById('market-edit-status');
         var name = document.getElementById('market-edit-name').value.trim();
         if (!name) { statusEl.textContent = 'Name is required.'; return; }
@@ -1128,7 +1128,7 @@
         statusEl.textContent = 'Saving…';
         this.disabled = true;
         try {
-            var res = await fetch('/api/entities/markets/' + domainId, {
+            var res = await fetch('/api/entities/markets/' + encodeURIComponent(domainId), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1289,7 +1289,7 @@
 
     async function openMarketMapper(marketId, marketName, domainSportId) {
         currentMarketMapperId = marketId;
-        currentMarketMapperSportId = (domainSportId != null && !isNaN(domainSportId)) ? domainSportId : null;
+        currentMarketMapperSportId = (domainSportId != null && String(domainSportId).trim() !== '') ? String(domainSportId).trim() : null;
         document.getElementById('market-mapper-name').textContent = marketName || '—';
         document.getElementById('market-mapper-details').textContent = 'Market type: ' + (marketName || '—') + ' (ID: ' + marketId + ')';
         mapperPrematchList = [];
@@ -1297,7 +1297,7 @@
         marketMapperGloballyMappedKeys = {};
         try {
             const [mapRes, allRes] = await Promise.all([
-                fetch('/api/market-type-mappings?domain_market_id=' + marketId),
+                fetch('/api/market-type-mappings?domain_market_id=' + encodeURIComponent(marketId)),
                 fetch('/api/market-type-mappings/all-mapped')
             ]);
             const data = await mapRes.json();
@@ -1344,13 +1344,12 @@
     let marketMapperGloballyMappedKeys = {};
     function getMapperDomainSportId() {
         // Use the domain market's sport (e.g. Volleyball) so we show that sport's feed markets, not the panel filter
-        if (currentMarketMapperSportId != null && currentMarketMapperSportId > 0) return currentMarketMapperSportId;
+        if (currentMarketMapperSportId != null && String(currentMarketMapperSportId).trim() !== '')
+            return String(currentMarketMapperSportId).trim();
         const sel = document.getElementById('mt-sport');
-        if (!sel) return 1;
+        if (!sel) return '';
         const val = (sel.value || '').trim();
-        if (!val) return 1;
-        const id = parseInt(val, 10);
-        return isNaN(id) ? 1 : id;
+        return val || '';
     }
     async function loadFeedMarkets() {
         const feedSelect = document.getElementById('market-mapper-feed');
@@ -1363,9 +1362,14 @@
             return;
         }
         const domainSportId = getMapperDomainSportId();
+        if (!domainSportId) {
+            listEl.innerHTML = '<p class="text-slate-500 italic text-[11px]">Select a sport in the filter above (or open Map from a market row).</p>';
+            marketMapperFeedMarkets = [];
+            return;
+        }
         listEl.innerHTML = '<p class="text-slate-500 italic text-[11px]">Loading…</p>';
         try {
-            const res = await fetch('/api/feed-markets?feed_provider_id=' + feedProviderId + '&domain_sport_id=' + domainSportId);
+            const res = await fetch('/api/feed-markets?feed_provider_id=' + feedProviderId + '&domain_sport_id=' + encodeURIComponent(domainSportId));
             const data = await res.json();
             marketMapperFeedMarkets = data.markets || [];
             currentMapperFeedName = data.feed_name || '';

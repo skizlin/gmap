@@ -43,6 +43,14 @@
         .nav-item:focus-within .nav-dropdown {
             display: block;
         }
+
+        /* Mobile drawer: hide native details marker */
+        .mobile-drawer-nav summary {
+            list-style: none;
+        }
+        .mobile-drawer-nav summary::-webkit-details-marker {
+            display: none;
+        }
     </style>
 </head>
 
@@ -50,18 +58,24 @@
 
     <!-- TOP NAVIGATION BAR -->
     <header class="bg-slate-900 border-b border-slate-800 flex-shrink-0 z-40">
-        <div class="flex items-center h-12 px-4">
+        <div class="flex items-center h-12 px-3 sm:px-4 gap-2 min-w-0">
+
+            <!-- Mobile menu (drawer trigger) -->
+            <button type="button" id="mobile-nav-open" class="md:hidden shrink-0 flex items-center justify-center w-9 h-9 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 border border-slate-700/80"
+                aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav-panel">
+                <i class="fa-solid fa-bars text-lg" aria-hidden="true"></i>
+            </button>
 
             <!-- Logo -->
-            <div class="flex items-center mr-8">
-                <a href="/" class="flex items-center">
+            <div class="flex items-center mr-2 md:mr-8 shrink-0 min-w-0">
+                <a href="/" class="flex items-center min-w-0">
                     <span
                         class="text-lg font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity">GMP</span>
                 </a>
             </div>
 
-            <!-- Navigation Menu -->
-            <nav class="flex items-stretch h-full flex-1">
+            <!-- Navigation Menu (desktop) -->
+            <nav class="hidden md:flex items-stretch h-full flex-1 min-w-0 overflow-hidden" aria-label="Main">
 
                 <!-- Admin (User Management) -->
                 <div class="nav-item relative flex items-center">
@@ -74,7 +88,7 @@
                 <!-- Configuration (dropdown) -->
                 <div class="nav-item relative flex items-center group">
                     <button
-                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors gap-1.5 {% if section in ['entities', 'localization', 'brands', 'feeders', 'margin_config', 'risk_rules'] %}text-primary{% endif %}">
+                        class="flex items-center h-full px-4 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-colors gap-1.5 {% if section in ['entities', 'localization', 'brands', 'feeders', 'margin_config', 'risk_rules', 'compliance'] %}text-primary{% endif %}">
                         Configuration
                         <i class="fa-solid fa-chevron-down text-xs opacity-50"></i>
                     </button>
@@ -103,6 +117,10 @@
                         <a href="/risk-rules"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'risk_rules' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-shield-halved w-5 text-slate-500"></i> Risk Rules
+                        </a>
+                        <a href="/compliance"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'compliance' %}text-primary{% else %}text-slate-300{% endif %}">
+                            <i class="fa-solid fa-scale-balanced w-5 text-slate-500"></i> Compliance
                         </a>
                     </div>
                 </div>
@@ -165,7 +183,7 @@
             </nav>
 
             <!-- Right side: notifications + user avatar -->
-            <div class="flex items-center space-x-3 ml-auto">
+            <div class="flex items-center space-x-2 sm:space-x-3 ml-auto shrink-0">
                 <div class="relative" id="notifications-wrap">
                     <button type="button" onclick="toggleNotificationsPanel()" class="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 text-xs relative" aria-label="Notifications">
                         <i class="fa-regular fa-bell text-slate-400"></i>
@@ -185,6 +203,80 @@
             </div>
         </div>
     </header>
+
+    <!-- Mobile navigation: right drawer -->
+    <div id="mobile-nav-drawer" class="mobile-drawer fixed inset-0 z-[45] opacity-0 invisible pointer-events-none transition-opacity duration-200"
+        aria-hidden="true" role="dialog" aria-modal="true" aria-label="Navigation menu">
+        <button type="button" id="mobile-nav-backdrop" class="absolute inset-0 bg-slate-950/75 backdrop-blur-sm border-0 cursor-default" aria-label="Close menu"></button>
+        <div id="mobile-nav-panel"
+            class="absolute top-0 right-0 h-full w-full max-w-sm bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col translate-x-full transition-transform duration-200 ease-out will-change-transform">
+            <div class="flex items-center justify-between h-12 px-4 border-b border-slate-800 shrink-0">
+                <span class="text-sm font-semibold text-white">Menu</span>
+                <button type="button" id="mobile-nav-close" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 border-0 bg-transparent" aria-label="Close menu">
+                    <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
+                </button>
+            </div>
+            <nav class="mobile-drawer-nav flex-1 overflow-y-auto py-2" aria-label="Mobile main">
+                <a href="/users"
+                    class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 {% if section == 'users' %}text-primary bg-white/5{% else %}text-slate-200 hover:bg-white/5{% endif %}">
+                    Admin
+                </a>
+
+                <details class="border-b border-slate-800/80 group">
+                    <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-slate-200 hover:bg-white/5 {% if section in ['entities', 'localization', 'brands', 'feeders', 'margin_config', 'risk_rules', 'compliance'] %}text-primary{% endif %}">
+                        <span>Configuration</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition-transform group-open:rotate-180"></i>
+                    </summary>
+                    <div class="pb-1 bg-slate-950/40">
+                        <a href="/entities" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'entities' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+                            <i class="fa-solid fa-cubes w-5 text-slate-500 shrink-0"></i> Entities
+                        </a>
+                        <a href="/localization" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'localization' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+                            <i class="fa-solid fa-language w-5 text-slate-500 shrink-0"></i> Localization
+                        </a>
+                        <a href="/brands" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'brands' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+                            <i class="fa-solid fa-building w-5 text-slate-500 shrink-0"></i> Brands
+                        </a>
+                        <a href="/feeders" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'feeders' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+                            <i class="fa-solid fa-satellite-dish w-5 text-slate-500 shrink-0"></i> Feeder
+                        </a>
+                        <a href="/margin" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'margin_config' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+                            <i class="fa-solid fa-percent w-5 text-slate-500 shrink-0"></i> Margin
+                        </a>
+                        <a href="/risk-rules" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'risk_rules' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+                            <i class="fa-solid fa-shield-halved w-5 text-slate-500 shrink-0"></i> Risk Rules
+                        </a>
+                        <a href="/compliance" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'compliance' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+                            <i class="fa-solid fa-scale-balanced w-5 text-slate-500 shrink-0"></i> Compliance
+                        </a>
+                    </div>
+                </details>
+
+                <details class="border-b border-slate-800/80 group">
+                    <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-slate-200 hover:bg-white/5 {% if section in ['domain', 'feeder', 'archived_events'] %}text-primary{% endif %}">
+                        <span>Betting Program</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition-transform group-open:rotate-180"></i>
+                    </summary>
+                    <div class="pb-1 bg-slate-950/40">
+                        <a href="/event-navigator" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'domain' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+                            <i class="fa-solid fa-compass w-5 text-slate-500 shrink-0"></i> Event Navigator
+                        </a>
+                        <a href="/feeder-events" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'feeder' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+                            <i class="fa-solid fa-satellite-dish w-5 text-slate-500 shrink-0"></i> Feeder Events
+                        </a>
+                        <a href="/archived-events" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'archived_events' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+                            <i class="fa-solid fa-box-archive w-5 text-slate-500 shrink-0"></i> Archived Events
+                        </a>
+                    </div>
+                </details>
+
+                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Risk</a>
+                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Bets/PTLs</a>
+                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Alerts</a>
+                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Reports</a>
+            </nav>
+        </div>
+    </div>
 
     <!-- Toast container (top right, below header) -->
     <div id="toast-container" class="fixed top-20 right-4 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
@@ -343,8 +435,76 @@
         }
         document.addEventListener('click', function (e) {
             var wrap = document.getElementById('notifications-wrap');
-            if (wrap && !wrap.contains(e.target)) document.getElementById('notifications-panel').classList.add('hidden');
+            var np = document.getElementById('notifications-panel');
+            if (wrap && np && !wrap.contains(e.target)) np.classList.add('hidden');
         });
+
+        // Mobile nav drawer (right) — md and up uses horizontal nav
+        (function () {
+            var drawer = document.getElementById('mobile-nav-drawer');
+            var panel = document.getElementById('mobile-nav-panel');
+            var openBtn = document.getElementById('mobile-nav-open');
+            var closeBtn = document.getElementById('mobile-nav-close');
+            var backdrop = document.getElementById('mobile-nav-backdrop');
+            if (!drawer || !panel || !openBtn) return;
+
+            function openMobileNav() {
+                drawer.classList.remove('opacity-0', 'invisible', 'pointer-events-none');
+                drawer.classList.add('opacity-100', 'visible');
+                drawer.setAttribute('aria-hidden', 'false');
+                openBtn.setAttribute('aria-expanded', 'true');
+                document.body.classList.add('overflow-hidden');
+                requestAnimationFrame(function () {
+                    panel.classList.remove('translate-x-full');
+                    panel.classList.add('translate-x-0');
+                });
+            }
+
+            function closeMobileNav() {
+                panel.classList.remove('translate-x-0');
+                panel.classList.add('translate-x-full');
+                openBtn.setAttribute('aria-expanded', 'false');
+                drawer.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('overflow-hidden');
+                setTimeout(function () {
+                    drawer.classList.add('opacity-0', 'invisible', 'pointer-events-none');
+                    drawer.classList.remove('opacity-100', 'visible');
+                }, 200);
+            }
+
+            window.closeMobileNav = closeMobileNav;
+
+            openBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                openMobileNav();
+            });
+            if (closeBtn) closeBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                closeMobileNav();
+            });
+            if (backdrop) backdrop.addEventListener('click', function () {
+                closeMobileNav();
+            });
+
+            drawer.addEventListener('click', function (e) {
+                var a = e.target.closest('a.mobile-drawer-link');
+                if (a) closeMobileNav();
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key !== 'Escape') return;
+                var modal = document.getElementById('modal-container');
+                if (modal && !modal.classList.contains('hidden')) return;
+                if (drawer.getAttribute('aria-hidden') === 'false') closeMobileNav();
+            });
+
+            var mq = window.matchMedia('(min-width: 768px)');
+            function onMq() {
+                if (mq.matches && drawer.getAttribute('aria-hidden') === 'false') closeMobileNav();
+            }
+            if (mq.addEventListener) mq.addEventListener('change', onMq);
+            else if (mq.addListener) mq.addListener(onMq);
+        })();
         document.body.addEventListener('click', function (e) {
             var btn = e.target.closest('.confirm-notification-btn');
             if (!btn) return;

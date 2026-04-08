@@ -862,7 +862,7 @@
             var tid = competitionsModalTemplateId ? competitionsModalTemplateId.value : '';
             var brandId = document.getElementById('competitions-modal-brand-id') ? document.getElementById('competitions-modal-brand-id').value : (competitionsModalBrandId ? competitionsModalBrandId.value : '');
             var sportId = document.getElementById('competitions-modal-sport-id') ? document.getElementById('competitions-modal-sport-id').value : (competitionsModalSportId ? competitionsModalSportId.value : '');
-            var payload = { template_id: parseInt(toTid, 10), competition_id: parseInt(cid, 10), brand_id: brandId ? parseInt(brandId, 10) : null, sport_id: sportId ? parseInt(sportId, 10) : null };
+            var payload = { template_id: parseInt(toTid, 10), competition_id: String(cid), brand_id: brandId ? parseInt(brandId, 10) : null, sport_id: sportId ? String(sportId) : null };
             fetch('/api/margin-templates/competitions/assign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
                 .then(function (r) { if (r.ok) { competitionsModalHadChange = true; loadCompetitionsModalData(); } });
             return;
@@ -874,7 +874,7 @@
             var tid = competitionsModalTemplateId ? competitionsModalTemplateId.value : '';
             var brandId = document.getElementById('competitions-modal-brand-id') ? document.getElementById('competitions-modal-brand-id').value : (competitionsModalBrandId ? competitionsModalBrandId.value : '');
             var sportId = document.getElementById('competitions-modal-sport-id') ? document.getElementById('competitions-modal-sport-id').value : (competitionsModalSportId ? competitionsModalSportId.value : '');
-            var payload = { template_id: parseInt(tid, 10), competition_id: parseInt(cid, 10), brand_id: brandId ? parseInt(brandId, 10) : null, sport_id: sportId ? parseInt(sportId, 10) : null };
+            var payload = { template_id: parseInt(tid, 10), competition_id: String(cid), brand_id: brandId ? parseInt(brandId, 10) : null, sport_id: sportId ? String(sportId) : null };
             fetch('/api/margin-templates/competitions/assign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
                 .then(function (r) { if (r.ok) { competitionsModalHadChange = true; loadCompetitionsModalData(); } });
             return;
@@ -1007,7 +1007,7 @@
                 betbuilder: (document.getElementById('add-template-betbuilder') && document.getElementById('add-template-betbuilder').value) || '',
                 bet_delay: (document.getElementById('add-template-bet-delay') && document.getElementById('add-template-bet-delay').value) || '',
                 brand_id: brandVal === '' ? null : parseInt(brandVal, 10),
-                sport_id: sportVal === '' ? null : parseInt(sportVal, 10)
+                sport_id: sportVal === '' ? null : String(sportVal)
             };
             var saveBtn = document.getElementById('add-template-save');
             if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Adding…'; }
@@ -1134,7 +1134,7 @@
             if (!copyFromSportId) return;
             copyFromCopyBtn.disabled = true;
             copyFromCopyBtn.textContent = 'Copying…';
-            var payload = { source_brand_id: sourceBrandId, target_brand_id: targetBrandId, sport_id: parseInt(copyFromSportId, 10) };
+            var payload = { source_brand_id: sourceBrandId, target_brand_id: targetBrandId, sport_id: String(copyFromSportId) };
             fetch('/api/margin-templates/copy-from', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

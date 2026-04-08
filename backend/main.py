@@ -361,15 +361,19 @@ SPORTS_BY_FEED = {
 
 # --- API Endpoints ---
 
-from typing import Optional
+from typing import Any, Optional
 import uuid, csv, json
 import difflib
 
+from backend.domain_ids import next_entity_domain_id, next_event_domain_id, entity_ids_equal, nullable_fk_equal, fid_str
+
+templates.env.globals["entity_ids_equal"] = entity_ids_equal
+from backend.migrate_prefixed_ids import migrate_prefixed_domain_ids_if_needed
 from backend.schemas import (
     CreateDomainEventRequest,
     CreateEntityRequest,
     UpdateEntityNameRequest,
-    UpdateEntityJurisdictionRequest,
+    UpdateEntityCountryRequest,
     UpdateMarketRequest,
     CreatePartnerRequest,
     UpdatePartnerRequest,
@@ -408,26 +412,41 @@ def _load_feeds() -> list[dict]:
     return rows
 
 
-_FEEDER_CONFIG_FIELDS = ["level", "sport_id", "category_id", "league_id", "feed_provider_id", "setting_key", "value"]
+_FEEDER_CONFIG_FIELDS = ["level", "sport_id", "category_id", "competition_id", "feed_provider_id", "setting_key", "value"]
 _FEEDER_INCIDENT_FIELDS = ["sport_id", "feed_provider_id", "incident_type", "enabled", "sort_order"]
 
 
 def _load_feeder_config() -> list[dict]:
-    """Load feeder_config.csv (level, sport_id, category_id, league_id, feed_provider_id, setting_key, value)."""
+    """Load feeder_config.csv (competition_id; legacy column league_id still read)."""
     if not FEEDER_CONFIG_PATH.exists():
         return []
     rows = []
     with open(FEEDER_CONFIG_PATH, newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
-            for key in ("sport_id", "category_id", "league_id", "feed_provider_id"):
-                if r.get(key) and r[key].strip():
+            row = dict(r)
+            comp_cell = (row.get("competition_id") or row.get("league_id") or "").strip()
+            for key in ("sport_id", "category_id", "feed_provider_id"):
+                cell = (row.get(key) or "").strip() if row.get(key) is not None else ""
+                if not cell:
+                    row[key] = None
+                    continue
+                if key == "feed_provider_id":
                     try:
-                        r[key] = int(r[key])
+                        row[key] = int(cell)
                     except (ValueError, TypeError):
-                        r[key] = None
+                        row[key] = None
                 else:
-                    r[key] = None
-            rows.append(r)
+                    row[key] = int(cell) if cell.isdigit() else cell
+            if not comp_cell:
+                row["competition_id"] = None
+            else:
+                row["competition_id"] = int(comp_cell) if comp_cell.isdigit() else comp_cell
+            row.pop("league_id", None)
+            lvl = (row.get("level") or "").strip()
+            if lvl == "league":
+                lvl = "competition"
+            row["level"] = lvl
+            rows.append(row)
     return rows
 
 
@@ -439,13 +458,22 @@ def _load_feeder_incidents() -> list[dict]:
     with open(FEEDER_INCIDENTS_PATH, newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
             for key in ("sport_id", "feed_provider_id", "sort_order"):
-                if r.get(key) and r[key].strip():
+                cell = (r.get(key) or "").strip() if r.get(key) is not None else ""
+                if not cell:
+                    r[key] = None if key != "sort_order" else 0
+                    continue
+                if key == "sport_id":
+                    r[key] = int(cell) if cell.isdigit() else cell
+                elif key == "feed_provider_id":
                     try:
-                        r[key] = int(r[key])
+                        r[key] = int(cell)
                     except (ValueError, TypeError):
                         r[key] = None
                 else:
-                    r[key] = None if key != "sort_order" else 0
+                    try:
+                        r[key] = int(cell)
+                    except (ValueError, TypeError):
+                        r[key] = 0
             r["enabled"] = (r.get("enabled") or "").strip() in ("1", "true", "yes")
             rows.append(r)
     return rows
@@ -461,7 +489,7 @@ def _save_feeder_config(rows: list[dict]) -> None:
                 "level": (r.get("level") or "").strip(),
                 "sport_id": r.get("sport_id") if r.get("sport_id") is not None else "",
                 "category_id": r.get("category_id") if r.get("category_id") is not None else "",
-                "league_id": r.get("league_id") if r.get("league_id") is not None else "",
+                "competition_id": r.get("competition_id") if r.get("competition_id") is not None else "",
                 "feed_provider_id": r.get("feed_provider_id") if r.get("feed_provider_id") is not None else "",
                 "setting_key": (r.get("setting_key") or "").strip(),
                 "value": (r.get("value") or "").strip(),
@@ -608,7 +636,7 @@ def _load_margin_template_competitions() -> list[dict]:
         for r in csv.DictReader(f):
             try:
                 tid = int(r.get("template_id") or 0)
-                cid = int(r.get("competition_id") or 0)
+                cid = str(r.get("competition_id") or "").strip()
                 if tid and cid:
                     rows.append({"template_id": tid, "competition_id": cid})
             except (TypeError, ValueError):
@@ -625,7 +653,7 @@ def _save_margin_template_competitions(rows: list[dict]) -> None:
             w.writerow({"template_id": r.get("template_id"), "competition_id": r.get("competition_id")})
 
 
-def _assign_competition_to_margin_template(competition_id: int, template_id: int = 1) -> None:
+def _assign_competition_to_margin_template(competition_id: str, template_id: int = 1) -> None:
     """Assign a domain competition to a margin template (default Uncategorized). Idempotent. Use the scope's Uncategorized template_id when assigning new competitions per (brand, sport)."""
     rows = _load_margin_template_competitions()
     if any(r.get("template_id") == template_id and r.get("competition_id") == competition_id for r in rows):
@@ -651,10 +679,10 @@ def _competition_sport_to_risk_class_map(brand_id: str | int | None = None) -> d
     templates = [t for t in all_templates if (t.get("brand_id") or "").strip() == brand_filter]
     by_id = {t["id"]: t for t in templates if t.get("id")}
     tcs = _load_margin_template_competitions()
-    out: dict[tuple[int, str], dict] = {}
+    out: dict[tuple[str, str], dict] = {}
     for r in tcs:
         tid = r.get("template_id")
-        cid = r.get("competition_id")
+        cid = fid_str(r.get("competition_id"))
         if not tid or not cid:
             continue
         t = by_id.get(tid)
@@ -667,7 +695,7 @@ def _competition_sport_to_risk_class_map(brand_id: str | int | None = None) -> d
     return out
 
 
-def _event_risk_class(ev: dict, comp_sport_to_rc: dict[tuple[int, str], dict]) -> dict | None:
+def _event_risk_class(ev: dict, comp_sport_to_rc: dict[tuple[str, str], dict]) -> dict | None:
     """
     Resolve event's competition + sport to a margin template risk_class (bet class) for Event Navigator.
     ev must have 'sport' and 'competition' (names). Uses DOMAIN_ENTITIES to resolve to ids, then comp_sport_to_rc.
@@ -688,8 +716,9 @@ def _event_risk_class(ev: dict, comp_sport_to_rc: dict[tuple[int, str], dict]) -
             break
     if comp_id is None:
         return None
-    sport_key = str(sport_id) if sport_id is not None else ""
-    rc = comp_sport_to_rc.get((comp_id, sport_key)) or comp_sport_to_rc.get((comp_id, ""))
+    sport_key = fid_str(sport_id)
+    comp_key = fid_str(comp_id)
+    rc = comp_sport_to_rc.get((comp_key, sport_key)) or comp_sport_to_rc.get((comp_key, ""))
     return rc
 
 
@@ -760,7 +789,9 @@ def _get_outcome_labels_for_market(market: dict, sport_id: int | None = None) ->
         return [], "dynamic"
     # If multiple rows (e.g. CORRECT_SCORE best_of 5 vs 3), prefer by sport: volleyball (8) -> best_of 5
     row = candidates[0]
-    if len(candidates) > 1 and sport_id == 8 and template == "CORRECT_SCORE":
+    volley = isinstance(sport_id, str) and sport_id.startswith("S-") and sport_id[2:].isdigit() and int(sport_id[2:]) == 8
+    volley = volley or sport_id == 8
+    if len(candidates) > 1 and volley and template == "CORRECT_SCORE":
         by_best = next((r for r in candidates if str(r.get("best_of") or "").strip() == "5"), None)
         if by_best:
             row = by_best
@@ -787,13 +818,13 @@ def _save_market_group(code: str, name: str) -> int:
     return next_id
 
 
-def _markets_by_group(sport_id: int | None = None) -> list[dict]:
+def _markets_by_group(sport_id: str | int | None = None) -> list[dict]:
     """Build list of { group, markets } for event details left column. If sport_id is set, only include markets created for that sport.
     Only includes groups that have at least one market (so e.g. HALF, CORNERS, CARDS are hidden when they have no markets for that sport)."""
     market_groups = _load_market_groups()
     markets = DOMAIN_ENTITIES.get("markets") or []
     if sport_id is not None:
-        markets = [m for m in markets if (m.get("sport_id") or 0) == sport_id]
+        markets = [m for m in markets if entity_ids_equal(m.get("sport_id"), sport_id)]
     group_codes = {(g.get("code") or "").strip() for g in market_groups}
     result: list[dict] = []
     for g in market_groups:
@@ -807,12 +838,9 @@ def _markets_by_group(sport_id: int | None = None) -> list[dict]:
     return result
 
 
-# Special country code for "no jurisdiction" (e.g. International category, Champions League). Not persisted.
-COUNTRY_CODE_NONE = "-"
-
 def _load_countries() -> list[dict]:
     """Load countries from data/countries/countries.json (shape: { success, results: [ { cc, name } ] ).
-    Always prepends a synthetic 'None' option (code '-') for entities without a country/jurisdiction."""
+    Always prepends a synthetic 'None' option (code '-') for entities with no country (e.g. international scope)."""
     if not COUNTRIES_PATH.exists():
         out: list[dict] = []
     else:
@@ -833,7 +861,7 @@ def _load_countries() -> list[dict]:
                     continue
                 out.append({"cc": cc, "name": name})
             out.sort(key=lambda x: x["name"].lower())
-    # Prepend None option for "no jurisdiction" (International, Champions League, etc.)
+    # Prepend None option for no country / international scope (e.g. Champions League)
     out.insert(0, {"cc": COUNTRY_CODE_NONE, "name": "None"})
     return out
 
@@ -1260,20 +1288,21 @@ def _load_market_type_mappings() -> list[dict]:
     rows = []
     with open(MARKET_TYPE_MAPPINGS_PATH, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            row["domain_market_id"] = int(row["domain_market_id"])
+            row["domain_market_id"] = str(row["domain_market_id"]).strip()
             row["feed_provider_id"] = int(row["feed_provider_id"])
             rows.append(row)
     return rows
 
 
-def _save_market_type_mappings_for_domain(domain_market_id: int, prematch: list[dict], live: list[dict]) -> None:
+def _save_market_type_mappings_for_domain(domain_market_id: str, prematch: list[dict], live: list[dict]) -> None:
     """Replace all mappings for domain_market_id with the given prematch and live lists. phase = prematch | live."""
     all_mappings = _load_market_type_mappings()
-    rest = [m for m in all_mappings if m["domain_market_id"] != domain_market_id]
+    dmid = fid_str(domain_market_id)
+    rest = [m for m in all_mappings if fid_str(m.get("domain_market_id")) != dmid]
     new_rows = []
     for item in prematch:
         new_rows.append({
-            "domain_market_id": domain_market_id,
+            "domain_market_id": dmid,
             "feed_provider_id": int(item["feed_provider_id"]),
             "feed_market_id": str(item.get("id", item.get("feed_market_id", ""))),
             "feed_market_name": (item.get("name") or item.get("feed_market_name") or "").strip(),
@@ -1281,7 +1310,7 @@ def _save_market_type_mappings_for_domain(domain_market_id: int, prematch: list[
         })
     for item in live:
         new_rows.append({
-            "domain_market_id": domain_market_id,
+            "domain_market_id": dmid,
             "feed_provider_id": int(item["feed_provider_id"]),
             "feed_market_id": str(item.get("id", item.get("feed_market_id", ""))),
             "feed_market_name": (item.get("name") or item.get("feed_market_name") or "").strip(),
@@ -1335,15 +1364,15 @@ def _migrate_entity_baseid_if_needed() -> None:
         for row in rows:
             row["baseid"] = (row.get("baseid") or "").strip()
             if etype in ("categories", "competitions", "teams"):
-                row.setdefault("jurisdiction", COUNTRY_CODE_NONE)
+                row.setdefault("country", COUNTRY_CODE_NONE)
         with open(path, "w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
             w.writeheader()
             w.writerows(rows)
 
 
-def _migrate_entity_jurisdiction_if_needed() -> None:
-    """One-time: add jurisdiction column to categories, competitions, teams CSVs if missing."""
+def _migrate_entity_country_column_if_needed() -> None:
+    """Rename legacy `jurisdiction` column to `country` for categories/competitions/teams, or add `country` if missing."""
     for etype in ("categories", "competitions", "teams"):
         path = DATA_DIR / f"{etype}.csv"
         if not path.exists():
@@ -1352,11 +1381,13 @@ def _migrate_entity_jurisdiction_if_needed() -> None:
             reader = csv.DictReader(f)
             rows = list(reader)
             fieldnames = list(reader.fieldnames or [])
-        if "jurisdiction" in fieldnames:
+        if "country" in fieldnames and "jurisdiction" not in fieldnames:
             continue
         fields = _ENTITY_FIELDS[etype]
         for row in rows:
-            row["jurisdiction"] = (row.get("jurisdiction") or "").strip() or COUNTRY_CODE_NONE
+            val = (row.get("country") or row.get("jurisdiction") or "").strip() or COUNTRY_CODE_NONE
+            row["country"] = val
+            row.pop("jurisdiction", None)
         with open(path, "w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
             w.writeheader()
@@ -1390,32 +1421,29 @@ def _migrate_entity_underage_participant_amateur_if_needed() -> None:
             w.writerows(rows)
 
 
+def _coerce_entity_fk(val) -> str | None:
+    """Sport/category FKs on entities: stored as prefixed strings (S-1, G-2)."""
+    s = str(val or "").strip()
+    return s if s else None
+
+
 def _load_entities() -> dict:
-    """Load all entity CSVs into memory with int FKs. Skips rows with invalid domain_id (e.g. merge conflict markers)."""
+    """Load all entity CSVs into memory. domain_id and entity FKs are strings (S-/G-/C-/P-/M-)."""
     store: dict[str, list[dict]] = {k: [] for k in _ENTITY_FIELDS if k != "feeds"}
     for etype in store:
         path = DATA_DIR / f"{etype}.csv"
         if path.exists():
             with open(path, newline="", encoding="utf-8") as f:
                 for row in csv.DictReader(f):
-                    try:
-                        row["domain_id"] = int(row["domain_id"])
-                    except (TypeError, ValueError):
-                        continue  # skip rows with non-numeric domain_id (e.g. merge conflict markers)
+                    did = str(row.get("domain_id") or "").strip()
+                    if not did:
+                        continue
+                    row["domain_id"] = did
                     for fk in ("sport_id", "category_id"):
-                        if fk in row and row[fk]:
-                            try:
-                                row[fk] = int(row[fk])
-                            except (TypeError, ValueError):
-                                row[fk] = None
+                        if fk in row:
+                            row[fk] = _coerce_entity_fk(row.get(fk))
                     if etype == "markets":
-                        if row.get("sport_id"):
-                            try:
-                                row["sport_id"] = int(row["sport_id"])
-                            except (TypeError, ValueError):
-                                row["sport_id"] = None
-                        else:
-                            row["sport_id"] = None
+                        row["sport_id"] = _coerce_entity_fk(row.get("sport_id"))
                     if etype == "competitions":
                         for fk in ("underage_category_id", "participant_type_id"):
                             if fk in row and row.get(fk):
@@ -1441,7 +1469,8 @@ def _load_entities() -> dict:
                     if etype in ("sports", "categories", "competitions", "teams"):
                         row["baseid"] = (row.get("baseid") or "").strip()
                     if etype in ("categories", "competitions", "teams"):
-                        row["jurisdiction"] = (row.get("jurisdiction") or "").strip() or COUNTRY_CODE_NONE
+                        row["country"] = (row.get("country") or row.get("jurisdiction") or "").strip() or COUNTRY_CODE_NONE
+                        row.pop("jurisdiction", None)
                     store[etype].append(row)
     return store
 
@@ -1459,17 +1488,17 @@ def _save_entity(etype: str, entity: dict) -> None:
 
 def _update_entity_name(
     etype: str,
-    domain_id: int,
+    domain_id: str,
     new_name: str,
     updated_at: str,
-    jurisdiction: str | None = None,
+    country: str | None = None,
     baseid: str | None = None,
     participant_type_id: int | None = None,
     underage_category_id: int | None = None,
     is_amateur: bool | None = None,
 ) -> None:
     """
-    Update name and optionally jurisdiction, baseid, participant_type_id (teams), underage_category_id (teams), is_amateur (teams), and updated_at for a single entity row.
+    Update name and optionally country, baseid, participant_type_id (teams), underage_category_id (teams), is_amateur (teams), and updated_at for a single entity row.
     """
     path = DATA_DIR / f"{etype}.csv"
     if not path.exists():
@@ -1478,26 +1507,26 @@ def _update_entity_name(
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         rows = list(reader)
+    want = fid_str(domain_id)
     for row in rows:
-        try:
-            row_id = int(row.get("domain_id", 0))
-        except (TypeError, ValueError):
+        row_id = fid_str(row.get("domain_id"))
+        if not row_id:
             continue
         if etype in ("sports", "categories", "competitions", "teams"):
             row.setdefault("baseid", "")
         if etype in ("categories", "competitions", "teams"):
-            row.setdefault("jurisdiction", COUNTRY_CODE_NONE)
+            row.setdefault("country", COUNTRY_CODE_NONE)
         if etype == "teams":
             row.setdefault("underage_category_id", "")
             row.setdefault("is_amateur", "0")
         if etype == "competitions":
             row.setdefault("underage_category_id", "")
             row.setdefault("is_amateur", "0")
-        if row_id == domain_id:
+        if row_id == want:
             row["name"] = new_name
             row["updated_at"] = updated_at
-            if etype in ("categories", "competitions", "teams") and jurisdiction is not None:
-                row["jurisdiction"] = (jurisdiction or "").strip() or COUNTRY_CODE_NONE
+            if etype in ("categories", "competitions", "teams") and country is not None:
+                row["country"] = (country or "").strip() or COUNTRY_CODE_NONE
             if etype in ("sports", "categories", "competitions", "teams") and baseid is not None:
                 row["baseid"] = (baseid or "").strip()
             if etype == "teams":
@@ -1516,8 +1545,8 @@ def _update_entity_name(
         writer.writerows(rows)
 
 
-def _update_entity_jurisdiction(etype: str, domain_id: int, jurisdiction: str, updated_at: str) -> None:
-    """Update the jurisdiction (and updated_at) for a single entity row. etype must be categories, competitions, or teams."""
+def _update_entity_country(etype: str, domain_id: str, country: str, updated_at: str) -> None:
+    """Update country code and updated_at for a single entity row. etype: categories, competitions, or teams."""
     path = DATA_DIR / f"{etype}.csv"
     if not path.exists():
         return
@@ -1525,15 +1554,15 @@ def _update_entity_jurisdiction(etype: str, domain_id: int, jurisdiction: str, u
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         rows = list(reader)
+    want = fid_str(domain_id)
     for row in rows:
-        try:
-            row_id = int(row.get("domain_id", 0))
-        except (TypeError, ValueError):
+        row_id = fid_str(row.get("domain_id"))
+        if not row_id:
             continue
         if etype in ("categories", "competitions", "teams"):
-            row.setdefault("jurisdiction", COUNTRY_CODE_NONE)
-        if row_id == domain_id:
-            row["jurisdiction"] = (jurisdiction or "").strip() or COUNTRY_CODE_NONE
+            row.setdefault("country", COUNTRY_CODE_NONE)
+        if row_id == want:
+            row["country"] = (country or "").strip() or COUNTRY_CODE_NONE
             row["updated_at"] = updated_at
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
@@ -1541,7 +1570,7 @@ def _update_entity_jurisdiction(etype: str, domain_id: int, jurisdiction: str, u
         writer.writerows(rows)
 
 
-def _update_entity_market(domain_id: int, updated_at: str, **kwargs: str | bool | None) -> None:
+def _update_entity_market(domain_id: str, updated_at: str, **kwargs: str | bool | None) -> None:
     """Update a single market row in markets.csv and in DOMAIN_ENTITIES. kwargs: name, code, abb, market_type, market_group, template, period_type, score_type, side_type, score_dependant."""
     path = DATA_DIR / "markets.csv"
     if not path.exists():
@@ -1550,12 +1579,12 @@ def _update_entity_market(domain_id: int, updated_at: str, **kwargs: str | bool 
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         rows = list(reader)
+    want = fid_str(domain_id)
     for row in rows:
-        try:
-            row_id = int(row.get("domain_id", 0))
-        except (TypeError, ValueError):
+        row_id = fid_str(row.get("domain_id"))
+        if not row_id:
             continue
-        if row_id == domain_id:
+        if row_id == want:
             if "name" in kwargs and kwargs["name"] is not None:
                 row["name"] = (kwargs["name"] or "").strip()
             if "code" in kwargs and kwargs["code"] is not None:
@@ -1585,7 +1614,7 @@ def _update_entity_market(domain_id: int, updated_at: str, **kwargs: str | bool 
     # Update in-memory
     bucket = DOMAIN_ENTITIES.get("markets") or []
     for m in bucket:
-        if m.get("domain_id") == domain_id:
+        if entity_ids_equal(m.get("domain_id"), domain_id):
             m["updated_at"] = updated_at
             if "name" in kwargs and kwargs["name"] is not None:
                 m["name"] = (kwargs["name"] or "").strip()
@@ -1661,12 +1690,13 @@ def _sync_domain_events_entity_names() -> None:
         if name:
             sport_name_to_id[name] = s.get("domain_id")
     # Build competition lookup by (sport_id, category_id) -> list of competitions
-    comps_by_sport_cat: dict[tuple[int, int], list[dict]] = {}
+    comps_by_sport_cat: dict[tuple[str, str], list[dict]] = {}
     for c in DOMAIN_ENTITIES.get("competitions", []):
         sport_id = c.get("sport_id")
         cat_id = c.get("category_id")
-        if sport_id is not None and cat_id is not None:
-            key = (int(sport_id), int(cat_id))
+        sk, ck = fid_str(sport_id), fid_str(cat_id)
+        if sk and ck:
+            key = (sk, ck)
             if key not in comps_by_sport_cat:
                 comps_by_sport_cat[key] = []
             comps_by_sport_cat[key].append(c)
@@ -1692,7 +1722,7 @@ def _sync_domain_events_entity_names() -> None:
                         sport_id = sport_name_to_id.get(sport_name)
                         cat_id = cat_name_to_id.get(cat_name)
                         if sport_id is not None and cat_id is not None:
-                            key = (int(sport_id), int(cat_id))
+                            key = (fid_str(sport_id), fid_str(cat_id))
                             matching_comps = comps_by_sport_cat.get(key, [])
                             # If exactly one competition for this sport+category, assume it's the renamed one
                             if len(matching_comps) == 1:
@@ -1792,12 +1822,12 @@ def _load_event_mappings() -> list[dict]:
 def _load_entity_feed_mappings() -> list[dict]:
     """Load entity_feed_mappings.csv (non-sport only) + sport_feed_mappings.csv (sports). Sport mappings are developer-controlled and never dumped."""
     def _parse_row(row: dict) -> dict:
-        row["domain_id"] = int(row["domain_id"])
+        row["domain_id"] = str(row["domain_id"]).strip()
         row["feed_provider_id"] = int(row["feed_provider_id"])
         if not (row.get("domain_name") or str(row.get("domain_name", "")).strip()):
             try:
                 bucket = DOMAIN_ENTITIES.get(row["entity_type"], [])
-                ent = next((e for e in bucket if e["domain_id"] == row["domain_id"]), None)
+                ent = next((e for e in bucket if entity_ids_equal(e["domain_id"], row["domain_id"])), None)
                 row["domain_name"] = (ent.get("name") or "").strip() if ent else ""
             except NameError:
                 row["domain_name"] = ""
@@ -1832,7 +1862,7 @@ def _load_sport_feed_mappings() -> list[dict]:
             try:
                 out.append({
                     "entity_type": "sports",
-                    "domain_id": int(row["domain_id"]),
+                    "domain_id": str(row["domain_id"]).strip(),
                     "feed_provider_id": int(row["feed_provider_id"]),
                     "feed_id": row.get("feed_id", ""),
                     "domain_name": (row.get("domain_name") or "").strip(),
@@ -1842,16 +1872,16 @@ def _load_sport_feed_mappings() -> list[dict]:
     return out
 
 
-def _domain_entity_name(entity_type: str, domain_id: int) -> str:
+def _domain_entity_name(entity_type: str, domain_id: str) -> str:
     """Return display name for a domain entity (from DOMAIN_ENTITIES). Empty if not found or not yet loaded."""
     try:
         bucket = DOMAIN_ENTITIES.get(entity_type, [])
-        ent = next((e for e in bucket if e["domain_id"] == domain_id), None)
+        ent = next((e for e in bucket if entity_ids_equal(e["domain_id"], domain_id)), None)
         return (ent.get("name") or "").strip() if ent else ""
     except NameError:
         return ""
 
-def _save_entity_feed_mapping(entity_type: str, domain_id: int, feed_provider_id: int, feed_id: str, domain_name: str | None = None) -> None:
+def _save_entity_feed_mapping(entity_type: str, domain_id: str, feed_provider_id: int, feed_id: str, domain_name: str | None = None) -> None:
     """Append one row to entity_feed_mappings.csv (one feed reference per domain entity). Sport mappings are not written (they live in sport_feed_mappings.csv, developer-controlled)."""
     if (entity_type or "").strip().lower() == "sports":
         return
@@ -1903,7 +1933,7 @@ def _persist_entity_feed_mappings() -> None:
             })
 
 
-def _ensure_entity_feed_mapping(entity_type: str, domain_id: int, feed_provider_id: int, feed_id: str) -> None:
+def _ensure_entity_feed_mapping(entity_type: str, domain_id: str, feed_provider_id: int, feed_id: str) -> None:
     """Idempotent: add (entity_type, domain_id, feed_provider_id, feed_id) to entity_feed_mappings if not present.
     For sports: only one mapping per (domain_id, feed_provider_id); prefer storing feed's numeric sport ID over name."""
     feed_id_str = str(feed_id).strip()
@@ -2008,22 +2038,23 @@ def _save_event_mapping(domain_event_id: str, feed_provider: str, feed_valid_id:
             writer.writeheader()
         writer.writerow(row)
 
-DOMAIN_EVENTS: list[dict] = _load_domain_events()
 FEEDS: list[dict] = _load_feeds()
 _migrate_entity_feed_mappings_if_needed()
 _migrate_sport_aliases_to_entity_feed_mappings()
 _migrate_entity_created_updated_if_needed()
-_migrate_entity_jurisdiction_if_needed()
+_migrate_entity_country_column_if_needed()
 _migrate_entity_baseid_if_needed()
 _migrate_entity_underage_participant_amateur_if_needed()
+migrate_prefixed_domain_ids_if_needed()
 DOMAIN_ENTITIES: dict[str, list[dict]] = _load_entities()
 ENTITY_FEED_MAPPINGS: list[dict] = _load_entity_feed_mappings()
 SPORT_FEED_MAPPINGS: list[dict] = _load_sport_feed_mappings()
+DOMAIN_EVENTS: list[dict] = _load_domain_events()
 
 
 def _deduplicate_sport_feed_mappings() -> None:
     """One-time: keep at most one sport mapping per (domain_id, feed_provider_id), preferring numeric feed_id."""
-    seen: dict[tuple[int, int], dict] = {}
+    seen: dict[tuple[str, int], dict] = {}
     others: list[dict] = []
     for m in ENTITY_FEED_MAPPINGS:
         if m["entity_type"] != "sports":
@@ -2158,18 +2189,16 @@ def _sync_feeder_events_mapping_status() -> None:
 
 _sync_feeder_events_mapping_status()
 
-def _next_entity_id(entity_type: str) -> int:
+def _next_entity_id(entity_type: str) -> str:
     bucket = DOMAIN_ENTITIES[entity_type]
-    if not bucket:
-        return 1
-    return max(e["domain_id"] for e in bucket) + 1
+    return next_entity_domain_id(entity_type, bucket)
 
-def _sport_name(sport_id: int) -> str:
-    s = next((s for s in DOMAIN_ENTITIES["sports"] if s["domain_id"] == sport_id), None)
+def _sport_name(sport_id: str | int | None) -> str:
+    s = next((s for s in DOMAIN_ENTITIES["sports"] if entity_ids_equal(s["domain_id"], sport_id)), None)
     return s["name"] if s else ""
 
-def _category_name(cat_id: int) -> str:
-    c = next((c for c in DOMAIN_ENTITIES["categories"] if c["domain_id"] == cat_id), None)
+def _category_name(cat_id: str | int | None) -> str:
+    c = next((c for c in DOMAIN_ENTITIES["categories"] if entity_ids_equal(c["domain_id"], cat_id)), None)
     return c["name"] if c else ""
 
 def _normalize_sport_feed_id(value: str | int | float | None) -> str:
@@ -2199,9 +2228,9 @@ def _resolve_sport_alias(feed_provider_id: int, feed_sport_id_or_name: str) -> d
         mid = (m.get("feed_id") or "").strip()
         mid_norm = _normalize_sport_feed_id(mid)
         if mid_norm and mid_norm == incoming_norm:
-            return next((s for s in DOMAIN_ENTITIES["sports"] if s["domain_id"] == m["domain_id"]), None)
+            return next((s for s in DOMAIN_ENTITIES["sports"] if entity_ids_equal(s["domain_id"], m["domain_id"])), None)
         if mid.lower() == incoming_lower:
-            return next((s for s in DOMAIN_ENTITIES["sports"] if s["domain_id"] == m["domain_id"]), None)
+            return next((s for s in DOMAIN_ENTITIES["sports"] if entity_ids_equal(s["domain_id"], m["domain_id"])), None)
     return None
 
 
@@ -2211,44 +2240,42 @@ def _register_sport_feed_id_filter():
 _register_sport_feed_id_filter()
 
 
-def _mapped_category_feed_ids_by_sport() -> set[tuple[int, str, int]]:
+def _mapped_category_feed_ids_by_sport() -> set[tuple[int, str, str]]:
     """Set of (feed_provider_id, feed_category_id, domain_sport_id) so category green is only for same sport."""
-    out: set[tuple[int, str, int]] = set()
+    out: set[tuple[int, str, str]] = set()
     for m in ENTITY_FEED_MAPPINGS:
         if m.get("entity_type") != "categories":
             continue
-        cat = next((c for c in DOMAIN_ENTITIES["categories"] if c.get("domain_id") == m.get("domain_id")), None)
+        cat = next((c for c in DOMAIN_ENTITIES["categories"] if entity_ids_equal(c.get("domain_id"), m.get("domain_id"))), None)
         if cat is not None:
             sid = cat.get("sport_id")
             if sid is not None:
-                try:
-                    out.add((int(m["feed_provider_id"]), str(m.get("feed_id") or "").strip(), int(sid)))
-                except (TypeError, ValueError):
-                    pass
+                sk = fid_str(sid)
+                if sk:
+                    out.add((int(m["feed_provider_id"]), str(m.get("feed_id") or "").strip(), sk))
     return out
 
 
-def _mapped_comp_feed_ids_by_sport() -> set[tuple[int, str, int]]:
+def _mapped_comp_feed_ids_by_sport() -> set[tuple[int, str, str]]:
     """Set of (feed_provider_id, feed_comp_id, domain_sport_id) so competition green is only for same sport."""
-    out: set[tuple[int, str, int]] = set()
+    out: set[tuple[int, str, str]] = set()
     for m in ENTITY_FEED_MAPPINGS:
         if m.get("entity_type") != "competitions":
             continue
-        comp = next((c for c in DOMAIN_ENTITIES["competitions"] if c.get("domain_id") == m.get("domain_id")), None)
+        comp = next((c for c in DOMAIN_ENTITIES["competitions"] if entity_ids_equal(c.get("domain_id"), m.get("domain_id"))), None)
         if comp is not None:
             sid = comp.get("sport_id")
             if sid is not None:
-                try:
-                    out.add((int(m["feed_provider_id"]), str(m.get("feed_id") or "").strip(), int(sid)))
-                except (TypeError, ValueError):
-                    pass
+                sk = fid_str(sid)
+                if sk:
+                    out.add((int(m["feed_provider_id"]), str(m.get("feed_id") or "").strip(), sk))
     return out
 
 
-def _get_sport_slug(domain_sport_id: int) -> str:
+def _get_sport_slug(domain_sport_id: str | int | None) -> str:
     """Return lowercase sport name with no spaces for sport-specific feed filenames (e.g. volleyball)."""
     sports = DOMAIN_ENTITIES.get("sports") or []
-    sport = next((s for s in sports if s.get("domain_id") == domain_sport_id), None)
+    sport = next((s for s in sports if entity_ids_equal(s.get("domain_id"), domain_sport_id)), None)
     if not sport:
         return ""
     name = (sport.get("name") or "").strip()
@@ -2256,7 +2283,7 @@ def _get_sport_slug(domain_sport_id: int) -> str:
 
 
 def _load_feed_markets_from_event_details(
-    feed_code: str, feed_sport_id: int, domain_sport_id: int | None
+    feed_code: str, feed_sport_id: int, domain_sport_id: str | int | None
 ) -> list[dict]:
     """
     Load unique markets from stored event-details JSONs (feed_event_details/{feed_code}/*.json).
@@ -2348,7 +2375,7 @@ def _load_feed_markets_from_event_details(
 
 
 def _load_feed_markets_for_sport(
-    feed_code: str, feed_sport_id: int, domain_sport_id: int | None = None
+    feed_code: str, feed_sport_id: int, domain_sport_id: str | int | None = None
 ) -> list[dict]:
     """
     Load unique markets for a sport from feed JSON. Prefers stored event-details (from create/map),
@@ -2618,10 +2645,11 @@ def _extract_1xbet_market_odds(_events_data: list[dict] | dict, _feed_market_id:
     return []
 
 
-def _get_feed_odds_for_event_market(domain_event_id: str, domain_market_id: int) -> list[dict]:
+def _get_feed_odds_for_event_market(domain_event_id: str, domain_market_id: str | int) -> list[dict]:
     """Return list of { feed_name, feed_market_id, outcomes: [{ name, price }] } from cached event details and market type mappings."""
     event_mappings = [m for m in _load_event_mappings() if (m.get("domain_event_id") or "").strip() == str(domain_event_id).strip()]
-    mt_mappings = [m for m in _load_market_type_mappings() if m.get("domain_market_id") == domain_market_id]
+    dmid = fid_str(domain_market_id)
+    mt_mappings = [m for m in _load_market_type_mappings() if fid_str(m.get("domain_market_id")) == dmid]
     feed_by_id = {f["domain_id"]: f for f in FEEDS}
     code_by_id = {f["domain_id"]: (f.get("code") or "").strip().lower() for f in FEEDS}
     result: list[dict] = []
@@ -2671,7 +2699,7 @@ def _get_feed_odds_for_event_market(domain_event_id: str, domain_market_id: int)
     return result
 
 
-def _resolve_entity(etype: str, feed_id: str, feed_provider_id: int, domain_sport_id: int | None = None) -> dict | None:
+def _resolve_entity(etype: str, feed_id: str, feed_provider_id: int, domain_sport_id: str | int | None = None) -> dict | None:
     """
     Look up a domain entity by its raw feed_id and provider (from entity_feed_mappings).
     For categories and competitions: when domain_sport_id is given, only return an entity that belongs to that sport.
@@ -2696,12 +2724,12 @@ def _resolve_entity(etype: str, feed_id: str, feed_provider_id: int, domain_spor
                        and str(m["feed_id"]) == feed_id_str), None)
     if not mapping:
         return None
-    entity = next((e for e in DOMAIN_ENTITIES[etype] if e["domain_id"] == mapping["domain_id"]), None)
+    entity = next((e for e in DOMAIN_ENTITIES[etype] if entity_ids_equal(e["domain_id"], mapping["domain_id"])), None)
     if not entity:
         return None
     # Categories and competitions are sport-scoped: only match if the entity's sport is the event's sport
     if domain_sport_id is not None and etype in ("categories", "competitions"):
-        if (entity.get("sport_id") or 0) != domain_sport_id:
+        if not entity_ids_equal(entity.get("sport_id"), domain_sport_id):
             return None
     return entity
 
@@ -2824,7 +2852,7 @@ async def create_market_group(body: CreateMarketGroupRequest):
 async def create_entity(body: CreateEntityRequest):
     """
     Create a domain entity (sport/category/competition/team).
-    Idempotent per type. Uses integer FKs for relational integrity.
+    Idempotent per type. Parent FKs are prefixed domain ids (S-/G-).
     """
     from fastapi import HTTPException
     bucket = DOMAIN_ENTITIES.get(body.entity_type)
@@ -2834,8 +2862,8 @@ async def create_entity(body: CreateEntityRequest):
         raise HTTPException(status_code=400, detail="Sports cannot be created from backoffice. Add them in code/data and map in entity feed mappings.")
 
     # Resolve parent FKs from names ─────────────────────────────────────────
-    sport_id: Optional[int] = None
-    category_id: Optional[int] = None
+    sport_id: Optional[str] = None
+    category_id: Optional[str] = None
 
     if body.entity_type in ("categories", "competitions", "teams", "markets") and body.sport:
         sport_key = (body.sport or "").strip().lower()
@@ -2852,7 +2880,7 @@ async def create_entity(body: CreateEntityRequest):
     if body.entity_type == "competitions" and body.category:
         cp = next((c for c in DOMAIN_ENTITIES["categories"]
                    if c["name"].lower() == body.category.lower()
-                   and c.get("sport_id") == sport_id), None)
+                   and entity_ids_equal(c.get("sport_id"), sport_id)), None)
         if cp:
             category_id = cp["domain_id"]
         else:
@@ -2866,14 +2894,14 @@ async def create_entity(body: CreateEntityRequest):
                               and m["feed_provider_id"] == body.feed_provider_id
                               and str(m["feed_id"]) == str(body.feed_id)), None)
         if already_mapped:
-            e = next((x for x in bucket if x["domain_id"] == already_mapped["domain_id"]), None)
+            e = next((x for x in bucket if entity_ids_equal(x["domain_id"], already_mapped["domain_id"])), None)
             if e:
                 # Only treat as "already mapped" if the entity is for the same sport (and category for competitions)
-                if body.entity_type == "categories" and (e.get("sport_id") or 0) != (sport_id or 0):
+                if body.entity_type == "categories" and not entity_ids_equal(e.get("sport_id"), sport_id):
                     pass  # different sport → create new category with new id
-                elif body.entity_type == "competitions" and ((e.get("sport_id") or 0) != (sport_id or 0) or (e.get("category_id") or 0) != (category_id or 0)):
+                elif body.entity_type == "competitions" and (not entity_ids_equal(e.get("sport_id"), sport_id) or not nullable_fk_equal(e.get("category_id"), category_id)):
                     pass  # different sport/category → create new competition
-                elif body.entity_type == "teams" and (e.get("sport_id") or 0) != (sport_id or 0):
+                elif body.entity_type == "teams" and not entity_ids_equal(e.get("sport_id"), sport_id):
                     pass  # different sport → create new team
                 else:
                     return {"domain_id": e["domain_id"], "name": e["name"], "created": False}
@@ -2882,22 +2910,22 @@ async def create_entity(body: CreateEntityRequest):
     if body.entity_type == "sports":
         existing = next((e for e in bucket if e["name"].lower() == body.name.lower()), None)
     elif body.entity_type == "markets":
-        existing = next((e for e in bucket if (e.get("sport_id")) == sport_id and (e.get("name") or "").strip().lower() == (body.name or "").strip().lower()), None)
+        existing = next((e for e in bucket if entity_ids_equal(e.get("sport_id"), sport_id) and (e.get("name") or "").strip().lower() == (body.name or "").strip().lower()), None)
     elif body.entity_type == "categories":
-        existing = next((e for e in bucket if e.get("sport_id") == sport_id
+        existing = next((e for e in bucket if entity_ids_equal(e.get("sport_id"), sport_id)
                          and e["name"].lower() == body.name.lower()), None)
     elif body.entity_type == "competitions":
-        existing = next((e for e in bucket if e.get("sport_id") == sport_id
-                         and e.get("category_id") == category_id
+        existing = next((e for e in bucket if entity_ids_equal(e.get("sport_id"), sport_id)
+                         and nullable_fk_equal(e.get("category_id"), category_id)
                          and e["name"].lower() == body.name.lower()), None)
     else:  # teams
-        existing = next((e for e in bucket if e.get("sport_id") == sport_id
+        existing = next((e for e in bucket if entity_ids_equal(e.get("sport_id"), sport_id)
                          and e["name"].lower() == body.name.lower()), None)
 
     if existing and body.entity_type in ("categories", "competitions", "teams", "markets") and body.feed_id and body.feed_provider_id:
         # Link this feed to the existing domain entity (multi-feed reference)
         already_in_mappings = any(
-            m["entity_type"] == body.entity_type and m["domain_id"] == existing["domain_id"]
+            m["entity_type"] == body.entity_type and entity_ids_equal(m["domain_id"], existing["domain_id"])
             and m["feed_provider_id"] == body.feed_provider_id and str(m["feed_id"]) == str(body.feed_id)
             for m in ENTITY_FEED_MAPPINGS
         )
@@ -2940,7 +2968,7 @@ async def create_entity(body: CreateEntityRequest):
         pass  # name only for sports; markets have code and sport_id set above
     elif body.entity_type in ("categories", "teams"):
         entity["sport_id"] = sport_id
-        entity["jurisdiction"] = (body.jurisdiction or "").strip() or COUNTRY_CODE_NONE
+        entity["country"] = (body.country or "").strip() or COUNTRY_CODE_NONE
         if body.entity_type == "teams":
             entity["underage_category_id"] = body.underage_category_id
             entity["participant_type_id"] = body.participant_type_id
@@ -2948,7 +2976,7 @@ async def create_entity(body: CreateEntityRequest):
     elif body.entity_type == "competitions":
         entity["sport_id"]         = sport_id
         entity["category_id"]      = category_id
-        entity["jurisdiction"]    = (body.jurisdiction or "").strip() or COUNTRY_CODE_NONE
+        entity["country"] = (body.country or "").strip() or COUNTRY_CODE_NONE
         entity["underage_category_id"] = body.underage_category_id
         entity["participant_type_id"] = body.participant_type_id
         entity["is_amateur"] = bool(body.is_amateur)
@@ -3006,23 +3034,23 @@ async def update_entity_name(body: UpdateEntityNameRequest):
         raise HTTPException(status_code=400, detail="Name is required")
 
     bucket = DOMAIN_ENTITIES.get(body.entity_type) or []
-    entity = next((e for e in bucket if e["domain_id"] == body.domain_id), None)
+    entity = next((e for e in bucket if entity_ids_equal(e["domain_id"], body.domain_id)), None)
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
 
     old_name = (entity.get("name") or "").strip()
     _now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-    jurisdiction_val: str | None = None
+    country_val: str | None = None
     baseid_val: str | None = None
 
-    if body.entity_type in ("categories", "competitions", "teams") and body.jurisdiction is not None:
-        jurisdiction_val = (body.jurisdiction or "").strip() or COUNTRY_CODE_NONE
-        entity["jurisdiction"] = jurisdiction_val
+    if body.entity_type in ("categories", "competitions", "teams") and body.country is not None:
+        country_val = (body.country or "").strip() or COUNTRY_CODE_NONE
+        entity["country"] = country_val
 
     if body.entity_type in ("sports", "categories", "competitions", "teams") and body.baseid is not None:
         baseid_val = (body.baseid or "").strip()
         if baseid_val:
-            other = next((e for e in bucket if e["domain_id"] != body.domain_id and (e.get("baseid") or "").strip() == baseid_val), None)
+            other = next((e for e in bucket if not entity_ids_equal(e["domain_id"], body.domain_id) and (e.get("baseid") or "").strip() == baseid_val), None)
             if other:
                 singular = body.entity_type[:-1]  # sport, category, competition, team
                 raise HTTPException(status_code=400, detail=f"Another {singular} already has baseid '{baseid_val}'.")
@@ -3049,7 +3077,7 @@ async def update_entity_name(body: UpdateEntityNameRequest):
         body.domain_id,
         new_name,
         _now,
-        jurisdiction=jurisdiction_val,
+        country=country_val,
         baseid=baseid_val,
         participant_type_id=body.participant_type_id if body.entity_type == "teams" else None,
         underage_category_id=body.underage_category_id if body.entity_type in ("teams", "competitions") else None,
@@ -3057,7 +3085,7 @@ async def update_entity_name(body: UpdateEntityNameRequest):
     )
 
     for m in ENTITY_FEED_MAPPINGS:
-        if m["entity_type"] == body.entity_type and m["domain_id"] == body.domain_id:
+        if m["entity_type"] == body.entity_type and entity_ids_equal(m["domain_id"], body.domain_id):
             m["domain_name"] = new_name
 
     # Update domain_events.csv when competition or category is renamed (they store names, not IDs)
@@ -3067,49 +3095,49 @@ async def update_entity_name(body: UpdateEntityNameRequest):
         global DOMAIN_EVENTS
         DOMAIN_EVENTS = _load_domain_events()
 
-    return {"domain_id": body.domain_id, "name": new_name, "jurisdiction": jurisdiction_val, "baseid": baseid_val}
+    return {"domain_id": body.domain_id, "name": new_name, "country": country_val, "baseid": baseid_val}
 
 
-@app.post("/api/entities/jurisdiction")
-async def update_entity_jurisdiction(body: UpdateEntityJurisdictionRequest):
-    """Update jurisdiction (country code or '-') for a category, competition, or team."""
+@app.post("/api/entities/country")
+async def update_entity_country(body: UpdateEntityCountryRequest):
+    """Update country (ISO code or '-') for a category, competition, or team."""
     from fastapi import HTTPException
 
     if body.entity_type not in ("categories", "competitions", "teams"):
-        raise HTTPException(status_code=400, detail="Jurisdiction is only supported for categories, competitions, and teams.")
+        raise HTTPException(status_code=400, detail="Country is only supported for categories, competitions, and teams.")
 
-    jurisdiction = (body.jurisdiction or "").strip() or COUNTRY_CODE_NONE
+    country = (body.country or "").strip() or COUNTRY_CODE_NONE
     bucket = DOMAIN_ENTITIES.get(body.entity_type) or []
-    entity = next((e for e in bucket if e["domain_id"] == body.domain_id), None)
+    entity = next((e for e in bucket if entity_ids_equal(e["domain_id"], body.domain_id)), None)
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found.")
 
     _now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-    entity["jurisdiction"] = jurisdiction
+    entity["country"] = country
     entity["updated_at"] = _now
-    _update_entity_jurisdiction(body.entity_type, body.domain_id, jurisdiction, _now)
-    return {"domain_id": body.domain_id, "jurisdiction": jurisdiction}
+    _update_entity_country(body.entity_type, body.domain_id, country, _now)
+    return {"domain_id": body.domain_id, "country": country}
 
 
-@app.get("/api/entities/markets/{domain_id:int}")
-async def get_market(domain_id: int):
+@app.get("/api/entities/markets/{domain_id:path}")
+async def get_market(domain_id: str):
     """Return a single market by domain_id for edit form."""
     from fastapi import HTTPException
 
     bucket = DOMAIN_ENTITIES.get("markets") or []
-    entity = next((e for e in bucket if e["domain_id"] == domain_id), None)
+    entity = next((e for e in bucket if entity_ids_equal(e["domain_id"], domain_id)), None)
     if not entity:
         raise HTTPException(status_code=404, detail="Market not found.")
     return entity
 
 
-@app.patch("/api/entities/markets/{domain_id:int}")
-async def update_market(domain_id: int, body: UpdateMarketRequest):
+@app.patch("/api/entities/markets/{domain_id:path}")
+async def update_market(domain_id: str, body: UpdateMarketRequest):
     """Update a market type by domain_id. All fields optional."""
     from fastapi import HTTPException
 
     bucket = DOMAIN_ENTITIES.get("markets") or []
-    entity = next((e for e in bucket if e["domain_id"] == domain_id), None)
+    entity = next((e for e in bucket if entity_ids_equal(e["domain_id"], domain_id)), None)
     if not entity:
         raise HTTPException(status_code=404, detail="Market not found.")
 
@@ -3161,8 +3189,8 @@ async def create_domain_event(body: CreateDomainEventRequest):
     """
     API Endpoint: Create a new domain event from feed data and auto-map the feeder event.
     """
-    # Generate a new unique domain event ID
-    new_id = f"G-{uuid.uuid4().hex[:8].upper()}"
+    # Sequential domain event id (E-*), distinct from category ids (G-*)
+    new_id = next_event_domain_id(DOMAIN_EVENTS)
 
     # Build the in-memory event dict (empty string for missing IDs so CSV and lookups work)
     new_event = {
@@ -3297,12 +3325,13 @@ async def map_event_to_domain(
                 ("away_id", "away", "raw_away_id", "raw_away_name"),
             ):
                 team_domain_id = None
-                try:
-                    raw_id = domain_ev.get(team_key)
-                    if raw_id is not None and (not isinstance(raw_id, str) or raw_id.strip()):
-                        team_domain_id = int(raw_id)
-                except (TypeError, ValueError):
-                    pass
+                raw_id = domain_ev.get(team_key)
+                if raw_id is not None and str(raw_id).strip():
+                    rs = str(raw_id).strip()
+                    team_domain_id = next(
+                        (t["domain_id"] for t in DOMAIN_ENTITIES["teams"] if fid_str(t["domain_id"]) == rs),
+                        None,
+                    )
                 if team_domain_id is None and sport_domain_id is not None:
                     team_name = (domain_ev.get(name_key) or "").strip()
                     if team_name:
@@ -3402,9 +3431,14 @@ async def search_domain_events(q: str = ""):
 # --- Views ---
 
 def _dashboard_feed_stats() -> list[dict]:
-    """Per-feed counts: total, mapped, unmapped (from DUMMY_EVENTS)."""
+    """Per-feed counts: total, mapped, unmapped (from DUMMY_EVENTS).
+    Only feeds that have at least one sport_feed_mappings row (same rule as Market Mapper), so removed feeds
+    (e.g. SBObet) do not appear even if a stale row remains in per-environment feeds.csv.
+    """
+    feed_ids_with_sport_mappings = {m["feed_provider_id"] for m in SPORT_FEED_MAPPINGS}
+    feeds_for_dashboard = [f for f in FEEDS if f.get("domain_id") in feed_ids_with_sport_mappings]
     stats: list[dict] = []
-    for feed in FEEDS:
+    for feed in feeds_for_dashboard:
         code = (feed.get("code") or "").strip().lower()
         name = (feed.get("name") or feed.get("code") or code) or "—"
         events = [e for e in DUMMY_EVENTS if (e.get("feed_provider") or "").strip().lower() == code]
@@ -3417,6 +3451,23 @@ def _dashboard_feed_stats() -> list[dict]:
 
 # Changelog for dashboard (new features / bugs fixed per version). Edit here or move to a file.
 DASHBOARD_CHANGELOG = [
+    {"version": "1.2", "date": "2026-04-01", "items": [
+        "Mobile navigation: hamburger menu opens a right-side drawer with the same routes as the desktop bar (including Configuration accordions). Desktop layout is unchanged from the md breakpoint upward.",
+        "Configuration: Compliance & Regulations page added at /compliance (placeholder shell for upcoming content).",
+        "Entities: CSV column jurisdiction → country for categories, competitions, and teams (ISO code or '-' for international). Brands keep jurisdiction for compliance. UI labels read Country; domain ID cells no longer use a leading #.",
+        "Mapping modal and partial-create flows use country, with backward compatibility if older rows still expose jurisdiction in memory.",
+        "Feeder configuration: League filter renamed to Competition (form field competition_id); sport/category/competition dropdowns respect prefixed domain IDs; page description clarifies that sports are not auto-created here.",
+        "Event details: market checkboxes and group logic use string domain market IDs (M-…) with numeric-aware sorting.",
+        "Margin: assign-competition and copy-from-brand API payloads use string domain IDs for sport and competition (C-…, S-…).",
+        "Backend: domain_ids helpers; optional one-time prefixed-ID migration (see v1.1 notes). Schemas and config ENTITY_FIELDS updated for country and string domain IDs where needed.",
+        ".gitignore: migration marker .domain_ids_prefixed_v1; per-environment backend/data/notes/platform_notes.csv and backend/data/countries/countries.json.",
+        "Documentation: GMP dark theme design baseline (docs/UI docs) expanded with mapping/grid colors and primary vs emerald usage; feeder QNX doc and entities / mapping-modal specs refreshed.",
+    ]},
+    {"version": "1.1", "date": "2026-03-31", "items": [
+        "Typed domain IDs: S sports, G categories, C competitions, P teams/players, M markets, E events. Legacy numeric IDs migrate once on first startup after upgrade (back up backend/data on production before deploying if you want an easy rollback).",
+        "Entities → Markets: sport filter works with prefixed sport IDs.",
+        "Entities: tables and create messages show domain IDs without a leading #.",
+    ]},
     {"version": "1.0", "date": "2026-03", "items": [
         "Market type mappings per environment (local vs server).",
         "Markets tab: require sport selection before showing markets.",
@@ -4971,8 +5022,8 @@ def _render_mapping_modal(request: Request, event_id: str):
         if not e:
             return None
         return {**e,
-                "sport_name": _sport_name(e.get("sport_id") or 0),
-                "category_name": _category_name(e.get("category_id") or 0)}
+                "sport_name": _sport_name(e.get("sport_id")),
+                "category_name": _category_name(e.get("category_id"))}
 
     resolved = {
         "sport":       r_sport,
@@ -5008,9 +5059,9 @@ def _render_mapping_modal(request: Request, event_id: str):
             category_id_for_suggest = cat_ent["domain_id"]
             suggested_category = dict(suggested_category)
             suggested_category["domain_id"] = cat_ent["domain_id"]
-            j = (cat_ent.get("jurisdiction") or "").strip()
+            j = (cat_ent.get("country") or cat_ent.get("jurisdiction") or "").strip()
             if j and j != COUNTRY_CODE_NONE:
-                suggested_category["jurisdiction"] = j
+                suggested_category["country"] = j
 
     # Competition: always derive from feed first; only use domain when match ≥55%
     comp_candidates = _suggest_entity_by_name("competitions", event.get("raw_league_name") or "", sport_id_for_suggest, category_id_for_suggest)
@@ -5066,9 +5117,9 @@ def _render_mapping_modal(request: Request, event_id: str):
                 if cat_ent:
                     suggested_entities["category"] = dict(suggested_entities["category"])
                     suggested_entities["category"]["domain_id"] = cat_ent["domain_id"]
-                    j = (cat_ent.get("jurisdiction") or "").strip()
+                    j = (cat_ent.get("country") or cat_ent.get("jurisdiction") or "").strip()
                     if j and j != COUNTRY_CODE_NONE:
-                        suggested_entities["category"]["jurisdiction"] = j
+                        suggested_entities["category"]["country"] = j
         # Only override competition when feed competition matches domain event competition (≥55%)
         if feed_comp and d_comp and pct_comp >= 55:
             suggested_entities["competition"] = {"name": suggested_domain_event.get("competition") or "", "match_pct": pct_comp, "is_suggested": pct_comp == 0}
@@ -5079,13 +5130,13 @@ def _render_mapping_modal(request: Request, event_id: str):
 
     countries = _load_countries()
     # When feed category matches a country (e.g. Barbados) but not in domain, pre-select that country in dropdown
-    if suggested_entities.get("category") and not suggested_entities["category"].get("jurisdiction"):
+    if suggested_entities.get("category") and not suggested_entities["category"].get("country"):
         cat_name = (suggested_entities["category"].get("name") or "").strip()
         if cat_name:
             country_match = next((c for c in countries if (c.get("name") or "").strip().lower() == cat_name.lower()), None)
             if country_match and (country_match.get("cc") or "").strip() != COUNTRY_CODE_NONE:
                 suggested_entities["category"] = dict(suggested_entities["category"])
-                suggested_entities["category"]["jurisdiction"] = (country_match.get("cc") or "").strip()
+                suggested_entities["category"]["country"] = (country_match.get("cc") or "").strip()
 
     participant_types = _load_participant_types()
     underage_categories = _load_underage_categories()
@@ -5106,7 +5157,10 @@ def _render_mapping_modal(request: Request, event_id: str):
     suggested_underage_home_id = _suggest_underage_id(event.get("raw_home_name") or "")
     suggested_underage_away_id = _suggest_underage_id(event.get("raw_away_name") or "")
 
-    exception_categories = [c for c in DOMAIN_ENTITIES["categories"] if (c.get("jurisdiction") or "").strip() == COUNTRY_CODE_NONE]
+    exception_categories = [
+        c for c in DOMAIN_ENTITIES["categories"]
+        if (c.get("country") or c.get("jurisdiction") or "").strip() == COUNTRY_CODE_NONE
+    ]
 
     return templates.TemplateResponse("modal_mapping.html", {
         "request": request,
@@ -5266,7 +5320,7 @@ async def api_delete_note(note_id: str):
 @app.get("/api/feed-markets")
 async def api_feed_markets(
     feed_provider_id: int = Query(..., description="Feed domain_id from feeds.csv"),
-    domain_sport_id: int = Query(..., description="Domain sport id (e.g. 1 = Football) to resolve feed's sport id"),
+    domain_sport_id: str = Query(..., description="Domain sport id (e.g. S-1) to resolve feed's sport id"),
 ):
     """
     Return unique markets from a feed JSON for the given feed and sport.
@@ -5275,7 +5329,7 @@ async def api_feed_markets(
     """
     mapping = next(
         (m for m in SPORT_FEED_MAPPINGS
-         if m.get("domain_id") == domain_sport_id
+         if entity_ids_equal(m.get("domain_id"), domain_sport_id)
          and m.get("feed_provider_id") == feed_provider_id),
         None,
     )
@@ -5302,8 +5356,8 @@ async def api_feed_markets(
 
 @app.get("/api/event-details/feed-odds")
 async def api_event_details_feed_odds(
-    domain_event_id: str = Query(..., description="Domain event id (e.g. G-xxx)"),
-    domain_market_id: int = Query(..., description="Domain market type id"),
+    domain_event_id: str = Query(..., description="Domain event id (e.g. E-1)"),
+    domain_market_id: str = Query(..., description="Domain market type id (e.g. M-3)"),
 ):
     """Return feed odds for the selected market from each mapped feed (from cached event details)."""
     rows = _get_feed_odds_for_event_market(domain_event_id, domain_market_id)
@@ -5348,7 +5402,7 @@ async def api_get_all_mapped_feed_market_keys():
 
 @app.get("/api/market-type-mappings")
 async def api_get_market_type_mappings(
-    domain_market_id: int = Query(..., description="Domain market type id"),
+    domain_market_id: str = Query(..., description="Domain market type id (e.g. M-3)"),
 ):
     """Return prematch and live feed mappings for a domain market type."""
     mappings = _load_market_type_mappings()
@@ -5359,8 +5413,9 @@ async def api_get_market_type_mappings(
     bet365_codes = {f["domain_id"] for f in FEEDS if (f.get("code") or "").strip().lower() == "bet365"}
     game_lines_names = {"Game Lines - Winner": "1", "Game Lines - Handicap": "2", "Game Lines - Total": "3"}
     set1_lines_names = {"Set 1 Lines - Winner": "1", "Set 1 Lines - Handicap": "2", "Set 1 Lines - Total": "3"}
+    want_mid = fid_str(domain_market_id)
     for m in mappings:
-        if m["domain_market_id"] != domain_market_id:
+        if fid_str(m.get("domain_market_id")) != want_mid:
             continue
         fid_raw = (m.get("feed_market_id") or "").strip()
         try:
@@ -5411,7 +5466,7 @@ async def api_localization_upsert_country(body: CountryUpsertRequest):
         raise HTTPException(status_code=400, detail="Name and code are required.")
     cc_lower = cc.lower()
     if cc_lower == COUNTRY_CODE_NONE or (body.original_cc or "").strip().lower() == COUNTRY_CODE_NONE:
-        raise HTTPException(status_code=400, detail="The 'None' option is reserved for no jurisdiction and cannot be modified.")
+        raise HTTPException(status_code=400, detail="The 'None' option is reserved for no country and cannot be modified.")
     countries = _load_countries()
     updated = False
     # Update existing by original_cc if provided, otherwise by cc
@@ -5991,7 +6046,7 @@ async def margin_templates_copy_from(body: CopyFromBrandRequest):
     # Ensure target scope has Uncategorized (so we have a scope to copy into)
     _load_margin_templates(
         int(target_brand_key) if target_brand_key else None,
-        int(sport_key) if sport_key else None,
+        sport_key,
     )
     all_rows = _load_margin_templates()
 
@@ -6061,7 +6116,7 @@ async def margin_templates_copy_from(body: CopyFromBrandRequest):
     return {"ok": True, "templates_copied": len(source_templates), "competitions_copied": len(new_assignments)}
 
 
-def _template_ids_for_scope(brand_id: int | None, sport_id: int | None) -> list[int]:
+def _template_ids_for_scope(brand_id: int | None, sport_id: str | int | None) -> list[int]:
     """Return template IDs for the given (brand_id, sport_id) scope."""
     templates = _load_margin_templates(brand_id, sport_id)
     return [t["id"] for t in templates if t.get("id") is not None]
@@ -6080,17 +6135,14 @@ async def margin_template_competitions(
     from fastapi import HTTPException
     b = (brand_id or "").strip()
     s = (sport_id or "").strip()
-    try:
-        sport_id_int = int(s) if s else None
-    except (TypeError, ValueError):
-        sport_id_int = None
+    sport_key = s if s else None
     brand_id_int = None
     if b:
         try:
             brand_id_int = int(b)
         except (TypeError, ValueError):
             pass
-    scope_templates = _load_margin_templates(brand_id_int, sport_id_int)
+    scope_templates = _load_margin_templates(brand_id_int, sport_key)
     scope_template_ids = [t["id"] for t in scope_templates if t.get("id") is not None]
     if template_id not in scope_template_ids:
         raise HTTPException(status_code=404, detail="Template not in current scope")
@@ -6105,10 +6157,10 @@ async def margin_template_competitions(
             "category_name": category_name_by_id.get(c.get("category_id"), "—"),
         }
         for c in competitions
-        if c.get("domain_id") is not None and c.get("sport_id") == sport_id_int
-    ] if sport_id_int else []
+        if c.get("domain_id") is not None and entity_ids_equal(c.get("sport_id"), sport_key)
+    ] if sport_key else []
     tcs = _load_margin_template_competitions()
-    comp_to_template: dict[int, int] = {}
+    comp_to_template: dict[str, int] = {}
     for r in tcs:
         tid, cid = r.get("template_id"), r.get("competition_id")
         if tid in scope_template_ids and cid is not None:
@@ -6169,8 +6221,8 @@ async def assign_competition_to_template(body: AssignCompetitionToTemplateReques
     if body.template_id not in scope_template_ids:
         raise HTTPException(status_code=400, detail="Template not in current scope")
     competitions = DOMAIN_ENTITIES.get("competitions", [])
-    comp = next((c for c in competitions if c.get("domain_id") == body.competition_id), None)
-    if not comp or (body.sport_id is not None and comp.get("sport_id") != body.sport_id):
+    comp = next((c for c in competitions if entity_ids_equal(c.get("domain_id"), body.competition_id)), None)
+    if not comp or (body.sport_id is not None and not entity_ids_equal(comp.get("sport_id"), body.sport_id)):
         raise HTTPException(status_code=400, detail="Competition not found or not in selected sport")
     rows = _load_margin_template_competitions()
     rows = [r for r in rows if not (r.get("competition_id") == body.competition_id and r.get("template_id") in scope_template_ids)]
@@ -6195,13 +6247,11 @@ async def entities_view(
     sort_asc = (sort_sports or "asc").strip().lower() != "desc"
     sports_list.sort(key=lambda e: (e.get("name") or "").strip().lower(), reverse=not sort_asc)
     markets_list = list(DOMAIN_ENTITIES["markets"])
-    market_sport_id_int: int | None = None
+    selected_market_sport_id: str | None = None
     if market_sport_id and str(market_sport_id).strip():
-        try:
-            market_sport_id_int = int(market_sport_id)
-            markets_list = [m for m in markets_list if (m.get("sport_id")) == market_sport_id_int]
-        except (TypeError, ValueError):
-            pass
+        ms = fid_str(market_sport_id)
+        selected_market_sport_id = ms
+        markets_list = [m for m in markets_list if entity_ids_equal(m.get("sport_id"), ms)]
     entities = {
         "sports":       sports_list,
         "categories":   DOMAIN_ENTITIES["categories"],
@@ -6262,7 +6312,7 @@ async def entities_view(
         "market_score_types": market_score_types,
         "market_groups": market_groups,
         "participant_types_by_id": participant_types_by_id,
-        "market_sport_id": market_sport_id_int,
+        "market_sport_id": selected_market_sport_id,
     })
 
 
@@ -6287,26 +6337,39 @@ async def api_add_feed_sport(
     return {"ok": True, "created": True}
 
 
-# Feeder Configuration: system action keys (for grid columns)
+# Feeder Configuration: per-feed toggles (grid rows). Each row: (setting_key, label, optional_hint).
 FEEDER_SYSTEM_ACTIONS = [
-    ("automapping_enabled", "Automapping enabled"),
-    ("automapping_teams_enabled", "Automapping teams enabled"),
-    ("automapping_start_time_threshold_hours", "Start time threshold (h)"),
-    ("auto_live_offer", "Auto live offer"),
-    ("automap_neutral_grounds", "Automap neutral grounds"),
-    ("auto_update_start_time_rank", "Start time rank"),
-    ("market_mapping_behavior", "Market mapping behavior"),
-    ("auto_create_domain_event", "Auto create domain event"),
-    ("auto_create_domain_player", "Auto create domain player"),
-    ("automap_market_type_enabled", "Automap market type enabled"),
-    ("auto_create_market_type_enabled", "Auto create market type enabled"),
-    ("settlement_enabled", "Settlement enabled"),
-    ("resettlement_enabled", "Resettlement enabled"),
-    ("bet_void_enabled", "Bet void enabled"),
-    ("bet_void_rollback_enabled", "Bet void rollback enabled"),
-    ("auto_map_one_to_many_enabled", "Auto map one to many enabled"),
-    ("external_trading_service_enabled", "External trading service enabled"),
+    ("auto_create_category", "Auto create Category", None),
+    ("auto_create_competitions", "Auto create Competitions", None),
+    ("auto_create_teams", "Auto create Teams", None),
+    (
+        "auto_create_events",
+        "Auto create Events",
+        "Only when sport, category, competition and teams already exist in the domain; runtime will not create events without those prerequisites.",
+    ),
 ]
+
+
+def _feeder_config_yes_no_value(raw: str | None) -> str:
+    """Normalize stored feeder config toggle to exactly 'Yes' or 'No' (default No)."""
+    v = (raw or "").strip().casefold()
+    return "Yes" if v == "yes" else "No"
+
+
+def _feeder_scope_id(raw: Any) -> str | int | None:
+    """Parse sport/category/competition id from query or JSON (supports S-1 / G-2 / C-3 and legacy numeric)."""
+    if raw is None:
+        return None
+    if isinstance(raw, int):
+        return raw
+    s = str(raw).strip()
+    if not s:
+        return None
+    if s.isdigit():
+        return int(s)
+    return s
+
+
 FEEDER_INCIDENT_TYPES = [
     ("score", "Score"),
     ("time", "Time"),
@@ -6430,16 +6493,26 @@ async def risk_rules_view(request: Request):
     })
 
 
+@app.get("/compliance", response_class=HTMLResponse)
+async def compliance_view(request: Request):
+    """Configuration > Compliance (placeholder)."""
+    return templates.TemplateResponse("configuration/compliance.html", {
+        "request": request,
+        "section": "compliance",
+    })
+
+
 @app.get("/feeders", response_class=HTMLResponse)
 async def feeders_view(
     request: Request,
     sport_id: str | None = None,
     category_id: str | None = None,
+    competition_id: str | None = None,
     league_id: str | None = None,
 ):
     """
     Configuration > Feeder page.
-    Filters: Sport, Category, League (cascading). Main grid: feeder config system actions per feed.
+    Filters: Sport, Category, Competition (cascading). Main grid: Auto create Category / Competitions / Teams / Events per feed.
     When sport selected: Feeder Incidents Configuration section at bottom.
     """
     sports = DOMAIN_ENTITIES["sports"]
@@ -6451,38 +6524,48 @@ async def feeders_view(
     feeder_config_rows = _load_feeder_config()
     feeder_incident_rows = _load_feeder_incidents()
 
-    # Handle "all" for All Sports (special value)
+    # Handle "all" for All Sports (special value). Sport/category/competition ids may be prefixed (S-1, G-2, C-3).
     is_all_sports = sport_id and sport_id.strip().lower() == "all"
-    sid_int = None if is_all_sports else (int(sport_id) if sport_id and sport_id.strip() else None)
-    cid_int = int(category_id) if category_id and category_id.strip() else None
-    lid_int = int(league_id) if league_id and league_id.strip() else None
-    level = "all_sports" if is_all_sports else ("league" if lid_int is not None else "category" if cid_int is not None else "sport" if sid_int is not None else None)
+    sid_key = None if is_all_sports else _feeder_scope_id(sport_id)
+    cid_key = _feeder_scope_id(category_id)
+    comp_key = _feeder_scope_id((competition_id or league_id or "").strip() or None)
+    level = "all_sports" if is_all_sports else (
+        "competition" if comp_key is not None else "category" if cid_key is not None else "sport" if sid_key is not None else None
+    )
 
     config_lookup = {}
     for r in feeder_config_rows:
-        rsid, rcid, rlid = r.get("sport_id"), r.get("category_id"), r.get("league_id")
-        if level == "all_sports" and rsid is None and rcid is None and rlid is None:
+        rsid, rcid, rcomp = r.get("sport_id"), r.get("category_id"), r.get("competition_id")
+        if level == "all_sports" and rsid is None and rcid is None and rcomp is None:
             fid, key = r.get("feed_provider_id"), r.get("setting_key")
             if fid is not None and key:
-                config_lookup[(fid, key)] = (r.get("value") or "").strip() or "Not set"
-        elif level == "sport" and rsid == sid_int and rcid is None and rlid is None:
+                config_lookup[(fid, key)] = _feeder_config_yes_no_value(r.get("value"))
+        elif level == "sport" and sid_key is not None and entity_ids_equal(rsid, sid_key) and rcid is None and rcomp is None:
             fid, key = r.get("feed_provider_id"), r.get("setting_key")
             if fid is not None and key:
-                config_lookup[(fid, key)] = (r.get("value") or "").strip() or "Not set"
-        elif level == "category" and rsid == sid_int and rcid == cid_int and rlid is None:
+                config_lookup[(fid, key)] = _feeder_config_yes_no_value(r.get("value"))
+        elif level == "category" and sid_key is not None and cid_key is not None and entity_ids_equal(rsid, sid_key) and entity_ids_equal(rcid, cid_key) and rcomp is None:
             fid, key = r.get("feed_provider_id"), r.get("setting_key")
             if fid is not None and key:
-                config_lookup[(fid, key)] = (r.get("value") or "").strip() or "Not set"
-        elif level == "league" and rsid == sid_int and rcid == cid_int and rlid == lid_int:
+                config_lookup[(fid, key)] = _feeder_config_yes_no_value(r.get("value"))
+        elif (
+            level == "competition"
+            and sid_key is not None
+            and cid_key is not None
+            and comp_key is not None
+            and entity_ids_equal(rsid, sid_key)
+            and entity_ids_equal(rcid, cid_key)
+            and entity_ids_equal(rcomp, comp_key)
+        ):
             fid, key = r.get("feed_provider_id"), r.get("setting_key")
             if fid is not None and key:
-                config_lookup[(fid, key)] = (r.get("value") or "").strip() or "Not set"
+                config_lookup[(fid, key)] = _feeder_config_yes_no_value(r.get("value"))
 
     incident_lookup = {}
     # Feeder Incidents only shown for specific sport (not All Sports)
-    if sid_int is not None and not is_all_sports:
+    if sid_key is not None and not is_all_sports:
         for r in feeder_incident_rows:
-            if r.get("sport_id") == sid_int:
+            if entity_ids_equal(r.get("sport_id"), sid_key):
                 fid, itype = r.get("feed_provider_id"), r.get("incident_type")
                 if fid is not None and itype:
                     incident_lookup[(fid, itype)] = r.get("enabled", False)
@@ -6504,9 +6587,9 @@ async def feeders_view(
         "feeder_incident_lookup": incident_lookup,
         "system_actions": FEEDER_SYSTEM_ACTIONS,
         "incident_types": FEEDER_INCIDENT_TYPES,
-        "selected_sport_id": "all" if is_all_sports else sid_int,
-        "selected_category_id": cid_int,
-        "selected_league_id": lid_int,
+        "selected_sport_id": "all" if is_all_sports else sid_key,
+        "selected_category_id": cid_key,
+        "selected_competition_id": comp_key,
         "config_level": level,
         "feed_sports": feed_sports,
         "feed_sports_count": feed_sports_count,
@@ -6515,57 +6598,63 @@ async def feeders_view(
 
 @app.post("/api/feeder-config")
 async def api_save_feeder_config(request: Request):
-    """Save feeder configuration for the given level (sport/category/league). Replaces existing rows for that level."""
+    """Save feeder configuration for the given level (sport/category/competition). Replaces existing rows for that level."""
     try:
         body = await request.json()
     except Exception:
         return JSONResponse({"detail": "Invalid JSON"}, status_code=400)
     level = (body.get("level") or "").strip()
+    if level == "league":
+        level = "competition"
     sport_id = body.get("sport_id")
     category_id = body.get("category_id")
-    league_id = body.get("league_id")
+    competition_id = body.get("competition_id")
+    if competition_id is None and body.get("league_id") is not None:
+        competition_id = body.get("league_id")
     settings = body.get("settings") or []
     is_all_sports = level == "all_sports"
-    if level not in ("all_sports", "sport", "category", "league"):
-        return JSONResponse({"detail": "level must be all_sports, sport, category, or league"}, status_code=400)
+    if level not in ("all_sports", "sport", "category", "competition"):
+        return JSONResponse({"detail": "level must be all_sports, sport, category, or competition"}, status_code=400)
     if is_all_sports:
-        sid, cid, lid = None, None, None
+        sid, cid, comp_id = None, None, None
     else:
         if sport_id is None:
-            return JSONResponse({"detail": "sport_id required for sport/category/league level"}, status_code=400)
-        cid = int(category_id) if category_id is not None else None
-        lid = int(league_id) if league_id is not None else None
-        sid = int(sport_id)
+            return JSONResponse({"detail": "sport_id required for sport/category/competition level"}, status_code=400)
+        sid = _feeder_scope_id(sport_id)
+        cid = _feeder_scope_id(category_id)
+        comp_id = _feeder_scope_id(competition_id)
+        if sid is None:
+            return JSONResponse({"detail": "sport_id required for sport/category/competition level"}, status_code=400)
         if level == "category" and cid is None:
             return JSONResponse({"detail": "category_id required for category level"}, status_code=400)
-        if level == "league" and (cid is None or lid is None):
-            return JSONResponse({"detail": "category_id and league_id required for league level"}, status_code=400)
+        if level == "competition" and (cid is None or comp_id is None):
+            return JSONResponse({"detail": "category_id and competition_id required for competition level"}, status_code=400)
     existing = _load_feeder_config()
     def match_row(r):
-        rsid, rcid, rlid = r.get("sport_id"), r.get("category_id"), r.get("league_id")
+        rsid, rcid, rcomp = r.get("sport_id"), r.get("category_id"), r.get("competition_id")
         if level == "all_sports":
-            return rsid is None and rcid is None and rlid is None
+            return rsid is None and rcid is None and rcomp is None
         if level == "sport":
-            return rsid == sid and rcid is None and rlid is None
+            return entity_ids_equal(rsid, sid) and rcid is None and rcomp is None
         if level == "category":
-            return rsid == sid and rcid == cid and rlid is None
-        return rsid == sid and rcid == cid and rlid == lid
+            return entity_ids_equal(rsid, sid) and entity_ids_equal(rcid, cid) and rcomp is None
+        return entity_ids_equal(rsid, sid) and entity_ids_equal(rcid, cid) and entity_ids_equal(rcomp, comp_id)
     kept = [r for r in existing if not match_row(r)]
     new_rows = []
     for s in settings:
         fid = s.get("feed_provider_id")
         key = (s.get("setting_key") or "").strip()
-        val = (s.get("value") or "").strip()
+        val = _feeder_config_yes_no_value(s.get("value"))
         if fid is None or not key:
             continue
         new_rows.append({
             "level": level,
             "sport_id": sid,
             "category_id": cid,
-            "league_id": lid,
+            "competition_id": comp_id,
             "feed_provider_id": int(fid),
             "setting_key": key,
-            "value": val or "Not set",
+            "value": val,
         })
     all_rows = kept + new_rows
     _save_feeder_config(all_rows)
@@ -6583,9 +6672,11 @@ async def api_save_feeder_incidents(request: Request):
     incidents = body.get("incidents") or []
     if sport_id is None:
         return JSONResponse({"detail": "sport_id required"}, status_code=400)
-    sid = int(sport_id)
+    sid = _feeder_scope_id(sport_id)
+    if sid is None:
+        return JSONResponse({"detail": "sport_id required"}, status_code=400)
     existing = _load_feeder_incidents()
-    kept = [r for r in existing if r.get("sport_id") != sid]
+    kept = [r for r in existing if not entity_ids_equal(r.get("sport_id"), sid)]
     new_rows = []
     for i, inc in enumerate(incidents):
         fid = inc.get("feed_provider_id")
@@ -6633,13 +6724,12 @@ async def margin_view(
 
     # Default Sport to Football when not applied (for dropdown preload)
     football = next((s for s in sports if (s.get("name") or "").strip().lower() == "football"), sports[0] if sports else None)
-    default_sport_id = int(football["domain_id"]) if football and football.get("domain_id") is not None else None
+    default_sport_id = fid_str(football["domain_id"]) if football and football.get("domain_id") is not None else None
 
     selected_sport_id = default_sport_id
     if applied and sport_id and str(sport_id).strip():
-        try:
-            selected_sport_id = int(sport_id)
-        except (TypeError, ValueError):
+        selected_sport_id = fid_str(sport_id)
+        if not any(fid_str(s.get("domain_id")) == selected_sport_id for s in sports):
             selected_sport_id = default_sport_id
 
     if not applied:
@@ -6667,11 +6757,11 @@ async def margin_view(
     # Competition count per template: only competitions for the selected sport.
     # Uncategorized is the default bucket: count also competitions not assigned to any template in this scope.
     competition_ids_for_sport = {
-        int(c["domain_id"]) for c in DOMAIN_ENTITIES.get("competitions", [])
-        if c.get("domain_id") is not None and c.get("sport_id") == selected_sport_id
+        fid_str(c["domain_id"]) for c in DOMAIN_ENTITIES.get("competitions", [])
+        if c.get("domain_id") is not None and entity_ids_equal(c.get("sport_id"), selected_sport_id)
     } if selected_sport_id else set()
     scope_template_ids = [t["id"] for t in margin_templates if t.get("id") is not None]
-    comp_to_scope_template: dict[int, int] = {}
+    comp_to_scope_template: dict[str, int] = {}
     for r in template_competitions:
         tid, cid = r.get("template_id"), r.get("competition_id")
         if tid in scope_template_ids and cid is not None:
