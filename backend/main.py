@@ -3451,6 +3451,9 @@ def _dashboard_feed_stats() -> list[dict]:
 
 # Changelog for dashboard (new features / bugs fixed per version). Edit here or move to a file.
 DASHBOARD_CHANGELOG = [
+    {"version": "1.2.1", "date": "2026-04-01", "items": [
+        "Starlette 1.x / current pip: all Jinja2 TemplateResponse calls use TemplateResponse(request, name, context). Fixes Internal Server Error on dashboard and every HTML page when the container installs a recent Starlette (old name-first signature was removed). requirements.txt pins minimum FastAPI/Starlette.",
+    ]},
     {"version": "1.2", "date": "2026-04-01", "items": [
         "Mobile navigation: hamburger menu opens a right-side drawer with the same routes as the desktop bar (including Configuration accordions). Desktop layout is unchanged from the md breakpoint upward.",
         "Configuration: Compliance & Regulations page added at /compliance (placeholder shell for upcoming content).",
@@ -3481,7 +3484,7 @@ async def dashboard(request: Request):
     """
     Main Dashboard View. Shows per-feed mapped/unmapped summary and changelog.
     """
-    return templates.TemplateResponse("index.html", {
+    return templates.TemplateResponse(request, "index.html", {
         "request": request,
         "section": "dashboard",
         "feed_stats": _dashboard_feed_stats(),
@@ -3559,7 +3562,7 @@ async def pull_feeds_view(request: Request):
         s["last_pull"] = _format_last_pull(last_pulls.get(("1xbet", (s.get("feed_sport_id") or "").strip())))
     for s in bwin_sports:
         s["last_pull"] = _format_last_pull(last_pulls.get(("bwin", (s.get("feed_sport_id") or "").strip())))
-    return templates.TemplateResponse("pull_feeds.html", {
+    return templates.TemplateResponse(request, "pull_feeds.html", {
         "request": request,
         "section": "pull_feeds",
         "bet365_sports": bet365_sports,
@@ -3768,7 +3771,7 @@ async def dump_csv_data_page(request: Request):
     """
     Hidden page (not in menu). Dump CSV data tool. Access only via URL.
     """
-    return templates.TemplateResponse("admin/dump_csv_data.html", {"request": request})
+    return templates.TemplateResponse(request, "admin/dump_csv_data.html", {})
 
 
 @app.post("/api/dump-csv-data", response_class=HTMLResponse)
@@ -4277,7 +4280,7 @@ async def feeder_events_view(
     mapped_category_feed_ids = _mapped_category_feed_ids_by_sport()
     mapped_comp_feed_ids    = _mapped_comp_feed_ids_by_sport()
     mapped_team_feed_ids    = _mk("teams")
-    return templates.TemplateResponse("feeder_events/feeder_events.html", {
+    return templates.TemplateResponse(request, "feeder_events/feeder_events.html", {
         "request": request,
         "section": "feeder",
         "feeds": KNOWN_FEEDS,
@@ -4319,7 +4322,7 @@ async def feeder_events_sport_options(request: Request, feed_provider: str = Non
     selected_feed = feed_provider or KNOWN_FEEDS[0]
     events_for_feed = [e for e in DUMMY_EVENTS if e.get("feed_provider") == selected_feed]
     feed_sports = _get_sports_for_feed(selected_feed, events_for_feed) or SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
-    return templates.TemplateResponse("feeder_events/_sport_checkboxes.html", {
+    return templates.TemplateResponse(request, "feeder_events/_sport_checkboxes.html", {
         "request": request,
         "sports": feed_sports
     })
@@ -4440,7 +4443,7 @@ async def feeder_events_table(
     mapped_comp_feed_ids    = _mapped_comp_feed_ids_by_sport()
     mapped_team_feed_ids    = _mk("teams")
 
-    response = templates.TemplateResponse("feeder_events/_rows.html", {
+    response = templates.TemplateResponse(request, "feeder_events/_rows.html", {
         "request": request,
         "events": page_events,
         "selected_feed_pid": selected_feed_pid,
@@ -4473,7 +4476,7 @@ async def feeder_events_category_options(
     feed = feed_provider or KNOWN_FEEDS[0]
     cat_list = _feeder_categories(feed, sports) if sports else []
     selected = categories or []
-    return templates.TemplateResponse("feeder_events/_category_checkboxes.html", {
+    return templates.TemplateResponse(request, "feeder_events/_category_checkboxes.html", {
         "request": request,
         "categories": cat_list,
         "selected_categories": selected,
@@ -4492,7 +4495,7 @@ async def feeder_events_competition_options(
     feed = feed_provider or KNOWN_FEEDS[0]
     comp_list = _feeder_competitions(feed, sports, categories) if (sports and categories) else []
     selected = competitions or []
-    return templates.TemplateResponse("feeder_events/_competition_checkboxes.html", {
+    return templates.TemplateResponse(request, "feeder_events/_competition_checkboxes.html", {
         "request": request,
         "competitions": comp_list,
         "selected_competitions": selected,
@@ -4706,7 +4709,7 @@ async def event_navigator_view(
     comp_sport_to_rc = _competition_sport_to_risk_class_map(selected_brand_id)
     for e in page_events:
         e["risk_class"] = _event_risk_class(e, comp_sport_to_rc)
-    return templates.TemplateResponse("event_navigator/event_navigator.html", {
+    return templates.TemplateResponse(request, "event_navigator/event_navigator.html", {
         "request": request,
         "section": "domain",
         "domain_events": page_events,
@@ -4825,7 +4828,7 @@ async def event_navigator_table(
     comp_sport_to_rc = _competition_sport_to_risk_class_map(selected_brand_id)
     for e in page_events:
         e["risk_class"] = _event_risk_class(e, comp_sport_to_rc)
-    response = templates.TemplateResponse("event_navigator/_rows.html", {
+    response = templates.TemplateResponse(request, "event_navigator/_rows.html", {
         "request": request,
         "domain_events": page_events,
     })
@@ -4894,7 +4897,7 @@ async def event_navigator_event_details(request: Request, domain_id: str):
     brands = _load_brands()
     template_outcome_count = _template_outcome_count
     market_has_line = _market_has_line
-    return templates.TemplateResponse("event_details.html", {
+    return templates.TemplateResponse(request, "event_details.html", {
         "request": request,
         "section": "domain",
         "event": ev,
@@ -4916,7 +4919,7 @@ async def event_navigator_notes_modal(request: Request, domain_event_id: str):
     event_label = ""
     if ev:
         event_label = (ev.get("home") or "") + " v " + (ev.get("away") or "") if (ev.get("home") or ev.get("away")) else (ev.get("name") or str(ev.get("id")))
-    return templates.TemplateResponse("event_navigator/modal_notes.html", {
+    return templates.TemplateResponse(request, "event_navigator/modal_notes.html", {
         "request": request,
         "domain_event_id": domain_event_id,
         "event_label": event_label,
@@ -4953,7 +4956,7 @@ async def event_navigator_category_options(
     """HTMX: Category checkboxes for domain events filter. Only categories for the given sports."""
     cat_list = _domain_events_categories(sports) if sports else []
     selected = categories or []
-    return templates.TemplateResponse("event_navigator/_category_checkboxes.html", {
+    return templates.TemplateResponse(request, "event_navigator/_category_checkboxes.html", {
         "request": request,
         "categories": cat_list,
         "selected_categories": selected,
@@ -4970,7 +4973,7 @@ async def event_navigator_competition_options(
     """HTMX: Competition checkboxes for domain events filter. Only competitions for given sports and categories."""
     comp_list = _domain_events_competitions(sports, categories) if (sports and categories) else []
     selected = competitions or []
-    return templates.TemplateResponse("event_navigator/_competition_checkboxes.html", {
+    return templates.TemplateResponse(request, "event_navigator/_competition_checkboxes.html", {
         "request": request,
         "competitions": comp_list,
         "selected_competitions": selected,
@@ -4980,7 +4983,7 @@ async def event_navigator_competition_options(
 @app.get("/archived-events", response_class=HTMLResponse)
 async def archived_events_view(request: Request):
     """Betting Program > Archived Events. Placeholder page; full functionality to be added later."""
-    return templates.TemplateResponse("archived_events/archived_events.html", {
+    return templates.TemplateResponse(request, "archived_events/archived_events.html", {
         "request": request,
         "section": "archived_events",
     })
@@ -5162,7 +5165,7 @@ def _render_mapping_modal(request: Request, event_id: str):
         if (c.get("country") or c.get("jurisdiction") or "").strip() == COUNTRY_CODE_NONE
     ]
 
-    return templates.TemplateResponse("modal_mapping.html", {
+    return templates.TemplateResponse(request, "modal_mapping.html", {
         "request": request,
         "event": event,
         "domain_entities": DOMAIN_ENTITIES,
@@ -5213,7 +5216,7 @@ async def modal_feeder_event_notes(
                 break
         else:
             event_label = f"Event {valid_id}"
-    return templates.TemplateResponse("feeder_events/modal_feeder_notes.html", {
+    return templates.TemplateResponse(request, "feeder_events/modal_feeder_notes.html", {
         "request": request,
         "notes": notes,
         "entity_type": NOTES_ENTITY_FEEDER_EVENT,
@@ -5246,7 +5249,7 @@ async def modal_feeder_event_log(
     feed_provider = (feed_provider or "").strip()
     entries = _get_event_log_entries(feed_provider, valid_id)
     event_label = _feeder_event_label(feed_provider, valid_id)
-    return templates.TemplateResponse("feeder_events/modal_feeder_event_log.html", {
+    return templates.TemplateResponse(request, "feeder_events/modal_feeder_event_log.html", {
         "request": request,
         "entries": entries,
         "feed_provider": feed_provider,
@@ -5259,7 +5262,7 @@ async def modal_feeder_event_log(
 async def notifications_unconfirmed(request: Request):
     """HTMX: returns HTML fragment of unconfirmed notifications for top-right panel."""
     items = _get_unconfirmed_notifications()
-    return templates.TemplateResponse("partials/notifications_unconfirmed.html", {
+    return templates.TemplateResponse(request, "partials/notifications_unconfirmed.html", {
         "request": request,
         "notifications": items,
     })
@@ -6290,7 +6293,7 @@ async def entities_view(
     feed_ids_with_sport_mappings = {m["feed_provider_id"] for m in SPORT_FEED_MAPPINGS}
     mapper_feeds = [f for f in FEEDS if f.get("domain_id") in feed_ids_with_sport_mappings]
 
-    return templates.TemplateResponse("configuration/entities.html", {
+    return templates.TemplateResponse(request, "configuration/entities.html", {
         "participant_types": participant_types,
         "underage_categories": underage_categories,
         "underage_categories_by_id": underage_categories_by_id,
@@ -6483,7 +6486,7 @@ async def risk_rules_view(request: Request):
     risk_config_rows = _risk_rules_config_rows()
     risk_classes = RISK_CLASSES
     risk_categories = RISK_CATEGORIES
-    return templates.TemplateResponse("configuration/risk_rules.html", {
+    return templates.TemplateResponse(request, "configuration/risk_rules.html", {
         "request": request,
         "section": "risk_rules",
         "brands": brands,
@@ -6496,7 +6499,7 @@ async def risk_rules_view(request: Request):
 @app.get("/compliance", response_class=HTMLResponse)
 async def compliance_view(request: Request):
     """Configuration > Compliance (placeholder)."""
-    return templates.TemplateResponse("configuration/compliance.html", {
+    return templates.TemplateResponse(request, "configuration/compliance.html", {
         "request": request,
         "section": "compliance",
     })
@@ -6573,7 +6576,7 @@ async def feeders_view(
     feed_sports = _load_feed_sports_rows()
     feed_sports_count = len(feed_sports)
 
-    return templates.TemplateResponse("configuration/feeders.html", {
+    return templates.TemplateResponse(request, "configuration/feeders.html", {
         "request": request,
         "section": "feeders",
         "feeds": FEEDS,
@@ -6733,7 +6736,7 @@ async def margin_view(
             selected_sport_id = default_sport_id
 
     if not applied:
-        return templates.TemplateResponse("margin/margin.html", {
+        return templates.TemplateResponse(request, "margin/margin.html", {
             "request": request,
             "section": "margin_config",
             "brands": brands,
@@ -6840,7 +6843,7 @@ async def margin_view(
                     template_inplay_dyn = f"{ip} DYN"
             template_risk_class = sel.get("risk_class")
 
-    return templates.TemplateResponse("margin/margin.html", {
+    return templates.TemplateResponse(request, "margin/margin.html", {
         "request": request,
         "section": "margin_config",
         "brands": brands,
@@ -6997,7 +7000,7 @@ async def localization_view(request: Request):
                         "translation_brand": tr_brand.get("text") if tr_brand else "",
                     })
 
-    return templates.TemplateResponse("configuration/localization.html", {
+    return templates.TemplateResponse(request, "configuration/localization.html", {
         "request": request,
         "section": "localization",
         "countries": countries,
@@ -7046,7 +7049,7 @@ async def brands_view(request: Request):
         b["language_display"] = ", ".join(languages_by_id.get(lid, lid) for lid in l_ids) or "—"
         pid = b.get("partner_id")
         b["partner_name"] = partners_by_id.get(pid, {}).get("name", "—") if pid else "Global"
-    return templates.TemplateResponse("configuration/brands.html", {
+    return templates.TemplateResponse(request, "configuration/brands.html", {
         "request": request,
         "section": "brands",
         "brands": brands,
@@ -7147,7 +7150,7 @@ async def users_view(
     for r in roles:
         r["permission_codes"] = perms_by_role.get(r["role_id"], [])
     permission_tree = config.RBAC_PERMISSION_TREE
-    return templates.TemplateResponse("configuration/users.html", {
+    return templates.TemplateResponse(request, "configuration/users.html", {
         "request": request,
         "section": "users",
         "users": filtered,
