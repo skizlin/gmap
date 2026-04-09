@@ -196,10 +196,29 @@
                         </div>
                     </div>
                 </div>
-                <div
-                    class="w-7 h-7 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold border border-primary/50 text-xs">
-                    A
+                {% if request.state.dev_login_enabled %}
+                <div class="relative shrink-0" id="profile-menu-wrap">
+                    <button type="button" id="profile-menu-btn" class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold border border-primary/50 text-xs hover:bg-primary/30 outline-none focus:ring-2 focus:ring-primary/50"
+                        aria-expanded="false" aria-haspopup="true" aria-label="Profile menu">
+                        {% if request.state.dev_actor %}
+                        {{ (request.state.dev_actor.email or request.state.dev_actor.login or '?')[0]|upper }}
+                        {% else %}
+                        <i class="fa-regular fa-user text-slate-300" aria-hidden="true"></i>
+                        {% endif %}
+                    </button>
+                    <div id="profile-menu-panel" class="hidden absolute right-0 top-full mt-1 w-52 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-[60] py-1 text-sm" role="menu">
+                        {% if request.state.dev_actor %}
+                        <div class="px-3 py-2 border-b border-slate-700 text-xs text-slate-400 truncate" title="{{ request.state.dev_actor.email }}">{{ request.state.dev_actor.email }}</div>
+                        <a href="/dev/login" class="block px-3 py-2 text-slate-200 hover:bg-white/5" role="menuitem">Switch user</a>
+                        <a href="/dev/logout" class="block px-3 py-2 text-slate-200 hover:bg-white/5" role="menuitem">Sign out</a>
+                        {% else %}
+                        <a href="/dev/login" class="block px-3 py-2 text-amber-400/90 hover:bg-white/5 font-medium" role="menuitem">Sign in</a>
+                        {% endif %}
+                    </div>
                 </div>
+                {% else %}
+                <div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold border border-primary/50 text-xs">A</div>
+                {% endif %}
             </div>
         </div>
     </header>
@@ -274,12 +293,43 @@
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Bets/PTLs</a>
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Alerts</a>
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Reports</a>
+                {% if request.state.dev_login_enabled %}
+                <div class="px-4 py-3 text-sm border-b border-slate-800/80 text-slate-400 space-y-2">
+                    {% if request.state.dev_actor %}
+                    <span class="text-slate-300 block truncate text-xs">{{ request.state.dev_actor.email }}</span>
+                    <a href="/dev/login" class="mobile-drawer-link block text-primary text-sm">Switch user</a>
+                    <a href="/dev/logout" class="mobile-drawer-link block text-slate-400 text-sm">Sign out</a>
+                    {% else %}
+                    <a href="/dev/login" class="mobile-drawer-link block text-amber-400/90 font-medium text-sm">Sign in</a>
+                    {% endif %}
+                </div>
+                {% endif %}
             </nav>
         </div>
     </div>
 
     <!-- Toast container (top right, below header) -->
     <div id="toast-container" class="fixed top-20 right-4 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
+
+    <script>
+        (function () {
+            var btn = document.getElementById('profile-menu-btn');
+            var panel = document.getElementById('profile-menu-panel');
+            var wrap = document.getElementById('profile-menu-wrap');
+            if (!btn || !panel || !wrap) return;
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                panel.classList.toggle('hidden');
+                btn.setAttribute('aria-expanded', panel.classList.contains('hidden') ? 'false' : 'true');
+            });
+            document.addEventListener('click', function () {
+                panel.classList.add('hidden');
+                btn.setAttribute('aria-expanded', 'false');
+            });
+            wrap.addEventListener('click', function (e) { e.stopPropagation(); });
+        })();
+    </script>
 
     <!-- Main Content (full width) -->
     <main class="flex-1 flex flex-col overflow-hidden">

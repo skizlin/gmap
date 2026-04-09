@@ -149,8 +149,14 @@ RBAC_USER_ROLES_PATH = DATA_RBAC_DIR / "user_roles.csv"
 RBAC_ROLE_PERMISSIONS_PATH = DATA_RBAC_DIR / "role_permissions.csv"
 RBAC_USER_BRANDS_PATH = DATA_RBAC_DIR / "user_brands.csv"
 RBAC_AUDIT_LOG_PATH = DATA_RBAC_DIR / "rbac_audit_log.csv"
-RBAC_USERS_FIELDS = ["user_id", "login", "email", "display_name", "active", "partner_id", "created_by", "created_at", "updated_at", "last_login", "online"]
-RBAC_ROLES_FIELDS = ["role_id", "name", "active", "is_system", "partner_id", "created_at", "updated_at"]
+# Display name for RBAC rows with no partner_id (not a row in partners.csv).
+RBAC_PLATFORM_SCOPE_LABEL = "Internal User"
+RBAC_USERS_FIELDS = [
+    "user_id", "login", "email", "display_name", "active", "partner_id",
+    "created_by", "created_at", "updated_at", "last_login", "online", "is_superadmin",
+    "login_pin",
+]
+RBAC_ROLES_FIELDS = ["role_id", "name", "active", "is_system", "partner_id", "is_master", "created_at", "updated_at"]
 RBAC_USER_ROLES_FIELDS = ["user_id", "role_id", "assigned_at", "assigned_by_user_id"]
 RBAC_ROLE_PERMISSIONS_FIELDS = ["role_id", "permission_code"]
 RBAC_USER_BRANDS_FIELDS = ["user_id", "brand_id"]
@@ -239,6 +245,7 @@ RBAC_MENU_SOURCE = [
             {"label": "Feeder", "view": "menu.configuration.feeders.view", "entities": [("config.feeders", "Feeder")]},
             {"label": "Margin", "view": "menu.configuration.margin.view", "entities": [("config.margin", "Margin")]},
             {"label": "Risk Rules", "view": "menu.configuration.risk_rules.view", "entities": [("config.risk_rules", "Risk Rules")]},
+            {"label": "Compliance", "view": "menu.configuration.compliance.view", "entities": [("config.compliance", "Compliance")]},
             {
                 "label": "Sport Feed Mapping",
                 "view": "menu.configuration.mapping.view",
@@ -257,10 +264,10 @@ RBAC_MENU_SOURCE = [
             {"label": "Archived Events", "view": "menu.betting_program.archived_events.view", "entities": [("betting.archived_events", "Archived Events")]},
         ],
     },
-    {"label": "Risk", "view": "menu.risk.view"},
-    {"label": "Bets/PTLs", "view": "menu.bets_ptls.view"},
-    {"label": "Alerts", "view": "menu.alerts.view"},
-    {"label": "Reports", "view": "menu.reports.view"},
+    {"label": "Risk", "view": "menu.risk.view", "entities": [("risk", "Risk")]},
+    {"label": "Bets/PTLs", "view": "menu.bets_ptls.view", "entities": [("bets_ptls", "Bets/PTLs")]},
+    {"label": "Alerts", "view": "menu.alerts.view", "entities": [("alerts", "Alerts")]},
+    {"label": "Reports", "view": "menu.reports.view", "entities": [("reports", "Reports")]},
     {"label": "Notifications", "view": "menu.notifications.view", "always_granted": True},
     {"label": "Profile", "view": "menu.profile.view", "always_granted": True},
 ]
@@ -299,7 +306,6 @@ def _build_tree_node(item: dict) -> dict:
 
     if entities and not children_spec:
         resolved = _resolve_entities(entities)
-        view_row = [{"label": label, "permissions": _menu_view(view_code, always)}] if view_code else []
         page_action_rows = []
         for prefix, ent_label in resolved:
             if actions_extra and prefix == "mapping":
@@ -309,11 +315,11 @@ def _build_tree_node(item: dict) -> dict:
             page_action_rows.append({"label": ent_label, "permissions": perms})
         return {
             "label": label,
-            "children": view_row + [{"label": "Page actions", "children": page_action_rows}],
+            "permissions": _menu_view(view_code, always) if view_code else [],
+            "children": [{"label": "Page actions", "children": page_action_rows}],
         }
     if entities and children_spec:
         resolved = _resolve_entities(entities)
-        view_row = [{"label": label, "permissions": _menu_view(view_code, always)}] if view_code else []
         page_action_rows = []
         for prefix, ent_label in resolved:
             if actions_extra and prefix == "mapping":
@@ -323,7 +329,8 @@ def _build_tree_node(item: dict) -> dict:
             page_action_rows.append({"label": ent_label, "permissions": perms})
         children_built.append({
             "label": label,
-            "children": view_row + [{"label": "Page actions", "children": page_action_rows}],
+            "permissions": _menu_view(view_code, always) if view_code else [],
+            "children": [{"label": "Page actions", "children": page_action_rows}],
         })
 
     if actions_key and not entities:
@@ -361,6 +368,56 @@ RBAC_PERMISSION_TREE = build_rbac_permission_tree()
 _always_set = set()
 _collect_always_granted(RBAC_MENU_SOURCE, _always_set)
 RBAC_ALWAYS_GRANTED_PERMISSIONS = frozenset(_always_set)
+
+
+def rbac_find_tree_node_by_label(nodes: list, label: str) -> dict | None:
+    for n in nodes:
+        if n.get("label") == label:
+            return n
+        found = rbac_find_tree_node_by_label(n.get("children") or [], label)
+        if found is not None:
+            return found
+    return None
+
+
+def rbac_flatten_node_permission_codes(node: dict) -> set[str]:
+    """All permission codes under a permission-tree node (recursive)."""
+    out: set[str] = set()
+    for p in node.get("permissions") or []:
+        c = (p.get("code") or "").strip()
+        if c:
+            out.add(c)
+    for ch in node.get("children") or []:
+        out |= rbac_flatten_node_permission_codes(ch)
+    return out
+
+
+def rbac_superadmin_console_permission_codes() -> set[str]:
+    """Admin menu subtree + always-granted menu items (bootstrap SuperAdmin Console role)."""
+    admin = rbac_find_tree_node_by_label(RBAC_PERMISSION_TREE, "Admin")
+    if not admin:
+        return set(RBAC_ALWAYS_GRANTED_PERMISSIONS)
+    return rbac_flatten_node_permission_codes(admin) | set(RBAC_ALWAYS_GRANTED_PERMISSIONS)
+
+
+# Dev / integration: when true, JSON APIs honor X-RBAC-Actor-User-Id for SuperAdmin bypass
+# (master-role permission caps) and for changing is_superadmin. Disable in production
+# unless behind a trusted gateway. Real auth should replace this.
+RBAC_TRUST_ACTOR_HEADER = _env_truthy("RBAC_TRUST_ACTOR_HEADER", False)
+
+# Dev-only: PIN + user picker at /dev/login, session cookie for “who am I” (RBAC actor, UI banner).
+# Never enable on a public deployment.
+GMP_DEV_LOGIN = _env_truthy("GMP_DEV_LOGIN", False)
+# Seconds without a request before Admin “Online” shows No (in-process; resets on server restart).
+try:
+    RBAC_ONLINE_IDLE_SECONDS = max(30, int((os.environ.get("RBAC_ONLINE_IDLE_SECONDS") or "180").strip()))
+except (TypeError, ValueError):
+    RBAC_ONLINE_IDLE_SECONDS = 180
+# Default PIN for normal users (per-user login_pin in CSV may override; SuperAdmin uses GMP_SUPERADMIN_PIN only).
+GMP_DEFAULT_USER_PIN = (os.environ.get("GMP_DEFAULT_USER_PIN") or "1234").strip()
+# SuperAdmin sign-in PIN — set only in your local .env; do not commit. Checked only for users with is_superadmin.
+GMP_SUPERADMIN_PIN = (os.environ.get("GMP_SUPERADMIN_PIN") or "").strip()
+GMP_DEV_SESSION_SECRET = (os.environ.get("GMP_DEV_SESSION_SECRET") or "").strip()
 
 # ── Constants ──────────────────────────────────────────────────────────────
 # Country code for "no country" / international scope in entity CSVs (e.g. Champions League). Not Compliance "jurisdiction".

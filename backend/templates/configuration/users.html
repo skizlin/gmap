@@ -1,38 +1,41 @@
 {% extends "layout.html" %}
 
+{% macro render_perm_cells(permissions) %}
+{% for perm in permissions %}
+{% if perm.get('always_granted') %}
+<span class="rp-tree-perm rp-always-granted inline-flex items-center gap-1 text-xs text-primary" data-permission-code="{{ perm.code }}" data-always-granted="true">
+  <span class="rp-perm-icon w-4 flex items-center justify-center text-[10px]"><i class="fa-solid fa-lock text-slate-500" title="Always visible"></i></span>
+  <span class="rp-perm-label">{{ perm.label }}</span>
+</span>
+{% else %}
+<span class="rp-perm-cell inline-flex items-center gap-2">
+  <span class="rp-perm-view inline-flex items-center gap-1 text-xs" data-permission-code="{{ perm.code }}"><span class="rp-perm-icon w-4 flex items-center justify-center text-[10px]"></span><span class="rp-perm-label">{{ perm.label }}</span></span>
+  <label class="rp-perm-edit rp-perm-editable hidden inline-flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer hover:text-slate-300">
+    <input type="checkbox" class="rp-perm-checkbox accent-primary rounded border-slate-600 bg-slate-800 w-3.5 h-3.5" data-permission-code="{{ perm.code }}">
+    <span class="rp-perm-label">{{ perm.label }}</span>
+  </label>
+</span>
+{% endif %}
+{% endfor %}
+{% endmacro %}
+
 {% macro render_perm_tree(nodes) %}
 {% for node in nodes %}
   {% if node.children is defined and node.children %}
     <div class="rp-tree-group border-l border-slate-700/50 pl-2 my-1">
-      <button type="button" class="rp-tree-group-btn w-full text-left flex items-center gap-2 py-1 px-1 rounded hover:bg-white/5 text-slate-300 text-xs font-medium" aria-expanded="true" data-rp-toggle>
-        <i class="fa-solid fa-chevron-down rp-tree-chevron text-[10px] w-3 transition-transform"></i>
-        <i class="fa-solid fa-folder text-amber-500/80"></i>
-        <span>{{ node.label }}</span>
-      </button>
-      <div class="rp-tree-group-children ml-2">
+      <div class="rp-tree-group-header flex flex-wrap items-center gap-x-3 gap-y-1 py-1 px-1 rounded hover:bg-white/5">
+        <button type="button" class="rp-tree-group-btn flex items-center gap-2 text-left shrink-0 text-slate-300 text-xs font-medium" aria-expanded="true" data-rp-toggle>
+          <i class="fa-solid fa-chevron-down rp-tree-chevron text-[10px] w-3 transition-transform"></i>
+          <i class="fa-solid fa-folder text-amber-500/80"></i>
+          <span>{{ node.label }}</span>
+        </button>
         {% if node.permissions is defined and node.permissions %}
-        <div class="rp-tree-section border-l border-slate-700/30 pl-2 my-0.5 flex items-center gap-3 py-1 flex-wrap">
-          <span class="text-[11px] text-slate-400 font-medium min-w-[7rem]">{{ node.label }}</span>
-          <div class="rp-tree-perms-row flex items-center gap-2 flex-wrap">
-            {% for perm in node.permissions %}
-            {% if perm.get('always_granted') %}
-            <span class="rp-tree-perm rp-always-granted inline-flex items-center gap-1 text-xs text-primary" data-permission-code="{{ perm.code }}" data-always-granted="true">
-              <span class="rp-perm-icon w-4 flex items-center justify-center text-[10px]"><i class="fa-solid fa-lock text-slate-500" title="Always visible"></i></span>
-              <span class="rp-perm-label">{{ perm.label }}</span>
-            </span>
-            {% else %}
-            <span class="rp-perm-cell inline-flex items-center gap-2">
-              <span class="rp-perm-view inline-flex items-center gap-1 text-xs" data-permission-code="{{ perm.code }}"><span class="rp-perm-icon w-4 flex items-center justify-center text-[10px]"></span><span class="rp-perm-label">{{ perm.label }}</span></span>
-              <label class="rp-perm-edit rp-perm-editable hidden inline-flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer hover:text-slate-300">
-                <input type="checkbox" class="rp-perm-checkbox accent-primary rounded border-slate-600 bg-slate-800 w-3.5 h-3.5" data-permission-code="{{ perm.code }}">
-                <span class="rp-perm-label">{{ perm.label }}</span>
-              </label>
-            </span>
-            {% endif %}
-            {% endfor %}
-          </div>
+        <div class="rp-tree-perms-row flex items-center gap-2 flex-wrap min-w-0">
+          {{ render_perm_cells(node.permissions) }}
         </div>
         {% endif %}
+      </div>
+      <div class="rp-tree-group-children ml-2">
         {{ render_perm_tree(node.children) }}
       </div>
     </div>
@@ -40,22 +43,7 @@
     <div class="rp-tree-section border-l border-slate-700/30 pl-2 my-0.5 flex items-center gap-3 py-1 flex-wrap">
       <span class="text-[11px] text-slate-400 font-medium min-w-[7rem]">{{ node.label }}</span>
       <div class="rp-tree-perms-row flex items-center gap-2 flex-wrap">
-        {% for perm in node.permissions %}
-        {% if perm.get('always_granted') %}
-        <span class="rp-tree-perm rp-always-granted inline-flex items-center gap-1 text-xs text-primary" data-permission-code="{{ perm.code }}" data-always-granted="true">
-          <span class="rp-perm-icon w-4 flex items-center justify-center text-[10px]"><i class="fa-solid fa-lock text-slate-500" title="Always visible"></i></span>
-          <span class="rp-perm-label">{{ perm.label }}</span>
-        </span>
-        {% else %}
-        <span class="rp-perm-cell inline-flex items-center gap-2">
-          <span class="rp-perm-view inline-flex items-center gap-1 text-xs" data-permission-code="{{ perm.code }}"><span class="rp-perm-icon w-4 flex items-center justify-center text-[10px]"></span><span class="rp-perm-label">{{ perm.label }}</span></span>
-          <label class="rp-perm-edit rp-perm-editable hidden inline-flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer hover:text-slate-300">
-            <input type="checkbox" class="rp-perm-checkbox accent-primary rounded border-slate-600 bg-slate-800 w-3.5 h-3.5" data-permission-code="{{ perm.code }}">
-            <span class="rp-perm-label">{{ perm.label }}</span>
-          </label>
-        </span>
-        {% endif %}
-        {% endfor %}
+        {{ render_perm_cells(node.permissions) }}
       </div>
     </div>
   {% endif %}
@@ -63,7 +51,7 @@
 {% endmacro %}
 
 {% block page_heading %}Admin Management{% endblock %}
-{% block page_description %}Manage admins (users). Roles & Permissions: assign users to roles and view access rights by page and action (view/create/update/delete).{% endblock %}
+{% block page_description %}Manage admins. SuperAdmin (developer bootstrap) can exceed Master caps via API when RBAC_TRUST_ACTOR_HEADER is enabled. Roles & Permissions: assign admins to roles; Access Rights lists every menu area and page action from configuration (no stub permissions).{% endblock %}
 
 {% block title %}Admin Management{% endblock %}
 
@@ -87,13 +75,18 @@
             <form method="get" action="/users" id="admin-filters-form" class="flex flex-wrap items-center gap-3">
                 <input type="hidden" name="status" id="admin-filter-status-input" value="{{ filter_status | default('active') }}">
                 <label class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Partner</label>
+                {% if rbac_enforced_partner_id is not none %}
+                <input type="hidden" name="partner_id" value="{{ rbac_enforced_partner_id }}">
+                <span class="text-xs text-slate-300 py-1.5 px-1">{{ rbac_enforced_partner_name }}</span>
+                {% else %}
                 <select name="partner_id" id="admin-filter-partner-id" class="bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary min-w-[140px]">
                     <option value="">All</option>
-                    <option value="platform" {% if filter_partner_id == 'platform' %}selected{% endif %}>Platform</option>
+                    <option value="platform" {% if filter_partner_id == 'platform' %}selected{% endif %}>{{ rbac_platform_scope_label }}</option>
                     {% for p in partners %}
                     <option value="{{ p.id }}" {% if filter_partner_id is not none and filter_partner_id != 'platform' and filter_partner_id == p.id %}selected{% endif %}>{{ p.name }}</option>
                     {% endfor %}
                 </select>
+                {% endif %}
                 <div id="admin-brands-hidden-inputs">
                     {% for bid in (filter_brand_ids or []) %}
                     <input type="hidden" name="brand_ids" value="{{ bid }}">
@@ -136,7 +129,7 @@
                 <select name="role_id" class="bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary min-w-[140px]">
                     <option value="">All</option>
                     {% for r in roles %}
-                    <option value="{{ r.role_id }}" {% if filter_role_id is not none and filter_role_id == r.role_id %}selected{% endif %}>{{ r.name }} ({{ r.partner_name | default('Platform') }})</option>
+                    <option value="{{ r.role_id }}" {% if filter_role_id is not none and filter_role_id == r.role_id %}selected{% endif %}>{{ r.name }} ({{ r.partner_name | default(rbac_platform_scope_label) }})</option>
                     {% endfor %}
                 </select>
                 <span class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Status</span>
@@ -159,19 +152,24 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
+                    {% if rbac_enforced_partner_id is not none %}
+                    <input type="hidden" id="user-form-partner-id" value="{{ rbac_enforced_partner_id }}">
+                    <p class="text-sm text-slate-300 py-1.5">{{ rbac_enforced_partner_name }}</p>
+                    {% else %}
                     <select id="user-form-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary" onchange="filterAddFormRolesByPartner()">
-                        <option value="">Platform</option>
+                        <option value="">{{ rbac_platform_scope_label }}</option>
                         {% for p in partners %}
                         <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
                         {% endfor %}
                     </select>
+                    {% endif %}
                 </div>
                 <div>
                     <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Role</label>
                     <select id="user-form-role-ids" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">— None —</option>
                         {% for r in roles %}
-                        <option value="{{ r.role_id }}" data-partner-id="{{ r.partner_id if r.partner_id is not none else '' }}">{{ r.name }} ({{ r.partner_name | default('Platform') }})</option>
+                        <option value="{{ r.role_id }}" data-partner-id="{{ r.partner_id if r.partner_id is not none else '' }}">{{ r.name }} ({{ r.partner_name | default(rbac_platform_scope_label) }})</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -201,6 +199,20 @@
                     </select>
                     <span class="text-[10px] text-slate-500">Ctrl+click to select multiple; empty = all partner brands</span>
                 </div>
+                {% if rbac_enforced_partner_id is none %}
+                <div class="md:col-span-2">
+                    <label class="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="user-form-is-superadmin" class="mt-0.5 rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" onchange="userFormTogglePinField()">
+                        <span><span class="font-medium text-amber-400/90">SuperAdmin</span> — uses the server-configured SuperAdmin PIN only (not this field).</span>
+                    </label>
+                </div>
+                {% endif %}
+                <div class="md:col-span-2" id="user-form-pin-wrap">
+                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sign-in PIN</label>
+                    <input type="password" id="user-form-login-pin" value="1234" autocomplete="new-password"
+                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <span class="text-[10px] text-slate-500">Default <code class="text-slate-600">1234</code> for new accounts. SuperAdmin accounts ignore this.</span>
+                </div>
             </div>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="usersSubmitAdd()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Create New Admin</button>
@@ -217,6 +229,7 @@
                         <th class="px-3 py-2 font-semibold w-48">Email</th>
                         <th class="px-3 py-2 font-semibold w-32">Display name</th>
                         <th class="px-3 py-2 font-semibold w-20">Status</th>
+                        <th class="px-3 py-2 font-semibold w-24">SuperAdmin</th>
                         <th class="px-3 py-2 font-semibold min-w-[140px]">Role</th>
                         <th class="px-3 py-2 font-semibold w-16">Online</th>
                         <th class="px-3 py-2 font-semibold w-28">Last login</th>
@@ -229,7 +242,7 @@
                 <tbody>
                     {% for u in users %}
                     <tr class="hover:bg-white/5 transition-colors border-b border-slate-700/30" data-user-id="{{ u.user_id }}">
-                        <td class="px-3 py-2 text-slate-300">{{ u.partner_name }}</td>
+                        <td class="px-3 py-2 {% if u.partner_id is none %}text-white{% else %}text-slate-300{% endif %}">{{ u.partner_name }}</td>
                         <td class="px-3 py-2 text-slate-300">
                             {% for name in (u.brand_names or []) %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %}
                             {% if not (u.brand_names or []) %}<span class="text-slate-500">—</span>{% endif %}
@@ -244,6 +257,9 @@
                             {% endif %}
                         </td>
                         <td class="px-3 py-2 text-slate-300">
+                            {% if u.is_superadmin %}<span class="text-amber-400/90 font-medium">Yes</span>{% else %}<span class="text-slate-500">—</span>{% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-slate-300">
                             {% for r in u.roles %}{{ r.name }}{% if not loop.last %}, {% endif %}{% endfor %}
                             {% if not u.roles %}<span class="text-slate-500">—</span>{% endif %}
                         </td>
@@ -254,7 +270,7 @@
                             <span class="text-slate-500">No</span>
                             {% endif %}
                         </td>
-                        <td class="px-3 py-2 text-slate-400 text-[11px]">{{ u.last_login or '—' }}</td>
+                        <td class="px-3 py-2 text-[11px] {% if u.last_login_stale %}text-red-400 font-bold{% else %}text-slate-400{% endif %}">{{ u.last_login_display }}</td>
                         <td class="px-3 py-2 text-slate-300">{{ u.created_by or 'SuperAdmin' }}</td>
                         <td class="px-3 py-2 text-slate-400 text-[11px]">{{ u.created_at or '—' }}</td>
                         <td class="px-3 py-2 text-slate-400 text-[11px]">{{ u.updated_at or '—' }}</td>
@@ -265,7 +281,7 @@
                     {% endfor %}
                     {% if not users %}
                     <tr>
-                        <td colspan="12" class="px-3 py-6 text-center text-slate-500">No users yet. Add a user to get started.</td>
+                        <td colspan="13" class="px-3 py-6 text-center text-slate-500">No users yet. Add a user to get started.</td>
                     </tr>
                     {% endif %}
                 </tbody>
@@ -276,6 +292,10 @@
 
     <!-- Main panel: Roles & Permissions (3 columns) -->
     <div id="main-panel-roles-perms" class="hidden flex flex-col flex-1 min-h-0 overflow-auto">
+        <p class="text-[11px] text-slate-500 mb-3 px-0.5 leading-relaxed max-w-5xl">
+            <strong class="text-slate-400">{{ rbac_platform_scope_label }} Master</strong> (no partner on the role) caps every <strong class="text-slate-400">Partner Master</strong>: partner masters cannot receive permissions the {{ rbac_platform_scope_label }} Master role does not have. Each master caps other roles in its scope. The Access Rights tree shows only what your account may assign.
+            {% if rbac_trust_actor_header %}<span class="block mt-1 text-slate-600">Trusted header: <code class="text-slate-500">X-RBAC-Actor-User-Id</code> (SuperAdmin) still bypasses Master caps on APIs.</span>{% endif %}
+        </p>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0 overflow-hidden">
             <!-- Left: Admin Roles -->
             <div class="flex flex-col bg-cardbg/80 border border-slate-700/50 rounded-lg overflow-hidden min-h-0">
@@ -285,15 +305,20 @@
                 </div>
                 <form method="get" action="/users" id="rp-filters-form" class="shrink-0 flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-700/50">
                     <label class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Partner</label>
+                    {% if rbac_enforced_partner_id is not none %}
+                    <input type="hidden" name="rp_partner_id" id="rp-partner-select" value="{{ rbac_enforced_partner_id }}">
+                    <span class="text-xs text-slate-300 py-1">{{ rbac_enforced_partner_name }}</span>
+                    {% else %}
                     <select name="rp_partner_id" id="rp-partner-select" class="rp-partner-select bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary min-w-[140px]">
                         <option value="">All</option>
-                        <option value="platform" {% if filter_rp_partner_id == 'platform' %}selected{% endif %}>Platform</option>
+                        <option value="platform" {% if filter_rp_partner_id == 'platform' %}selected{% endif %}>{{ rbac_platform_scope_label }}</option>
                         {% for p in partners %}
                         <option value="{{ p.id }}" {% if filter_rp_partner_id == p.id | string %}selected{% endif %}>{{ p.name }}</option>
                         {% endfor %}
                     </select>
+                    {% endif %}
                 </form>
-                <div class="overflow-auto flex-1 min-h-0">
+                <div class="overflow-auto flex-1 min-h-0" id="rp-roles-table-scroll">
                     <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
                         <thead class="bg-slate-800/80 text-slate-400 uppercase tracking-wider sticky top-0 z-10">
                             <tr>
@@ -301,24 +326,34 @@
                                 <th class="px-2 py-1.5 font-semibold w-10">Id</th>
                                 <th class="px-2 py-1.5 font-semibold min-w-[80px]">Partner</th>
                                 <th class="px-2 py-1.5 font-semibold">Role</th>
+                                <th class="px-2 py-1.5 font-semibold w-14">Master</th>
                                 <th class="px-2 py-1.5 font-semibold w-16">Active Admins</th>
+                                <th class="px-2 py-1.5 font-semibold w-16 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for r in roles_filtered %}
                             <tr class="rbac-role-row hover:bg-white/5 border-b border-slate-700/30 cursor-pointer {% if loop.first %}rbac-role-selected bg-primary/10{% endif %}"
-                                data-role-id="{{ r.role_id }}" data-role-name="{{ r.name | e }}" data-permissions="{{ (r.permission_codes or []) | join(',') }}"
+                                data-role-id="{{ r.role_id }}" data-role-name="{{ r.name | e }}" data-is-master="{{ '1' if r.is_master else '0' }}"
+                                data-partner-id="{{ r.partner_id if r.partner_id is not none else '' }}"
+                                data-permissions="{{ (r.permission_codes or []) | join(',') }}"
                                 onclick="selectRoleFromRow(this)">
                                 <td class="px-2 py-1.5">
                                     <input type="radio" name="rbac-role-radio" class="rbac-role-radio" value="{{ r.role_id }}" {% if loop.first %}checked{% endif %}>
                                 </td>
                                 <td class="px-2 py-1.5 text-slate-400">{{ r.role_id }}</td>
-                                <td class="px-2 py-1.5 text-slate-300">{{ r.partner_name | default('Platform') }}</td>
+                                <td class="px-2 py-1.5 text-slate-300">{{ r.partner_name | default(rbac_platform_scope_label) }}</td>
                                 <td class="px-2 py-1.5 text-white font-medium">{{ r.name }}</td>
+                                <td class="px-2 py-1.5 text-slate-300">{% if r.is_master %}<span class="text-primary font-medium">Yes</span>{% else %}<span class="text-slate-500">—</span>{% endif %}</td>
                                 <td class="px-2 py-1.5 text-slate-300">{{ r.active_admins | default(0) }}</td>
+                                <td class="px-2 py-1.5 text-right">
+                                    <button type="button" class="rbac-role-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors inline-flex" aria-label="Role actions" data-role-id="{{ r.role_id }}">
+                                        <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+                                    </button>
+                                </td>
                             </tr>
                             {% else %}
-                            <tr><td colspan="5" class="px-2 py-4 text-center text-slate-500 italic">No roles for this partner. Create a role to get started.</td></tr>
+                            <tr><td colspan="7" class="px-2 py-4 text-center text-slate-500 italic">No roles for this partner. Create a role to get started.</td></tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -344,7 +379,7 @@
                             <tr>
                                 <th class="px-2 py-1.5 font-semibold">Email</th>
                                 <th class="px-2 py-1.5 font-semibold">Username</th>
-                                <th class="px-2 py-1.5 font-semibold w-16 text-right">Action</th>
+                                <th class="px-2 py-1.5 font-semibold min-w-[100px] text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="rp-admins-tbody">
@@ -363,10 +398,13 @@
                         <button type="button" id="rp-cancel-edit-btn" onclick="rpCancelEditMode()" class="hidden text-xs px-2 py-1 rounded bg-slate-700 text-slate-300 hover:bg-slate-600" title="Cancel editing">Cancel</button>
                     </span>
                 </div>
-                <div class="px-3 py-1 text-slate-400 text-xs border-b border-slate-700/50 flex items-center justify-between">
+                <div class="px-3 py-1 text-slate-400 text-xs border-b border-slate-700/50 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
                     <span id="rp-perms-role-label">—</span>
                     <span id="rp-perms-save-status" class="text-[10px] text-slate-500"></span>
                 </div>
+                <p id="rp-master-hint" class="hidden px-3 py-1.5 text-[10px] text-amber-400/90 border-b border-slate-700/50 bg-amber-950/20">
+                    This is the <strong class="text-amber-300">Master</strong> role for this partner: its permissions are the maximum any other role here can have.
+                </p>
                 <div class="overflow-auto flex-1 min-h-0 p-2" id="rp-permissions-wrap">
                     <div id="rp-permissions-tree" class="text-xs">
                         {{ render_perm_tree(permission_tree) }}
@@ -390,22 +428,121 @@
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
+            {% if rbac_enforced_partner_id is not none %}
+            <input type="hidden" id="rp-create-role-partner-id" value="{{ rbac_enforced_partner_id }}">
+            <p class="text-sm text-slate-300 py-1.5">{{ rbac_enforced_partner_name }}</p>
+            {% else %}
             <select id="rp-create-role-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
-                <option value="">Platform</option>
+                <option value="">{{ rbac_platform_scope_label }}</option>
                 {% for p in partners %}
                 <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
                 {% endfor %}
             </select>
+            {% endif %}
         </div>
         <div class="flex items-center gap-2">
             <label class="flex items-center gap-2 text-sm text-slate-300">
                 <input type="checkbox" id="rp-create-role-active" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" checked> Active
             </label>
         </div>
+        <div>
+            <label class="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
+                <input type="checkbox" id="rp-create-role-master" class="mt-0.5 rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary">
+                <span><span class="font-medium text-white">Master role</span> <span class="text-slate-500 text-xs">(one per partner / {{ rbac_platform_scope_label }}; defines the permission ceiling for all other roles in that scope)</span></span>
+            </label>
+        </div>
         <div class="flex items-center gap-2">
             <button type="button" onclick="rpSubmitCreateRole()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Create</button>
             <button type="button" onclick="rpCloseCreateRoleModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
             <span id="rp-create-role-status" class="text-xs text-slate-400"></span>
+        </div>
+    </div>
+</div>
+
+<!-- Floating kebab menu for Admin Roles table (fixed so it is not clipped by overflow) -->
+<div id="rbac-role-kebab-menu" class="hidden fixed z-[300] min-w-[168px] py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl" role="menu" aria-hidden="true" data-role-id="">
+    <button type="button" id="rbac-role-kebab-edit" class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2">
+        <i class="fa-solid fa-pen w-4 text-slate-500"></i> Edit
+    </button>
+    <button type="button" id="rbac-role-kebab-duplicate" class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2">
+        <i class="fa-solid fa-copy w-4 text-slate-500"></i> Duplicate role
+    </button>
+</div>
+
+<!-- Duplicate Role modal: same access rights as source; choose name and target partner -->
+<div id="rp-duplicate-role-modal" class="hidden fixed inset-0 bg-black/60 z-[310] flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white">Duplicate role</h3>
+            <button type="button" onclick="rpCloseDuplicateRoleModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <input type="hidden" id="rp-duplicate-source-role-id" value="">
+        <p id="rp-duplicate-source-label" class="text-xs text-slate-400 leading-relaxed"></p>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">New role name <span class="text-red-500">*</span></label>
+            <input type="text" id="rp-duplicate-role-name" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+        </div>
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner for new role</label>
+            {% if rbac_enforced_partner_id is not none %}
+            <input type="hidden" id="rp-duplicate-role-partner-id" value="{{ rbac_enforced_partner_id }}">
+            <p class="text-sm text-slate-300 py-1.5">{{ rbac_enforced_partner_name }}</p>
+            {% else %}
+            <select id="rp-duplicate-role-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <option value="">{{ rbac_platform_scope_label }}</option>
+                {% for p in partners %}
+                <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
+                {% endfor %}
+            </select>
+            <p class="text-[10px] text-slate-500 mt-1">Choose a partner (e.g. a newly added one) to recreate the same access rights without re-clicking the tree.</p>
+            {% endif %}
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" id="rp-duplicate-role-active" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" checked> Active
+            </label>
+        </div>
+        <div>
+            <label class="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
+                <input type="checkbox" id="rp-duplicate-role-master" class="mt-0.5 rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary">
+                <span><span class="font-medium text-white">Master role</span> <span class="text-slate-500 text-xs">(only if this should be the Master for the selected partner; clears other Master in that scope)</span></span>
+            </label>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" onclick="rpSubmitDuplicateRole()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Create copy</button>
+            <button type="button" onclick="rpCloseDuplicateRoleModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <span id="rp-duplicate-role-status" class="text-xs text-slate-400"></span>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Role modal (Roles & Permissions) -->
+<div id="rp-edit-role-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-white">Edit role</h3>
+            <button type="button" onclick="rpCloseEditRoleModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <input type="hidden" id="rp-edit-role-id" value="">
+        <div>
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name <span class="text-red-500">*</span></label>
+            <input type="text" id="rp-edit-role-name" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" id="rp-edit-role-active" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary"> Active
+            </label>
+        </div>
+        <div>
+            <label class="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
+                <input type="checkbox" id="rp-edit-role-master" class="mt-0.5 rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary">
+                <span><span class="font-medium text-white">Master role</span> <span class="text-slate-500 text-xs">(clears Master on other roles in the same partner / {{ rbac_platform_scope_label }})</span></span>
+            </label>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="rpSubmitEditRole()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+            <button type="button" onclick="rpCloseEditRoleModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <span id="rp-edit-role-status" class="text-xs text-slate-400"></span>
         </div>
     </div>
 </div>
@@ -432,19 +569,24 @@
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
+            {% if rbac_enforced_partner_id is not none %}
+            <input type="hidden" id="user-edit-partner-id" value="{{ rbac_enforced_partner_id }}">
+            <p class="text-sm text-slate-300 py-1.5">{{ rbac_enforced_partner_name }}</p>
+            {% else %}
             <select id="user-edit-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
-                <option value="">Platform</option>
+                <option value="">{{ rbac_platform_scope_label }}</option>
                 {% for p in partners %}
                 <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
                 {% endfor %}
             </select>
+            {% endif %}
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Role</label>
             <select id="user-edit-role-ids" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 <option value="">— None —</option>
                 {% for r in roles %}
-                <option value="{{ r.role_id }}">{{ r.name }} ({{ r.partner_name | default('Platform') }})</option>
+                <option value="{{ r.role_id }}">{{ r.name }} ({{ r.partner_name | default(rbac_platform_scope_label) }})</option>
                 {% endfor %}
             </select>
         </div>
@@ -460,6 +602,20 @@
             <label class="flex items-center gap-2 text-sm text-slate-300">
                 <input type="checkbox" id="user-edit-active" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary"> Active
             </label>
+        </div>
+        {% if rbac_enforced_partner_id is none %}
+        <div>
+            <label class="flex items-start gap-2 text-sm text-slate-300 cursor-pointer">
+                <input type="checkbox" id="user-edit-is-superadmin" class="mt-0.5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500" onchange="userEditTogglePinField()">
+                <span><span class="font-medium text-amber-400/90">SuperAdmin</span> — changing this requires no existing SuperAdmin (bootstrap) or trusted API header with another SuperAdmin.</span>
+            </label>
+        </div>
+        {% endif %}
+        <div id="user-edit-pin-wrap">
+            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sign-in PIN</label>
+            <input type="password" id="user-edit-login-pin" autocomplete="new-password" placeholder="Leave blank to keep unchanged"
+                class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <span class="text-[10px] text-slate-500">Set a new PIN for this account (not used for SuperAdmin).</span>
         </div>
         <div class="flex items-center gap-2">
             <button type="button" onclick="usersSubmitEdit()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
@@ -484,7 +640,7 @@ function applyMainTabFromHash() {
     if (tRp) { tRp.classList.toggle('border-primary', !isAdmin); tRp.classList.toggle('text-primary', !isAdmin); tRp.classList.toggle('border-transparent', isAdmin); tRp.classList.toggle('text-slate-400', isAdmin); }
     if (!isAdmin) {
         if (window._rpSelectedRoleId != null) {
-            try { selectRole(window._rpSelectedRoleId, window._rpSelectedRoleName, window._rpSelectedPermissions || []); } catch (e) { console.error(e); }
+            try { selectRole(window._rpSelectedRoleId, window._rpSelectedRoleName, window._rpSelectedPermissions || [], !!window._rpSelectedIsMaster); } catch (e) { console.error(e); }
         } else {
             var firstRole = document.querySelector('.rbac-role-row');
             if (firstRole) selectRoleFromRow(firstRole);
@@ -497,37 +653,104 @@ document.addEventListener('DOMContentLoaded', function() {
     applyMainTabFromHash();
     // R&P Partner dropdown: navigate with rp_partner_id only and keep #roles-perms so we stay on R&P tab
     var rpPartnerSelect = document.getElementById('rp-partner-select');
-    if (rpPartnerSelect) {
+    if (rpPartnerSelect && rpPartnerSelect.tagName === 'SELECT') {
         rpPartnerSelect.addEventListener('change', function() {
             var v = this.value || '';
             var url = '/users?rp_partner_id=' + encodeURIComponent(v) + '#roles-perms';
             window.location.href = url;
         });
     }
+    var rbacKebabMenu = document.getElementById('rbac-role-kebab-menu');
+    function hideRbacRoleKebabMenu() {
+        if (!rbacKebabMenu || rbacKebabMenu.classList.contains('hidden')) return;
+        rbacKebabMenu.classList.add('hidden');
+        rbacKebabMenu.setAttribute('aria-hidden', 'true');
+    }
+    document.querySelectorAll('.rbac-role-kebab-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!rbacKebabMenu) return;
+            var rid = btn.getAttribute('data-role-id') || '';
+            var sameOpen = !rbacKebabMenu.classList.contains('hidden') && rbacKebabMenu.getAttribute('data-role-id') === rid;
+            if (sameOpen) {
+                hideRbacRoleKebabMenu();
+                return;
+            }
+            rbacKebabMenu.setAttribute('data-role-id', rid);
+            rbacKebabMenu.classList.remove('hidden');
+            rbacKebabMenu.setAttribute('aria-hidden', 'false');
+            var br = btn.getBoundingClientRect();
+            var mw = 168;
+            rbacKebabMenu.style.left = Math.max(8, br.right - mw) + 'px';
+            rbacKebabMenu.style.top = (br.bottom + 4) + 'px';
+        });
+    });
+    document.body.addEventListener('click', function(e) {
+        if (!rbacKebabMenu || rbacKebabMenu.classList.contains('hidden')) return;
+        if (e.target.closest('#rbac-role-kebab-menu') || e.target.closest('.rbac-role-kebab-btn')) return;
+        hideRbacRoleKebabMenu();
+    });
+    var kebabEdit = document.getElementById('rbac-role-kebab-edit');
+    var kebabDup = document.getElementById('rbac-role-kebab-duplicate');
+    if (kebabEdit) {
+        kebabEdit.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (!rbacKebabMenu) return;
+            var id = parseInt(rbacKebabMenu.getAttribute('data-role-id'), 10);
+            hideRbacRoleKebabMenu();
+            if (!isNaN(id)) rpOpenEditRoleModal(id);
+        });
+    }
+    if (kebabDup) {
+        kebabDup.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (!rbacKebabMenu) return;
+            var id = parseInt(rbacKebabMenu.getAttribute('data-role-id'), 10);
+            hideRbacRoleKebabMenu();
+            if (!isNaN(id)) rpOpenDuplicateRoleModal(id);
+        });
+    }
+    var rpRolesScroll = document.getElementById('rp-roles-table-scroll');
+    if (rpRolesScroll) rpRolesScroll.addEventListener('scroll', hideRbacRoleKebabMenu);
+    window.addEventListener('resize', hideRbacRoleKebabMenu);
 });
 
 // Roles & Permissions: selected role state
 window._rpSelectedRoleId = null;
 window._rpSelectedRoleName = null;
 window._rpSelectedPermissions = [];
+window._rpSelectedIsMaster = false;
+
+function formatRbacApiDetail(data) {
+    if (!data || data.detail === undefined || data.detail === null) return 'Request failed';
+    var d = data.detail;
+    if (typeof d === 'string') return d;
+    if (Array.isArray(d)) return d.map(function(x) { return x.msg || String(x); }).join('; ');
+    return String(d);
+}
 
 function selectRoleFromRow(rowEl) {
     var id = parseInt(rowEl.getAttribute('data-role-id'), 10);
     var name = rowEl.getAttribute('data-role-name') || '—';
     var permsStr = rowEl.getAttribute('data-permissions') || '';
     var perms = permsStr ? permsStr.split(',').map(function(p) { return p.trim(); }).filter(Boolean) : [];
+    var isMaster = rowEl.getAttribute('data-is-master') === '1';
     document.querySelectorAll('.rbac-role-row').forEach(function(r) { r.classList.remove('rbac-role-selected', 'bg-primary/10'); });
     rowEl.classList.add('rbac-role-selected', 'bg-primary/10');
     rowEl.querySelector('.rbac-role-radio').checked = true;
-    selectRole(id, name, perms);
+    selectRole(id, name, perms, isMaster);
 }
 
-function selectRole(roleId, roleName, permissionCodes) {
+function selectRole(roleId, roleName, permissionCodes, isMaster) {
     window._rpSelectedRoleId = roleId;
     window._rpSelectedRoleName = roleName;
     window._rpSelectedPermissions = permissionCodes || [];
+    window._rpSelectedIsMaster = !!isMaster;
     document.getElementById('rp-role-name').textContent = roleName;
     document.getElementById('rp-perms-role-label').textContent = roleName;
+    var hint = document.getElementById('rp-master-hint');
+    if (hint) hint.classList.toggle('hidden', !window._rpSelectedIsMaster);
 
     var users = window.__usersData || [];
     var adminsInRole = users.filter(function(u) { return (u.role_ids || []).indexOf(roleId) !== -1; });
@@ -536,7 +759,7 @@ function selectRole(roleId, roleName, permissionCodes) {
     adminsInRole.forEach(function(u) {
         var tr = document.createElement('tr');
         tr.className = 'border-b border-slate-700/30 hover:bg-white/5';
-        tr.innerHTML = '<td class="px-2 py-1.5 text-white">' + (u.email || '—') + '</td><td class="px-2 py-1.5 text-slate-300">' + (u.login || u.display_name || '—') + '</td><td class="px-2 py-1.5 text-right"><button type="button" onclick="rpUnassignUser(' + u.user_id + ')" class="text-amber-400 hover:text-amber-300 text-xs">Unassign</button></td>';
+        tr.innerHTML = '<td class="px-2 py-1.5 text-white">' + (u.email || '—') + '</td><td class="px-2 py-1.5 text-slate-300">' + (u.login || u.display_name || '—') + '</td><td class="px-2 py-1.5 text-right whitespace-nowrap"><button type="button" onclick="usersEdit(' + u.user_id + ')" class="text-slate-300 hover:text-white text-xs mr-2">Edit</button><button type="button" onclick="rpUnassignUser(' + u.user_id + ')" class="text-amber-400 hover:text-amber-300 text-xs">Unassign</button></td>';
         tbody.appendChild(tr);
     });
     if (adminsInRole.length === 0) {
@@ -668,7 +891,7 @@ function rpSaveAccessRights() {
             });
             rpCancelEditMode();
         } else {
-            if (statusEl) statusEl.textContent = res.data.detail || 'Failed to save';
+            if (statusEl) statusEl.textContent = formatRbacApiDetail(res.data) || 'Failed to save';
         }
         if (saveBtn) saveBtn.disabled = false;
     })
@@ -718,11 +941,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var sel = document.getElementById('rp-assign-user');
     if (sel) sel.addEventListener('change', function() { document.getElementById('rp-assign-btn').disabled = !this.value || this.value === ''; });
     var firstRole = document.querySelector('.rbac-role-row');
-    if (firstRole) {
-        window._rpSelectedRoleId = parseInt(firstRole.getAttribute('data-role-id'), 10);
-        window._rpSelectedRoleName = firstRole.getAttribute('data-role-name') || '—';
-        window._rpSelectedPermissions = (firstRole.getAttribute('data-permissions') || '').split(',').map(function(p) { return p.trim(); }).filter(Boolean);
-    }
+    if (firstRole) selectRoleFromRow(firstRole);
     // Expand/collapse tree groups
     document.getElementById('rp-permissions-wrap').addEventListener('click', function(e) {
         var btn = e.target.closest('.rp-tree-group-btn');
@@ -774,8 +993,14 @@ function adminBrandsSelectAll() {
 function rpShowCreateRoleModal() {
     document.getElementById('rp-create-role-modal').classList.remove('hidden');
     document.getElementById('rp-create-role-name').value = '';
-    document.getElementById('rp-create-role-partner-id').value = '';
+    var rpp = document.getElementById('rp-create-role-partner-id');
+    if (rpp) {
+        if (window.__rbacEnforcedPartnerId != null) rpp.value = String(window.__rbacEnforcedPartnerId);
+        else rpp.value = '';
+    }
     document.getElementById('rp-create-role-active').checked = true;
+    var m = document.getElementById('rp-create-role-master');
+    if (m) m.checked = false;
     document.getElementById('rp-create-role-status').textContent = '';
 }
 function rpCloseCreateRoleModal() {
@@ -794,7 +1019,8 @@ async function rpSubmitCreateRole() {
     var body = {
         name: name,
         active: document.getElementById('rp-create-role-active').checked,
-        partner_id: partnerId
+        partner_id: partnerId,
+        is_master: !!(document.getElementById('rp-create-role-master') && document.getElementById('rp-create-role-master').checked)
     };
     var statusEl = document.getElementById('rp-create-role-status');
     statusEl.textContent = 'Creating…';
@@ -807,11 +1033,152 @@ async function rpSubmitCreateRole() {
         });
         var data = await r.json();
         if (!r.ok) {
-            statusEl.textContent = data.detail || 'Failed to create role';
+            statusEl.textContent = formatRbacApiDetail(data) || 'Failed to create role';
             statusEl.className = 'text-xs text-red-400';
             return;
         }
         rpCloseCreateRoleModal();
+        window.location.reload();
+    } catch (e) {
+        statusEl.textContent = 'Request failed: ' + e.message;
+        statusEl.className = 'text-xs text-red-400';
+    }
+}
+
+function rpOpenEditRoleModal(roleId) {
+    var roles = window.__rolesData || [];
+    var r = roles.find(function(x) { return x.role_id === roleId; });
+    if (!r) return;
+    document.getElementById('rp-edit-role-id').value = String(roleId);
+    document.getElementById('rp-edit-role-name').value = r.name || '';
+    document.getElementById('rp-edit-role-active').checked = !!r.active;
+    var m = document.getElementById('rp-edit-role-master');
+    if (m) m.checked = !!r.is_master;
+    document.getElementById('rp-edit-role-status').textContent = '';
+    document.getElementById('rp-edit-role-modal').classList.remove('hidden');
+}
+function rpCloseEditRoleModal() {
+    document.getElementById('rp-edit-role-modal').classList.add('hidden');
+}
+
+function rpCloseDuplicateRoleModal() {
+    var m = document.getElementById('rp-duplicate-role-modal');
+    if (m) m.classList.add('hidden');
+}
+
+function rpOpenDuplicateRoleModal(roleId) {
+    var roles = window.__rolesData || [];
+    var src = roles.find(function(x) { return x.role_id === roleId; });
+    if (!src) return;
+    document.getElementById('rp-duplicate-source-role-id').value = String(roleId);
+    var label = document.getElementById('rp-duplicate-source-label');
+    if (label) {
+        label.textContent = 'Copying access rights from "' + (src.name || '—') + '" (' + (src.partner_name || window.__rbacPlatformScopeLabel || 'Internal User') + ').';
+    }
+    document.getElementById('rp-duplicate-role-name').value = (src.name || 'Role') + ' (copy)';
+    var pEl = document.getElementById('rp-duplicate-role-partner-id');
+    if (pEl) {
+        if (pEl.tagName === 'SELECT') {
+            pEl.value = src.partner_id != null && src.partner_id !== undefined ? String(src.partner_id) : '';
+        } else if (window.__rbacEnforcedPartnerId != null) {
+            pEl.value = String(window.__rbacEnforcedPartnerId);
+        }
+    }
+    document.getElementById('rp-duplicate-role-active').checked = true;
+    var dm = document.getElementById('rp-duplicate-role-master');
+    if (dm) dm.checked = false;
+    var st = document.getElementById('rp-duplicate-role-status');
+    if (st) { st.textContent = ''; st.className = 'text-xs text-slate-400'; }
+    document.getElementById('rp-duplicate-role-modal').classList.remove('hidden');
+}
+
+async function rpSubmitDuplicateRole() {
+    var srcId = parseInt(document.getElementById('rp-duplicate-source-role-id').value, 10);
+    if (isNaN(srcId)) return;
+    var roles = window.__rolesData || [];
+    var src = roles.find(function(x) { return x.role_id === srcId; });
+    var statusEl = document.getElementById('rp-duplicate-role-status');
+    if (!src) {
+        statusEl.textContent = 'Source role not found.';
+        statusEl.className = 'text-xs text-red-400';
+        return;
+    }
+    var name = document.getElementById('rp-duplicate-role-name').value.trim();
+    if (!name) {
+        statusEl.textContent = 'Name is required.';
+        statusEl.className = 'text-xs text-amber-400';
+        return;
+    }
+    var pEl = document.getElementById('rp-duplicate-role-partner-id');
+    var partnerId = null;
+    if (pEl) {
+        if (pEl.tagName === 'SELECT') {
+            partnerId = pEl.value ? parseInt(pEl.value, 10) : null;
+            if (isNaN(partnerId)) partnerId = null;
+        } else {
+            partnerId = pEl.value ? parseInt(pEl.value, 10) : null;
+            if (isNaN(partnerId)) partnerId = null;
+        }
+    }
+    var perms = Array.isArray(src.permission_codes) ? src.permission_codes.slice() : [];
+    var body = {
+        name: name,
+        active: document.getElementById('rp-duplicate-role-active').checked,
+        partner_id: partnerId,
+        is_master: !!(document.getElementById('rp-duplicate-role-master') && document.getElementById('rp-duplicate-role-master').checked),
+        permission_codes: perms
+    };
+    statusEl.textContent = 'Creating…';
+    statusEl.className = 'text-xs text-slate-400';
+    try {
+        var r = await fetch('/api/rbac/roles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        var data = await r.json();
+        if (!r.ok) {
+            statusEl.textContent = formatRbacApiDetail(data) || 'Failed to duplicate role';
+            statusEl.className = 'text-xs text-red-400';
+            return;
+        }
+        rpCloseDuplicateRoleModal();
+        window.location.reload();
+    } catch (e) {
+        statusEl.textContent = 'Request failed: ' + e.message;
+        statusEl.className = 'text-xs text-red-400';
+    }
+}
+
+async function rpSubmitEditRole() {
+    var id = parseInt(document.getElementById('rp-edit-role-id').value, 10);
+    if (isNaN(id)) return;
+    var statusEl = document.getElementById('rp-edit-role-status');
+    var body = {
+        name: document.getElementById('rp-edit-role-name').value.trim(),
+        active: document.getElementById('rp-edit-role-active').checked,
+        is_master: !!(document.getElementById('rp-edit-role-master') && document.getElementById('rp-edit-role-master').checked)
+    };
+    if (!body.name) {
+        statusEl.textContent = 'Name is required.';
+        statusEl.className = 'text-xs text-amber-400';
+        return;
+    }
+    statusEl.textContent = 'Saving…';
+    statusEl.className = 'text-xs text-slate-400';
+    try {
+        var r = await fetch('/api/rbac/roles/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        var data = await r.json();
+        if (!r.ok) {
+            statusEl.textContent = formatRbacApiDetail(data) || 'Failed to save';
+            statusEl.className = 'text-xs text-red-400';
+            return;
+        }
+        rpCloseEditRoleModal();
         window.location.reload();
     } catch (e) {
         statusEl.textContent = 'Request failed: ' + e.message;
@@ -878,14 +1245,39 @@ function filterAddFormRolesByPartner() {
         roleSelect.value = '';
     }
 }
+function userFormTogglePinField() {
+    var sa = document.getElementById('user-form-is-superadmin');
+    var wrap = document.getElementById('user-form-pin-wrap');
+    if (!wrap) return;
+    wrap.classList.toggle('hidden', sa && sa.checked);
+}
+function userEditTogglePinField() {
+    var sa = document.getElementById('user-edit-is-superadmin');
+    var wrap = document.getElementById('user-edit-pin-wrap');
+    if (!wrap) return;
+    if (!sa) {
+        wrap.classList.remove('hidden');
+        return;
+    }
+    wrap.classList.toggle('hidden', sa.checked);
+}
 function usersShowAddForm() {
     document.getElementById('user-add-form').classList.remove('hidden');
     document.getElementById('user-form-email').value = '';
     document.getElementById('user-form-login').value = '';
     document.getElementById('user-form-display-name').value = '';
-    document.getElementById('user-form-partner-id').value = '';
+    var pidEl = document.getElementById('user-form-partner-id');
+    if (pidEl) {
+        if (window.__rbacEnforcedPartnerId != null) pidEl.value = String(window.__rbacEnforcedPartnerId);
+        else pidEl.value = '';
+    }
     document.getElementById('user-form-role-ids').value = '';
     document.getElementById('user-form-brand-ids').selectedIndex = -1;
+    var sa = document.getElementById('user-form-is-superadmin');
+    if (sa) sa.checked = false;
+    var pin = document.getElementById('user-form-login-pin');
+    if (pin) pin.value = '1234';
+    userFormTogglePinField();
     document.getElementById('user-form-status').textContent = '';
     filterAddFormRolesByPartner();
 }
@@ -912,6 +1304,12 @@ async function usersSubmitAdd() {
         role_ids: getSingleRoleId(document.getElementById('user-form-role-ids')),
         brand_ids: getMultiSelect(document.getElementById('user-form-brand-ids')),
     };
+    var saCb = document.getElementById('user-form-is-superadmin');
+    if (saCb && saCb.checked) body.is_superadmin = true;
+    else {
+        var p = document.getElementById('user-form-login-pin');
+        if (p && p.value.trim()) body.login_pin = p.value.trim();
+    }
     var statusEl = document.getElementById('user-form-status');
     statusEl.textContent = 'Saving…';
     statusEl.className = 'text-xs text-slate-400';
@@ -944,8 +1342,14 @@ function usersEdit(userId) {
             document.getElementById('user-edit-email').value = u.email || '';
             document.getElementById('user-edit-login').value = u.login || '';
             document.getElementById('user-edit-display-name').value = u.display_name || '';
-            document.getElementById('user-edit-partner-id').value = u.partner_id !== null && u.partner_id !== undefined ? u.partner_id : '';
+            var editPid = document.getElementById('user-edit-partner-id');
+            if (editPid) editPid.value = u.partner_id !== null && u.partner_id !== undefined ? u.partner_id : '';
             document.getElementById('user-edit-active').checked = u.active !== false;
+            var saEdit = document.getElementById('user-edit-is-superadmin');
+            if (saEdit) saEdit.checked = !!u.is_superadmin;
+            var pinEdit = document.getElementById('user-edit-login-pin');
+            if (pinEdit) pinEdit.value = '';
+            userEditTogglePinField();
             var roleSel = document.getElementById('user-edit-role-ids');
             var firstRoleId = (u.role_ids && u.role_ids.length) ? u.role_ids[0] : null;
             roleSel.value = firstRoleId != null ? String(firstRoleId) : '';
@@ -967,15 +1371,19 @@ async function usersSubmitEdit() {
         return;
     }
     var partnerIdEl = document.getElementById('user-edit-partner-id');
+    var saEditPut = document.getElementById('user-edit-is-superadmin');
     var body = {
         email: email,
         login: document.getElementById('user-edit-login').value.trim() || undefined,
         display_name: document.getElementById('user-edit-display-name').value.trim() || undefined,
-        partner_id: partnerIdEl.value ? parseInt(partnerIdEl.value, 10) : null,
+        partner_id: partnerIdEl && partnerIdEl.value ? parseInt(partnerIdEl.value, 10) : null,
         role_ids: getSingleRoleId(document.getElementById('user-edit-role-ids')),
         brand_ids: getMultiSelect(document.getElementById('user-edit-brand-ids')),
-        active: document.getElementById('user-edit-active').checked
+        active: document.getElementById('user-edit-active').checked,
     };
+    if (saEditPut) body.is_superadmin = saEditPut.checked;
+    var pinVal = (document.getElementById('user-edit-login-pin') && document.getElementById('user-edit-login-pin').value) || '';
+    if (pinVal.trim() && !(saEditPut && saEditPut.checked)) body.login_pin = pinVal.trim();
     var statusEl = document.getElementById('user-edit-status');
     statusEl.textContent = 'Saving…';
     statusEl.className = 'text-xs text-slate-400';
@@ -1001,6 +1409,8 @@ async function usersSubmitEdit() {
 }
 </script>
 <script>
+window.__rbacEnforcedPartnerId = {{ rbac_enforced_partner_id | tojson }};
+window.__rbacPlatformScopeLabel = {{ rbac_platform_scope_label | tojson }};
 window.__usersData = {{ users | tojson }};
 window.__rolesData = {{ roles | tojson }};
 </script>

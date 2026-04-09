@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, Form, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import copy
 import json
 import logging
 import os
 from pathlib import Path
+from threading import Lock
 from datetime import date, datetime, timedelta, timezone
 
 # Initialize App
@@ -112,6 +116,293 @@ def _ensure_rbac_data_structure() -> None:
     _ensure_rbac_csv_if_missing(RBAC_ROLE_PERMISSIONS_PATH, list(config.RBAC_ROLE_PERMISSIONS_FIELDS))
     _ensure_rbac_csv_if_missing(RBAC_USER_BRANDS_PATH, list(config.RBAC_USER_BRANDS_FIELDS))
     _ensure_rbac_csv_if_missing(RBAC_AUDIT_LOG_PATH, list(config.RBAC_AUDIT_LOG_FIELDS))
+    _migrate_rbac_roles_is_master_if_needed()
+    _migrate_rbac_users_is_superadmin_if_needed()
+    _migrate_rbac_users_login_pin_if_needed()
+    if config.GMP_DEV_LOGIN and not (config.GMP_DEV_SESSION_SECRET or "").strip():
+        logging.getLogger("uvicorn.error").warning(
+            "GMP_DEV_LOGIN=1 but GMP_DEV_SESSION_SECRET is empty — using an insecure embedded default. "
+            "Set a long random GMP_DEV_SESSION_SECRET in .env for any non-local use."
+        )
+    if config.GMP_DEV_LOGIN and not (config.GMP_SUPERADMIN_PIN or "").strip():
+        logging.getLogger("uvicorn.error").warning(
+            "GMP_SUPERADMIN_PIN is empty — users with is_superadmin cannot sign in until you set it in .env."
+        )
+
+
+def _migrate_rbac_users_is_superadmin_if_needed() -> None:
+    """Add is_superadmin column to users.csv if missing; default 0."""
+    if not RBAC_USERS_PATH.exists():
+        return
+    with open(RBAC_USERS_PATH, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    if "is_superadmin" in fieldnames:
+        return
+    want = list(config.RBAC_USERS_FIELDS)
+    for row in rows:
+        row["is_superadmin"] = "0"
+    with open(RBAC_USERS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=want, extrasaction="ignore")
+        w.writeheader()
+        for row in rows:
+            w.writerow({k: row.get(k, "") for k in want})
+
+
+def _migrate_rbac_users_login_pin_if_needed() -> None:
+    """Add login_pin column to users.csv if missing; default empty (use GMP_DEFAULT_USER_PIN at sign-in)."""
+    if not RBAC_USERS_PATH.exists():
+        return
+    with open(RBAC_USERS_PATH, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    if "login_pin" in fieldnames:
+        return
+    want = list(config.RBAC_USERS_FIELDS)
+    for row in rows:
+        row["login_pin"] = ""
+    with open(RBAC_USERS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=want, extrasaction="ignore")
+        w.writeheader()
+        for row in rows:
+            w.writerow({k: row.get(k, "") for k in want})
+
+
+def _seed_rbac_if_empty() -> None:
+    """First-time RBAC: SuperAdmin user + SuperAdmin Console role (Admin menu + always-granted). Both CSVs must be empty."""
+    if _load_rbac_users() or _load_rbac_roles():
+        return
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    codes = sorted(config.rbac_superadmin_console_permission_codes())
+    role_row = {
+        "role_id": 1,
+        "name": "SuperAdmin Console",
+        "active": True,
+        "is_system": True,
+        "partner_id": None,
+        "is_master": False,
+        "created_at": now,
+        "updated_at": now,
+    }
+    _save_rbac_roles([role_row])
+    perms = [{"role_id": 1, "permission_code": c} for c in codes]
+    _save_rbac_role_permissions(perms)
+    user_row = {
+        "user_id": 1,
+        "login": "superadmin",
+        "email": "superadmin@platform.local",
+        "display_name": "Super Admin",
+        "active": True,
+        "partner_id": None,
+        "created_by": "bootstrap",
+        "created_at": now,
+        "updated_at": now,
+        "last_login": "",
+        "online": False,
+        "is_superadmin": True,
+        "login_pin": "",
+    }
+    _save_rbac_users([user_row])
+    _save_rbac_user_roles([{"user_id": 1, "role_id": 1, "assigned_at": now, "assigned_by_user_id": None}])
+    _rbac_audit_append(None, "rbac.bootstrap", "system", "1", "SuperAdmin + SuperAdmin Console role")
+
+
+def _rbac_partner_scope_match(a: int | None, b: int | None) -> bool:
+    """True if both are Platform (None) or same numeric partner id."""
+    return (a is None and b is None) or (a is not None and b is not None and int(a) == int(b))
+
+
+def _migrate_rbac_roles_is_master_if_needed() -> None:
+    """Add is_master column to roles.csv if missing; default 0. Dedupe: at most one master per partner scope."""
+    if not RBAC_ROLES_PATH.exists():
+        return
+    with open(RBAC_ROLES_PATH, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    if "is_master" in fieldnames:
+        return
+    want = list(config.RBAC_ROLES_FIELDS)
+    for row in rows:
+        row["is_master"] = "0"
+    with open(RBAC_ROLES_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=want, extrasaction="ignore")
+        w.writeheader()
+        for row in rows:
+            w.writerow({k: row.get(k, "") for k in want})
+    # Dedupe masters (keep first per partner_id key)
+    roles = _load_rbac_roles()
+    seen_master: set[int | None] = set()
+    changed = False
+    for r in roles:
+        if not r.get("is_master"):
+            continue
+        key = r.get("partner_id")
+        if key is not None:
+            key = int(key)
+        if key in seen_master:
+            r["is_master"] = False
+            changed = True
+        else:
+            seen_master.add(key)
+    if changed:
+        _save_rbac_roles(roles)
+
+
+def _any_rbac_superadmin_exists(users: list[dict]) -> bool:
+    return any(u.get("is_superadmin") and u.get("active", True) for u in users)
+
+
+def _rbac_actor_user_id_from_request(request: Request) -> int | None:
+    if config.RBAC_TRUST_ACTOR_HEADER:
+        raw = request.headers.get("x-rbac-actor-user-id") or request.headers.get("X-RBAC-Actor-User-Id")
+        if raw and str(raw).strip():
+            try:
+                return int(str(raw).strip())
+            except ValueError:
+                pass
+    if config.GMP_DEV_LOGIN:
+        try:
+            uid = request.session.get("dev_actor_user_id")
+            if uid is not None:
+                return int(uid)
+        except (AssertionError, AttributeError, TypeError, ValueError):
+            pass
+    return None
+
+
+def _rbac_actor_is_superadmin(request: Request) -> bool:
+    uid = _rbac_actor_user_id_from_request(request)
+    if uid is None:
+        return False
+    u = next((x for x in _load_rbac_users() if x.get("user_id") == uid), None)
+    return bool(u and u.get("is_superadmin") and u.get("active", True))
+
+
+def _rbac_request_bypasses_master_caps(request: Request) -> bool:
+    """True when the resolved actor (trusted header or dev session) is an active SuperAdmin."""
+    return _rbac_actor_is_superadmin(request)
+
+
+def _rbac_can_assign_superadmin(request: Request) -> bool:
+    """Bootstrap: allowed if no SuperAdmin exists yet; otherwise actor must be SuperAdmin (trusted header)."""
+    if _rbac_actor_is_superadmin(request):
+        return True
+    return not _any_rbac_superadmin_exists(_load_rbac_users())
+
+
+def _rbac_actor_enforced_partner_id(request: Request) -> int | None:
+    """Partner-scoped sign-in: return that partner_id. Platform users (partner_id None) return None — see all tenants."""
+    uid = _rbac_actor_user_id_from_request(request)
+    if uid is None:
+        return None
+    users = _load_rbac_users()
+    u = next((x for x in users if x.get("user_id") == uid), None)
+    if not u or not u.get("active", True):
+        return None
+    pid = u.get("partner_id")
+    if pid is None:
+        return None
+    return int(pid)
+
+
+def _rbac_assert_actor_may_access_user_row(request: Request, target_user: dict) -> None:
+    enf = _rbac_actor_enforced_partner_id(request)
+    if enf is None:
+        return
+    tpid = target_user.get("partner_id")
+    if tpid is None or int(tpid) != enf:
+        raise HTTPException(status_code=403, detail="Cannot access users outside your partner scope")
+
+
+def _rbac_assert_actor_may_access_role_row(request: Request, role: dict) -> None:
+    enf = _rbac_actor_enforced_partner_id(request)
+    if enf is None:
+        return
+    rpid = role.get("partner_id")
+    if rpid is None or int(rpid) != enf:
+        raise HTTPException(status_code=403, detail="Cannot access roles outside your partner scope")
+
+
+def _rbac_assert_partner_actor_role_and_brand_ids(
+    request: Request,
+    role_ids: list[int] | None,
+    brand_ids: list[int] | None,
+) -> None:
+    enf = _rbac_actor_enforced_partner_id(request)
+    if enf is None:
+        return
+    if role_ids:
+        roles = _load_rbac_roles()
+        role_by_id = {r["role_id"]: r for r in roles}
+        for rid in role_ids:
+            r = role_by_id.get(rid)
+            if not r or r.get("partner_id") != enf:
+                raise HTTPException(status_code=403, detail="Cannot assign roles outside your partner scope")
+    if brand_ids:
+        brands = _load_brands()
+        bmap = {b["id"]: b for b in brands}
+        for bid in brand_ids:
+            b = bmap.get(bid)
+            if not b or b.get("partner_id") != enf:
+                raise HTTPException(status_code=403, detail="Cannot assign brands outside your partner scope")
+
+
+_rbac_presence_lock = Lock()
+_rbac_presence_last_seen: dict[int, datetime] = {}
+
+
+def _rbac_presence_touch(user_id: int | None) -> None:
+    """Mark user as recently active (UTC). Used for Admin “Online” column."""
+    if user_id is None:
+        return
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return
+    now = datetime.now(timezone.utc)
+    with _rbac_presence_lock:
+        _rbac_presence_last_seen[uid] = now
+
+
+def _rbac_presence_clear(user_id: int | None) -> None:
+    if user_id is None:
+        return
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return
+    with _rbac_presence_lock:
+        _rbac_presence_last_seen.pop(uid, None)
+
+
+def _rbac_user_presence_online(user_id: int | None) -> bool:
+    if user_id is None:
+        return False
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return False
+    idle = max(30, int(getattr(config, "RBAC_ONLINE_IDLE_SECONDS", 180) or 180))
+    with _rbac_presence_lock:
+        seen = _rbac_presence_last_seen.get(uid)
+    if seen is None:
+        return False
+    return (datetime.now(timezone.utc) - seen).total_seconds() < idle
+
+
+def _rbac_persist_last_login(user_id: int) -> None:
+    """Write last_login and updated_at to users.csv (successful sign-in)."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    users = _load_rbac_users()
+    for u in users:
+        if u.get("user_id") == user_id:
+            u["last_login"] = now
+            u["updated_at"] = now
+            break
+    _save_rbac_users(users)
 
 
 def _parse_start_time(s: str | None) -> datetime | None:
@@ -140,6 +431,23 @@ def _parse_start_time(s: str | None) -> datetime | None:
         except (ValueError, TypeError):
             pass
     return None
+
+
+def _rbac_last_login_display_and_stale(last_login_raw: str | None) -> tuple[str, bool]:
+    """Admin Last login: show stored date/time until 8+ full days ago, then 'N days'; stale (15+ days) for red styling."""
+    s = (last_login_raw or "").strip()
+    if not s:
+        return "—", False
+    dt = _parse_start_time(s)
+    if dt is None:
+        return s, False
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if dt > now:
+        return s, False
+    days = (now - dt).days
+    if days < 8:
+        return s, False
+    return (f"{days} days", days >= 15)
 
 
 def _feeder_event_start_time_sort_key(e: dict, ascending: bool) -> tuple:
@@ -1111,6 +1419,8 @@ def _load_rbac_users() -> list[dict]:
                 "updated_at": (r.get("updated_at") or "").strip(),
                 "last_login": (r.get("last_login") or "").strip(),
                 "online": (r.get("online") or "0").strip().lower() in ("1", "true", "yes"),
+                "is_superadmin": (r.get("is_superadmin") or "0").strip().lower() in ("1", "true", "yes"),
+                "login_pin": (r.get("login_pin") or "").strip(),
             })
     return out
 
@@ -1141,6 +1451,8 @@ def _save_rbac_users(users: list[dict]) -> None:
                 "updated_at": u.get("updated_at", ""),
                 "last_login": u.get("last_login", ""),
                 "online": "1" if u.get("online", False) else "0",
+                "is_superadmin": "1" if u.get("is_superadmin", False) else "0",
+                "login_pin": (u.get("login_pin") or "").strip(),
             })
 
 
@@ -1158,6 +1470,7 @@ def _load_rbac_roles() -> list[dict]:
                 "active": (r.get("active") or "1").strip().lower() in ("1", "true", "yes"),
                 "is_system": (r.get("is_system") or "0").strip().lower() in ("1", "true", "yes"),
                 "partner_id": pid,
+                "is_master": (r.get("is_master") or "0").strip().lower() in ("1", "true", "yes"),
                 "created_at": (r.get("created_at") or "").strip(),
                 "updated_at": (r.get("updated_at") or "").strip(),
             })
@@ -1175,9 +1488,143 @@ def _save_rbac_roles(roles: list[dict]) -> None:
                 "active": "1" if row.get("active", True) else "0",
                 "is_system": "1" if row.get("is_system", False) else "0",
                 "partner_id": row.get("partner_id") if row.get("partner_id") is not None else "",
+                "is_master": "1" if row.get("is_master", False) else "0",
                 "created_at": row.get("created_at", ""),
                 "updated_at": row.get("updated_at", ""),
             })
+
+
+def _clear_master_flag_same_partner(roles: list[dict], partner_id: int | None, except_role_id: int | None = None) -> None:
+    for r in roles:
+        if except_role_id is not None and r.get("role_id") == except_role_id:
+            continue
+        if r.get("is_master") and _rbac_partner_scope_match(r.get("partner_id"), partner_id):
+            r["is_master"] = False
+
+
+def _get_master_role_for_partner(roles: list[dict], partner_id: int | None) -> dict | None:
+    for r in roles:
+        if r.get("is_master") and _rbac_partner_scope_match(r.get("partner_id"), partner_id):
+            return r
+    return None
+
+
+def _permission_codes_for_role_id(role_id: int) -> set[str]:
+    return {
+        (p.get("permission_code") or "").strip()
+        for p in _load_rbac_role_permissions()
+        if p.get("role_id") == role_id and (p.get("permission_code") or "").strip()
+    }
+
+
+def _rbac_sign_in_pin_valid(user: dict, pin_submitted: str) -> bool:
+    p = (pin_submitted or "").strip()
+    if user.get("is_superadmin"):
+        secret = (config.GMP_SUPERADMIN_PIN or "").strip()
+        if not secret:
+            return False
+        return p == secret
+    expected = (user.get("login_pin") or "").strip() or config.GMP_DEFAULT_USER_PIN
+    return p == expected
+
+
+def _raise_if_partner_master_exceeds_platform(
+    roles: list[dict],
+    partner_id: int | None,
+    codes_set: set[str],
+    bypass: bool,
+) -> None:
+    """Partner-scoped Master role permissions must be a subset of Platform Master (and Platform Master must exist)."""
+    if bypass or partner_id is None or not codes_set:
+        return
+    plat = _get_master_role_for_partner(roles, None)
+    if not plat:
+        raise HTTPException(
+            status_code=400,
+            detail="Create a Platform Master role (Platform scope) before adding or editing a Partner Master.",
+        )
+    pcap = _permission_codes_for_role_id(int(plat["role_id"]))
+    over = codes_set - pcap
+    if over:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Permissions exceed Platform Master role «{plat.get('name', plat['role_id'])}»: {sorted(over)}",
+        )
+
+
+def _access_rights_ceiling_codes(request: Request) -> set[str] | None:
+    """None = show full permission tree (SuperAdmin). Else cap set for Access Rights UI."""
+    if not config.GMP_DEV_LOGIN:
+        return None
+    uid = _rbac_actor_user_id_from_request(request)
+    if uid is None:
+        return None
+    if _rbac_actor_is_superadmin(request):
+        return None
+    users = _load_rbac_users()
+    u = next((x for x in users if x.get("user_id") == uid), None)
+    if not u or not u.get("active", True):
+        return frozenset()
+    ur = _load_rbac_user_roles()
+    rid = next((x["role_id"] for x in ur if x["user_id"] == uid), None)
+    if rid is None:
+        return frozenset()
+    roles = _load_rbac_roles()
+    role = next((r for r in roles if r.get("role_id") == rid), None)
+    if not role:
+        return frozenset()
+    if role.get("is_master"):
+        return _permission_codes_for_role_id(int(rid))
+    master = _get_master_role_for_partner(roles, role.get("partner_id"))
+    if master:
+        return _permission_codes_for_role_id(int(master["role_id"]))
+    return _permission_codes_for_role_id(int(rid))
+
+
+def _filter_permission_tree_nodes(nodes: list[dict], allowed: set[str] | None) -> list[dict]:
+    if allowed is None:
+        return copy.deepcopy(nodes)
+    out: list[dict] = []
+    for node in nodes:
+        one = _filter_one_permission_tree_node(node, allowed)
+        if one is not None:
+            out.append(one)
+    return out
+
+
+def _filter_one_permission_tree_node(node: dict, allowed: set[str]) -> dict | None:
+    new_perms = []
+    for p in node.get("permissions") or []:
+        code = (p.get("code") or "").strip()
+        if p.get("always_granted") or code in allowed:
+            new_perms.append(p)
+    new_children = []
+    for ch in node.get("children") or []:
+        fc = _filter_one_permission_tree_node(ch, allowed)
+        if fc is not None:
+            new_children.append(fc)
+    if not new_perms and not new_children:
+        return None
+    d: dict = {"label": node["label"]}
+    if new_perms:
+        d["permissions"] = new_perms
+    if new_children:
+        d["children"] = new_children
+    return d
+
+
+def _user_without_secret_fields(u: dict) -> dict:
+    return {k: v for k, v in u.items() if k != "login_pin"}
+
+
+def _auth_exempt_path(path: str) -> bool:
+    if path.startswith("/static/") or path == "/static":
+        return True
+    if path == "/dev/login" or path.startswith("/dev/login/"):
+        return True
+    if path == "/dev/logout" or path.startswith("/dev/logout/"):
+        return True
+    return False
 
 
 def _save_rbac_role_permissions(rows: list[dict]) -> None:
@@ -1279,6 +1726,11 @@ def _rbac_audit_append(actor_user_id: int | None, action: str, target_type: str,
             "target_id": str(target_id),
             "details": details,
         })
+
+
+@app.on_event("startup")
+def _run_rbac_seed_after_audit_helpers() -> None:
+    _seed_rbac_if_empty()
 
 
 def _load_market_type_mappings() -> list[dict]:
@@ -3451,6 +3903,17 @@ def _dashboard_feed_stats() -> list[dict]:
 
 # Changelog for dashboard (new features / bugs fixed per version). Edit here or move to a file.
 DASHBOARD_CHANGELOG = [
+    {"version": "1.2.3", "date": "2026-04-01", "items": [
+        "Admin Management: partner-scoped sign-in sees only that partner’s users, roles, and brands (UI + RBAC APIs). Platform / Internal User accounts still see all tenants.",
+        "Admin: tenant label “Internal User” replaces “Platform” for users and roles with no partner; Partner column uses plain white for Internal User rows.",
+        "Admin → Roles & Permissions: Actions column is a kebab menu (Edit + Duplicate role). Duplicate creates a role with the same access rights; pick name and target partner (shortcut when onboarding a new partner).",
+        "Admin table: Online reflects recent activity (in-memory; configurable RBAC_ONLINE_IDLE_SECONDS). Last login is persisted on successful /dev/login; /dev/logout clears online immediately for that session.",
+        "Last login column: shows date/time for the first seven full days, then “N days”; 15+ days is red and bold to highlight stale accounts for hygiene / deactivation reviews.",
+        "Deploy: backend/data/rbac/*.csv stays environment-local (.gitignore). server-protect-data.sh lists those paths so servers can skip-worktree if needed; never copy prod roles/users from another machine—bootstrap each environment in Admin or via server CSV backup.",
+    ]},
+    {"version": "1.2.2", "date": "2026-04-01", "items": [
+        "Admin → Roles & Permissions: optional Master role per partner (and one for Platform). Exactly one Master per scope; other roles’ permissions cannot exceed the Master’s for that partner. CSV column roles.is_master; migration on startup.",
+    ]},
     {"version": "1.2.1", "date": "2026-04-01", "items": [
         "Starlette 1.x / current pip: all Jinja2 TemplateResponse calls use TemplateResponse(request, name, context). Fixes Internal Server Error on dashboard and every HTML page when the container installs a recent Starlette (old name-first signature was removed). requirements.txt pins minimum FastAPI/Starlette.",
     ]},
@@ -5714,33 +6177,42 @@ def _get_user_permissions(user_id: int) -> set[str]:
 
 
 @app.get("/api/rbac/users")
-async def list_rbac_users(partner_id: Optional[int] = None):
-    """List users. If partner_id given, filter to that partner (for partner-scoped admin)."""
+async def list_rbac_users(request: Request, partner_id: Optional[int] = None):
+    """List users. If partner_id given, filter to that partner. Partner-scoped sign-in ignores query and only sees own partner."""
     users = _load_rbac_users()
-    if partner_id is not None:
-        users = [u for u in users if u.get("partner_id") == partner_id]
+    enf = _rbac_actor_enforced_partner_id(request)
+    eff_pid = enf if enf is not None else partner_id
+    if eff_pid is not None:
+        users = [u for u in users if u.get("partner_id") == eff_pid]
     roles = _load_rbac_roles()
     user_roles = _load_rbac_user_roles()
     role_by_id = {r["role_id"]: r for r in roles}
     partners = _load_partners()
     partner_by_id = {p["id"]: p for p in partners}
+    out_users = []
     for u in users:
-        u["roles"] = [
+        row = {**u}
+        row["roles"] = [
             role_by_id[ur["role_id"]]
             for ur in user_roles
             if ur["user_id"] == u["user_id"] and ur["role_id"] in role_by_id
         ]
-        u["partner_name"] = partner_by_id.get(u["partner_id"], {}).get("name", "") if u.get("partner_id") else "Platform"
-    return {"users": users}
+        row["partner_name"] = partner_by_id.get(u["partner_id"], {}).get("name", "") if u.get("partner_id") else config.RBAC_PLATFORM_SCOPE_LABEL
+        row["online"] = _rbac_user_presence_online(row.get("user_id"))
+        ld, lst = _rbac_last_login_display_and_stale(row.get("last_login"))
+        row["last_login_display"] = ld
+        row["last_login_stale"] = lst
+        out_users.append(_user_without_secret_fields(row))
+    return {"users": out_users}
 
 
 @app.get("/api/rbac/users/{user_id:int}")
-async def get_rbac_user(user_id: int):
-    from fastapi import HTTPException
+async def get_rbac_user(request: Request, user_id: int):
     users = _load_rbac_users()
     user = next((u for u in users if u.get("user_id") == user_id), None)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    _rbac_assert_actor_may_access_user_row(request, user)
     user_roles = _load_rbac_user_roles()
     roles = _load_rbac_roles()
     role_by_id = {r["role_id"]: r for r in roles}
@@ -5753,13 +6225,20 @@ async def get_rbac_user(user_id: int):
     user_brands = _load_rbac_user_brands()
     user["brand_ids"] = [ub["brand_id"] for ub in user_brands if ub["user_id"] == user_id]
     partners = _load_partners()
-    user["partner_name"] = next((p["name"] for p in partners if p["id"] == user.get("partner_id")), None) or "Platform"
-    return {"user": user}
+    pid = user.get("partner_id")
+    if pid is None:
+        user["partner_name"] = config.RBAC_PLATFORM_SCOPE_LABEL
+    else:
+        user["partner_name"] = next((p["name"] for p in partners if p["id"] == pid), None) or "—"
+    user["online"] = _rbac_user_presence_online(user.get("user_id"))
+    ld, lst = _rbac_last_login_display_and_stale(user.get("last_login"))
+    user["last_login_display"] = ld
+    user["last_login_stale"] = lst
+    return {"user": _user_without_secret_fields(user)}
 
 
 @app.post("/api/rbac/users")
-async def create_rbac_user(body: CreateRbacUserRequest):
-    from fastapi import HTTPException
+async def create_rbac_user(request: Request, body: CreateRbacUserRequest):
     email = (body.email or "").strip()
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
@@ -5773,18 +6252,38 @@ async def create_rbac_user(body: CreateRbacUserRequest):
     if len(role_ids) > 1:
         raise HTTPException(status_code=400, detail="Each user may have only one role.")
     role_ids = role_ids[:1]
+    want_super = bool(body.is_superadmin) if body.is_superadmin is not None else False
+    enf = _rbac_actor_enforced_partner_id(request)
+    if enf is not None:
+        if body.partner_id is not None and int(body.partner_id) != enf:
+            raise HTTPException(status_code=403, detail="Cannot create users outside your partner scope")
+        if want_super:
+            raise HTTPException(status_code=403, detail="Partner-scoped admins cannot create SuperAdmin users")
+        effective_partner_id = enf
+    else:
+        effective_partner_id = body.partner_id
+    _rbac_assert_partner_actor_role_and_brand_ids(request, role_ids, body.brand_ids)
+    if want_super and not _rbac_can_assign_superadmin(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Only an existing SuperAdmin (X-RBAC-Actor-User-Id) can grant SuperAdmin, or bootstrap when none exists yet.",
+        )
     new_user = {
         "user_id": uid,
         "login": login,
         "email": email,
         "display_name": (body.display_name or "").strip() or login,
         "active": body.active if body.active is not None else True,
-        "partner_id": body.partner_id,
+        "partner_id": effective_partner_id,
         "created_by": "SuperAdmin",
         "created_at": now,
         "updated_at": now,
         "last_login": "",
         "online": False,
+        "is_superadmin": want_super,
+        "login_pin": ""
+        if want_super
+        else ((body.login_pin or "").strip() or config.GMP_DEFAULT_USER_PIN),
     }
     users.append(new_user)
     _save_rbac_users(users)
@@ -5803,16 +6302,28 @@ async def create_rbac_user(body: CreateRbacUserRequest):
             user_brands.append({"user_id": uid, "brand_id": bid})
         _save_rbac_user_brands(user_brands)
     _rbac_audit_append(None, "user.create", "user", str(uid), f"email={email}")
-    return {"ok": True, "user": new_user}
+    return {"ok": True, "user": _user_without_secret_fields(new_user)}
 
 
 @app.put("/api/rbac/users/{user_id:int}")
-async def update_rbac_user(user_id: int, body: UpdateRbacUserRequest):
-    from fastapi import HTTPException
+async def update_rbac_user(request: Request, user_id: int, body: UpdateRbacUserRequest):
     users = _load_rbac_users()
     user = next((u for u in users if u.get("user_id") == user_id), None)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    _rbac_assert_actor_may_access_user_row(request, user)
+    enf = _rbac_actor_enforced_partner_id(request)
+    if enf is not None:
+        if body.partner_id is not None and int(body.partner_id) != enf:
+            raise HTTPException(status_code=403, detail="Cannot move users outside your partner scope")
+        if body.is_superadmin is True:
+            raise HTTPException(status_code=403, detail="Partner-scoped admins cannot grant SuperAdmin")
+    if body.role_ids is not None or body.brand_ids is not None:
+        _rbac_assert_partner_actor_role_and_brand_ids(
+            request,
+            list(body.role_ids) if body.role_ids is not None else None,
+            list(body.brand_ids) if body.brand_ids is not None else None,
+        )
     if body.email is not None:
         email = (body.email or "").strip()
         if not email:
@@ -5828,6 +6339,17 @@ async def update_rbac_user(user_id: int, body: UpdateRbacUserRequest):
         user["partner_id"] = body.partner_id
     if body.active is not None:
         user["active"] = body.active
+    if body.is_superadmin is not None:
+        old_sa = bool(user.get("is_superadmin"))
+        new_sa = bool(body.is_superadmin)
+        if new_sa != old_sa and not _rbac_can_assign_superadmin(request):
+            raise HTTPException(
+                status_code=403,
+                detail="Only SuperAdmin (X-RBAC-Actor-User-Id) can change the SuperAdmin flag after one exists.",
+            )
+        user["is_superadmin"] = new_sa
+    if body.login_pin is not None and not user.get("is_superadmin"):
+        user["login_pin"] = (body.login_pin or "").strip() or config.GMP_DEFAULT_USER_PIN
     if body.role_ids is not None:
         role_ids = list(body.role_ids)
         if len(role_ids) > 1:
@@ -5848,16 +6370,16 @@ async def update_rbac_user(user_id: int, body: UpdateRbacUserRequest):
     user["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     _save_rbac_users(users)
     _rbac_audit_append(None, "user.update", "user", str(user_id), "")
-    return {"ok": True, "user": user}
+    return {"ok": True, "user": _user_without_secret_fields(user)}
 
 
 @app.delete("/api/rbac/users/{user_id:int}")
-async def delete_rbac_user(user_id: int):
-    from fastapi import HTTPException
+async def delete_rbac_user(request: Request, user_id: int):
     users = _load_rbac_users()
     user = next((u for u in users if u.get("user_id") == user_id), None)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    _rbac_assert_actor_may_access_user_row(request, user)
     if user.get("active"):
         raise HTTPException(status_code=400, detail="Cannot delete active user; deactivate first")
     users = [u for u in users if u.get("user_id") != user_id]
@@ -5873,8 +6395,11 @@ async def delete_rbac_user(user_id: int):
 
 
 @app.get("/api/rbac/roles")
-async def list_rbac_roles():
+async def list_rbac_roles(request: Request):
     roles = _load_rbac_roles()
+    enf = _rbac_actor_enforced_partner_id(request)
+    if enf is not None:
+        roles = [r for r in roles if r.get("partner_id") == enf]
     perms = _load_rbac_role_permissions()
     perms_by_role = {}
     for p in perms:
@@ -5885,21 +6410,42 @@ async def list_rbac_roles():
 
 
 @app.post("/api/rbac/roles")
-async def create_rbac_role(body: CreateRbacRoleRequest):
+async def create_rbac_role(request: Request, body: CreateRbacRoleRequest):
     """Create a new role. partner_id optional (null = Platform). New roles are non-system."""
-    from fastapi import HTTPException
     name = (body.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
+    enf = _rbac_actor_enforced_partner_id(request)
+    eff_partner_id = body.partner_id
+    if enf is not None:
+        if body.partner_id is not None and int(body.partner_id) != enf:
+            raise HTTPException(status_code=403, detail="Cannot create roles outside your partner scope")
+        eff_partner_id = enf
     roles = _load_rbac_roles()
     next_id = max((r.get("role_id") or 0 for r in roles), default=0) + 1
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    is_master = bool(body.is_master)
+    codes_set = {(c or "").strip() for c in (body.permission_codes or []) if (c or "").strip()}
+    master_existing = _get_master_role_for_partner(roles, eff_partner_id)
+    if not _rbac_request_bypasses_master_caps(request) and not is_master and master_existing is not None and codes_set:
+        cap = _permission_codes_for_role_id(int(master_existing["role_id"]))
+        over = codes_set - cap
+        if over:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Permissions exceed Master role «{master_existing.get('name', master_existing['role_id'])}» for this partner: {sorted(over)}",
+            )
+    if not _rbac_request_bypasses_master_caps(request) and is_master and eff_partner_id is not None:
+        _raise_if_partner_master_exceeds_platform(roles, eff_partner_id, codes_set, False)
+    if is_master:
+        _clear_master_flag_same_partner(roles, eff_partner_id, except_role_id=None)
     new_role = {
         "role_id": next_id,
         "name": name,
         "active": body.active if body.active is not None else True,
         "is_system": False,
-        "partner_id": body.partner_id,
+        "partner_id": eff_partner_id,
+        "is_master": is_master,
         "created_at": now,
         "updated_at": now,
     }
@@ -5916,18 +6462,79 @@ async def create_rbac_role(body: CreateRbacRoleRequest):
     return {"ok": True, "role_id": next_id}
 
 
-@app.put("/api/rbac/roles/{role_id:int}/permissions")
-async def update_rbac_role_permissions(role_id: int, body: UpdateRolePermissionsRequest):
-    """Replace all permissions for a role. Sends full list (including always-granted)."""
-    from fastapi import HTTPException
+@app.put("/api/rbac/roles/{role_id:int}")
+async def update_rbac_role(request: Request, role_id: int, body: UpdateRbacRoleRequest):
+    """Update role name, active, and/or master flag. Setting is_master true clears master on other roles for the same partner."""
     roles = _load_rbac_roles()
-    if not any(r.get("role_id") == role_id for r in roles):
+    idx = next((i for i, r in enumerate(roles) if r.get("role_id") == role_id), None)
+    if idx is None:
         raise HTTPException(status_code=404, detail="Role not found")
+    row = roles[idx]
+    _rbac_assert_actor_may_access_role_row(request, row)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    if body.name is not None:
+        n = (body.name or "").strip()
+        if not n:
+            raise HTTPException(status_code=400, detail="Name is required")
+        row["name"] = n
+    if body.active is not None:
+        row["active"] = body.active
+    if body.is_master is not None:
+        if body.is_master:
+            _clear_master_flag_same_partner(roles, row.get("partner_id"), except_role_id=role_id)
+            row["is_master"] = True
+        else:
+            row["is_master"] = False
+    row["updated_at"] = now
+    _save_rbac_roles(roles)
+    _rbac_audit_append(None, "role.update", "role", str(role_id), row.get("name", ""))
+    return {"ok": True, "role": row}
+
+
+@app.put("/api/rbac/roles/{role_id:int}/permissions")
+async def update_rbac_role_permissions(request: Request, role_id: int, body: UpdateRolePermissionsRequest):
+    """Replace all permissions for a role. Sends full list (including always-granted).
+    Non-master roles cannot exceed the Master role's permissions for the same partner.
+    Shrinking a Master role cannot leave other roles with permissions outside the new set."""
+    roles = _load_rbac_roles()
+    role = next((r for r in roles if r.get("role_id") == role_id), None)
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    _rbac_assert_actor_may_access_role_row(request, role)
+    codes = [c.strip() for c in (body.permission_codes or []) if (c or "").strip()]
+    codes_set = set(codes)
+    partner_id = role.get("partner_id")
+    master = _get_master_role_for_partner(roles, partner_id)
+
+    if not _rbac_request_bypasses_master_caps(request) and role.get("is_master"):
+        for r2 in roles:
+            if r2.get("role_id") == role_id or r2.get("is_master"):
+                continue
+            if not _rbac_partner_scope_match(r2.get("partner_id"), partner_id):
+                continue
+            other = _permission_codes_for_role_id(int(r2["role_id"]))
+            overflow = other - codes_set
+            if overflow:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot remove permissions still required by non-master role «{r2.get('name', r2['role_id'])}»: {sorted(overflow)}",
+                )
+        if partner_id is not None:
+            _raise_if_partner_master_exceeds_platform(roles, partner_id, codes_set, False)
+    elif not _rbac_request_bypasses_master_caps(request) and master is not None:
+        master_id = int(master["role_id"])
+        cap = _permission_codes_for_role_id(master_id)
+        over = codes_set - cap
+        if over:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Permissions exceed Master role «{master.get('name', master_id)}» for this partner: {sorted(over)}",
+            )
+
     perms = _load_rbac_role_permissions()
     perms = [p for p in perms if p["role_id"] != role_id]
-    codes = [c for c in (body.permission_codes or []) if (c or "").strip()]
     for code in codes:
-        perms.append({"role_id": role_id, "permission_code": code.strip()})
+        perms.append({"role_id": role_id, "permission_code": code})
     _save_rbac_role_permissions(perms)
     _rbac_audit_append(None, "role.permissions.update", "role", str(role_id), str(len(codes)) + " permissions")
     return {"ok": True}
@@ -7072,31 +7679,42 @@ async def users_view(
     rp_partner_id: str | None = None,
 ):
     """Admin Management. Users list with filters: status, role, partner, brands (when partner set), search. rp_partner_id filters Roles & Permissions panel by partner."""
+    enforced = _rbac_actor_enforced_partner_id(request)
     users = _load_rbac_users()
     roles = _load_rbac_roles()
     user_roles = _load_rbac_user_roles()
     user_brands = _load_rbac_user_brands()
-    partners = _load_partners()
+    partners_all = _load_partners()
+    partners = partners_all
     brands = _load_brands()
+    if enforced is not None:
+        users = [u for u in users if u.get("partner_id") == enforced]
+        roles = [r for r in roles if r.get("partner_id") == enforced]
+        partners = [p for p in partners_all if p.get("id") == enforced]
+        brands = [b for b in brands if b.get("partner_id") == enforced]
     brand_by_id = {b["id"]: b for b in brands}
-    partner_by_id = {p["id"]: p for p in partners}
+    partner_by_id = {p["id"]: p for p in partners_all}
     for r in roles:
-        r["partner_name"] = partner_by_id.get(r.get("partner_id"), {}).get("name", "Platform") if r.get("partner_id") else "Platform"
+        r["partner_name"] = (partner_by_id.get(r.get("partner_id"), {}).get("name") or "—") if r.get("partner_id") else config.RBAC_PLATFORM_SCOPE_LABEL
     role_by_id = {r["role_id"]: r for r in roles}
     from collections import Counter
     role_user_count = Counter(ur["role_id"] for ur in user_roles)
     for r in roles:
         r["active_admins"] = role_user_count.get(r["role_id"], 0)
-    # Roles & Permissions panel: filter roles by partner (All / Platform / Partner X)
-    _rp_raw = (rp_partner_id or "").strip().lower()
-    if _rp_raw == "platform":
-        roles_filtered = [r for r in roles if r.get("partner_id") is None]
-    elif _rp_raw and _rp_raw != "all":
-        _rp_id = _int_or_none(rp_partner_id)
-        roles_filtered = [r for r in roles if r.get("partner_id") == _rp_id] if _rp_id is not None else roles
-    else:
+    # Roles & Permissions panel: filter roles by partner (All / Platform / Partner X); partner sign-in is fixed to own tenant
+    if enforced is not None:
         roles_filtered = roles
-    rp_partner_id_for_template = _rp_raw if _rp_raw in ("platform", "all") or _int_or_none(rp_partner_id) is not None else ""
+        rp_partner_id_for_template = str(enforced)
+    else:
+        _rp_raw = (rp_partner_id or "").strip().lower()
+        if _rp_raw == "platform":
+            roles_filtered = [r for r in roles if r.get("partner_id") is None]
+        elif _rp_raw and _rp_raw != "all":
+            _rp_id = _int_or_none(rp_partner_id)
+            roles_filtered = [r for r in roles if r.get("partner_id") == _rp_id] if _rp_id is not None else roles
+        else:
+            roles_filtered = roles
+        rp_partner_id_for_template = _rp_raw if _rp_raw in ("platform", "all") or _int_or_none(rp_partner_id) is not None else ""
     for u in users:
         u["roles"] = [
             role_by_id[ur["role_id"]]
@@ -7106,7 +7724,7 @@ async def users_view(
         u["role_ids"] = [r["role_id"] for r in u["roles"]]
         u["brand_ids"] = [ub["brand_id"] for ub in user_brands if ub["user_id"] == u["user_id"]]
         u["brand_names"] = [brand_by_id.get(bid, {}).get("name", "") for bid in u["brand_ids"] if bid in brand_by_id]
-        u["partner_name"] = partner_by_id.get(u["partner_id"], {}).get("name", "Platform") if u.get("partner_id") else "Platform"
+        u["partner_name"] = (partner_by_id.get(u["partner_id"], {}).get("name") or "—") if u.get("partner_id") else config.RBAC_PLATFORM_SCOPE_LABEL
 
     # Apply filters (default status=active)
     status = (status or "active").strip().lower()
@@ -7119,8 +7737,12 @@ async def users_view(
     elif status == "inactive":
         filtered = [u for u in filtered if not u.get("active", True)]
     _role_id = _int_or_none(role_id) if role_id else None
-    _partner_id_raw = (partner_id or "").strip().lower()
-    _partner_id = None if _partner_id_raw in ("", "all") else ("platform" if _partner_id_raw == "platform" else _int_or_none(partner_id))
+    if enforced is not None:
+        _partner_id_raw = str(enforced)
+        _partner_id = enforced
+    else:
+        _partner_id_raw = (partner_id or "").strip().lower()
+        _partner_id = None if _partner_id_raw in ("", "all") else ("platform" if _partner_id_raw == "platform" else _int_or_none(partner_id))
     if _partner_id == "platform":
         filtered = [u for u in filtered if u.get("partner_id") is None]
     elif isinstance(_partner_id, int):
@@ -7149,7 +7771,14 @@ async def users_view(
         perms_by_role.setdefault(p["role_id"], []).append(p["permission_code"])
     for r in roles:
         r["permission_codes"] = perms_by_role.get(r["role_id"], [])
-    permission_tree = config.RBAC_PERMISSION_TREE
+    for u in filtered:
+        u["online"] = _rbac_user_presence_online(u.get("user_id"))
+        ld, lst = _rbac_last_login_display_and_stale(u.get("last_login"))
+        u["last_login_display"] = ld
+        u["last_login_stale"] = lst
+        u.pop("login_pin", None)
+    perm_ceiling = _access_rights_ceiling_codes(request)
+    permission_tree = _filter_permission_tree_nodes(config.RBAC_PERMISSION_TREE, perm_ceiling)
     return templates.TemplateResponse(request, "configuration/users.html", {
         "request": request,
         "section": "users",
@@ -7165,8 +7794,129 @@ async def users_view(
         "filter_partner_id": filter_partner_id_for_template,
         "filter_brand_ids": brand_ids or [],
         "filter_search": search or "",
-        "filter_rp_partner_id": rp_partner_id or "",
+        "filter_rp_partner_id": (str(enforced) if enforced is not None else (rp_partner_id or "")),
+        "rbac_enforced_partner_id": enforced,
+        "rbac_enforced_partner_name": (partner_by_id.get(enforced, {}).get("name", "") if enforced is not None else ""),
+        "rbac_platform_scope_label": config.RBAC_PLATFORM_SCOPE_LABEL,
+        "rbac_trust_actor_header": config.RBAC_TRUST_ACTOR_HEADER,
     })
+
+
+def _dev_login_users_for_form() -> list[dict]:
+    users = _load_rbac_users()
+    partners = _load_partners()
+    partner_by_id = {p["id"]: p for p in partners}
+    for u in users:
+        pid = u.get("partner_id")
+        u["partner_label"] = (partner_by_id.get(pid, {}).get("name") or "—") if pid else config.RBAC_PLATFORM_SCOPE_LABEL
+    return sorted(users, key=lambda u: ((not u.get("active", True)), (u.get("email") or "").lower()))
+
+
+@app.get("/dev/login", response_class=HTMLResponse)
+async def dev_login_page(request: Request):
+    if not config.GMP_DEV_LOGIN:
+        raise HTTPException(status_code=404, detail="Not found")
+    return templates.TemplateResponse(request, "dev_login.html", {
+        "request": request,
+        "users": _dev_login_users_for_form(),
+        "error": "",
+    })
+
+
+@app.post("/dev/login")
+async def dev_login_submit(request: Request, pin: str = Form(""), user_id: int = Form(...)):
+    if not config.GMP_DEV_LOGIN:
+        raise HTTPException(status_code=404, detail="Not found")
+    users = _load_rbac_users()
+    u = next((x for x in users if x.get("user_id") == user_id), None)
+    users_form = _dev_login_users_for_form()
+
+    def render_err(msg: str):
+        return templates.TemplateResponse(request, "dev_login.html", {
+            "request": request,
+            "users": users_form,
+            "error": msg,
+        })
+
+    if not u or not u.get("active", True):
+        return render_err("User not found or inactive.")
+    if not _rbac_sign_in_pin_valid(u, pin):
+        return render_err("Invalid PIN.")
+    request.session["dev_actor_user_id"] = user_id
+    _rbac_persist_last_login(user_id)
+    _rbac_presence_touch(user_id)
+    return RedirectResponse(url="/", status_code=303)
+
+
+@app.get("/dev/logout")
+async def dev_logout(request: Request):
+    if not config.GMP_DEV_LOGIN:
+        raise HTTPException(status_code=404, detail="Not found")
+    uid = request.session.get("dev_actor_user_id")
+    if uid is not None:
+        try:
+            _rbac_presence_clear(int(uid))
+        except (TypeError, ValueError):
+            pass
+    request.session.pop("dev_actor_user_id", None)
+    return RedirectResponse(url="/dev/login", status_code=303)
+
+
+class _DevActorMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        request.state.dev_login_enabled = bool(config.GMP_DEV_LOGIN)
+        request.state.dev_actor = None
+        if config.GMP_DEV_LOGIN:
+            uid = request.session.get("dev_actor_user_id")
+            if uid is not None:
+                try:
+                    uid_int = int(uid)
+                except (TypeError, ValueError):
+                    uid_int = None
+                if uid_int is not None:
+                    users = _load_rbac_users()
+                    u = next((x for x in users if x.get("user_id") == uid_int), None)
+                    if u and u.get("active", True):
+                        request.state.dev_actor = u
+                    else:
+                        request.session.pop("dev_actor_user_id", None)
+        if config.GMP_DEV_LOGIN and not _auth_exempt_path(request.url.path):
+            if request.state.dev_actor is None:
+                if request.url.path.startswith("/api/"):
+                    return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+                if (request.headers.get("hx-request") or "").lower() == "true":
+                    return JSONResponse(
+                        {"detail": "Unauthorized"},
+                        status_code=401,
+                        headers={"HX-Redirect": "/dev/login"},
+                    )
+                return RedirectResponse(url="/dev/login", status_code=303)
+        # Presence for Admin “Online” (and optional trusted-header actor)
+        if getattr(request.state, "dev_actor", None):
+            _rbac_presence_touch(request.state.dev_actor.get("user_id"))
+        elif config.RBAC_TRUST_ACTOR_HEADER:
+            raw = (request.headers.get("x-rbac-actor-user-id") or request.headers.get("X-RBAC-Actor-User-Id") or "").strip()
+            if raw:
+                try:
+                    _rbac_presence_touch(int(raw))
+                except ValueError:
+                    pass
+        return await call_next(request)
+
+
+app.add_middleware(_DevActorMiddleware)
+if config.GMP_DEV_LOGIN:
+    _session_secret = (
+        (config.GMP_DEV_SESSION_SECRET or "").strip()
+        or "gmp-dev-insecure-local-default-change-GMP_DEV_SESSION_SECRET"
+    )
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=_session_secret,
+        session_cookie="gmp_dev_session",
+        max_age=86400 * 7,
+        same_site="lax",
+    )
 
 
 if __name__ == "__main__":

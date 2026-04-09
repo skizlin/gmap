@@ -195,6 +195,8 @@ class CreateRbacUserRequest(BaseModel):
     active: Optional[bool] = True
     role_ids: Optional[List[int]] = None  # assign these roles on create
     brand_ids: Optional[List[int]] = None  # optional brand scope when partner-scoped
+    is_superadmin: Optional[bool] = None  # developer bootstrap; API enforces who may set this
+    login_pin: Optional[str] = None  # sign-in PIN for non–SuperAdmin users; default 1234 if omitted
 
 
 class UpdateRbacUserRequest(BaseModel):
@@ -205,6 +207,8 @@ class UpdateRbacUserRequest(BaseModel):
     active: Optional[bool] = None
     role_ids: Optional[List[int]] = None
     brand_ids: Optional[List[int]] = None
+    is_superadmin: Optional[bool] = None
+    login_pin: Optional[str] = None  # non–SuperAdmin only; omit to leave unchanged
 
 
 class AssignUserRolesRequest(BaseModel):
@@ -216,12 +220,14 @@ class CreateRbacRoleRequest(BaseModel):
     active: Optional[bool] = True
     partner_id: Optional[int] = None  # None/empty = Platform role
     permission_codes: Optional[List[str]] = None
+    is_master: Optional[bool] = False  # exactly one master role per partner scope (including Platform)
 
 
 class UpdateRbacRoleRequest(BaseModel):
     name: Optional[str] = None
     active: Optional[bool] = None
     permission_codes: Optional[List[str]] = None
+    is_master: Optional[bool] = None  # setting True clears master on other roles for same partner
 
 
 class UpdateRolePermissionsRequest(BaseModel):
