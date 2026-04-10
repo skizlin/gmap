@@ -3903,6 +3903,9 @@ def _dashboard_feed_stats() -> list[dict]:
 
 # Changelog for dashboard (new features / bugs fixed per version). Edit here or move to a file.
 DASHBOARD_CHANGELOG = [
+    {"version": "1.2.5", "date": "2026-04-01", "items": [
+        "RBAC: Internal / platform users (no partner) now get the full configured permission set for navigation and page access, merged with their role CSV rows. Fixes lockout when server role_permissions had no menu.*.view entries; partner-scoped users are unchanged.",
+    ]},
     {"version": "1.2.4", "date": "2026-04-01", "items": [
         "Access Rights → View now drives the top navigation (desktop and mobile): menu items and Configuration / Betting Program children only appear when the role grants the matching menu.*.view codes.",
         "Direct URL access matches the same rules: opening a page or HTMX fragment without the required view permission redirects to the dashboard (403 + HX-Redirect for HTMX). SuperAdmin is unchanged (full access).",
@@ -6247,8 +6250,19 @@ _RBAC_PATH_GATE: list[tuple[str, frozenset[str]]] = sorted(
 
 
 def _rbac_effective_permissions_for_uid(user_id: int) -> set[str]:
-    """Role permissions plus always-granted menu views (dashboard, notifications, profile)."""
-    return _get_user_permissions(user_id) | set(config.RBAC_ALWAYS_GRANTED_PERMISSIONS)
+    """Role permissions plus always-granted menu views (dashboard, notifications, profile).
+
+    Platform / Internal users (partner_id None) also receive the full configured RBAC code set so
+    menu and path checks work when role_permissions.csv was never populated with menu.*.view rows
+    (common on older server data). Partner-scoped users stay CSV-only plus always-granted.
+    """
+    raw = _get_user_permissions(user_id)
+    always = set(config.RBAC_ALWAYS_GRANTED_PERMISSIONS)
+    users = _load_rbac_users()
+    u = next((x for x in users if x.get("user_id") == user_id), None)
+    if u and u.get("active", True) and u.get("partner_id") is None:
+        return set(config.rbac_all_permission_codes()) | raw | always
+    return raw | always
 
 
 def _rbac_required_permissions_for_path(path: str) -> frozenset[str] | None:

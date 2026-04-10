@@ -400,6 +400,14 @@ def rbac_superadmin_console_permission_codes() -> set[str]:
     return rbac_flatten_node_permission_codes(admin) | set(RBAC_ALWAYS_GRANTED_PERMISSIONS)
 
 
+def rbac_all_permission_codes() -> frozenset[str]:
+    """Every permission code declared in the RBAC tree (menus, entity CRUD, page actions)."""
+    out: set[str] = set(RBAC_ALWAYS_GRANTED_PERMISSIONS)
+    for node in RBAC_PERMISSION_TREE:
+        out |= rbac_flatten_node_permission_codes(node)
+    return frozenset(out)
+
+
 # Dev / integration: when true, JSON APIs honor X-RBAC-Actor-User-Id for SuperAdmin bypass
 # (master-role permission caps) and for changing is_superadmin. Disable in production
 # unless behind a trusted gateway. Real auth should replace this.
