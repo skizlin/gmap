@@ -3903,6 +3903,11 @@ def _dashboard_feed_stats() -> list[dict]:
 
 # Changelog for dashboard (new features / bugs fixed per version). Edit here or move to a file.
 DASHBOARD_CHANGELOG = [
+    {"version": "1.2.4", "date": "2026-04-01", "items": [
+        "Access Rights → View now drives the top navigation (desktop and mobile): menu items and Configuration / Betting Program children only appear when the role grants the matching menu.*.view codes.",
+        "Direct URL access matches the same rules: opening a page or HTMX fragment without the required view permission redirects to the dashboard (403 + HX-Redirect for HTMX). SuperAdmin is unchanged (full access).",
+        "Always-granted views (Dashboard, Notifications, Profile) are merged with role permissions so those areas stay available without storing redundant codes in every role.",
+    ]},
     {"version": "1.2.3", "date": "2026-04-01", "items": [
         "Admin Management: partner-scoped sign-in sees only that partner’s users, roles, and brands (UI + RBAC APIs). Platform / Internal User accounts still see all tenants.",
         "Admin: tenant label “Internal User” replaces “Platform” for users and roles with no partner; Partner column uses plain white for Internal User rows.",
@@ -6176,6 +6181,148 @@ def _get_user_permissions(user_id: int) -> set[str]:
     return {p["permission_code"] for p in perms if p["role_id"] in role_ids and p.get("permission_code")}
 
 
+def _rbac_build_menu_branch_view_codes() -> dict[str, frozenset[str]]:
+    """Top-level menu labels (with children) → all menu view codes in that branch (parent + descendants)."""
+
+    def collect(item: dict) -> set[str]:
+        s: set[str] = set()
+        v = item.get("view")
+        if v:
+            s.add(v)
+        for ch in item.get("children") or []:
+            s |= collect(ch)
+        return s
+
+    out: dict[str, frozenset[str]] = {}
+    for top in config.RBAC_MENU_SOURCE:
+        if top.get("children"):
+            out[top["label"]] = frozenset(collect(top))
+    return out
+
+
+RBAC_MENU_BRANCH_VIEW_CODES: dict[str, frozenset[str]] = _rbac_build_menu_branch_view_codes()
+
+_RBAC_ADMIN_MENU_ANY = frozenset(
+    {
+        "menu.admin.view",
+        "menu.admin.users.view",
+        "menu.admin.roles_permissions.view",
+    }
+)
+
+# Longest prefix first: first match wins. User needs at least one code in the frozenset.
+_RBAC_PATH_GATE: list[tuple[str, frozenset[str]]] = sorted(
+    [
+        ("/admin/dump-csv-data", frozenset({"menu.admin.view"})),
+        ("/notifications/unconfirmed", frozenset({"menu.notifications.view"})),
+        ("/modal/feeder-event-log", frozenset({"menu.betting_program.feeder_events.view"})),
+        ("/modal/feeder-event-notes", frozenset({"menu.betting_program.feeder_events.view"})),
+        ("/modal/map-event", frozenset({"menu.betting_program.feeder_events.view"})),
+        ("/event-navigator", frozenset({"menu.betting_program.event_navigator.view"})),
+        ("/feeder-events", frozenset({"menu.betting_program.feeder_events.view"})),
+        ("/archived-events", frozenset({"menu.betting_program.archived_events.view"})),
+        (
+            "/api/search-domain-events",
+            frozenset(
+                {
+                    "menu.betting_program.event_navigator.view",
+                    "menu.betting_program.feeder_events.view",
+                }
+            ),
+        ),
+        ("/api/rbac", _RBAC_ADMIN_MENU_ANY),
+        ("/users", _RBAC_ADMIN_MENU_ANY),
+        ("/entities", frozenset({"menu.configuration.entities.view"})),
+        ("/localization", frozenset({"menu.configuration.localization.view"})),
+        ("/brands", frozenset({"menu.configuration.brands.view"})),
+        ("/feeders", frozenset({"menu.configuration.feeders.view"})),
+        ("/margin", frozenset({"menu.configuration.margin.view"})),
+        ("/risk-rules", frozenset({"menu.configuration.risk_rules.view"})),
+        ("/compliance", frozenset({"menu.configuration.compliance.view"})),
+        ("/pull-feeds", frozenset({"menu.dashboard.view"})),
+    ],
+    key=lambda x: len(x[0]),
+    reverse=True,
+)
+
+
+def _rbac_effective_permissions_for_uid(user_id: int) -> set[str]:
+    """Role permissions plus always-granted menu views (dashboard, notifications, profile)."""
+    return _get_user_permissions(user_id) | set(config.RBAC_ALWAYS_GRANTED_PERMISSIONS)
+
+
+def _rbac_required_permissions_for_path(path: str) -> frozenset[str] | None:
+    """If set, the actor must hold at least one of these codes. None = no page-level RBAC rule."""
+    if path == "/":
+        return frozenset({"menu.dashboard.view"})
+    for prefix, codes in _RBAC_PATH_GATE:
+        if path.startswith(prefix):
+            return codes
+    return None
+
+
+def _rbac_nav_enforced(request: Request) -> bool:
+    return bool(config.GMP_DEV_LOGIN or config.RBAC_TRUST_ACTOR_HEADER)
+
+
+def _rbac_forbidden_if_path_denied(request: Request):
+    """403 / redirect when an identified actor lacks view permission for this path."""
+    if not _rbac_nav_enforced(request):
+        return None
+    path = request.url.path
+    if path.startswith("/static"):
+        return None
+    if _auth_exempt_path(path):
+        return None
+    uid = _rbac_actor_user_id_from_request(request)
+    if uid is None:
+        return None
+    if _rbac_actor_is_superadmin(request):
+        return None
+    need = _rbac_required_permissions_for_path(path)
+    if need is None:
+        return None
+    perms = _rbac_effective_permissions_for_uid(uid)
+    if perms & need:
+        return None
+    if (request.headers.get("hx-request") or "").lower() == "true":
+        return JSONResponse(
+            {"detail": "Forbidden"},
+            status_code=403,
+            headers={"HX-Redirect": "/"},
+        )
+    return RedirectResponse(url="/", status_code=303)
+
+
+def _template_rbac_can_any(request: Request, *codes: str) -> bool:
+    if not _rbac_nav_enforced(request):
+        return True
+    uid = _rbac_actor_user_id_from_request(request)
+    if uid is None:
+        return True
+    if _rbac_actor_is_superadmin(request):
+        return True
+    perms = _rbac_effective_permissions_for_uid(uid)
+    return any(c in perms for c in codes)
+
+
+def _template_rbac_menu_branch_visible(request: Request, branch_label: str) -> bool:
+    if not _rbac_nav_enforced(request):
+        return True
+    uid = _rbac_actor_user_id_from_request(request)
+    if uid is None:
+        return True
+    if _rbac_actor_is_superadmin(request):
+        return True
+    codes = RBAC_MENU_BRANCH_VIEW_CODES.get(branch_label, frozenset())
+    perms = _rbac_effective_permissions_for_uid(uid)
+    return bool(perms & codes)
+
+
+templates.env.globals["rbac_can_any"] = _template_rbac_can_any
+templates.env.globals["rbac_menu_branch_visible"] = _template_rbac_menu_branch_visible
+
+
 @app.get("/api/rbac/users")
 async def list_rbac_users(request: Request, partner_id: Optional[int] = None):
     """List users. If partner_id given, filter to that partner. Partner-scoped sign-in ignores query and only sees own partner."""
@@ -7891,6 +8038,9 @@ class _DevActorMiddleware(BaseHTTPMiddleware):
                         headers={"HX-Redirect": "/dev/login"},
                     )
                 return RedirectResponse(url="/dev/login", status_code=303)
+        denied = _rbac_forbidden_if_path_denied(request)
+        if denied is not None:
+            return denied
         # Presence for Admin “Online” (and optional trusted-header actor)
         if getattr(request.state, "dev_actor", None):
             _rbac_presence_touch(request.state.dev_actor.get("user_id"))

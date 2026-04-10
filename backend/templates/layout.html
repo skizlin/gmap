@@ -77,6 +77,7 @@
             <!-- Navigation Menu (desktop) -->
             <nav class="hidden md:flex items-stretch h-full flex-1 min-w-0 overflow-visible" aria-label="Main">
 
+                {% if rbac_can_any(request, 'menu.admin.view', 'menu.admin.users.view', 'menu.admin.roles_permissions.view') %}
                 <!-- Admin (User Management) -->
                 <div class="nav-item relative flex items-center">
                     <a href="/users"
@@ -84,7 +85,9 @@
                         Admin
                     </a>
                 </div>
+                {% endif %}
 
+                {% if rbac_menu_branch_visible(request, 'Configuration') %}
                 <!-- Configuration (dropdown) -->
                 <div class="nav-item relative flex items-center group">
                     <button
@@ -94,37 +97,53 @@
                     </button>
                     <div
                         class="nav-dropdown absolute top-full left-0 w-56 bg-slate-900 border border-slate-700 rounded-b shadow-xl z-50">
+                        {% if rbac_can_any(request, 'menu.configuration.entities.view') %}
                         <a href="/entities"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'entities' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-cubes w-5 text-slate-500"></i> Entities
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.localization.view') %}
                         <a href="/localization"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'localization' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-language w-5 text-slate-500"></i> Localization
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.brands.view') %}
                         <a href="/brands"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'brands' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-building w-5 text-slate-500"></i> Brands
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.feeders.view') %}
                         <a href="/feeders"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'feeders' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-slate-500"></i> Feeder
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.margin.view') %}
                         <a href="/margin"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'margin_config' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-percent w-5 text-slate-500"></i> Margin
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.risk_rules.view') %}
                         <a href="/risk-rules"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'risk_rules' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-shield-halved w-5 text-slate-500"></i> Risk Rules
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.compliance.view') %}
                         <a href="/compliance"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'compliance' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-scale-balanced w-5 text-slate-500"></i> Compliance
                         </a>
+                        {% endif %}
                     </div>
                 </div>
+                {% endif %}
 
+                {% if rbac_menu_branch_visible(request, 'Betting Program') %}
                 <!-- Betting Program (dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <button
@@ -134,21 +153,29 @@
                     </button>
                     <div
                         class="nav-dropdown absolute top-full left-0 w-52 bg-slate-900 border border-slate-700 rounded-b shadow-xl z-50">
+                        {% if rbac_can_any(request, 'menu.betting_program.event_navigator.view') %}
                         <a href="/event-navigator"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'domain' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-compass w-5 text-slate-500"></i> Event Navigator
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.betting_program.feeder_events.view') %}
                         <a href="/feeder-events"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'feeder' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-slate-500"></i> Feeder Events
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.betting_program.archived_events.view') %}
                         <a href="/archived-events"
                             class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-white transition-colors {% if section == 'archived_events' %}text-primary{% else %}text-slate-300{% endif %}">
                             <i class="fa-solid fa-box-archive w-5 text-slate-500"></i> Archived Events
                         </a>
+                        {% endif %}
                     </div>
                 </div>
+                {% endif %}
 
+                {% if rbac_can_any(request, 'menu.risk.view') %}
                 <!-- Risk (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
@@ -156,7 +183,9 @@
                         Risk
                     </a>
                 </div>
+                {% endif %}
 
+                {% if rbac_can_any(request, 'menu.bets_ptls.view') %}
                 <!-- Bets/PTLs (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
@@ -164,7 +193,9 @@
                         Bets/PTLs
                     </a>
                 </div>
+                {% endif %}
 
+                {% if rbac_can_any(request, 'menu.alerts.view') %}
                 <!-- Alerts (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
@@ -172,7 +203,9 @@
                         Alerts
                     </a>
                 </div>
+                {% endif %}
 
+                {% if rbac_can_any(request, 'menu.reports.view') %}
                 <!-- Reports (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
@@ -180,6 +213,7 @@
                         Reports
                     </a>
                 </div>
+                {% endif %}
             </nav>
 
             <!-- Right side: notifications + user avatar -->
@@ -236,63 +270,97 @@
                 </button>
             </div>
             <nav class="mobile-drawer-nav flex-1 overflow-y-auto py-2" aria-label="Mobile main">
+                {% if rbac_can_any(request, 'menu.admin.view', 'menu.admin.users.view', 'menu.admin.roles_permissions.view') %}
                 <a href="/users"
                     class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 {% if section == 'users' %}text-primary bg-white/5{% else %}text-slate-200 hover:bg-white/5{% endif %}">
                     Admin
                 </a>
+                {% endif %}
 
+                {% if rbac_menu_branch_visible(request, 'Configuration') %}
                 <details class="border-b border-slate-800/80 group">
                     <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-slate-200 hover:bg-white/5 {% if section in ['entities', 'localization', 'brands', 'feeders', 'margin_config', 'risk_rules', 'compliance'] %}text-primary{% endif %}">
                         <span>Configuration</span>
                         <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition-transform group-open:rotate-180"></i>
                     </summary>
                     <div class="pb-1 bg-slate-950/40">
+                        {% if rbac_can_any(request, 'menu.configuration.entities.view') %}
                         <a href="/entities" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'entities' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
                             <i class="fa-solid fa-cubes w-5 text-slate-500 shrink-0"></i> Entities
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.localization.view') %}
                         <a href="/localization" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'localization' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
                             <i class="fa-solid fa-language w-5 text-slate-500 shrink-0"></i> Localization
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.brands.view') %}
                         <a href="/brands" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'brands' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
                             <i class="fa-solid fa-building w-5 text-slate-500 shrink-0"></i> Brands
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.feeders.view') %}
                         <a href="/feeders" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'feeders' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-slate-500 shrink-0"></i> Feeder
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.margin.view') %}
                         <a href="/margin" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'margin_config' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
                             <i class="fa-solid fa-percent w-5 text-slate-500 shrink-0"></i> Margin
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.risk_rules.view') %}
                         <a href="/risk-rules" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'risk_rules' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
                             <i class="fa-solid fa-shield-halved w-5 text-slate-500 shrink-0"></i> Risk Rules
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.configuration.compliance.view') %}
                         <a href="/compliance" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'compliance' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
                             <i class="fa-solid fa-scale-balanced w-5 text-slate-500 shrink-0"></i> Compliance
                         </a>
+                        {% endif %}
                     </div>
                 </details>
+                {% endif %}
 
+                {% if rbac_menu_branch_visible(request, 'Betting Program') %}
                 <details class="border-b border-slate-800/80 group">
                     <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-slate-200 hover:bg-white/5 {% if section in ['domain', 'feeder', 'archived_events'] %}text-primary{% endif %}">
                         <span>Betting Program</span>
                         <i class="fa-solid fa-chevron-down text-xs text-slate-500 transition-transform group-open:rotate-180"></i>
                     </summary>
                     <div class="pb-1 bg-slate-950/40">
+                        {% if rbac_can_any(request, 'menu.betting_program.event_navigator.view') %}
                         <a href="/event-navigator" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'domain' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
                             <i class="fa-solid fa-compass w-5 text-slate-500 shrink-0"></i> Event Navigator
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.betting_program.feeder_events.view') %}
                         <a href="/feeder-events" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'feeder' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-slate-500 shrink-0"></i> Feeder Events
                         </a>
+                        {% endif %}
+                        {% if rbac_can_any(request, 'menu.betting_program.archived_events.view') %}
                         <a href="/archived-events" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'archived_events' %}text-primary{% else %}text-slate-300 hover:bg-white/5{% endif %}">
                             <i class="fa-solid fa-box-archive w-5 text-slate-500 shrink-0"></i> Archived Events
                         </a>
+                        {% endif %}
                     </div>
                 </details>
+                {% endif %}
 
+                {% if rbac_can_any(request, 'menu.risk.view') %}
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Risk</a>
+                {% endif %}
+                {% if rbac_can_any(request, 'menu.bets_ptls.view') %}
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Bets/PTLs</a>
+                {% endif %}
+                {% if rbac_can_any(request, 'menu.alerts.view') %}
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Alerts</a>
+                {% endif %}
+                {% if rbac_can_any(request, 'menu.reports.view') %}
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-slate-800/80 text-slate-200 hover:bg-white/5">Reports</a>
+                {% endif %}
                 {% if request.state.dev_login_enabled %}
                 <div class="px-4 py-3 text-sm border-b border-slate-800/80 text-slate-400 space-y-2">
                     {% if request.state.dev_actor %}
