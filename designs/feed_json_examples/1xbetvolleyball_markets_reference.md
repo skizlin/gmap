@@ -1,17 +1,22 @@
 # 1xbet Volleyball – markets reference (structure and identifiers)
 
-**Source:** `1xbetvolleyball.json` (Lokomotiv Novosibirsk vs Yaroslavich, Russia. Superleague).  
-**Convention:** 1xbet uses a **nested structure**: event → **Value.SG** (segments) → **MEC** (market categories) → **Value.GE** (outcome groups). There is no single “market ID” per row like Bwin/Bet365; market identity is by **segment (SG)** + **market type (MEC.MT)** + **outcome group (GE.G)**. Outcomes and odds live in **GE.E** with **C**/CV = decimal odds, **P** = line, **T** = outcome type.
+**Source:** `1xbetvolleyball.json` (e.g. Suzano Esporte vs Minas, Brazil. SuperLiga — event id `710505432`).  
+**Convention (current API shape):** Full event odds live under **`results[].Value.GE`**: a **flat array** of outcome groups. Each element is **`{ "G": <int>, "E": [ ... ] }`**. The feed’s **market id** is **`G`** (numeric). There is **no separate market name** in the payload; labels must be supplied by us (or inferred from **T** / **P** patterns and segment metadata).
+
+**Also present:** `Value.SG[]` + `MEC[]` describe segments (1st set, 2nd set, …) and **market type categories** (Popular, Total, Handicap, …) with counts — useful for documentation, not a substitute for **`G`** as the stable mapping key when **`GE`** is present.
 
 ---
 
-## 1. Top-level event and segments
+## 1. Top-level event and Value
 
 | Field | Location | Meaning |
 |-------|----------|---------|
-| Event ID | `results[].id` | e.g. "702175340" |
-| Home / Away | `results[].home.name`, `results[].away.name` | Team names |
-| Segments | `results[].Value.SG[]` | List of market segments (Match, 1st set, 2nd set, Aces, etc.) |
+| Event ID | `results[].id` | e.g. `"710505432"` |
+| Home / Away | `results[].home`, `results[].away` | Team ids and names |
+| Sport (feed) | `results[].Value.SI` | e.g. `6` = Volleyball (used for sport-scoped filtering) |
+| Outcome groups | `results[].Value.GE[]` | **All** priced markets for this event (see §4) |
+| Segments (meta) | `results[].Value.SG[]` | Period/theme + **MEC** (counts per market type) |
+| Match-level MEC | `results[].Value.MEC[]` | Aggregate market-type breakdown for the match |
 
 ---
 
@@ -63,83 +68,74 @@ Inside each **SG**, **MEC** lists market types and outcome counts:
 
 ---
 
-## 4. Outcome groups (GE) and odds
+## 4. Outcome groups (`Value.GE`) — authoritative market list
 
-**Value.GE** is an array of outcome groups. Each group has:
+**`Value.GE`** is an array of objects. In the sample match there are **17** distinct **`G`** values (17 markets).
 
 | Field | Meaning |
 |-------|---------|
-| **G** | Group id (links to segment/category; e.g. 17, 2, 15, 62, 136, 2663) |
-| **E** | Array of “rows”; each row is an array of outcomes (typically 2 for fixed markets). |
+| **G** | **Market id** for mapping (`feed_market_id` = string form, e.g. `"17"`, `"1"`). |
+| **E** | List of **rows**. Each **row** is an array of **outcome cells** (same **G** repeated on each cell). |
 
-**Each outcome in E[][]:**
+### 4.1 Structure of **E** (rows and cells)
 
-| Field | Meaning | Example |
-|-------|---------|---------|
-| **C** / **CV** | Decimal odds | 1.42, 2.53, 1.83 |
-| **P** | Line (handicap/total value) | 130.5, -20.5, 46.5, 75.5 |
-| **T** | Outcome type id | 9 = Over, 10 = Under; 7 = side1, 8 = side2; 11/12 = Total pair; 13/14 = another pair; 731 = 3-way; etc. |
-| **CE** | (optional) | e.g. 1 for “main” or tie |
+- One **row** = one “line” in UI terms when **P** varies (e.g. each total line 181.5, 184.5, …).
+- Each **cell** inside a row is one selectable outcome with odds.
 
-**Outcome type (T) mapping (from sample):**
+### 4.2 Fields on each cell (inside **E**`[][]`)
 
-| T | Likely meaning | Used in |
-|---|----------------|--------|
-| 9 | Over | Total (Over X) |
-| 10 | Under | Total (Under X) |
-| 7 | Handicap side 1 | Handicap (e.g. +X) |
-| 8 | Handicap side 2 | Handicap (e.g. -X) |
-| 11 | Total outcome 1 | One line total |
-| 12 | Total outcome 2 | Same line total |
-| 13 / 14 | Total (another group) | Other totals |
-| 731 | 3-way (e.g. 1 / X / 2) | Double result / correct score style |
-| 196 / 197, 206 / 207 | Pair of outcomes | Handicap or total by group |
+| Field | Meaning | Notes |
+|-------|---------|------|
+| **G** | Same market id as the parent **GE** item | Should match parent; redundant copy. |
+| **T** | **Outcome / position code** | Meaning is **market-dependent**. Not globally 1X2. |
+| **C** | Decimal odds (number) | **Use this** for integration. |
+| **CV** | Odds as string | Duplicate of **C**; safe to ignore. |
+| **P** | **Line** when present | Handicap level, total line, or other numeric parameter. |
+| **CE** | Optional flag | e.g. `1` on some “main” lines in samples; semantics TBD. |
 
-*Exact T values may vary by sport/segment; need to infer from context (pair of outcomes + P = line).*
+### 4.3 **T** codes — working hypotheses (to validate with you)
 
----
+**Simple winner / 1X2-style (some sports):** In several feeds, **1 = home**, **2 = draw**, **3 = away**. **Volleyball** often has **no draw**: market **G=1** may only expose **T=1** and **T=3** (two cells across two rows in the sample).
 
-## 5. Example: Match Total (one segment)
+**Other markets** use different **T** namespaces (e.g. **9 / 10** with **P** for Over/Under-style rows; large ids like **8771**, **5078** for multi-way or special markets). **Do not** assume 1/2/3 outside moneyline-style groups without checking the **G** block.
 
-- **Segment:** SG with empty **PN** (match), **MEC** with **MT** 3, **N** "Total".
-- **GE:** Find group **G** that belongs to this segment (e.g. **G: 17**).
-- **E:** e.g. two rows (two lines); each row has two outcomes (Over/Under):
-  - Row 1: P=130.5 → T=9 (Over 130.5) odds 1.42, T=10 (Under 130.5) odds 2.53.
-  - Row 2: P=132.5 → Over 2.14, Under 1.94.
-- So **line** = **P**, **outcomes** = two elements per row with **C** = odds, **T** = over/under.
+We will maintain a table **per market G** (or per template family) once names and semantics are confirmed.
 
 ---
 
-## 6. Example: Handicap (one segment)
+## 5. Example: Match winner (**G = 1**)
 
-- **Segment:** e.g. Set 1; **MEC** with **MT** 4, **N** "Handicap".
-- **GE:** e.g. **G: 2**.
-- **E:** rows with **P** = handicap line (e.g. -20.5, -19.5, … and +20.5, +19.5, …). Each row: two outcomes (T=7 and T=8 or similar) with **C** = odds.
-- **Line** = **P** (can be negative/positive); **outcomes** = two sides.
+- **GE** entry: `"G": 1`, `"E": [ [ {T:1, C:2.35, G:1} ], [ {T:3, C:1.53, G:1} ] ]`.
+- Two rows, one outcome each: **T=1** (home), **T=3** (away); no **T=2** (no draw).
 
 ---
 
-## 7. Summary: identifiers for integration
+## 6. Example: Match total points (**G = 17**)
+
+- Many rows; each row contains outcomes with the same **P** (the total line) and **T** distinguishing sides (e.g. **9** vs **10** in this file’s pattern).
+- **Line** for each outcome = **P**; odds = **C**.
+
+---
+
+## 7. Summary: identifiers for integration (current parser)
 
 | What we need | Where in 1xbet |
 |--------------|----------------|
-| **Market “id”** | Composite: `SG[].I` + `MEC[].MT` (e.g. segment id + market type), or `GE[].G` per outcome group. Parser currently uses `{segmentI}_{MT}`. |
-| **Market name** | Derived: `SG[].PN` + " – " + `MEC[].N` (e.g. "1st set – Total", "Match – Handicap"). |
-| **Line** | **GE.E[][].P** (numeric; e.g. 130.5, -20.5). |
-| **Outcomes** | **GE.E**; each inner array = one line; elements have **C** (odds), **P** (line), **T** (outcome type). Map T to Over/Under or Side1/Side2. |
-| **Odds** | **C** or **CV** (decimal). |
+| **Market id (`feed_market_id`)** | **`Value.GE[].G`** (stringified). |
+| **Market name (UI)** | Not in API; synthetic label from row count / **P** / distinct **T** until you supply a dictionary. |
+| **Line** | **`GE.E[][].P`** when present. |
+| **Outcomes** | Flatten **GE.E**: each cell with **C** is one outcome; label built from **T** and **P** until named. |
+| **Odds** | **`C`** (prefer number; ignore **CV**). |
+| **Legacy fallback** | If an old payload has **no** **`GE`**, synthetic id `{SG[].I}_{MEC.MT}` from segment + market type (no **G**). |
 
 ---
 
-## 8. Segment list (from sample event)
+## 8. Segment list (from Brazil SuperLiga sample in this file)
 
-| Segment I | PN | TG | MEC (MT → N) |
-|-----------|-----|-----|----------------|
-| 702175341 | 1st set | — | 2→Popular, 3→Total, 4→Handicap, 8→Other, 15/10→Points, 1→All markets |
-| 702175342 | 2nd set | — | (same structure) |
-| 702175343 | 3rd set | — | (same structure) |
-| … | … | Aces | 2→Popular, 3→Total, 4→Handicap, … |
-| … | … | Serve faults | (same) |
-| … | … | Blocks | (same) |
+| Segment **I** | PN | TG | MEC (MT → N) |
+|---------------|-----|-----|----------------|
+| 710505433 | 1st set | — | 2→Popular, 3→Total, 4→Handicap, 8→Other, 15/10→Points, 1→All markets |
+| 710505434 | 2nd set | — | (same pattern) |
+| 710505435 | 3rd set | — | (same pattern) |
 
-**Note:** Full extraction of every market name and outcome list (like Bwin/Bet365 tables) would require walking all **SG** and **GE** and resolving **G** to segment + **MT**, then building a flat list. This document defines the **structure and identifiers** so that 1xbet parsing and mapping can match the same canonical descriptor (template, period, line, outcomes) as the other feeds.
+**Note:** **`Value.GE`** already lists every priced **G** for the event. Correlating each **G** to a segment (**PN**) + **MEC** name would need extra API fields or heuristics; until then we map by **`G`** and enrich display names manually or from a config table you maintain.

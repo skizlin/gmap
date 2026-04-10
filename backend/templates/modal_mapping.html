@@ -91,7 +91,7 @@
                 Sport</div>
             <div class="flex-1 min-w-0 flex items-center gap-2 px-5 py-3 bg-emerald-950/20">
                 {% if resolved.sport %}
-                <input type="hidden" name="domain_sport_id" value="{{ resolved.sport.domain_id }}">
+                <input type="hidden" id="domain_sport_id_hidden" name="domain_sport_id" value="{{ resolved.sport.domain_id }}">
                 <span class="text-sm text-emerald-300 font-medium" data-domain-sport-name="{{ resolved.sport.name | e }}">{{ resolved.sport.name }} <span class="text-[10px] font-mono text-slate-400 bg-slate-800/80 px-1 py-0.5 rounded">ID {{ resolved.sport.domain_id }}</span></span>
                 {% else %}
                 <p class="text-sm text-slate-500 italic">Sport must be mapped by developer before this event can be mapped.</p>
@@ -597,17 +597,33 @@
         const dd = document.getElementById('sport-dropdown');
         if (dd) dd.classList.add('hidden');
     }
+    /** Domain sport id string (e.g. S-8). Must not use parseInt — prefixed IDs are not numeric. */
     function getSelectedSportId() {
-        // locked sport or sport search box → hidden input; legacy select no longer used
         const hidden = document.querySelector('input[name="domain_sport_id"]');
-        if (hidden && hidden.value) return parseInt(hidden.value) || null;
-        return null;
+        const v = (hidden && hidden.value) ? String(hidden.value).trim() : '';
+        return v || null;
+    }
+
+    function entitySportIdMatches(rowSportId, selectedSportId) {
+        if (selectedSportId == null || selectedSportId === '') return false;
+        if (rowSportId == null || rowSportId === '') return false;
+        return String(rowSportId).trim() === String(selectedSportId).trim();
     }
 
     function getCategoryNameForFilter() {
         const hidden = document.getElementById('hidden-new-category');
         const inputCat = document.getElementById('input-category');
         return (hidden?.value || inputCat?.value || document.querySelector('input[name="new_category"]')?.value || '').trim();
+    }
+
+    function findCategoryByNameForSport(catNameLower, sportId) {
+        if (!catNameLower) return null;
+        const sameName = (k) => (k.name || '').toLowerCase() === catNameLower;
+        if (sportId) {
+            const scoped = ALL_CATEGORIES.find(k => sameName(k) && entitySportIdMatches(k.sport_id, sportId));
+            if (scoped) return scoped;
+        }
+        return ALL_CATEGORIES.find(k => sameName(k)) || null;
     }
 
     function filterCompetitions() {
@@ -617,11 +633,10 @@
         const catVal = getCategoryNameForFilter().toLowerCase();
 
         const filtered = ALL_COMPETITIONS.filter(c => {
-            if (sportId && c.sport_id !== sportId) return false;
+            if (sportId && !entitySportIdMatches(c.sport_id, sportId)) return false;
             if (catVal) {
-                // find the category domain_id matching catVal name
-                const cat = ALL_CATEGORIES.find(k => k.name.toLowerCase() === catVal);
-                if (cat && c.category_id !== cat.domain_id) return false;
+                const cat = findCategoryByNameForSport(catVal, sportId);
+                if (cat && String(c.category_id) !== String(cat.domain_id)) return false;
             }
             return true;
         });
@@ -634,14 +649,14 @@
         if (!dl) return;
         const sportId = getSelectedSportId();
         const filtered = sportId
-            ? ALL_CATEGORIES.filter(c => c.sport_id === sportId)
-            : ALL_CATEGORIES;
+            ? ALL_CATEGORIES.filter(c => entitySportIdMatches(c.sport_id, sportId))
+            : [];
         dl.innerHTML = filtered.map(c => `<option value="${c.name}"></option>`).join('');
     }
 
     function filterTeams() {
         const sportId = getSelectedSportId();
-        const filtered = sportId ? ALL_TEAMS.filter(t => t.sport_id === sportId) : ALL_TEAMS;
+        const filtered = sportId ? ALL_TEAMS.filter(t => entitySportIdMatches(t.sport_id, sportId)) : [];
         const opts = filtered.map(t => `<option value="${(t.name || '').replace(/"/g, '&quot;')}"></option>`).join('');
         ['dl-teams', 'dl-teams-away'].forEach(id => {
             const dl = document.getElementById(id);
@@ -651,7 +666,7 @@
 
     function getTeamsForDropdown() {
         const sportId = getSelectedSportId();
-        return sportId ? ALL_TEAMS.filter(t => t.sport_id === sportId) : ALL_TEAMS;
+        return sportId ? ALL_TEAMS.filter(t => entitySportIdMatches(t.sport_id, sportId)) : [];
     }
     function renderTeamDropdown(dropdownId, filter, inputId) {
         const dd = document.getElementById(dropdownId);
@@ -682,21 +697,21 @@
 
     function getCategoriesForDropdown() {
         const sportId = getSelectedSportId();
-        return sportId ? ALL_CATEGORIES.filter(c => c.sport_id === sportId) : ALL_CATEGORIES;
+        return sportId ? ALL_CATEGORIES.filter(c => entitySportIdMatches(c.sport_id, sportId)) : [];
     }
     function getExceptionCategoriesForDropdown() {
         const sportId = getSelectedSportId();
         const exceptionOnly = (c) => ((c.country || c.jurisdiction || '').trim() === '-');
         const list = ALL_CATEGORIES.filter(exceptionOnly);
-        return sportId ? list.filter(c => c.sport_id === sportId) : list;
+        return sportId ? list.filter(c => entitySportIdMatches(c.sport_id, sportId)) : [];
     }
     function getCompetitionsForDropdown() {
         const sportId = getSelectedSportId();
         const catVal = getCategoryNameForFilter().toLowerCase();
-        let filtered = sportId ? ALL_COMPETITIONS.filter(c => c.sport_id === sportId) : ALL_COMPETITIONS;
+        let filtered = sportId ? ALL_COMPETITIONS.filter(c => entitySportIdMatches(c.sport_id, sportId)) : [];
         if (catVal) {
-            const cat = ALL_CATEGORIES.find(k => (k.name || '').toLowerCase() === catVal);
-            if (cat) filtered = filtered.filter(c => c.category_id === cat.domain_id);
+            const cat = findCategoryByNameForSport(catVal, sportId);
+            if (cat) filtered = filtered.filter(c => String(c.category_id) === String(cat.domain_id));
         }
         return filtered;
     }

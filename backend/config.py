@@ -104,6 +104,9 @@ MARKET_SCORE_TYPE_PATH = DATA_MARKETS_DIR / "market_score_type.csv"
 MARKET_GROUPS_PATH = DATA_MARKETS_DIR / "market_groups.csv"
 MARKET_TYPE_MAPPINGS_PATH = DATA_MARKETS_DIR / "market_type_mappings.csv"
 MARKET_OUTCOMES_PATH = DATA_MARKETS_DIR / "market_outcomes.csv"
+# 1xbet: feed market id = Value.GE[].G (global across sports in API); display names for mapper UI
+ONEXBET_MARKET_NAMES_PATH = DATA_MARKETS_DIR / "1xbet_market_names.csv"
+ONEXBET_MARKET_NAME_FIELDS = ["G", "name"]
 MARKET_TYPE_MAPPING_FIELDS = ["domain_market_id", "feed_provider_id", "feed_market_id", "feed_market_name", "phase"]
 MARKET_TEMPLATE_FIELDS = ["domain_id", "code", "name", "params"]
 
@@ -153,14 +156,14 @@ RBAC_AUDIT_LOG_PATH = DATA_RBAC_DIR / "rbac_audit_log.csv"
 RBAC_PLATFORM_SCOPE_LABEL = "Internal User"
 RBAC_USERS_FIELDS = [
     "user_id", "login", "email", "display_name", "active", "partner_id",
-    "created_by", "created_at", "updated_at", "last_login", "online", "is_superadmin",
+    "created_by", "updated_by", "created_at", "updated_at", "last_login", "online", "is_superadmin",
     "login_pin",
 ]
 RBAC_ROLES_FIELDS = ["role_id", "name", "active", "is_system", "partner_id", "is_master", "created_at", "updated_at"]
 RBAC_USER_ROLES_FIELDS = ["user_id", "role_id", "assigned_at", "assigned_by_user_id"]
 RBAC_ROLE_PERMISSIONS_FIELDS = ["role_id", "permission_code"]
 RBAC_USER_BRANDS_FIELDS = ["user_id", "brand_id"]
-RBAC_AUDIT_LOG_FIELDS = ["id", "created_at", "actor_user_id", "action", "target_type", "target_id", "details"]
+RBAC_AUDIT_LOG_FIELDS = ["id", "created_at", "actor_user_id", "action", "target_type", "target_id", "was", "now", "details"]
 
 # ── RBAC: Single source of truth for menu + permissions ─────────────────────
 # When you add a new backoffice page or menu item, extend RBAC_MENU_SOURCE (and
@@ -180,7 +183,11 @@ def _menu_view(code: str, always_granted: bool = False) -> list[dict]:
 # Custom (non-CRUD) page actions: key -> list of {code, label}.
 # Reference from RBAC_MENU_SOURCE via "actions": "key".
 RBAC_PAGE_ACTIONS = {
-    "admin_users": [{"code": "rbac.users.manage", "label": "Manage"}],
+    "admin_users": [
+        {"code": "rbac.users.create", "label": "Add new admin"},
+        {"code": "rbac.users.edit", "label": "Edit"},
+        {"code": "rbac.users.audit", "label": "Audit log"},
+    ],
     "admin_roles": [
         {"code": "rbac.roles.manage", "label": "Manage roles"},
         {"code": "rbac.audit.view", "label": "View audit"},
@@ -190,16 +197,46 @@ RBAC_PAGE_ACTIONS = {
         {"code": "mapping.pause", "label": "Pause"},
         {"code": "mapping.cascade", "label": "Cascade"},
     ],
+    # Sports tab: matches kebab actions (not CRUD — sports are not created in backoffice).
+    "entity_sport": [
+        {"code": "entity.sport.view", "label": "View"},
+        {"code": "entity.sport.edit", "label": "Edit"},
+        {"code": "entity.sport.remove_mappings", "label": "Remove Mappings"},
+        {"code": "entity.sport.active_inactive", "label": "Active/Inactive"},
+    ],
+    # Categories / Competitions / Teams tabs (Entities page): list + New + kebab (no row delete in UI).
+    "entity_category": [
+        {"code": "entity.category.view", "label": "View"},
+        {"code": "entity.category.create", "label": "Create"},
+        {"code": "entity.category.edit", "label": "Edit"},
+        {"code": "entity.category.remove_mappings", "label": "Remove Mappings"},
+        {"code": "entity.category.active_inactive", "label": "Active/Inactive"},
+    ],
+    "entity_competition": [
+        {"code": "entity.competition.view", "label": "View"},
+        {"code": "entity.competition.create", "label": "Create"},
+        {"code": "entity.competition.edit", "label": "Edit"},
+        {"code": "entity.competition.remove_mappings", "label": "Remove Mappings"},
+        {"code": "entity.competition.active_inactive", "label": "Active/Inactive"},
+    ],
+    "entity_team": [
+        {"code": "entity.team.view", "label": "View"},
+        {"code": "entity.team.create", "label": "Create"},
+        {"code": "entity.team.edit", "label": "Edit"},
+        {"code": "entity.team.remove_mappings", "label": "Remove Mappings"},
+        {"code": "entity.team.active_inactive", "label": "Active/Inactive"},
+    ],
 }
 
-# Entity CRUD: (permission_prefix, display_label). Builder expands to view/create/update/delete.
-# Reference from RBAC_MENU_SOURCE via "entities": "key" or inline list of (prefix, label).
+# Entity page permissions: (prefix, label) or (prefix, label, actions) where actions is a tuple of
+# "view"|"create"|"update"|"delete" — only list actions that exist in the backoffice for that tab.
+# Omitted actions are not shown in Access Rights and are not in rbac_all_permission_codes().
 RBAC_ENTITY_CRUD = {
     "entity_main": [
-        ("entity.sport", "Sports"),
-        ("entity.category", "Categories"),
-        ("entity.competition", "Competitions"),
-        ("entity.event", "Events"),
+        ("entity.sport", "Sports", "page_actions:entity_sport"),
+        ("entity.category", "Categories", "page_actions:entity_category"),
+        ("entity.competition", "Competitions", "page_actions:entity_competition"),
+        ("entity.team", "Teams", "page_actions:entity_team"),
         ("entity.markets", "Markets"),
         ("entity.market_type", "Market types"),
     ],
@@ -260,7 +297,14 @@ RBAC_MENU_SOURCE = [
         "view": "menu.betting_program.view",
         "children": [
             {"label": "Event Navigator", "view": "menu.betting_program.event_navigator.view", "entities": [("betting.event_navigator", "Event Navigator")]},
-            {"label": "Feeder Events", "view": "menu.betting_program.feeder_events.view", "entities": [("betting.feeder_events", "Feeder Events")]},
+            {
+                "label": "Feeder Events",
+                "view": "menu.betting_program.feeder_events.view",
+                "entities": [
+                    ("betting.feeder_events", "Feeder Events"),
+                    ("entity.event", "Domain events"),
+                ],
+            },
             {"label": "Archived Events", "view": "menu.betting_program.archived_events.view", "entities": [("betting.archived_events", "Archived Events")]},
         ],
     },
@@ -273,13 +317,50 @@ RBAC_MENU_SOURCE = [
 ]
 
 
-def _resolve_entities(entities) -> list[tuple[str, str]]:
-    """Resolve entities to list of (prefix, label). Can be key into RBAC_ENTITY_CRUD or list of tuples."""
+def _normalize_entity_entry(entry: tuple) -> tuple[str, str, tuple[str, ...] | str]:
+    """(prefix, label), (prefix, label, crud_tuple), or (prefix, label, 'page_actions:key')."""
+    if len(entry) == 2:
+        return entry[0], entry[1], ("view", "create", "update", "delete")
+    if len(entry) == 3:
+        third = entry[2]
+        if isinstance(third, str) and third.startswith("page_actions:"):
+            return entry[0], entry[1], third
+        return entry[0], entry[1], tuple(third)
+    raise ValueError(f"Invalid entity entry: {entry!r}")
+
+
+def _resolve_entities(entities) -> list[tuple[str, str, tuple[str, ...] | str]]:
+    """Resolve to (prefix, label, crud tuple | page_actions:key)."""
     if not entities:
         return []
     if isinstance(entities, str):
-        return list(RBAC_ENTITY_CRUD.get(entities, []))
-    return list(entities)
+        raw = RBAC_ENTITY_CRUD.get(entities, [])
+    else:
+        raw = list(entities)
+    return [_normalize_entity_entry(tuple(row)) for row in raw]
+
+
+def _permissions_for_entity_spec(
+    prefix: str,
+    ent_spec: tuple[str, ...] | str,
+    actions_extra: str | None,
+) -> list[dict]:
+    """Permissions list for one entity row under Access Rights."""
+    if isinstance(ent_spec, str) and ent_spec.startswith("page_actions:"):
+        key = ent_spec.split(":", 1)[1]
+        return list(RBAC_PAGE_ACTIONS.get(key, []))
+    if not isinstance(ent_spec, tuple):
+        raise TypeError(f"Expected tuple or page_actions key, got {type(ent_spec)}")
+    mapping_actions: tuple[str, ...] = ("view", "create", "update") if actions_extra and prefix == "mapping" else ent_spec
+    return _perms_for_entity_row(prefix, mapping_actions, actions_extra)
+
+
+def _perms_for_entity_row(prefix: str, actions: tuple[str, ...], actions_extra: str | None) -> list[dict]:
+    """Build permission dicts for one entity row; mapping adds unmap/pause/cascade."""
+    if actions_extra and prefix == "mapping":
+        base = _perm(prefix, *actions) if actions else []
+        return base + RBAC_PAGE_ACTIONS.get(actions_extra, [])
+    return _perm(prefix, *actions)
 
 
 def _build_tree_node(item: dict) -> dict:
@@ -306,31 +387,25 @@ def _build_tree_node(item: dict) -> dict:
 
     if entities and not children_spec:
         resolved = _resolve_entities(entities)
-        page_action_rows = []
-        for prefix, ent_label in resolved:
-            if actions_extra and prefix == "mapping":
-                perms = _perm(prefix, "view", "create", "update") + RBAC_PAGE_ACTIONS.get(actions_extra, [])
-            else:
-                perms = _perm(prefix, "view", "create", "update", "delete")
-            page_action_rows.append({"label": ent_label, "permissions": perms})
+        entity_children = []
+        for prefix, ent_label, ent_spec in resolved:
+            perms = _permissions_for_entity_spec(prefix, ent_spec, actions_extra)
+            entity_children.append({"label": ent_label, "permissions": perms})
         return {
             "label": label,
             "permissions": _menu_view(view_code, always) if view_code else [],
-            "children": [{"label": "Page actions", "children": page_action_rows}],
+            "children": entity_children,
         }
     if entities and children_spec:
         resolved = _resolve_entities(entities)
-        page_action_rows = []
-        for prefix, ent_label in resolved:
-            if actions_extra and prefix == "mapping":
-                perms = _perm(prefix, "view", "create", "update") + RBAC_PAGE_ACTIONS.get(actions_extra, [])
-            else:
-                perms = _perm(prefix, "view", "create", "update", "delete")
-            page_action_rows.append({"label": ent_label, "permissions": perms})
+        entity_children = []
+        for prefix, ent_label, ent_spec in resolved:
+            perms = _permissions_for_entity_spec(prefix, ent_spec, actions_extra)
+            entity_children.append({"label": ent_label, "permissions": perms})
         children_built.append({
             "label": label,
             "permissions": _menu_view(view_code, always) if view_code else [],
-            "children": [{"label": "Page actions", "children": page_action_rows}],
+            "children": entity_children,
         })
 
     if actions_key and not entities:

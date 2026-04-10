@@ -10,6 +10,8 @@ from fastapi.templating import Jinja2Templates
 import copy
 import json
 import logging
+import math
+import re
 import os
 from pathlib import Path
 from threading import Lock
@@ -55,6 +57,7 @@ MARKET_SCORE_TYPE_PATH = config.MARKET_SCORE_TYPE_PATH
 MARKET_GROUPS_PATH = config.MARKET_GROUPS_PATH
 MARKET_TYPE_MAPPINGS_PATH = config.MARKET_TYPE_MAPPINGS_PATH
 MARKET_OUTCOMES_PATH = config.MARKET_OUTCOMES_PATH
+ONEXBET_MARKET_NAMES_PATH = config.ONEXBET_MARKET_NAMES_PATH
 COUNTRIES_PATH = config.COUNTRIES_PATH
 PARTICIPANT_TYPE_PATH = config.PARTICIPANT_TYPE_PATH
 UNDERAGE_CATEGORIES_PATH = config.UNDERAGE_CATEGORIES_PATH
@@ -119,6 +122,10 @@ def _ensure_rbac_data_structure() -> None:
     _migrate_rbac_roles_is_master_if_needed()
     _migrate_rbac_users_is_superadmin_if_needed()
     _migrate_rbac_users_login_pin_if_needed()
+    _migrate_rbac_users_updated_by_if_needed()
+    _migrate_rbac_audit_was_now_if_needed()
+    _migrate_rbac_users_manage_to_granular_permissions()
+    _migrate_rbac_entities_page_action_permissions()
     if config.GMP_DEV_LOGIN and not (config.GMP_DEV_SESSION_SECRET or "").strip():
         logging.getLogger("uvicorn.error").warning(
             "GMP_DEV_LOGIN=1 but GMP_DEV_SESSION_SECRET is empty — using an insecure embedded default. "
@@ -170,6 +177,26 @@ def _migrate_rbac_users_login_pin_if_needed() -> None:
             w.writerow({k: row.get(k, "") for k in want})
 
 
+def _migrate_rbac_users_updated_by_if_needed() -> None:
+    """Add updated_by column (last modifier display label); default empty."""
+    if not RBAC_USERS_PATH.exists():
+        return
+    with open(RBAC_USERS_PATH, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    if "updated_by" in fieldnames:
+        return
+    want = list(config.RBAC_USERS_FIELDS)
+    for row in rows:
+        row["updated_by"] = ""
+    with open(RBAC_USERS_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=want, extrasaction="ignore")
+        w.writeheader()
+        for row in rows:
+            w.writerow({k: row.get(k, "") for k in want})
+
+
 def _seed_rbac_if_empty() -> None:
     """First-time RBAC: SuperAdmin user + SuperAdmin Console role (Admin menu + always-granted). Both CSVs must be empty."""
     if _load_rbac_users() or _load_rbac_roles():
@@ -196,7 +223,8 @@ def _seed_rbac_if_empty() -> None:
         "display_name": "Super Admin",
         "active": True,
         "partner_id": None,
-        "created_by": "bootstrap",
+        "created_by": "System",
+        "updated_by": "System",
         "created_at": now,
         "updated_at": now,
         "last_login": "",
@@ -206,7 +234,14 @@ def _seed_rbac_if_empty() -> None:
     }
     _save_rbac_users([user_row])
     _save_rbac_user_roles([{"user_id": 1, "role_id": 1, "assigned_at": now, "assigned_by_user_id": None}])
-    _rbac_audit_append(None, "rbac.bootstrap", "system", "1", "SuperAdmin + SuperAdmin Console role")
+    _rbac_audit_append(
+        None,
+        "rbac.bootstrap",
+        "system",
+        "1",
+        was="—",
+        now="SuperAdmin user + SuperAdmin Console role (initial RBAC)",
+    )
 
 
 def _rbac_partner_scope_match(a: int | None, b: int | None) -> bool:
@@ -279,6 +314,27 @@ def _rbac_actor_is_superadmin(request: Request) -> bool:
         return False
     u = next((x for x in _load_rbac_users() if x.get("user_id") == uid), None)
     return bool(u and u.get("is_superadmin") and u.get("active", True))
+
+
+def _rbac_actor_audit_label(request: Request) -> str:
+    """Human-readable label for audit rows and updated_by (email, else login, else id)."""
+    uid = _rbac_actor_user_id_from_request(request)
+    if uid is None:
+        return "System"
+    u = next((x for x in _load_rbac_users() if x.get("user_id") == uid), None)
+    if not u:
+        return f"user#{uid}"
+    return ((u.get("email") or u.get("login") or str(uid)) or "").strip() or f"user#{uid}"
+
+
+def _rbac_user_modified_by_display(u: dict) -> str:
+    """Table column: last modifier, else creator; legacy placeholders shown as System."""
+    v = ((u.get("updated_by") or "").strip() or (u.get("created_by") or "").strip())
+    if not v:
+        return "—"
+    if v in ("SuperAdmin", "bootstrap"):
+        return "System"
+    return v
 
 
 def _rbac_request_bypasses_master_caps(request: Request) -> bool:
@@ -1406,7 +1462,7 @@ def _load_rbac_users() -> list[dict]:
         for r in csv.DictReader(f):
             uid = _int_or_none(r.get("user_id"))
             pid = _int_or_none(r.get("partner_id"))
-            created_by = (r.get("created_by") or "").strip() or "SuperAdmin"
+            created_by = (r.get("created_by") or "").strip()
             out.append({
                 "user_id": uid or 0,
                 "login": (r.get("login") or "").strip(),
@@ -1415,6 +1471,7 @@ def _load_rbac_users() -> list[dict]:
                 "active": (r.get("active") or "1").strip().lower() in ("1", "true", "yes"),
                 "partner_id": pid,
                 "created_by": created_by,
+                "updated_by": (r.get("updated_by") or "").strip(),
                 "created_at": (r.get("created_at") or "").strip(),
                 "updated_at": (r.get("updated_at") or "").strip(),
                 "last_login": (r.get("last_login") or "").strip(),
@@ -1446,7 +1503,8 @@ def _save_rbac_users(users: list[dict]) -> None:
                 "display_name": u.get("display_name", ""),
                 "active": "1" if u.get("active", True) else "0",
                 "partner_id": u.get("partner_id") if u.get("partner_id") is not None else "",
-                "created_by": (u.get("created_by") or "SuperAdmin").strip(),
+                "created_by": (u.get("created_by") or "").strip(),
+                "updated_by": (u.get("updated_by") or "").strip(),
                 "created_at": u.get("created_at", ""),
                 "updated_at": u.get("updated_at", ""),
                 "last_login": u.get("last_login", ""),
@@ -1703,9 +1761,18 @@ def _rbac_audit_next_id() -> int:
     return max(ids, default=0) + 1
 
 
-def _rbac_audit_append(actor_user_id: int | None, action: str, target_type: str, target_id: str, details: str = "") -> None:
-    """Append one row to rbac_audit_log.csv. Append-only."""
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+def _rbac_audit_append(
+    actor_user_id: int | None,
+    action: str,
+    target_type: str,
+    target_id: str,
+    *,
+    was: str = "",
+    now: str = "",
+    details: str = "",
+) -> None:
+    """Append one row to rbac_audit_log.csv. Append-only. Use was/now for before→after; details kept for legacy rows."""
+    created = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     next_id = _rbac_audit_next_id()
     write_header = not RBAC_AUDIT_LOG_PATH.exists() or RBAC_AUDIT_LOG_PATH.stat().st_size == 0
     if RBAC_AUDIT_LOG_PATH.exists() and RBAC_AUDIT_LOG_PATH.stat().st_size > 0:
@@ -1719,13 +1786,106 @@ def _rbac_audit_append(actor_user_id: int | None, action: str, target_type: str,
             w.writeheader()
         w.writerow({
             "id": next_id,
-            "created_at": now,
+            "created_at": created,
             "actor_user_id": actor_user_id if actor_user_id is not None else "",
             "action": action,
             "target_type": target_type,
             "target_id": str(target_id),
+            "was": was,
+            "now": now,
             "details": details,
         })
+
+
+def _migrate_rbac_users_manage_to_granular_permissions() -> None:
+    """Replace legacy rbac.users.manage with rbac.users.create/edit/audit on each role that had it."""
+    perms = _load_rbac_role_permissions()
+    roles_with_manage = {p["role_id"] for p in perms if (p.get("permission_code") or "").strip() == "rbac.users.manage"}
+    if not roles_with_manage:
+        return
+    new_perms = [p for p in perms if (p.get("permission_code") or "").strip() != "rbac.users.manage"]
+    existing = {(p["role_id"], (p.get("permission_code") or "").strip()) for p in new_perms}
+    for rid in roles_with_manage:
+        for code in ("rbac.users.create", "rbac.users.edit", "rbac.users.audit"):
+            if (rid, code) not in existing:
+                new_perms.append({"role_id": rid, "permission_code": code})
+                existing.add((rid, code))
+    _save_rbac_role_permissions(new_perms)
+
+
+def _migrate_rbac_entities_page_action_permissions() -> None:
+    """Align role_permissions with Entities tab actions: sport + category/competition/team page-action codes."""
+    from collections import defaultdict
+
+    perms = _load_rbac_role_permissions()
+    if not perms:
+        return
+    role_codes: dict[int, set[str]] = defaultdict(set)
+    for p in perms:
+        try:
+            rid = int(p.get("role_id"))
+        except (TypeError, ValueError):
+            continue
+        c = (p.get("permission_code") or "").strip()
+        if c:
+            role_codes[rid].add(c)
+    changed = False
+    tab_bases = (
+        ("entity.sport", ("entity.sport.remove_mappings", "entity.sport.active_inactive"), True),
+        ("entity.category", ("entity.category.remove_mappings", "entity.category.active_inactive"), False),
+        ("entity.competition", ("entity.competition.remove_mappings", "entity.competition.active_inactive"), False),
+        ("entity.team", ("entity.team.remove_mappings", "entity.team.active_inactive"), False),
+    )
+    for codes in role_codes.values():
+        for base, extras, is_sport in tab_bases:
+            del_c = f"{base}.delete"
+            upd = f"{base}.update"
+            ed = f"{base}.edit"
+            if del_c in codes:
+                codes.discard(del_c)
+                changed = True
+            if upd in codes:
+                codes.discard(upd)
+                codes.add(ed)
+                changed = True
+            if is_sport:
+                if f"{base}.create" in codes:
+                    codes.discard(f"{base}.create")
+                    changed = True
+            if ed in codes:
+                for ex in extras:
+                    if ex not in codes:
+                        codes.add(ex)
+                        changed = True
+    if not changed:
+        return
+    new_rows: list[dict] = []
+    for rid in sorted(role_codes.keys()):
+        for c in sorted(role_codes[rid]):
+            new_rows.append({"role_id": rid, "permission_code": c})
+    _save_rbac_role_permissions(new_rows)
+
+
+def _migrate_rbac_audit_was_now_if_needed() -> None:
+    """Add was/now columns to rbac_audit_log.csv if missing (preserve details)."""
+    if not RBAC_AUDIT_LOG_PATH.exists():
+        return
+    with open(RBAC_AUDIT_LOG_PATH, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames or [])
+        rows = list(reader)
+    if "was" in fieldnames and "now" in fieldnames:
+        return
+    want = list(config.RBAC_AUDIT_LOG_FIELDS)
+    for row in rows:
+        row.setdefault("was", "")
+        row.setdefault("now", "")
+        row.setdefault("details", row.get("details", ""))
+    with open(RBAC_AUDIT_LOG_PATH, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=want, extrasaction="ignore")
+        w.writeheader()
+        for row in rows:
+            w.writerow({k: row.get(k, "") for k in want})
 
 
 @app.on_event("startup")
@@ -1744,6 +1904,39 @@ def _load_market_type_mappings() -> list[dict]:
             row["feed_provider_id"] = int(row["feed_provider_id"])
             rows.append(row)
     return rows
+
+
+def _load_1xbet_market_names() -> dict[str, str]:
+    """Load 1xbet_market_names.csv → { G (string) → name }. Empty name = fall back to synthetic GE label in parser."""
+    if not ONEXBET_MARKET_NAMES_PATH.exists():
+        return {}
+    out: dict[str, str] = {}
+    with open(ONEXBET_MARKET_NAMES_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if not row:
+                continue
+            g = str(row.get("G") or row.get("g") or "").strip()
+            if not g:
+                continue
+            name = (row.get("name") or row.get("Name") or "").strip()
+            out[g] = name
+    return out
+
+
+def _market_type_feed_counts_by_domain_id() -> dict[str, dict[str, int]]:
+    """Per domain market type: how many feed mappings in prematch vs live (from market_type_mappings phase)."""
+    out: dict[str, dict[str, int]] = {}
+    for m in _load_market_type_mappings():
+        dmid = fid_str(m.get("domain_market_id") or "")
+        if not dmid:
+            continue
+        phase = (m.get("phase") or "").strip().lower().replace("-", "_")
+        bucket = out.setdefault(dmid, {"prematch": 0, "live": 0})
+        if phase in ("live", "inplay", "in_play"):
+            bucket["live"] += 1
+        else:
+            bucket["prematch"] += 1
+    return out
 
 
 def _save_market_type_mappings_for_domain(domain_market_id: str, prematch: list[dict], live: list[dict]) -> None:
@@ -2734,13 +2927,64 @@ def _get_sport_slug(domain_sport_id: str | int | None) -> str:
     return name.lower().replace(" ", "") if name else ""
 
 
+def _feed_sport_id_values_equal(a, b) -> bool:
+    """True if two feed sport id representations match (int 91 vs str '91')."""
+    if a is None or b is None:
+        return False
+    sa, sb = str(a).strip(), str(b).strip()
+    if not sa or not sb:
+        return False
+    if sa == sb:
+        return True
+    try:
+        return int(float(sa)) == int(float(sb))
+    except (TypeError, ValueError):
+        return False
+
+
+def _event_declared_feed_sport_ids(ev: dict) -> list:
+    """Sport identifiers present on a feed event / odds payload (Bet365/Bwin/1xbet shapes)."""
+    out: list = []
+    for key in ("sport_id", "SportId", "sport_key"):
+        v = ev.get(key)
+        if v is None or v == "":
+            continue
+        out.append(v)
+    value = ev.get("Value") or ev.get("value")
+    if isinstance(value, dict):
+        for key in ("sport_id", "SportId"):
+            v = value.get(key)
+            if v is None or v == "":
+                continue
+            out.append(v)
+        # 1xbet event detail: sport id on Value (e.g. SI: 6 = Volleyball)
+        si = value.get("SI")
+        if si is not None and si != "":
+            out.append(si)
+    return out
+
+
+def _event_matches_feed_sport_filter(ev: dict, fsid: int | None) -> bool:
+    """
+    True if ev should count toward markets for this feed sport.
+    When fsid is set, require a declared sport id on the payload that matches fsid.
+    Events with no sport fields are excluded (avoids mixing Football cached details into Volleyball).
+    """
+    if fsid is None:
+        return True
+    declared = _event_declared_feed_sport_ids(ev)
+    if not declared:
+        return False
+    return any(_feed_sport_id_values_equal(v, fsid) for v in declared)
+
+
 def _load_feed_markets_from_event_details(
     feed_code: str, feed_sport_id: int, domain_sport_id: str | int | None
 ) -> list[dict]:
     """
     Load unique markets from stored event-details JSONs (feed_event_details/{feed_code}/*.json).
-    Each file is one event-details API response. Filter by feed_sport_id when event has SportId.
-    If sport filter yields no events, include all stored events so at least one cached event shows markets.
+    Only includes events whose declared feed sport id matches feed_sport_id (strict — no sport id => excluded).
+    Does not fall back to "all cached events" (that previously leaked other sports into the mapper).
     """
     feed_lower = (feed_code or "").strip().lower()
     if feed_lower not in ("bwin", "bet365", "1xbet"):
@@ -2748,15 +2992,6 @@ def _load_feed_markets_from_event_details(
     details_dir = config.FEED_EVENT_DETAILS_DIR / feed_lower
     if not details_dir.exists():
         return []
-
-    def _sport_match(ev: dict, fsid: int | None) -> bool:
-        if fsid is None:
-            return True
-        if ev.get("SportId") == fsid or ev.get("sport_id") == fsid:
-            return True
-        if ev.get("SportId") is None and ev.get("sport_id") is None:
-            return True
-        return False
 
     def _collect_events() -> list[dict]:
         out: list[dict] = []
@@ -2768,37 +3003,31 @@ def _load_feed_markets_from_event_details(
                 continue
             event = None
             if isinstance(raw, dict):
+                parent_sport = raw.get("sport_id") or raw.get("SportId")
                 if "results" in raw and isinstance(raw["results"], list):
                     for ev in raw["results"]:
-                        if isinstance(ev, dict) and _sport_match(ev, feed_sport_id):
+                        if not isinstance(ev, dict):
+                            continue
+                        for_match = ev
+                        if parent_sport is not None and not _event_declared_feed_sport_ids(ev):
+                            for_match = {**ev, "sport_id": parent_sport}
+                        if _event_matches_feed_sport_filter(for_match, feed_sport_id):
                             out.append(ev)
                     continue
                 if "result" in raw and isinstance(raw["result"], dict):
-                    event = raw["result"]
-                else:
-                    event = raw
-            if isinstance(event, dict) and _sport_match(event, feed_sport_id):
+                    inner = raw["result"]
+                    for_match = inner
+                    if parent_sport is not None and not _event_declared_feed_sport_ids(inner):
+                        for_match = {**inner, "sport_id": parent_sport}
+                    if isinstance(for_match, dict) and _event_matches_feed_sport_filter(for_match, feed_sport_id):
+                        out.append(inner)
+                    continue
+                event = raw
+            if isinstance(event, dict) and _event_matches_feed_sport_filter(event, feed_sport_id):
                 out.append(event)
         return out
 
     results = _collect_events()
-    # If sport filter excluded everything (e.g. "All sports" -> Football, but only Volleyball events cached), use all events
-    if not results:
-        for path in details_dir.glob("*.json"):
-            try:
-                with open(path, encoding="utf-8") as f:
-                    raw = json.load(f)
-            except (json.JSONDecodeError, OSError):
-                continue
-            if isinstance(raw, dict):
-                if "results" in raw and isinstance(raw["results"], list):
-                    for ev in raw["results"]:
-                        if isinstance(ev, dict):
-                            results.append(ev)
-                elif "result" in raw and isinstance(raw["result"], dict):
-                    results.append(raw["result"])
-                elif raw.get("Markets") is not None or raw.get("main") is not None or raw.get("Value") is not None:
-                    results.append(raw)
     if not results:
         return []
     # Attach sport_name from each event and dedupe by (id, name, sport_name)
@@ -2862,9 +3091,9 @@ def _load_feed_markets_for_sport(
         return []
 
     if feed_lower == "bet365":
-        markets = _parse_bet365_feed_markets(data)
+        markets = _parse_bet365_feed_markets(data, None if used_sport_specific else feed_sport_id)
     elif feed_lower == "1xbet":
-        markets = _parse_1xbet_feed_markets(data)
+        markets = _parse_1xbet_feed_markets(data, None if used_sport_specific else feed_sport_id)
     else:
         markets = _parse_bwin_feed_markets(data, feed_sport_id, used_sport_specific)
     sport_name = _get_feed_sport_name(feed_lower, feed_sport_id)
@@ -2884,7 +3113,7 @@ def _parse_bwin_feed_markets(
         results = data.get("results") or []
     by_key: dict[int, dict] = {}
     for event in results:
-        if not skip_sport_filter and event.get("SportId") != feed_sport_id:
+        if not skip_sport_filter and not _feed_sport_id_values_equal(event.get("SportId"), feed_sport_id):
             continue
         is_prematch = event.get("IsPreMatch", True)
         for item in (event.get("Markets") or []) + (event.get("optionMarkets") or []):
@@ -2921,6 +3150,73 @@ _BET365_SET1_LINES_SUBMARKETS = (
     ("Handicap", "2", "Set 1 Lines - Handicap"),
     ("Total", "3", "Set 1 Lines - Total"),
 )
+# Mappings CSV sometimes stores Game/Set 1 Lines submarkets as 9100001..3 / 9102041..3 instead of 910000_1..3 (JSON block id is 910000 / 910204).
+_BET365_COMPACT_SUBMARKET_IDS: dict[str, str] = {
+    "9100001": "910000_1",
+    "9100002": "910000_2",
+    "9100003": "910000_3",
+    "9102041": "910204_1",
+    "9102042": "910204_2",
+    "9102043": "910204_3",
+}
+# Set-score **name** is from that side's perspective (3-0 = that team wins 3-0); **header** 1=home / 2=away.
+_BET365_SET_SCORE_HOME_AWAY_ORDER: dict[str, list[tuple[int, int]]] = {
+    "910201": [(3, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 3)],
+    "910211": [(2, 0), (1, 1), (0, 2)],
+    "910212": [(3, 0), (2, 1), (1, 2), (0, 3)],
+}
+
+
+def _bet365_header_str(header: object) -> str:
+    if header is None:
+        return ""
+    return str(header).strip()
+
+
+def _bet365_home_away_from_score_name_and_header(name: str, header: object) -> tuple[int, int] | None:
+    """Map Bet365 row **name** (e.g. ``3-0``) + **header** to (home_sets, away_sets)."""
+    n = (name or "").strip()
+    m = re.match(r"^(\d+)\s*[-:]\s*(\d+)$", n)
+    if not m:
+        return None
+    a, b = int(m.group(1)), int(m.group(2))
+    h = _bet365_header_str(header)
+    if h == "1":
+        return (a, b)
+    if h == "2":
+        return (b, a)
+    return (a, b)
+
+
+def _bet365_set_score_outcomes_ordered(sub: list, base_id: str) -> list[dict] | None:
+    """Order set-score odds to match domain columns (home 3-x first, then away 3-x as 2:3 / 1:3 / 0:3)."""
+    order = _BET365_SET_SCORE_HOME_AWAY_ORDER.get(base_id)
+    if not order:
+        return None
+    items: list[tuple[tuple[int, int], dict]] = []
+    for o in sub:
+        if not isinstance(o, dict) or o.get("odds") is None:
+            continue
+        ha = _bet365_home_away_from_score_name_and_header(str(o.get("name") or ""), o.get("header"))
+        if ha is None:
+            return None
+        items.append((ha, o))
+    if not items:
+        return None
+
+    def _sk(ha: tuple[int, int]) -> tuple:
+        try:
+            return (0, order.index(ha), 0)
+        except ValueError:
+            return (1, ha[0], ha[1])
+
+    items.sort(key=lambda it: _sk(it[0]))
+    return [{"name": f"{h}:{a}", "price": str(c["odds"])} for (h, a), c in items]
+
+
+def _normalize_bet365_feed_market_id(fid: str) -> str:
+    f = (fid or "").strip()
+    return _BET365_COMPACT_SUBMARKET_IDS.get(f, f)
 
 
 def _bet365_lines_split(block: dict, base_id: str, base_name: str, submarkets: tuple) -> list[dict]:
@@ -2943,12 +3239,26 @@ def _bet365_lines_split(block: dict, base_id: str, base_name: str, submarkets: t
     return out if out else [{"id": base_id, "name": base_name, "is_prematch": True}]
 
 
-def _parse_bet365_feed_markets(data: dict | list) -> list[dict]:
-    """Extract unique market types from Bet365 results (main.sp + others[].sp). Game Lines (910000) and Set 1 Lines (910204) split into Winner/Handicap/Total."""
+def _parse_bet365_feed_markets(data: dict | list, feed_sport_id: int | None = None) -> list[dict]:
+    """Extract unique market types from Bet365 results (main.sp + others[].sp). Game Lines (910000) and Set 1 Lines (910204) split into Winner/Handicap/Total.
+    When feed_sport_id is set, only events whose declared sport id matches are used (multi-sport JSON files)."""
     if isinstance(data, list):
         results = data
+        parent_sport = None
     else:
         results = data.get("results") or []
+        parent_sport = data.get("sport_id") or data.get("SportId")
+    if feed_sport_id is not None:
+        filtered: list[dict] = []
+        for e in results:
+            if not isinstance(e, dict):
+                continue
+            eff = e
+            if parent_sport is not None and not _event_declared_feed_sport_ids(e):
+                eff = {**e, "sport_id": parent_sport}
+            if _event_matches_feed_sport_filter(eff, feed_sport_id):
+                filtered.append(e)
+        results = filtered
     by_key: dict[tuple, dict] = {}
 
     def _process_sp(sp: dict) -> None:
@@ -2981,15 +3291,190 @@ def _parse_bet365_feed_markets(data: dict | list) -> list[dict]:
     return list(by_key.values())
 
 
-def _parse_1xbet_feed_markets(data: dict | list) -> list[dict]:
-    """Extract unique market types from 1xbet results (Value.SG segments + MEC)."""
+def _collect_1xbet_ge_blocks(obj: object) -> list[dict]:
+    """Collect all {G, E, ...} outcome groups from 1xbet Value (and nested dicts e.g. SG.*.GE if present)."""
+    out: list[dict] = []
+    if isinstance(obj, dict):
+        ge = obj.get("GE")
+        if isinstance(ge, list):
+            for item in ge:
+                if isinstance(item, dict) and item.get("G") is not None:
+                    out.append(item)
+        for k, v in obj.items():
+            if k == "GE":
+                continue
+            out.extend(_collect_1xbet_ge_blocks(v))
+    elif isinstance(obj, list):
+        for x in obj:
+            out.extend(_collect_1xbet_ge_blocks(x))
+    return out
+
+
+def _summarize_1xbet_ge_block(block: dict) -> tuple[int, bool, list]:
+    """Return (row_count, has_any_P, sorted_distinct_T)."""
+    e = block.get("E") or []
+    n_rows = 0
+    ts: list = []
+    seen_t: set = set()
+    has_p = False
+    if not isinstance(e, list):
+        return 0, False, []
+    for row in e:
+        if not isinstance(row, list):
+            continue
+        n_rows += 1
+        for cell in row:
+            if not isinstance(cell, dict):
+                continue
+            t = cell.get("T")
+            if t is not None:
+                if t not in seen_t:
+                    seen_t.add(t)
+                    ts.append(t)
+            if cell.get("P") is not None:
+                has_p = True
+    try:
+        ts.sort(key=lambda x: (isinstance(x, (int, float)), x))
+    except TypeError:
+        ts.sort(key=str)
+    return n_rows, has_p, ts
+
+
+def _display_name_for_1xbet_ge(block: dict) -> str:
+    """Synthetic label until human market names are supplied; encodes structure (rows, P, T codes)."""
+    g = block.get("G")
+    gid = str(g).strip() if g is not None else "?"
+    n_rows, has_p, ts = _summarize_1xbet_ge_block(block)
+    parts = [f"G={gid}", f"{n_rows} row(s)"]
+    if has_p:
+        parts.append("P (line)")
+    if ts:
+        shown = ",".join(str(x) for x in ts[:14])
+        if len(ts) > 14:
+            shown += ",…"
+        parts.append(f"T: {shown}")
+    return " · ".join(parts)
+
+
+def _label_for_1xbet_ge_block(block: dict, name_by_g: dict[str, str]) -> str:
+    """Prefer `1xbet_market_names.csv` (G → name); else synthetic GE summary."""
+    g = block.get("G")
+    gid = str(g).strip() if g is not None else ""
+    if gid:
+        custom = (name_by_g.get(gid) or "").strip()
+        if custom:
+            return custom
+    return _display_name_for_1xbet_ge(block)
+
+
+# 1xbet **P** encodes set score (not handicap/total line): int part = home sets, fractional ×1000 = away sets.
+_1XBET_P_ENCODED_SCORE_MARKET_IDS = frozenset({"136", "343"})
+_1XBET_CORRECT_SET_SCORE_ORDER: list[tuple[int, int]] = [(3, 0), (3, 1), (3, 2), (2, 3), (1, 3), (0, 3)]
+_1XBET_SCORE_AFTER_TWO_SETS_ORDER: list[tuple[int, int]] = [(2, 0), (1, 1), (0, 2)]
+
+
+def _1xbet_decode_p_set_score(p: object) -> tuple[int, int] | None:
+    """Map 1xbet P (e.g. 3, 3.001, 0.003) to (home_sets, away_sets)."""
+    try:
+        pf = float(p)
+    except (TypeError, ValueError):
+        return None
+    home = int(math.floor(pf + 1e-9))
+    frac = pf - home
+    if abs(frac) < 1e-8:
+        away = 0
+    else:
+        away = int(round(frac * 1000))
+    return (home, away)
+
+
+def _1xbet_encoded_score_sort_index(gid: str, ha: tuple[int, int]) -> tuple[int, int, int]:
+    """Stable sort key so outcomes align with domain column order."""
+    if gid == "136":
+        try:
+            return (0, _1XBET_CORRECT_SET_SCORE_ORDER.index(ha), 0)
+        except ValueError:
+            return (1, ha[0], ha[1])
+    if gid == "343":
+        try:
+            return (0, _1XBET_SCORE_AFTER_TWO_SETS_ORDER.index(ha), 0)
+        except ValueError:
+            return (1, ha[0], ha[1])
+    return (1, ha[0], ha[1])
+
+
+def _1xbet_encoded_score_outcomes_from_block(block: dict) -> list[dict]:
+    """Flatten GE.E for G 136 / 343: one outcome per cell, names like 3:0 from **P** encoding."""
+    gid = str(block.get("G") or "").strip()
+    if gid not in _1XBET_P_ENCODED_SCORE_MARKET_IDS:
+        return []
+    rows = [r for r in (block.get("E") or []) if isinstance(r, list)]
+    items: list[tuple[tuple[int, int], dict]] = []
+    for row in rows:
+        for cell in row:
+            if not isinstance(cell, dict) or cell.get("C") is None or cell.get("P") is None:
+                continue
+            ha = _1xbet_decode_p_set_score(cell.get("P"))
+            if ha is None:
+                continue
+            items.append((ha, cell))
+    items.sort(key=lambda it: _1xbet_encoded_score_sort_index(gid, it[0]))
+    return [{"name": f"{h}:{a}", "price": str(c["C"])} for (h, a), c in items]
+
+
+def _1xbet_outcome_cell_label(cell: dict) -> str:
+    """Debug-friendly outcome label from E[][] element (T / P); expand when T semantics are finalized."""
+    parts: list[str] = []
+    t = cell.get("T")
+    if t is not None:
+        parts.append(f"T={t}")
+    p = cell.get("P")
+    if p is not None:
+        parts.append(f"P={p}")
+    return " · ".join(parts) if parts else "—"
+
+
+def _parse_1xbet_feed_markets(data: dict | list, feed_sport_id: int | None = None) -> list[dict]:
+    """Extract unique markets from 1xbet event Value.GE: each group's **G** is the feed market id (no name in API).
+
+    Falls back to legacy SG+MEC synthetic ids ({segmentI}_{MT}) only when no GE blocks exist.
+    """
     if isinstance(data, list):
         results = data
+        parent_sport = None
     else:
         results = data.get("results") or []
+        parent_sport = data.get("sport_id") or data.get("SportId")
+    if feed_sport_id is not None:
+        filtered: list[dict] = []
+        for e in results:
+            if not isinstance(e, dict):
+                continue
+            eff = e
+            if parent_sport is not None and not _event_declared_feed_sport_ids(e):
+                eff = {**e, "sport_id": parent_sport}
+            if _event_matches_feed_sport_filter(eff, feed_sport_id):
+                filtered.append(e)
+        results = filtered
+    by_gid: dict[str, dict] = {}
     by_key: dict[tuple, dict] = {}
+    name_by_g = _load_1xbet_market_names()
     for event in results:
         value = event.get("Value") or event.get("value") or {}
+        blocks = _collect_1xbet_ge_blocks(value)
+        if blocks:
+            for block in blocks:
+                g = block.get("G")
+                if g is None:
+                    continue
+                gid = str(g).strip()
+                if gid not in by_gid:
+                    by_gid[gid] = {
+                        "id": gid,
+                        "name": _label_for_1xbet_ge_block(block, name_by_g),
+                        "is_prematch": True,
+                    }
+            continue
         for seg in value.get("SG") or []:
             if not isinstance(seg, dict):
                 continue
@@ -3007,53 +3492,499 @@ def _parse_1xbet_feed_markets(data: dict | list) -> list[dict]:
                 key = (mid, name)
                 if key not in by_key:
                     by_key[key] = {"id": mid, "name": name, "is_prematch": True}
+    if by_gid:
+        return list(by_gid.values())
     return list(by_key.values())
 
 
-def _extract_bwin_market_odds(events_data: list[dict] | dict, feed_market_id: str) -> dict:
-    """From Bwin event details, extract outcomes and line (attr) for market by templateId (or categoryId for legacy). Returns {outcomes: [...], line: str}.
-    For OVERUNDER/total markets (e.g. 6356, 9210), line comes from attr; if attr is missing, derive from outcome names (e.g. 'Over 45,5' -> '45,5')."""
-    import re
+def _line_string_to_float(s: str | None) -> float | None:
+    """Parse a UI / feed line token (e.g. '-0.5', '184,5', 'O 181.5') to float; None if not parseable."""
+    if s is None:
+        return None
+    t = str(s).strip().replace("\u2212", "-").replace(",", ".")
+    if not t:
+        return None
+    nums = re.findall(r"-?\d+\.?\d*|-?\.\d+", t)
+    if not nums:
+        return None
+    try:
+        return float(nums[-1])
+    except ValueError:
+        return None
+
+
+def _float_line_close(a: float, b: float, *, abs_tol: float = 0.02) -> bool:
+    """Loose match for handicap/total lines across feeds (comma decimals, float noise)."""
+    return abs(a - b) <= abs_tol
+
+
+def _bwin_attr_line_float(attr: str | None) -> float | None:
+    if attr is None or not str(attr).strip():
+        return None
+    return _line_string_to_float(str(attr).strip().replace(",", "."))
+
+
+def _bet365_handicap_scalar(h: str | None) -> float | None:
+    """Bet365 'handicap' for side markets: '+1.5', '-0.5'. Returns None for totals like 'O 184.5'."""
+    if h is None or not str(h).strip():
+        return None
+    s = str(h).strip().replace(",", ".")
+    if re.match(r"^[OU]\s", s, re.IGNORECASE):
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def _bet365_total_line_float(h: str | None) -> float | None:
+    """Extract total line from 'O 184.5' / 'U 184,5'."""
+    if h is None or not str(h).strip():
+        return None
+    m = re.search(r"[OU]\s*([\d,\.]+)", str(h), re.IGNORECASE)
+    if not m:
+        return None
+    return _line_string_to_float(m.group(1))
+
+
+def _bet365_row_handicap_line_match(h: str | None, lf: float) -> bool:
+    v = _bet365_handicap_scalar(h)
+    if v is None:
+        return False
+    return _float_line_close(v, lf) or _float_line_close(v, -lf)
+
+
+def _bet365_row_total_line_match(h: str | None, lf: float) -> bool:
+    v = _bet365_total_line_float(h)
+    if v is None:
+        return False
+    return _float_line_close(v, lf)
+
+
+def _fmt_line_num(p: float) -> str:
+    s = f"{p:.6f}".rstrip("0").rstrip(".")
+    return s if s else str(p)
+
+
+def _1xbet_pairing_mode(rows: list) -> str | None:
+    """How to pair 1xbet GE.E rows: total (T9/T10 + P), handicap (T7/T8 or aligned P)."""
+    if len(rows) < 2:
+        return None
+    r0, r1 = rows[0], rows[1]
+    if not isinstance(r0, list) or not isinstance(r1, list) or not r0 or not r1:
+        return None
+
+    def _ts(r: list) -> set:
+        return {c.get("T") for c in r if isinstance(c, dict)}
+
+    t0, t1 = _ts(r0), _ts(r1)
+    if t0 == {9} and t1 == {10}:
+        return "total_9_10"
+    if 7 in t0 and 8 in t1:
+        return "handicap_7_8"
+    if len(r0) == len(r1) and all(
+        isinstance(c, dict) and c.get("P") is not None and c.get("C") is not None for c in r0 + r1
+    ):
+        return "handicap_index"
+    return None
+
+
+def _extract_1xbet_all_line_rows_from_block(block: dict) -> list[dict]:
+    """All paired lines from one GE block: [{line, outcomes, is_main_line}, ...]. CE==1 marks balanced line (1xbet)."""
+    gid = str(block.get("G") or "").strip()
+    if gid in _1XBET_P_ENCODED_SCORE_MARKET_IDS:
+        oc = _1xbet_encoded_score_outcomes_from_block(block)
+        if oc:
+            return [{"line": "—", "outcomes": oc, "is_main_line": False}]
+        return []
+    rows = [r for r in (block.get("E") or []) if isinstance(r, list)]
+    out: list[dict] = []
+    mode = _1xbet_pairing_mode(rows)
+    if mode == "total_9_10":
+        r0, r1 = rows[0], rows[1]
+        over_p: dict[float, dict] = {}
+        under_p: dict[float, dict] = {}
+        for c in r0:
+            if isinstance(c, dict) and c.get("C") is not None and c.get("P") is not None:
+                try:
+                    over_p[round(float(c["P"]), 4)] = c
+                except (TypeError, ValueError):
+                    pass
+        for c in r1:
+            if isinstance(c, dict) and c.get("C") is not None and c.get("P") is not None:
+                try:
+                    under_p[round(float(c["P"]), 4)] = c
+                except (TypeError, ValueError):
+                    pass
+        for p in sorted(set(over_p) & set(under_p)):
+            co, cu = over_p[p], under_p[p]
+            dsp = _fmt_line_num(p)
+            is_main = co.get("CE") == 1 or cu.get("CE") == 1
+            out.append({
+                "line": dsp,
+                "outcomes": [
+                    {"name": f"Over {dsp}", "price": str(co["C"])},
+                    {"name": f"Under {dsp}", "price": str(cu["C"])},
+                ],
+                "is_main_line": is_main,
+            })
+        return out
+    if mode in ("handicap_7_8", "handicap_index"):
+        r0, r1 = rows[0], rows[1]
+        for i in range(min(len(r0), len(r1))):
+            ca, cb = r0[i], r1[i]
+            if not isinstance(ca, dict) or not isinstance(cb, dict):
+                continue
+            if ca.get("C") is None or cb.get("C") is None:
+                continue
+            pb = ca.get("P")
+            pa = cb.get("P")
+            try:
+                line_disp = _fmt_line_num(float(pb)) if pb is not None else (
+                    _fmt_line_num(float(pa)) if pa is not None else str(i)
+                )
+            except (TypeError, ValueError):
+                line_disp = str(i)
+            is_main = ca.get("CE") == 1 or cb.get("CE") == 1
+            out.append({
+                "line": line_disp,
+                "outcomes": [
+                    {"name": _1xbet_outcome_cell_label(ca), "price": str(ca["C"])},
+                    {"name": _1xbet_outcome_cell_label(cb), "price": str(cb["C"])},
+                ],
+                "is_main_line": is_main,
+            })
+        return out
+    if len(rows) == 2 and len(rows[0]) == 1 and len(rows[1]) == 1:
+        ca, cb = rows[0][0], rows[1][0]
+        if isinstance(ca, dict) and isinstance(cb, dict) and ca.get("C") is not None and cb.get("C") is not None:
+            out.append({
+                "line": "—",
+                "outcomes": [
+                    {"name": _1xbet_outcome_cell_label(ca), "price": str(ca["C"])},
+                    {"name": _1xbet_outcome_cell_label(cb), "price": str(cb["C"])},
+                ],
+                "is_main_line": bool(ca.get("CE") == 1 or cb.get("CE") == 1),
+            })
+    return out
+
+
+def _extract_1xbet_all_line_rows(events_data: list[dict] | dict, feed_market_id: str) -> list[dict]:
+    fid = str(feed_market_id).strip()
+    results = events_data if isinstance(events_data, list) else (events_data.get("results") or [])
+    for event in results:
+        if not isinstance(event, dict):
+            continue
+        value = event.get("Value") or event.get("value") or {}
+        for block in _collect_1xbet_ge_blocks(value):
+            if str(block.get("G")).strip() != fid:
+                continue
+            parsed = _extract_1xbet_all_line_rows_from_block(block)
+            if parsed:
+                return parsed
+    return []
+
+
+def _bet365_total_lines_from_sub(sub: list) -> list[dict]:
+    """Group Bet365 Total odds by numeric line (O/U pair per line)."""
+    by_line: dict[float, dict[str, dict]] = {}
+    for o in sub:
+        if not isinstance(o, dict):
+            continue
+        v = _bet365_total_line_float(o.get("handicap"))
+        if v is None:
+            continue
+        k = round(v, 4)
+        hdr = str(o.get("header") or "").strip()
+        by_line.setdefault(k, {})
+        by_line[k][hdr] = o
+    out: list[dict] = []
+    for k in sorted(by_line.keys()):
+        sides = by_line[k]
+        if "1" not in sides or "2" not in sides:
+            continue
+        o1, o2 = sides["1"], sides["2"]
+        h1 = str(o1.get("handicap") or "")
+        h2 = str(o2.get("handicap") or "")
+        if re.search(r"^U", h1, re.I) and re.search(r"^O", h2, re.I):
+            o1, o2 = o2, o1
+        dsp = _fmt_line_num(k)
+        p1 = o1.get("odds")
+        p2 = o2.get("odds")
+        if p1 is None or p2 is None:
+            continue
+        out.append({
+            "line": dsp,
+            "outcomes": [
+                {"name": str(o1.get("header") or "1").strip() or "1", "price": str(p1)},
+                {"name": str(o2.get("header") or "2").strip() or "2", "price": str(p2)},
+            ],
+            "is_main_line": False,
+        })
+    return out
+
+
+def _bet365_handicap_lines_from_sub(sub: list) -> list[dict]:
+    """Group Bet365 Handicap odds by absolute line; pair + / - handicaps."""
+    by_abs: dict[float, dict[str, dict]] = {}
+    for o in sub:
+        if not isinstance(o, dict):
+            continue
+        v = _bet365_handicap_scalar(o.get("handicap"))
+        if v is None:
+            continue
+        a = round(abs(v), 4)
+        sign = "+" if v > 0 else ("-" if v < 0 else "0")
+        by_abs.setdefault(a, {})
+        by_abs[a][sign] = o
+    out: list[dict] = []
+    for a in sorted(by_abs.keys()):
+        sides = by_abs[a]
+        op = sides.get("+") or sides.get("0")
+        om = sides.get("-")
+        if op is None or om is None:
+            continue
+        h_neg = str(om.get("handicap") or "").strip()
+        line_disp = h_neg if h_neg else _fmt_line_num(-a)
+        p1 = op.get("odds")
+        p2 = om.get("odds")
+        if p1 is None or p2 is None:
+            continue
+        out.append({
+            "line": line_disp,
+            "outcomes": [
+                {"name": str(op.get("header") or "1").strip() or "1", "price": str(p1)},
+                {"name": str(om.get("header") or "2").strip() or "2", "price": str(p2)},
+            ],
+            "is_main_line": False,
+        })
+    return out
+
+
+def _extract_bet365_all_line_rows(events_data: list[dict] | dict, feed_market_id: str) -> list[dict]:
+    fid = _normalize_bet365_feed_market_id(str(feed_market_id).strip())
+    _, suffix = (fid.split("_", 1) + [""])[:2]
+    if suffix not in ("2", "3"):
+        return []
+    base_id = fid.split("_", 1)[0]
+    results = events_data if isinstance(events_data, list) else (events_data.get("results") or [])
+
+    def pull_sub(sp: dict) -> list | None:
+        if not sp:
+            return None
+        for block in (sp or {}).values():
+            if not isinstance(block, dict):
+                continue
+            if str(block.get("id") or "").strip() != base_id:
+                continue
+            odds_list = block.get("odds") or []
+            if suffix == "2":
+                sub = [o for o in odds_list if isinstance(o, dict) and (o.get("name") or "").strip() == "Handicap"]
+            else:
+                sub = [o for o in odds_list if isinstance(o, dict) and (o.get("name") or "").strip() == "Total"]
+            return sub
+        return None
+
+    for event in results:
+        if not isinstance(event, dict):
+            continue
+        main_sp = (event.get("main") or {}).get("sp") or {}
+        sub = pull_sub(main_sp)
+        if sub:
+            return _bet365_handicap_lines_from_sub(sub) if suffix == "2" else _bet365_total_lines_from_sub(sub)
+        for other in event.get("others") or []:
+            if not isinstance(other, dict):
+                continue
+            sub = pull_sub(other.get("sp") or {})
+            if sub:
+                return _bet365_handicap_lines_from_sub(sub) if suffix == "2" else _bet365_total_lines_from_sub(sub)
+    return []
+
+
+def _bwin_market_outcomes_and_attr(m: dict) -> tuple[list[dict], str]:
+    outcomes = []
+    for r in m.get("results") or []:
+        if not isinstance(r, dict):
+            continue
+        name = (r.get("name") or {}).get("value") or (r.get("sourceName") or {}).get("value") or ""
+        odds = r.get("odds")
+        if odds is not None:
+            outcomes.append({"name": str(name).strip() or "—", "price": str(odds)})
+    attr_line = (m.get("attr") or "").strip() or ""
+    if not attr_line and len(outcomes) >= 2:
+        first_name = (outcomes[0].get("name") or "").strip()
+        match = re.search(r"(?:Over|Under)\s+([\d,\.]+)", first_name, re.IGNORECASE)
+        if match:
+            attr_line = match.group(1).strip()
+    return outcomes, attr_line
+
+
+def _extract_bwin_all_line_rows(events_data: list[dict] | dict, feed_market_id: str) -> list[dict]:
     results = events_data if isinstance(events_data, list) else (events_data.get("results") or [])
     fid = str(feed_market_id).strip()
+
+    def _market_matches(m: dict) -> bool:
+        template_id = m.get("templateId")
+        if template_id is not None and str(template_id).strip() == fid:
+            return True
+        tc = m.get("templateCategory")
+        cid = m.get("categoryId")
+        tid = (tc.get("id") if isinstance(tc, dict) else None) or cid
+        return tid is not None and str(tid).strip() == fid
+
     for event in results:
-        for m in (event.get("Markets") or []) + (event.get("optionMarkets") or []):
-            template_id = m.get("templateId")
-            if template_id is not None and str(template_id).strip() == fid:
-                pass
-            else:
-                tc = m.get("templateCategory")
-                cid = m.get("categoryId")
-                tid = (tc.get("id") if isinstance(tc, dict) else None) or cid
-                if tid is None or str(tid).strip() != fid:
+        if not isinstance(event, dict):
+            continue
+        candidates = [m for m in (event.get("Markets") or []) + (event.get("optionMarkets") or []) if _market_matches(m)]
+        if not candidates:
+            continue
+        out: list[dict] = []
+        for m in candidates:
+            oc, attr_line = _bwin_market_outcomes_and_attr(m)
+            if len(oc) < 2:
+                continue
+            disp = attr_line.replace(",", ".") if attr_line else "—"
+            out.append({"line": disp, "outcomes": oc, "is_main_line": False})
+        if out:
+            return out
+    return []
+
+
+def _pick_1xbet_cells_for_line(rows: list, target: float) -> tuple[list[dict], str] | None:
+    """Pick two outcome cells for a handicap/total line from 1xbet GE.E rows (P / T structure)."""
+    flat: list[dict] = []
+    for row in rows:
+        if not isinstance(row, list):
+            continue
+        for c in row:
+            if isinstance(c, dict) and c.get("C") is not None and c.get("P") is not None:
+                try:
+                    float(c["P"])
+                except (TypeError, ValueError):
                     continue
-            outcomes = []
-            for r in m.get("results") or []:
-                name = (r.get("name") or {}).get("value") or (r.get("sourceName") or {}).get("value") or ""
-                odds = r.get("odds")
-                if odds is not None:
-                    outcomes.append({"name": str(name).strip() or "—", "price": str(odds)})
-            line = (m.get("attr") or "").strip() or ""
-            # Fallback for OVERUNDER/total (6356, 9210): parse line from outcome names if attr missing
-            if not line and len(outcomes) >= 2:
-                first_name = (outcomes[0].get("name") or "").strip()
-                # e.g. "Over 45,5" or "Over 148,5" -> "45,5" / "148,5"
-                match = re.search(r"(?:Over|Under)\s+([\d,\.]+)", first_name, re.IGNORECASE)
-                if match:
-                    line = match.group(1).strip()
-            return {"outcomes": outcomes, "line": line}
+                flat.append(c)
+    if not flat:
+        return None
+
+    def fmt_disp(x: float) -> str:
+        s = f"{x:.6f}".rstrip("0").rstrip(".")
+        return s if s else str(x)
+
+    # Totals: same P, two different T (e.g. 9 / 10) on one line
+    by_p: dict[float, list[dict]] = {}
+    for c in flat:
+        p = float(c["P"])
+        key = round(p, 4)
+        by_p.setdefault(key, []).append(c)
+    for rk, cells in by_p.items():
+        if not _float_line_close(rk, target):
+            continue
+        if len(cells) >= 2:
+            tset = {c.get("T") for c in cells}
+            if len(tset) >= 2:
+                ordered = sorted(cells, key=lambda x: (x.get("T") is None, x.get("T")))
+                return ordered[:2], fmt_disp(rk)
+
+    # Handicap: one side P≈target, other P≈-target (e.g. -0.5 / +0.5)
+    def _pick_main(cs: list[dict]) -> dict:
+        mains = [x for x in cs if x.get("CE") == 1]
+        return mains[0] if mains else cs[0]
+
+    neg_side = [c for c in flat if _float_line_close(float(c["P"]), target)]
+    pos_side = [c for c in flat if _float_line_close(float(c["P"]), -target)]
+    if neg_side and pos_side:
+        pair = sorted([_pick_main(neg_side), _pick_main(pos_side)], key=lambda x: x.get("T", 0))
+        return pair, fmt_disp(target)
+
+    return None
+
+
+def _extract_bwin_market_odds(
+    events_data: list[dict] | dict, feed_market_id: str, line: str | None = None
+) -> dict:
+    """From Bwin event details, extract outcomes and line (attr) for market by templateId (or categoryId for legacy). Returns {outcomes: [...], line: str}.
+    When ``line`` is set, pick the market instance whose attr matches that line (multi-line handicap/total templates)."""
+    results = events_data if isinstance(events_data, list) else (events_data.get("results") or [])
+    fid = str(feed_market_id).strip()
+    line_f = _line_string_to_float(line) if (line and str(line).strip()) else None
+
+    def _market_matches(m: dict) -> bool:
+        template_id = m.get("templateId")
+        if template_id is not None and str(template_id).strip() == fid:
+            return True
+        tc = m.get("templateCategory")
+        cid = m.get("categoryId")
+        tid = (tc.get("id") if isinstance(tc, dict) else None) or cid
+        return tid is not None and str(tid).strip() == fid
+
+    def _outcomes_for(m: dict) -> tuple[list[dict], str]:
+        outcomes = []
+        for r in m.get("results") or []:
+            name = (r.get("name") or {}).get("value") or (r.get("sourceName") or {}).get("value") or ""
+            odds = r.get("odds")
+            if odds is not None:
+                outcomes.append({"name": str(name).strip() or "—", "price": str(odds)})
+        attr_line = (m.get("attr") or "").strip() or ""
+        if not attr_line and len(outcomes) >= 2:
+            first_name = (outcomes[0].get("name") or "").strip()
+            match = re.search(r"(?:Over|Under)\s+([\d,\.]+)", first_name, re.IGNORECASE)
+            if match:
+                attr_line = match.group(1).strip()
+        return outcomes, attr_line
+
+    for event in results:
+        candidates = [m for m in (event.get("Markets") or []) + (event.get("optionMarkets") or []) if _market_matches(m)]
+        if not candidates:
+            continue
+        chosen = candidates[0]
+        if line_f is not None:
+            best = None
+            for m in candidates:
+                af = _bwin_attr_line_float(m.get("attr"))
+                if af is None:
+                    oc, _ = _outcomes_for(m)
+                    if oc:
+                        fn = (oc[0].get("name") or "").strip()
+                        match = re.search(r"(?:Over|Under)\s+([\d,\.]+)", fn, re.IGNORECASE)
+                        if match:
+                            af = _line_string_to_float(match.group(1))
+                if af is not None and (
+                    _float_line_close(af, line_f)
+                    or _float_line_close(af, -line_f)
+                    or _float_line_close(abs(af), abs(line_f))
+                ):
+                    best = m
+                    break
+            if best is not None:
+                chosen = best
+        outcomes, attr_line = _outcomes_for(chosen)
+        disp = (line or "").strip() or attr_line
+        if line_f is not None and attr_line:
+            af = _bwin_attr_line_float(attr_line)
+            if af is not None and (
+                _float_line_close(af, line_f)
+                or _float_line_close(af, -line_f)
+                or _float_line_close(abs(af), abs(line_f))
+            ):
+                disp = attr_line.replace(",", ".")
+        return {"outcomes": outcomes, "line": disp}
     return {"outcomes": [], "line": ""}
 
 
-def _extract_bet365_market_odds(events_data: list[dict] | dict, feed_market_id: str) -> list[dict]:
-    """From Bet365 event details, extract outcomes for market. Handles 910000_1/2/3 (Game Lines) and 910204_1/2/3 (Set 1 Lines) submarkets."""
+def _extract_bet365_market_odds(
+    events_data: list[dict] | dict, feed_market_id: str, line: str | None = None
+) -> dict:
+    """From Bet365 event details, extract outcomes for market. Handles 910000_1/2/3 (Game Lines) and 910204_1/2/3 (Set 1 Lines) submarkets.
+    Correct set score (910201) and score-after-N-sets (910211, 910212): **name** repeats 3-0/3-1/… per side; **header** 1=home / 2=away — we map to home:away and sort like domain outcomes.
+    When ``line`` is set, restrict Handicap/Total odds to that line."""
     results = events_data if isinstance(events_data, list) else (events_data.get("results") or [])
-    fid = str(feed_market_id).strip()
+    fid = _normalize_bet365_feed_market_id(str(feed_market_id).strip())
     base_id, suffix = (fid.split("_", 1) + [""])[:2]  # e.g. "910000_1" -> base "910000", suffix "1"
+    line_f = _line_string_to_float(line) if (line and str(line).strip()) else None
 
-    def from_sp(sp: dict) -> list[dict]:
+    def from_sp(sp: dict) -> tuple[list[dict], str]:
         if not sp:
-            return []
+            return [], ""
         for block in (sp or {}).values():
             if not isinstance(block, dict):
                 continue
@@ -3069,6 +4000,27 @@ def _extract_bet365_market_odds(events_data: list[dict] | dict, feed_market_id: 
                 sub = [o for o in odds_list if isinstance(o, dict) and (o.get("name") or "").strip() == "Total"]
             else:
                 sub = odds_list
+            disp_line = ""
+            if line_f is not None and suffix == "2":
+                filt = [
+                    o for o in sub
+                    if isinstance(o, dict) and _bet365_row_handicap_line_match(o.get("handicap"), line_f)
+                ]
+                if len(filt) >= 2:
+                    sub = filt
+                    disp_line = (line or "").strip()
+            elif line_f is not None and suffix == "3":
+                filt = [
+                    o for o in sub
+                    if isinstance(o, dict) and _bet365_row_total_line_match(o.get("handicap"), line_f)
+                ]
+                if len(filt) >= 2:
+                    sub = filt
+                    disp_line = (line or "").strip()
+            if base_id in _BET365_SET_SCORE_HOME_AWAY_ORDER:
+                scored = _bet365_set_score_outcomes_ordered(sub, base_id)
+                if scored is not None:
+                    return scored, ""
             outcomes = []
             for o in sub:
                 if not isinstance(o, dict):
@@ -3077,28 +4029,86 @@ def _extract_bet365_market_odds(events_data: list[dict] | dict, feed_market_id: 
                 price = o.get("odds")
                 if price is not None:
                     outcomes.append({"name": header or "—", "price": str(price)})
-            return outcomes
-        return []
+            if not disp_line and sub and isinstance(sub[0], dict):
+                h0 = sub[0].get("handicap")
+                if suffix == "2":
+                    v = _bet365_handicap_scalar(h0)
+                    if v is not None:
+                        disp_line = str(h0).strip()
+                elif suffix == "3":
+                    v = _bet365_total_line_float(h0)
+                    if v is not None:
+                        disp_line = str(v).replace(".", ",") if isinstance(v, float) else str(h0)
+            return outcomes, disp_line
+        return [], ""
 
     for event in results:
         main_sp = (event.get("main") or {}).get("sp") or {}
-        out = from_sp(main_sp)
+        out, dl = from_sp(main_sp)
         if out:
-            return out
+            return {"outcomes": out, "line": dl}
         for other in event.get("others") or []:
-            out = from_sp((other or {}).get("sp") or {})
+            out, dl = from_sp((other or {}).get("sp") or {})
             if out:
-                return out
-    return []
+                return {"outcomes": out, "line": dl}
+    return {"outcomes": [], "line": ""}
 
 
-def _extract_1xbet_market_odds(_events_data: list[dict] | dict, _feed_market_id: str) -> list[dict]:
-    """From 1xbet event details, extract outcomes for market. Structure differs; return empty for now."""
-    return []
+def _extract_1xbet_market_odds(
+    events_data: list[dict] | dict, feed_market_id: str, line: str | None = None
+) -> dict:
+    """From 1xbet event details: find Value.GE group with G == feed_market_id; flatten E[][] to outcomes.
+
+    When ``line`` is set, return the two sides for that handicap/total line only (via **P** / **T**).
+    """
+    fid = str(feed_market_id).strip()
+    line_f = _line_string_to_float(line) if (line and str(line).strip()) else None
+    results = events_data if isinstance(events_data, list) else (events_data.get("results") or [])
+    for event in results:
+        if not isinstance(event, dict):
+            continue
+        value = event.get("Value") or event.get("value") or {}
+        for block in _collect_1xbet_ge_blocks(value):
+            if str(block.get("G")).strip() != fid:
+                continue
+            gid = str(block.get("G") or "").strip()
+            if gid in _1XBET_P_ENCODED_SCORE_MARKET_IDS:
+                oc = _1xbet_encoded_score_outcomes_from_block(block)
+                return {"outcomes": oc, "line": ""}
+            rows = [r for r in (block.get("E") or []) if isinstance(r, list)]
+            if line_f is not None:
+                picked = _pick_1xbet_cells_for_line(rows, line_f)
+                if picked:
+                    cells, disp = picked
+                    outcomes = [{"name": _1xbet_outcome_cell_label(c), "price": str(c["C"])} for c in cells]
+                    return {"outcomes": outcomes, "line": disp}
+            outcomes = []
+            for row in rows:
+                for cell in row:
+                    if not isinstance(cell, dict):
+                        continue
+                    c = cell.get("C")
+                    if c is None:
+                        continue
+                    outcomes.append({"name": _1xbet_outcome_cell_label(cell), "price": str(c)})
+            if outcomes:
+                return {"outcomes": outcomes, "line": ""}
+    return {"outcomes": [], "line": ""}
 
 
-def _get_feed_odds_for_event_market(domain_event_id: str, domain_market_id: str | int) -> list[dict]:
-    """Return list of { feed_name, feed_market_id, outcomes: [{ name, price }] } from cached event details and market type mappings."""
+def _get_feed_odds_for_event_market(
+    domain_event_id: str,
+    domain_market_id: str | int,
+    line: str | None = None,
+    all_lines: bool = True,
+) -> list[dict]:
+    """Return list of rows from cached event details and market type mappings.
+
+    Each row: ``feed_name``, ``feed_market_id``, ``outcomes``, ``line``, ``is_main_line`` (e.g. 1xbet CE==1).
+
+    With ``all_lines`` true (default), multi-line feeds return one row per offered line (paired Over/Under or
+    handicap sides). With ``all_lines`` false, ``line`` selects a single line like the legacy UI behavior.
+    """
     event_mappings = [m for m in _load_event_mappings() if (m.get("domain_event_id") or "").strip() == str(domain_event_id).strip()]
     dmid = fid_str(domain_market_id)
     mt_mappings = [m for m in _load_market_type_mappings() if fid_str(m.get("domain_market_id")) == dmid]
@@ -3117,37 +4127,138 @@ def _get_feed_odds_for_event_market(domain_event_id: str, domain_market_id: str 
         feed_name = feed_obj.get("name") or feed_obj.get("code") or feed_provider_str
         mt = next((m for m in mt_mappings if m.get("feed_provider_id") == feed_provider_id), None)
         if not mt:
-            result.append({"feed_name": feed_name, "feed_market_id": "", "outcomes": []})
+            result.append({
+                "feed_name": feed_name,
+                "feed_market_id": "",
+                "outcomes": [],
+                "line": "—",
+                "is_main_line": False,
+            })
             continue
         feed_market_id = str(mt.get("feed_market_id") or "").strip()
-        if feed_provider_str == "bet365" and feed_market_id == "910000":
-            feed_market_id = "910000_1"
-        if feed_provider_str == "bet365" and feed_market_id == "910204":
-            feed_market_id = "910204_1"
+        if feed_provider_str == "bet365":
+            feed_market_id = _normalize_bet365_feed_market_id(feed_market_id)
+            if feed_market_id == "910000":
+                feed_market_id = "910000_1"
+            if feed_market_id == "910204":
+                feed_market_id = "910204_1"
         path = config.FEED_EVENT_DETAILS_DIR / feed_provider_str / f"{feed_valid_id}.json"
         if not path.exists():
-            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": []})
+            result.append({
+                "feed_name": feed_name,
+                "feed_market_id": feed_market_id,
+                "outcomes": [],
+                "line": "—",
+                "is_main_line": False,
+            })
             continue
         try:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
         except (json.JSONDecodeError, OSError):
-            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": []})
+            result.append({
+                "feed_name": feed_name,
+                "feed_market_id": feed_market_id,
+                "outcomes": [],
+                "line": "—",
+                "is_main_line": False,
+            })
             continue
         events_list = data.get("results") if isinstance(data, dict) else (data if isinstance(data, list) else [])
-        if feed_provider_str == "bwin":
-            bwin_data = _extract_bwin_market_odds(events_list or data, feed_market_id)
+        payload = events_list or data
+
+        def _append_single_bwin() -> None:
+            bwin_data = _extract_bwin_market_odds(payload, feed_market_id, line)
             outcomes = bwin_data.get("outcomes") or []
-            line = bwin_data.get("line") or ""
-            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": outcomes, "line": line})
+            row_line = (bwin_data.get("line") or "").strip() or "—"
+            result.append({
+                "feed_name": feed_name,
+                "feed_market_id": feed_market_id,
+                "outcomes": outcomes,
+                "line": row_line,
+                "is_main_line": False,
+            })
+
+        def _append_single_b365() -> None:
+            b365 = _extract_bet365_market_odds(payload, feed_market_id, line)
+            outcomes = b365.get("outcomes") or []
+            row_line = (b365.get("line") or "").strip() or "—"
+            result.append({
+                "feed_name": feed_name,
+                "feed_market_id": feed_market_id,
+                "outcomes": outcomes,
+                "line": row_line,
+                "is_main_line": False,
+            })
+
+        def _append_single_1xbet() -> None:
+            ox = _extract_1xbet_market_odds(payload, feed_market_id, line)
+            outcomes = ox.get("outcomes") or []
+            row_line = (ox.get("line") or "").strip() or "—"
+            result.append({
+                "feed_name": feed_name,
+                "feed_market_id": feed_market_id,
+                "outcomes": outcomes,
+                "line": row_line,
+                "is_main_line": False,
+            })
+
+        if feed_provider_str == "bwin":
+            if all_lines:
+                multi = _extract_bwin_all_line_rows(payload, feed_market_id)
+                if multi:
+                    for mr in multi:
+                        result.append({
+                            "feed_name": feed_name,
+                            "feed_market_id": feed_market_id,
+                            "outcomes": mr.get("outcomes") or [],
+                            "line": (mr.get("line") or "—"),
+                            "is_main_line": bool(mr.get("is_main_line")),
+                        })
+                else:
+                    _append_single_bwin()
+            else:
+                _append_single_bwin()
         elif feed_provider_str == "bet365":
-            outcomes = _extract_bet365_market_odds(events_list or data, feed_market_id)
-            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": outcomes})
+            if all_lines:
+                multi = _extract_bet365_all_line_rows(payload, feed_market_id)
+                if multi:
+                    for mr in multi:
+                        result.append({
+                            "feed_name": feed_name,
+                            "feed_market_id": feed_market_id,
+                            "outcomes": mr.get("outcomes") or [],
+                            "line": (mr.get("line") or "—"),
+                            "is_main_line": bool(mr.get("is_main_line")),
+                        })
+                else:
+                    _append_single_b365()
+            else:
+                _append_single_b365()
         elif feed_provider_str == "1xbet":
-            outcomes = _extract_1xbet_market_odds(events_list or data, feed_market_id)
-            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": outcomes})
+            if all_lines:
+                multi = _extract_1xbet_all_line_rows(payload, feed_market_id)
+                if multi:
+                    for mr in multi:
+                        result.append({
+                            "feed_name": feed_name,
+                            "feed_market_id": feed_market_id,
+                            "outcomes": mr.get("outcomes") or [],
+                            "line": (mr.get("line") or "—"),
+                            "is_main_line": bool(mr.get("is_main_line")),
+                        })
+                else:
+                    _append_single_1xbet()
+            else:
+                _append_single_1xbet()
         else:
-            result.append({"feed_name": feed_name, "feed_market_id": feed_market_id, "outcomes": []})
+            result.append({
+                "feed_name": feed_name,
+                "feed_market_id": feed_market_id,
+                "outcomes": [],
+                "line": "—",
+                "is_main_line": False,
+            })
     return result
 
 
@@ -3301,7 +4412,7 @@ async def create_market_group(body: CreateMarketGroupRequest):
     return {"domain_id": domain_id, "code": code, "name": name, "created": True}
 
 @app.post("/api/entities")
-async def create_entity(body: CreateEntityRequest):
+async def create_entity(request: Request, body: CreateEntityRequest):
     """
     Create a domain entity (sport/category/competition/team).
     Idempotent per type. Parent FKs are prefixed domain ids (S-/G-).
@@ -3310,6 +4421,7 @@ async def create_entity(body: CreateEntityRequest):
     bucket = DOMAIN_ENTITIES.get(body.entity_type)
     if bucket is None:
         raise HTTPException(status_code=400, detail=f"Unknown entity type: {body.entity_type}")
+    _rbac_require_entity_perm(request, body.entity_type, "create")
     if body.entity_type == "sports":
         raise HTTPException(status_code=400, detail="Sports cannot be created from backoffice. Add them in code/data and map in entity feed mappings.")
 
@@ -3470,7 +4582,7 @@ async def create_entity(body: CreateEntityRequest):
 
 
 @app.post("/api/entities/name")
-async def update_entity_name(body: UpdateEntityNameRequest):
+async def update_entity_name(request: Request, body: UpdateEntityNameRequest):
     """
     Rename an existing domain entity (sports/categories/competitions/teams) from the Entities UI.
     Only the display name (and updated_at) is changed; relationships stay the same.
@@ -3480,6 +4592,13 @@ async def update_entity_name(body: UpdateEntityNameRequest):
     allowed_types = ("sports", "categories", "competitions", "teams")
     if body.entity_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Renaming is only supported for sports, categories, competitions, and teams.")
+    _entity_tab_edit_perm = {
+        "sports": "entity.sport.edit",
+        "categories": "entity.category.edit",
+        "competitions": "entity.competition.edit",
+        "teams": "entity.team.edit",
+    }
+    _rbac_require_permission_code(request, _entity_tab_edit_perm[body.entity_type])
 
     new_name = (body.name or "").strip()
     if not new_name:
@@ -3551,12 +4670,18 @@ async def update_entity_name(body: UpdateEntityNameRequest):
 
 
 @app.post("/api/entities/country")
-async def update_entity_country(body: UpdateEntityCountryRequest):
+async def update_entity_country(request: Request, body: UpdateEntityCountryRequest):
     """Update country (ISO code or '-') for a category, competition, or team."""
     from fastapi import HTTPException
 
     if body.entity_type not in ("categories", "competitions", "teams"):
         raise HTTPException(status_code=400, detail="Country is only supported for categories, competitions, and teams.")
+    _country_edit_perm = {
+        "categories": "entity.category.edit",
+        "competitions": "entity.competition.edit",
+        "teams": "entity.team.edit",
+    }
+    _rbac_require_permission_code(request, _country_edit_perm[body.entity_type])
 
     country = (body.country or "").strip() or COUNTRY_CODE_NONE
     bucket = DOMAIN_ENTITIES.get(body.entity_type) or []
@@ -3572,10 +4697,11 @@ async def update_entity_country(body: UpdateEntityCountryRequest):
 
 
 @app.get("/api/entities/markets/{domain_id:path}")
-async def get_market(domain_id: str):
+async def get_market(request: Request, domain_id: str):
     """Return a single market by domain_id for edit form."""
     from fastapi import HTTPException
 
+    _rbac_require_entity_perm(request, "markets", "view")
     bucket = DOMAIN_ENTITIES.get("markets") or []
     entity = next((e for e in bucket if entity_ids_equal(e["domain_id"], domain_id)), None)
     if not entity:
@@ -3584,10 +4710,11 @@ async def get_market(domain_id: str):
 
 
 @app.patch("/api/entities/markets/{domain_id:path}")
-async def update_market(domain_id: str, body: UpdateMarketRequest):
+async def update_market(request: Request, domain_id: str, body: UpdateMarketRequest):
     """Update a market type by domain_id. All fields optional."""
     from fastapi import HTTPException
 
+    _rbac_require_entity_perm(request, "markets", "update")
     bucket = DOMAIN_ENTITIES.get("markets") or []
     entity = next((e for e in bucket if entity_ids_equal(e["domain_id"], domain_id)), None)
     if not entity:
@@ -3903,6 +5030,12 @@ def _dashboard_feed_stats() -> list[dict]:
 
 # Changelog for dashboard (new features / bugs fixed per version). Edit here or move to a file.
 DASHBOARD_CHANGELOG = [
+    {"version": "1.2.6", "date": "2026-04-11", "items": [
+        "Event details → Feed odds: multi-line markets list every line each feed offers (1xbet, Bet365 handicap/total, Bwin); API query `all_lines` (default true). Center domain line buttons unchanged; L column shows feed lines and a ★ on 1xbet’s CE “main” line where present.",
+        "1xbet G=136 (Correct Set Score) and G=343 (Score After 2 Sets): **P** encodes the score (e.g. 3.001 → 3:1), not a handicap/total line; outcomes are flattened and ordered to match domain column order (same idea as before for best-of-five 3:0…0:3).",
+        "Bet365 910201 / 910211 / 910212: set-score rows use **name** from each side’s perspective and **header** 1=home / 2=away; we map to home:away and sort so away 3-set wins show as 2:3, 1:3, 0:3 under the right headers.",
+        "Docs/script: optional E-53 feed markets & odds reference (`docs/E-53_feed_markets_odds_dump.md`, `scripts/generate_e53_feed_markets_md.py`). 1xbet market names CSV for GE labels (`backend/data/markets/1xbet_market_names.csv`).",
+    ]},
     {"version": "1.2.5", "date": "2026-04-01", "items": [
         "RBAC: Internal / platform users (no partner) now get the full configured permission set for navigation and page access, merged with their role CSV rows. Fixes lockout when server role_permissions had no menu.*.view entries; partner-scoped users are unchanged.",
     ]},
@@ -5832,9 +6965,11 @@ async def api_feed_markets(
 async def api_event_details_feed_odds(
     domain_event_id: str = Query(..., description="Domain event id (e.g. E-1)"),
     domain_market_id: str = Query(..., description="Domain market type id (e.g. M-3)"),
+    line: str | None = Query(None, description="Selected line for handicap/total (e.g. -0.5, 184.5); used when all_lines is false"),
+    all_lines: bool = Query(True, description="When true, return every offered line per feed (paired sides) where supported"),
 ):
     """Return feed odds for the selected market from each mapped feed (from cached event details)."""
-    rows = _get_feed_odds_for_event_market(domain_event_id, domain_market_id)
+    rows = _get_feed_odds_for_event_market(domain_event_id, domain_market_id, line, all_lines=all_lines)
     return {"feed_odds": rows}
 
 
@@ -5850,27 +6985,34 @@ async def api_get_all_mapped_feed_market_keys():
     for m in mappings:
         fid = str(m.get("feed_market_id") or "").strip()
         pid = m.get("feed_provider_id")
-        if fid and pid is not None:
-            if pid in bet365_codes and fid == "910000":
-                name = (m.get("feed_market_name") or "").strip()
-                suffix = game_lines_names.get(name)
-                if suffix:
-                    keys.add(f"{pid}|910000_{suffix}")
-                else:
-                    keys.add(f"{pid}|910000_1")
-                    keys.add(f"{pid}|910000_2")
-                    keys.add(f"{pid}|910000_3")
-            elif pid in bet365_codes and fid == "910204":
-                name = (m.get("feed_market_name") or "").strip()
-                suffix = set1_lines_names.get(name)
-                if suffix:
-                    keys.add(f"{pid}|910204_{suffix}")
-                else:
-                    keys.add(f"{pid}|910204_1")
-                    keys.add(f"{pid}|910204_2")
-                    keys.add(f"{pid}|910204_3")
+        if not fid or pid is None:
+            continue
+        if pid in bet365_codes:
+            fid = _normalize_bet365_feed_market_id(fid)
+        if pid in bet365_codes and fid == "910000":
+            name = (m.get("feed_market_name") or "").strip()
+            suffix = game_lines_names.get(name)
+            if suffix:
+                keys.add(f"{pid}|910000_{suffix}")
             else:
-                keys.add(f"{pid}|{fid}")
+                keys.add(f"{pid}|910000_1")
+                keys.add(f"{pid}|910000_2")
+                keys.add(f"{pid}|910000_3")
+        elif pid in bet365_codes and fid.startswith("910000_"):
+            keys.add(f"{pid}|{fid}")
+        elif pid in bet365_codes and fid == "910204":
+            name = (m.get("feed_market_name") or "").strip()
+            suffix = set1_lines_names.get(name)
+            if suffix:
+                keys.add(f"{pid}|910204_{suffix}")
+            else:
+                keys.add(f"{pid}|910204_1")
+                keys.add(f"{pid}|910204_2")
+                keys.add(f"{pid}|910204_3")
+        elif pid in bet365_codes and fid.startswith("910204_"):
+            keys.add(f"{pid}|{fid}")
+        else:
+            keys.add(f"{pid}|{fid}")
     return {"mapped_keys": list(keys)}
 
 
@@ -5892,6 +7034,8 @@ async def api_get_market_type_mappings(
         if fid_str(m.get("domain_market_id")) != want_mid:
             continue
         fid_raw = (m.get("feed_market_id") or "").strip()
+        if m["feed_provider_id"] in bet365_codes:
+            fid_raw = _normalize_bet365_feed_market_id(fid_raw)
         try:
             item_id = int(fid_raw) if fid_raw.isdigit() else fid_raw or None
         except (TypeError, ValueError):
@@ -6213,6 +7357,17 @@ _RBAC_ADMIN_MENU_ANY = frozenset(
     }
 )
 
+# User admin JSON APIs under /api/rbac/users (longer prefix than /api/rbac).
+_RBAC_API_USERS_ANY = frozenset(
+    {
+        "menu.admin.view",
+        "menu.admin.users.view",
+        "rbac.users.create",
+        "rbac.users.edit",
+        "rbac.users.audit",
+    }
+)
+
 # Longest prefix first: first match wins. User needs at least one code in the frozenset.
 _RBAC_PATH_GATE: list[tuple[str, frozenset[str]]] = sorted(
     [
@@ -6233,6 +7388,7 @@ _RBAC_PATH_GATE: list[tuple[str, frozenset[str]]] = sorted(
                 }
             ),
         ),
+        ("/api/rbac/users", _RBAC_API_USERS_ANY),
         ("/api/rbac", _RBAC_ADMIN_MENU_ANY),
         ("/users", _RBAC_ADMIN_MENU_ANY),
         ("/entities", frozenset({"menu.configuration.entities.view"})),
@@ -6279,6 +7435,251 @@ def _rbac_nav_enforced(request: Request) -> bool:
     return bool(config.GMP_DEV_LOGIN or config.RBAC_TRUST_ACTOR_HEADER)
 
 
+def _rbac_actor_has_permission_code(request: Request, code: str) -> bool:
+    if not _rbac_nav_enforced(request):
+        return True
+    if _rbac_actor_is_superadmin(request):
+        return True
+    uid = _rbac_actor_user_id_from_request(request)
+    if uid is None:
+        return False
+    return code in _rbac_effective_permissions_for_uid(uid)
+
+
+def _rbac_require_permission_code(request: Request, code: str) -> None:
+    if not _rbac_actor_has_permission_code(request, code):
+        raise HTTPException(status_code=403, detail=f"Missing permission: {code}")
+
+
+def _rbac_require_any_permission_codes(request: Request, *codes: str) -> None:
+    """Actor must hold at least one of the given permission codes."""
+    if not codes:
+        return
+    if not _rbac_nav_enforced(request):
+        return
+    if _rbac_actor_is_superadmin(request):
+        return
+    uid = _rbac_actor_user_id_from_request(request)
+    if uid is None:
+        raise HTTPException(status_code=403, detail="Missing permission")
+    perms = _rbac_effective_permissions_for_uid(uid)
+    if any(c in perms for c in codes):
+        return
+    raise HTTPException(status_code=403, detail=f"Missing one of: {', '.join(codes)}")
+
+
+# Plural entity_type from /api/entities* → RBAC prefix (matches RBAC_ENTITY_CRUD / tree).
+_ENTITY_TYPE_TO_PERM_PREFIX: dict[str, str] = {
+    "sports": "entity.sport",
+    "categories": "entity.category",
+    "competitions": "entity.competition",
+    "teams": "entity.team",
+    "markets": "entity.markets",
+}
+
+
+def _rbac_require_entity_perm(request: Request, entity_type_plural: str, action: str) -> None:
+    prefix = _ENTITY_TYPE_TO_PERM_PREFIX.get(entity_type_plural)
+    if prefix is None:
+        raise HTTPException(status_code=400, detail=f"Unknown entity type: {entity_type_plural}")
+    _rbac_require_permission_code(request, f"{prefix}.{action}")
+
+
+def _rbac_enforce_api_permissions(request: Request) -> None:
+    """Granular RBAC for JSON/HTML API routes. Skips when RBAC not enforced; /api/entities* uses body-aware checks in handlers."""
+    if not _rbac_nav_enforced(request):
+        return
+    path = request.url.path
+    method = (request.method or "GET").upper()
+    if not path.startswith("/api/"):
+        return
+    if path.startswith("/api/entities"):
+        return
+    if method in ("OPTIONS", "HEAD"):
+        return
+
+    # --- Admin: RBAC users ---
+    if re.fullmatch(r"/api/rbac/users", path):
+        if method == "GET":
+            _rbac_require_permission_code(request, "menu.admin.users.view")
+        elif method == "POST":
+            _rbac_require_permission_code(request, "rbac.users.create")
+        else:
+            raise HTTPException(status_code=403, detail=f"Missing permission for {method} {path}")
+        return
+    if re.fullmatch(r"/api/rbac/users/\d+/audit", path):
+        if method == "GET":
+            _rbac_require_permission_code(request, "rbac.users.audit")
+        else:
+            raise HTTPException(status_code=403, detail=f"Missing permission for {method} {path}")
+        return
+    if re.fullmatch(r"/api/rbac/users/\d+", path):
+        if method == "GET":
+            _rbac_require_permission_code(request, "rbac.users.edit")
+        elif method in ("PUT", "DELETE"):
+            _rbac_require_permission_code(request, "rbac.users.edit")
+        else:
+            raise HTTPException(status_code=403, detail=f"Missing permission for {method} {path}")
+        return
+
+    # --- Admin: roles & audit log ---
+    if re.fullmatch(r"/api/rbac/roles", path):
+        if method == "GET":
+            _rbac_require_any_permission_codes(
+                request,
+                "menu.admin.view",
+                "menu.admin.users.view",
+                "menu.admin.roles_permissions.view",
+            )
+        elif method == "POST":
+            _rbac_require_permission_code(request, "rbac.roles.manage")
+        else:
+            raise HTTPException(status_code=403, detail=f"Missing permission for {method} {path}")
+        return
+    if re.fullmatch(r"/api/rbac/roles/\d+/permissions", path) and method == "PUT":
+        _rbac_require_permission_code(request, "rbac.roles.manage")
+        return
+    if re.fullmatch(r"/api/rbac/roles/\d+", path) and method == "PUT":
+        _rbac_require_permission_code(request, "rbac.roles.manage")
+        return
+    if re.fullmatch(r"/api/rbac/audit-log", path) and method == "GET":
+        _rbac_require_permission_code(request, "rbac.audit.view")
+        return
+
+    # --- Margin ---
+    if re.fullmatch(r"/api/margin-templates/competitions/assign", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.margin.update")
+        return
+    if re.fullmatch(r"/api/margin-templates/copy-from", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.margin.create")
+        return
+    if re.fullmatch(r"/api/margin-templates/copy-sources", path) and method == "GET":
+        _rbac_require_permission_code(request, "config.margin.view")
+        return
+    if re.fullmatch(r"/api/margin-templates/\d+/competitions", path) and method == "GET":
+        _rbac_require_permission_code(request, "config.margin.view")
+        return
+    if re.fullmatch(r"/api/margin-templates/\d+", path) and method == "PATCH":
+        _rbac_require_permission_code(request, "config.margin.update")
+        return
+    if re.fullmatch(r"/api/margin-templates", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.margin.create")
+        return
+
+    # --- Partners & brands ---
+    if re.fullmatch(r"/api/partners", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.partners.create")
+        return
+    if re.fullmatch(r"/api/partners/\d+", path) and method == "PUT":
+        _rbac_require_permission_code(request, "config.partners.update")
+        return
+    if re.fullmatch(r"/api/brands", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.brands.create")
+        return
+    if re.fullmatch(r"/api/brands/\d+", path) and method == "PUT":
+        _rbac_require_permission_code(request, "config.brands.update")
+        return
+
+    # --- Localization (upsert endpoints) ---
+    if re.fullmatch(r"/api/localization/countries", path) and method == "POST":
+        _rbac_require_any_permission_codes(request, "config.localization.create", "config.localization.update")
+        return
+    if re.fullmatch(r"/api/localization/languages", path) and method == "POST":
+        _rbac_require_any_permission_codes(request, "config.localization.create", "config.localization.update")
+        return
+    if re.fullmatch(r"/api/localization/translations", path) and method == "POST":
+        _rbac_require_any_permission_codes(request, "config.localization.create", "config.localization.update")
+        return
+
+    # --- Market type mappings ---
+    if re.fullmatch(r"/api/market-type-mappings/all-mapped", path) and method == "GET":
+        _rbac_require_permission_code(request, "entity.market_type.view")
+        return
+    if re.fullmatch(r"/api/market-type-mappings", path) and method == "GET":
+        _rbac_require_permission_code(request, "entity.market_type.view")
+        return
+    if re.fullmatch(r"/api/market-type-mappings", path) and method == "POST":
+        _rbac_require_permission_code(request, "entity.market_type.update")
+        return
+
+    # --- Entities (market groups) ---
+    if re.fullmatch(r"/api/market-groups", path) and method == "POST":
+        _rbac_require_permission_code(request, "entity.markets.create")
+        return
+
+    # --- Domain events & mapping (feeder modal) ---
+    if re.fullmatch(r"/api/domain-events", path) and method == "POST":
+        _rbac_require_permission_code(request, "entity.event.create")
+        return
+    if re.fullmatch(r"/api/map-event", path) and method == "POST":
+        _rbac_require_permission_code(request, "mapping.update")
+        return
+    if re.fullmatch(r"/api/search-domain-events", path) and method == "GET":
+        _rbac_require_permission_code(request, "betting.feeder_events.view")
+        return
+
+    # --- Pull feeds (dashboard / feeder tooling) ---
+    if re.fullmatch(r"/api/pull-feed", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.feeders.update")
+        return
+    if re.fullmatch(r"/api/pull-feed-all", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.feeders.update")
+        return
+
+    # --- Admin dump ---
+    if re.fullmatch(r"/api/dump-csv-data", path) and method == "POST":
+        _rbac_require_permission_code(request, "menu.admin.view")
+        return
+
+    # --- Event navigator ---
+    if re.fullmatch(r"/api/event-navigator/notes", path) and method == "POST":
+        _rbac_require_permission_code(request, "betting.event_navigator.update")
+        return
+
+    # --- Notifications (menu view is always granted but explicit for API) ---
+    if re.fullmatch(r"/api/notifications/[^/]+/confirm", path) and method == "POST":
+        _rbac_require_permission_code(request, "menu.notifications.view")
+        return
+
+    # --- Feeder events ---
+    if re.fullmatch(r"/api/feeder-events/set-ignored", path) and method == "POST":
+        _rbac_require_permission_code(request, "betting.feeder_events.update")
+        return
+    if re.fullmatch(r"/api/feed-markets", path) and method == "GET":
+        _rbac_require_permission_code(request, "betting.feeder_events.view")
+        return
+    if re.fullmatch(r"/api/event-details/feed-odds", path) and method == "GET":
+        _rbac_require_permission_code(request, "betting.feeder_events.view")
+        return
+
+    # --- Platform notes (customization.*) ---
+    if re.fullmatch(r"/api/notes/[^/]+/delete", path) and method == "POST":
+        _rbac_require_permission_code(request, "customization.delete")
+        return
+    if re.fullmatch(r"/api/notes/[^/]+", path) and method == "PATCH":
+        _rbac_require_permission_code(request, "customization.update")
+        return
+    if re.fullmatch(r"/api/notes", path) and method == "POST":
+        _rbac_require_permission_code(request, "customization.create")
+        return
+
+    # --- Feeder configuration ---
+    if re.fullmatch(r"/api/feed-sports", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.feeders.update")
+        return
+    if re.fullmatch(r"/api/feeder-config", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.feeders.update")
+        return
+    if re.fullmatch(r"/api/feeder-incidents", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.feeders.update")
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail=f"RBAC: no permission rule for API {method} {path}",
+    )
+
+
 def _rbac_forbidden_if_path_denied(request: Request):
     """403 / redirect when an identified actor lacks view permission for this path."""
     if not _rbac_nav_enforced(request):
@@ -6299,13 +7700,14 @@ def _rbac_forbidden_if_path_denied(request: Request):
     perms = _rbac_effective_permissions_for_uid(uid)
     if perms & need:
         return None
+    denied_url = "/?rbac_denied=1"
     if (request.headers.get("hx-request") or "").lower() == "true":
         return JSONResponse(
             {"detail": "Forbidden"},
             status_code=403,
-            headers={"HX-Redirect": "/"},
+            headers={"HX-Redirect": denied_url},
         )
-    return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse(url=denied_url, status_code=303)
 
 
 def _template_rbac_can_any(request: Request, *codes: str) -> bool:
@@ -6363,6 +7765,7 @@ async def list_rbac_users(request: Request, partner_id: Optional[int] = None):
         ld, lst = _rbac_last_login_display_and_stale(row.get("last_login"))
         row["last_login_display"] = ld
         row["last_login_stale"] = lst
+        row["modified_by_display"] = _rbac_user_modified_by_display(u)
         out_users.append(_user_without_secret_fields(row))
     return {"users": out_users}
 
@@ -6395,7 +7798,60 @@ async def get_rbac_user(request: Request, user_id: int):
     ld, lst = _rbac_last_login_display_and_stale(user.get("last_login"))
     user["last_login_display"] = ld
     user["last_login_stale"] = lst
+    user["modified_by_display"] = _rbac_user_modified_by_display(user)
     return {"user": _user_without_secret_fields(user)}
+
+
+def _rbac_audit_actor_label_from_id(actor_user_id: int | None) -> str:
+    if actor_user_id is None:
+        return "System"
+    u = next((x for x in _load_rbac_users() if x.get("user_id") == actor_user_id), None)
+    if not u:
+        return f"user#{actor_user_id}"
+    return ((u.get("email") or u.get("login") or str(actor_user_id)) or "").strip() or f"user#{actor_user_id}"
+
+
+def _rbac_audit_entries_for_user(user_id: int) -> list[dict]:
+    """Chronological audit rows for target_type=user and this user_id (oldest first)."""
+    if not RBAC_AUDIT_LOG_PATH.exists():
+        return []
+    with open(RBAC_AUDIT_LOG_PATH, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    uid_str = str(user_id)
+    filtered = [
+        r
+        for r in rows
+        if (r.get("target_type") or "").strip() == "user" and (r.get("target_id") or "").strip() == uid_str
+    ]
+    filtered.sort(key=lambda r: (r.get("created_at") or ""))
+    out: list[dict] = []
+    for r in filtered:
+        aid = _int_or_none(r.get("actor_user_id"))
+        was = (r.get("was") or "").strip()
+        now = (r.get("now") or "").strip()
+        legacy = (r.get("details") or "").strip()
+        if not was and not now and legacy:
+            was, now = "—", legacy
+        out.append({
+            "id": r.get("id"),
+            "created_at": r.get("created_at") or "",
+            "action": r.get("action") or "",
+            "was": was or "—",
+            "now": now or "—",
+            "actor_user_id": aid,
+            "actor_label": _rbac_audit_actor_label_from_id(aid),
+        })
+    return out
+
+
+@app.get("/api/rbac/users/{user_id:int}/audit")
+async def get_rbac_user_audit_log(request: Request, user_id: int):
+    users = _load_rbac_users()
+    user = next((u for u in users if u.get("user_id") == user_id), None)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    _rbac_assert_actor_may_access_user_row(request, user)
+    return {"entries": _rbac_audit_entries_for_user(user_id)}
 
 
 @app.post("/api/rbac/users")
@@ -6429,6 +7885,8 @@ async def create_rbac_user(request: Request, body: CreateRbacUserRequest):
             status_code=403,
             detail="Only an existing SuperAdmin (X-RBAC-Actor-User-Id) can grant SuperAdmin, or bootstrap when none exists yet.",
         )
+    actor_label = _rbac_actor_audit_label(request)
+    actor_id = _rbac_actor_user_id_from_request(request)
     new_user = {
         "user_id": uid,
         "login": login,
@@ -6436,7 +7894,8 @@ async def create_rbac_user(request: Request, body: CreateRbacUserRequest):
         "display_name": (body.display_name or "").strip() or login,
         "active": body.active if body.active is not None else True,
         "partner_id": effective_partner_id,
-        "created_by": "SuperAdmin",
+        "created_by": actor_label,
+        "updated_by": actor_label,
         "created_at": now,
         "updated_at": now,
         "last_login": "",
@@ -6454,7 +7913,7 @@ async def create_rbac_user(request: Request, body: CreateRbacUserRequest):
             "user_id": uid,
             "role_id": rid,
             "assigned_at": now,
-            "assigned_by_user_id": None,
+            "assigned_by_user_id": actor_id,
         })
     _save_rbac_user_roles(user_roles)
     if body.brand_ids:
@@ -6462,7 +7921,14 @@ async def create_rbac_user(request: Request, body: CreateRbacUserRequest):
         for bid in body.brand_ids:
             user_brands.append({"user_id": uid, "brand_id": bid})
         _save_rbac_user_brands(user_brands)
-    _rbac_audit_append(None, "user.create", "user", str(uid), f"email={email}")
+    partner_note = config.RBAC_PLATFORM_SCOPE_LABEL if effective_partner_id is None else f"partner_id={effective_partner_id}"
+    role_note = f"role_id={role_ids[0]}" if role_ids else "role=none"
+    now_summary = f"email={email}; {partner_note}; {role_note}"
+    if body.brand_ids:
+        now_summary += f"; brand_ids={sorted(body.brand_ids)}"
+    if want_super:
+        now_summary += "; is_superadmin=true"
+    _rbac_audit_append(actor_id, "user.create", "user", str(uid), was="—", now=now_summary)
     return {"ok": True, "user": _user_without_secret_fields(new_user)}
 
 
@@ -6473,6 +7939,19 @@ async def update_rbac_user(request: Request, user_id: int, body: UpdateRbacUserR
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     _rbac_assert_actor_may_access_user_row(request, user)
+    snap_email = user.get("email")
+    snap_login = user.get("login")
+    snap_display = user.get("display_name")
+    snap_active = bool(user.get("active", True))
+    snap_partner = user.get("partner_id")
+    snap_sa = bool(user.get("is_superadmin"))
+    snap_pin = user.get("login_pin") or ""
+    ur0 = _load_rbac_user_roles()
+    old_role_ids = sorted([ur["role_id"] for ur in ur0 if ur["user_id"] == user_id])
+    ub0 = _load_rbac_user_brands()
+    old_brand_ids = sorted([ub["brand_id"] for ub in ub0 if ub["user_id"] == user_id])
+    actor_label = _rbac_actor_audit_label(request)
+    actor_id = _rbac_actor_user_id_from_request(request)
     enf = _rbac_actor_enforced_partner_id(request)
     if enf is not None:
         if body.partner_id is not None and int(body.partner_id) != enf:
@@ -6520,7 +7999,12 @@ async def update_rbac_user(request: Request, user_id: int, body: UpdateRbacUserR
         user_roles = [ur for ur in user_roles if ur["user_id"] != user_id]
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         for rid in role_ids:
-            user_roles.append({"user_id": user_id, "role_id": rid, "assigned_at": now, "assigned_by_user_id": None})
+            user_roles.append({
+                "user_id": user_id,
+                "role_id": rid,
+                "assigned_at": now,
+                "assigned_by_user_id": actor_id,
+            })
         _save_rbac_user_roles(user_roles)
     if body.brand_ids is not None:
         user_brands = _load_rbac_user_brands()
@@ -6528,9 +8012,57 @@ async def update_rbac_user(request: Request, user_id: int, body: UpdateRbacUserR
         for bid in body.brand_ids:
             user_brands.append({"user_id": user_id, "brand_id": bid})
         _save_rbac_user_brands(user_brands)
+    user["updated_by"] = actor_label
     user["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     _save_rbac_users(users)
-    _rbac_audit_append(None, "user.update", "user", str(user_id), "")
+    ur1 = _load_rbac_user_roles()
+    new_role_ids = sorted([ur["role_id"] for ur in ur1 if ur["user_id"] == user_id])
+    ub1 = _load_rbac_user_brands()
+    new_brand_ids = sorted([ub["brand_id"] for ub in ub1 if ub["user_id"] == user_id])
+    def _pl(pid):
+        return config.RBAC_PLATFORM_SCOPE_LABEL if pid is None else str(pid)
+
+    was_parts: list[str] = []
+    now_parts: list[str] = []
+    if body.email is not None and (snap_email or "") != (user.get("email") or ""):
+        was_parts.append(f"email={snap_email or '—'}")
+        now_parts.append(f"email={user.get('email')}")
+    if body.login is not None and (snap_login or "") != (user.get("login") or ""):
+        was_parts.append(f"login={snap_login or '—'}")
+        now_parts.append(f"login={user.get('login')}")
+    if body.display_name is not None and (snap_display or "") != (user.get("display_name") or ""):
+        was_parts.append(f"display_name={snap_display or '—'}")
+        now_parts.append(f"display_name={user.get('display_name') or '—'}")
+    if body.active is not None and snap_active != bool(user.get("active", True)):
+        was_parts.append(f"active={snap_active}")
+        now_parts.append(f"active={user.get('active')}")
+    if body.partner_id is not None and snap_partner != user.get("partner_id"):
+        was_parts.append(f"partner={_pl(snap_partner)}")
+        now_parts.append(f"partner={_pl(user.get('partner_id'))}")
+    if body.is_superadmin is not None and snap_sa != bool(user.get("is_superadmin")):
+        was_parts.append(f"is_superadmin={snap_sa}")
+        now_parts.append(f"is_superadmin={user.get('is_superadmin')}")
+    if body.role_ids is not None and old_role_ids != new_role_ids:
+        was_parts.append(f"role_ids={old_role_ids}")
+        now_parts.append(f"role_ids={new_role_ids}")
+    if body.brand_ids is not None and old_brand_ids != new_brand_ids:
+        was_parts.append(f"brand_ids={old_brand_ids}")
+        now_parts.append(f"brand_ids={new_brand_ids}")
+    if (
+        body.login_pin is not None
+        and (body.login_pin or "").strip()
+        and not user.get("is_superadmin")
+        and snap_pin != (user.get("login_pin") or "")
+    ):
+        was_parts.append("sign-in PIN=(previous)")
+        now_parts.append("sign-in PIN=(updated)")
+    if was_parts:
+        was_str = "; ".join(was_parts)
+        now_str = "; ".join(now_parts) if now_parts else "—"
+    else:
+        was_str = "—"
+        now_str = "— (no tracked field changes)"
+    _rbac_audit_append(actor_id, "user.update", "user", str(user_id), was=was_str, now=now_str)
     return {"ok": True, "user": _user_without_secret_fields(user)}
 
 
@@ -6551,7 +8083,15 @@ async def delete_rbac_user(request: Request, user_id: int):
     user_brands = _load_rbac_user_brands()
     user_brands = [ub for ub in user_brands if ub["user_id"] != user_id]
     _save_rbac_user_brands(user_brands)
-    _rbac_audit_append(None, "user.delete", "user", str(user_id), "")
+    em = (user.get("email") or "").strip()
+    _rbac_audit_append(
+        _rbac_actor_user_id_from_request(request),
+        "user.delete",
+        "user",
+        str(user_id),
+        was=f"inactive user; email={em}" if em else "inactive user",
+        now="Removed from system",
+    )
     return {"ok": True}
 
 
@@ -6619,7 +8159,15 @@ async def create_rbac_role(request: Request, body: CreateRbacRoleRequest):
             if code:
                 perms.append({"role_id": next_id, "permission_code": code})
         _save_rbac_role_permissions(perms)
-    _rbac_audit_append(None, "role.create", "role", str(next_id), name)
+    pnote = config.RBAC_PLATFORM_SCOPE_LABEL if eff_partner_id is None else f"partner_id={eff_partner_id}"
+    _rbac_audit_append(
+        _rbac_actor_user_id_from_request(request),
+        "role.create",
+        "role",
+        str(next_id),
+        was="—",
+        now=f"name={name}; {pnote}; master={is_master}; permission_count={len(body.permission_codes or [])}",
+    )
     return {"ok": True, "role_id": next_id}
 
 
@@ -6632,6 +8180,9 @@ async def update_rbac_role(request: Request, role_id: int, body: UpdateRbacRoleR
         raise HTTPException(status_code=404, detail="Role not found")
     row = roles[idx]
     _rbac_assert_actor_may_access_role_row(request, row)
+    snap_name = row.get("name")
+    snap_active = bool(row.get("active", True))
+    snap_master = bool(row.get("is_master"))
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     if body.name is not None:
         n = (body.name or "").strip()
@@ -6648,7 +8199,25 @@ async def update_rbac_role(request: Request, role_id: int, body: UpdateRbacRoleR
             row["is_master"] = False
     row["updated_at"] = now
     _save_rbac_roles(roles)
-    _rbac_audit_append(None, "role.update", "role", str(role_id), row.get("name", ""))
+    was_rp: list[str] = []
+    now_rp: list[str] = []
+    if body.name is not None and snap_name != row.get("name"):
+        was_rp.append(f"name={snap_name}")
+        now_rp.append(f"name={row.get('name')}")
+    if body.active is not None and snap_active != bool(row.get("active", True)):
+        was_rp.append(f"active={snap_active}")
+        now_rp.append(f"active={row.get('active')}")
+    if body.is_master is not None and snap_master != bool(row.get("is_master")):
+        was_rp.append(f"master={snap_master}")
+        now_rp.append(f"master={row.get('is_master')}")
+    _rbac_audit_append(
+        _rbac_actor_user_id_from_request(request),
+        "role.update",
+        "role",
+        str(role_id),
+        was="; ".join(was_rp) if was_rp else "—",
+        now="; ".join(now_rp) if now_rp else "—",
+    )
     return {"ok": True, "role": row}
 
 
@@ -6693,11 +8262,27 @@ async def update_rbac_role_permissions(request: Request, role_id: int, body: Upd
             )
 
     perms = _load_rbac_role_permissions()
+    old_codes = sorted([p["permission_code"] for p in perms if p["role_id"] == role_id])
     perms = [p for p in perms if p["role_id"] != role_id]
     for code in codes:
         perms.append({"role_id": role_id, "permission_code": code})
     _save_rbac_role_permissions(perms)
-    _rbac_audit_append(None, "role.permissions.update", "role", str(role_id), str(len(codes)) + " permissions")
+    new_codes = sorted(codes)
+
+    def _codes_audit_blob(codes_list: list[str], max_chars: int = 1200) -> str:
+        s = ", ".join(codes_list)
+        if len(s) <= max_chars:
+            return f"{len(codes_list)}: {s}" if codes_list else "0: (none)"
+        return f"{len(codes_list)}: " + s[: max_chars - 3] + "…"
+
+    _rbac_audit_append(
+        _rbac_actor_user_id_from_request(request),
+        "role.permissions.update",
+        "role",
+        str(role_id),
+        was=_codes_audit_blob(old_codes),
+        now=_codes_audit_blob(new_codes),
+    )
     return {"ok": True}
 
 
@@ -7061,6 +8646,16 @@ async def entities_view(
     feed_ids_with_sport_mappings = {m["feed_provider_id"] for m in SPORT_FEED_MAPPINGS}
     mapper_feeds = [f for f in FEEDS if f.get("domain_id") in feed_ids_with_sport_mappings]
 
+    mt_feed_counts_raw = _market_type_feed_counts_by_domain_id()
+    market_feed_counts_by_market_id: dict = {}
+    for mkt in markets_list:
+        mk = mkt.get("domain_id")
+        if mk is None or (isinstance(mk, str) and not mk.strip()):
+            continue
+        market_feed_counts_by_market_id[mk] = mt_feed_counts_raw.get(
+            fid_str(mk), {"prematch": 0, "live": 0}
+        )
+
     return templates.TemplateResponse(request, "configuration/entities.html", {
         "participant_types": participant_types,
         "underage_categories": underage_categories,
@@ -7078,6 +8673,7 @@ async def entities_view(
         "feeds": FEEDS,
         "mapper_feeds": mapper_feeds,
         "entity_feed_refs_by_key": entity_feed_refs_by_key,
+        "market_feed_counts_by_market_id": market_feed_counts_by_market_id,
         "market_templates": market_templates,
         "market_period_types": market_period_types,
         "market_score_types": market_score_types,
@@ -7937,6 +9533,7 @@ async def users_view(
         ld, lst = _rbac_last_login_display_and_stale(u.get("last_login"))
         u["last_login_display"] = ld
         u["last_login_stale"] = lst
+        u["modified_by_display"] = _rbac_user_modified_by_display(u)
         u.pop("login_pin", None)
     perm_ceiling = _access_rights_ceiling_codes(request)
     permission_tree = _filter_permission_tree_nodes(config.RBAC_PERMISSION_TREE, perm_ceiling)
@@ -8055,6 +9652,13 @@ class _DevActorMiddleware(BaseHTTPMiddleware):
         denied = _rbac_forbidden_if_path_denied(request)
         if denied is not None:
             return denied
+        try:
+            _rbac_enforce_api_permissions(request)
+        except HTTPException as e:
+            detail = e.detail
+            if isinstance(detail, str):
+                return JSONResponse({"detail": detail}, status_code=e.status_code)
+            return JSONResponse({"detail": str(detail)}, status_code=e.status_code)
         # Presence for Admin “Online” (and optional trusted-header actor)
         if getattr(request.state, "dev_actor", None):
             _rbac_presence_touch(request.state.dev_actor.get("user_id"))

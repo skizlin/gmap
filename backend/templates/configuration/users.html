@@ -142,11 +142,14 @@
                 <input type="text" name="search" value="{{ filter_search }}" placeholder="Email, name, login…" class="bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-primary w-44">
                 <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded bg-slate-700 text-slate-200 hover:bg-slate-600">Filter</button>
             </form>
+            {% if rbac_can_any(request, 'rbac.users.create') %}
             <button type="button" onclick="usersShowAddForm()"
                 class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> Add new admin
             </button>
+            {% endif %}
         </div>
+        {% if rbac_can_any(request, 'rbac.users.create') %}
         <div id="user-add-form" class="hidden bg-cardbg/80 border border-slate-700 rounded-lg p-5 space-y-4">
             <h3 class="text-sm font-semibold text-white">Add new admin</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -220,7 +223,8 @@
                 <span id="user-form-status" class="text-xs text-slate-400"></span>
             </div>
         </div>
-        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+        {% endif %}
+        <div id="admin-users-table-scroll" class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
             <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
                 <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
                     <tr>
@@ -233,7 +237,7 @@
                         <th class="px-3 py-2 font-semibold min-w-[140px]">Role</th>
                         <th class="px-3 py-2 font-semibold w-16">Online</th>
                         <th class="px-3 py-2 font-semibold w-28">Last login</th>
-                        <th class="px-3 py-2 font-semibold w-24">Created by</th>
+                        <th class="px-3 py-2 font-semibold w-28">Modified by</th>
                         <th class="px-3 py-2 font-semibold w-28">Created on</th>
                         <th class="px-3 py-2 font-semibold w-28">Last modified</th>
                         <th class="px-3 py-2 font-semibold w-24 text-right">Actions</th>
@@ -271,11 +275,17 @@
                             {% endif %}
                         </td>
                         <td class="px-3 py-2 text-[11px] {% if u.last_login_stale %}text-red-400 font-bold{% else %}text-slate-400{% endif %}">{{ u.last_login_display }}</td>
-                        <td class="px-3 py-2 text-slate-300">{{ u.created_by or 'SuperAdmin' }}</td>
+                        <td class="px-3 py-2 text-slate-300">{{ u.modified_by_display }}</td>
                         <td class="px-3 py-2 text-slate-400 text-[11px]">{{ u.created_at or '—' }}</td>
                         <td class="px-3 py-2 text-slate-400 text-[11px]">{{ u.updated_at or '—' }}</td>
                         <td class="px-3 py-2 text-right">
-                            <button type="button" onclick="usersEdit({{ u.user_id }})" class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-slate-700 text-slate-200 hover:bg-slate-600">Edit</button>
+                            {% if rbac_can_any(request, 'rbac.users.edit', 'rbac.users.audit') %}
+                            <button type="button" class="admin-user-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors inline-flex" aria-label="User actions" data-user-id="{{ u.user_id }}">
+                                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+                            </button>
+                            {% else %}
+                            <span class="text-slate-600">—</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -301,7 +311,9 @@
             <div class="flex flex-col bg-cardbg/80 border border-slate-700/50 rounded-lg overflow-hidden min-h-0">
                 <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between shrink-0">
                     <span class="text-sm font-semibold text-slate-200">Admin Roles</span>
+                    {% if rbac_can_any(request, 'rbac.roles.manage') %}
                     <button type="button" onclick="rpShowCreateRoleModal()" class="text-xs px-2 py-1 rounded bg-primary text-white hover:bg-emerald-600">+ Create Role</button>
+                    {% endif %}
                 </div>
                 <form method="get" action="/users" id="rp-filters-form" class="shrink-0 flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-700/50">
                     <label class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Partner</label>
@@ -347,9 +359,13 @@
                                 <td class="px-2 py-1.5 text-slate-300">{% if r.is_master %}<span class="text-primary font-medium">Yes</span>{% else %}<span class="text-slate-500">—</span>{% endif %}</td>
                                 <td class="px-2 py-1.5 text-slate-300">{{ r.active_admins | default(0) }}</td>
                                 <td class="px-2 py-1.5 text-right">
+                                    {% if rbac_can_any(request, 'rbac.roles.manage') %}
                                     <button type="button" class="rbac-role-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors inline-flex" aria-label="Role actions" data-role-id="{{ r.role_id }}">
                                         <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                                     </button>
+                                    {% else %}
+                                    <span class="text-slate-600">—</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% else %}
@@ -363,6 +379,7 @@
             <div class="flex flex-col bg-cardbg/80 border border-slate-700/50 rounded-lg overflow-hidden min-h-0">
                 <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/50 shrink-0">
                     <span class="text-sm font-semibold text-slate-200" id="rp-admins-title">Admins in <span id="rp-role-name">—</span></span>
+                    {% if rbac_can_any(request, 'rbac.users.edit') %}
                     <div class="mt-2 flex flex-wrap items-center gap-2">
                         <select id="rp-assign-user" class="flex-1 min-w-0 max-w-[180px] bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white">
                             <option value="">Select user —</option>
@@ -372,6 +389,7 @@
                         </select>
                         <button type="button" id="rp-assign-btn" onclick="rpAssignUser()" class="text-xs px-2 py-1 rounded bg-primary text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Assign</button>
                     </div>
+                    {% endif %}
                 </div>
                 <div class="overflow-auto flex-1 min-h-0">
                     <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
@@ -393,9 +411,11 @@
                 <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between shrink-0">
                     <span class="text-sm font-semibold text-slate-200"><i class="fa-solid fa-shield-halved mr-1.5 text-slate-500"></i>Access Rights</span>
                     <span class="flex items-center gap-1.5">
+                        {% if rbac_can_any(request, 'rbac.roles.manage') %}
                         <button type="button" id="rp-edit-permissions-btn" onclick="rpEnterEditMode()" class="hidden text-xs px-2 py-1 rounded bg-slate-600 text-slate-200 hover:bg-slate-500" title="Edit permissions for this role">Edit</button>
                         <button type="button" id="rp-save-permissions-btn" onclick="rpSaveAccessRights()" class="hidden text-xs px-2 py-1 rounded bg-primary text-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed" title="Save permission changes">Save</button>
                         <button type="button" id="rp-cancel-edit-btn" onclick="rpCancelEditMode()" class="hidden text-xs px-2 py-1 rounded bg-slate-700 text-slate-300 hover:bg-slate-600" title="Cancel editing">Cancel</button>
+                        {% endif %}
                     </span>
                 </div>
                 <div class="px-3 py-1 text-slate-400 text-xs border-b border-slate-700/50 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
@@ -455,6 +475,46 @@
             <button type="button" onclick="rpSubmitCreateRole()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Create</button>
             <button type="button" onclick="rpCloseCreateRoleModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
             <span id="rp-create-role-status" class="text-xs text-slate-400"></span>
+        </div>
+    </div>
+</div>
+
+<!-- Floating kebab: Admin tab user row -->
+<div id="admin-user-kebab-menu" class="hidden fixed z-[300] min-w-[180px] py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl" role="menu" aria-hidden="true" data-user-id="">
+    {% if rbac_can_any(request, 'rbac.users.edit') %}
+    <button type="button" id="admin-user-kebab-edit" class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2">
+        <i class="fa-solid fa-pen w-4 text-slate-500"></i> Edit
+    </button>
+    {% endif %}
+    {% if rbac_can_any(request, 'rbac.users.audit') %}
+    <button type="button" id="admin-user-kebab-audit" class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2">
+        <i class="fa-solid fa-clock-rotate-left w-4 text-slate-500"></i> Audit log
+    </button>
+    {% endif %}
+</div>
+
+<!-- User audit log (chronological, all changes since creation) -->
+<div id="user-audit-modal" class="hidden fixed inset-0 bg-black/60 z-[305] flex items-center justify-center p-4" onclick="if (event.target === this) usersCloseAuditModal()">
+    <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
+        <div class="px-4 py-3 border-b border-slate-700 flex items-center justify-between shrink-0">
+            <h3 class="text-sm font-semibold text-white">Audit log <span id="user-audit-modal-sub" class="text-slate-400 font-normal"></span></h3>
+            <button type="button" onclick="usersCloseAuditModal()" class="text-slate-400 hover:text-white p-1" aria-label="Close"><i class="fa-solid fa-times"></i></button>
+        </div>
+        <div id="user-audit-loading" class="hidden px-4 py-8 text-center text-slate-500 text-sm">Loading…</div>
+        <div id="user-audit-empty" class="hidden px-4 py-8 text-center text-slate-500 text-sm">No audit entries yet. Changes will appear here after this update.</div>
+        <div class="overflow-auto flex-1 min-h-0 p-2">
+            <table class="w-full text-left border-collapse text-xs" id="user-audit-table-wrap">
+                <thead class="text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 bg-slate-900">
+                    <tr>
+                        <th class="px-2 py-2 font-semibold w-36">When (UTC)</th>
+                        <th class="px-2 py-2 font-semibold w-28">Action</th>
+                        <th class="px-2 py-2 font-semibold min-w-[100px]">By</th>
+                        <th class="px-2 py-2 font-semibold min-w-[120px]">Before</th>
+                        <th class="px-2 py-2 font-semibold min-w-[120px]">After</th>
+                    </tr>
+                </thead>
+                <tbody id="user-audit-tbody" class="text-slate-300"></tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -714,6 +774,59 @@ document.addEventListener('DOMContentLoaded', function() {
     var rpRolesScroll = document.getElementById('rp-roles-table-scroll');
     if (rpRolesScroll) rpRolesScroll.addEventListener('scroll', hideRbacRoleKebabMenu);
     window.addEventListener('resize', hideRbacRoleKebabMenu);
+
+    var adminUserKebabMenu = document.getElementById('admin-user-kebab-menu');
+    function hideAdminUserKebabMenu() {
+        if (!adminUserKebabMenu || adminUserKebabMenu.classList.contains('hidden')) return;
+        adminUserKebabMenu.classList.add('hidden');
+        adminUserKebabMenu.setAttribute('aria-hidden', 'true');
+    }
+    document.body.addEventListener('click', function(e) {
+        var btn = e.target.closest('.admin-user-kebab-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (!adminUserKebabMenu) return;
+        var uid = btn.getAttribute('data-user-id') || '';
+        var sameOpen = !adminUserKebabMenu.classList.contains('hidden') && adminUserKebabMenu.getAttribute('data-user-id') === uid;
+        if (sameOpen) {
+            hideAdminUserKebabMenu();
+            return;
+        }
+        adminUserKebabMenu.setAttribute('data-user-id', uid);
+        adminUserKebabMenu.classList.remove('hidden');
+        adminUserKebabMenu.setAttribute('aria-hidden', 'false');
+        var br = btn.getBoundingClientRect();
+        var mw = 180;
+        adminUserKebabMenu.style.left = Math.max(8, br.right - mw) + 'px';
+        adminUserKebabMenu.style.top = (br.bottom + 4) + 'px';
+    });
+    document.body.addEventListener('click', function(e) {
+        if (!adminUserKebabMenu || adminUserKebabMenu.classList.contains('hidden')) return;
+        if (e.target.closest('#admin-user-kebab-menu') || e.target.closest('.admin-user-kebab-btn')) return;
+        hideAdminUserKebabMenu();
+    });
+    var kebabUserEdit = document.getElementById('admin-user-kebab-edit');
+    var kebabUserAudit = document.getElementById('admin-user-kebab-audit');
+    if (kebabUserEdit) {
+        kebabUserEdit.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var id = parseInt(adminUserKebabMenu && adminUserKebabMenu.getAttribute('data-user-id'), 10);
+            hideAdminUserKebabMenu();
+            if (!isNaN(id)) usersEdit(id);
+        });
+    }
+    if (kebabUserAudit) {
+        kebabUserAudit.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var id = parseInt(adminUserKebabMenu && adminUserKebabMenu.getAttribute('data-user-id'), 10);
+            hideAdminUserKebabMenu();
+            if (!isNaN(id)) usersOpenAuditModal(id);
+        });
+    }
+    var adminUsersScroll = document.getElementById('admin-users-table-scroll');
+    if (adminUsersScroll) adminUsersScroll.addEventListener('scroll', hideAdminUserKebabMenu);
+    window.addEventListener('resize', hideAdminUserKebabMenu);
 });
 
 // Roles & Permissions: selected role state
@@ -756,10 +869,21 @@ function selectRole(roleId, roleName, permissionCodes, isMaster) {
     var adminsInRole = users.filter(function(u) { return (u.role_ids || []).indexOf(roleId) !== -1; });
     var tbody = document.getElementById('rp-admins-tbody');
     tbody.innerHTML = '';
+    var up = window.__rbacUserPerms || {};
+    var canEdit = !!up.edit;
+    var canAudit = !!up.audit;
     adminsInRole.forEach(function(u) {
         var tr = document.createElement('tr');
         tr.className = 'border-b border-slate-700/30 hover:bg-white/5';
-        tr.innerHTML = '<td class="px-2 py-1.5 text-white">' + (u.email || '—') + '</td><td class="px-2 py-1.5 text-slate-300">' + (u.login || u.display_name || '—') + '</td><td class="px-2 py-1.5 text-right whitespace-nowrap"><button type="button" onclick="usersEdit(' + u.user_id + ')" class="text-slate-300 hover:text-white text-xs mr-2">Edit</button><button type="button" onclick="rpUnassignUser(' + u.user_id + ')" class="text-amber-400 hover:text-amber-300 text-xs">Unassign</button></td>';
+        var actions = '';
+        if (canEdit || canAudit) {
+            actions += '<button type="button" class="admin-user-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 inline-flex mr-1" aria-label="User actions" data-user-id="' + u.user_id + '"><i class="fa-solid fa-ellipsis-vertical text-sm"></i></button>';
+        }
+        if (canEdit) {
+            actions += '<button type="button" onclick="rpUnassignUser(' + u.user_id + ')" class="text-amber-400 hover:text-amber-300 text-xs">Unassign</button>';
+        }
+        if (!actions) actions = '<span class="text-slate-600">—</span>';
+        tr.innerHTML = '<td class="px-2 py-1.5 text-white">' + (u.email || '—') + '</td><td class="px-2 py-1.5 text-slate-300">' + (u.login || u.display_name || '—') + '</td><td class="px-2 py-1.5 text-right whitespace-nowrap">' + actions + '</td>';
         tbody.appendChild(tr);
     });
     if (adminsInRole.length === 0) {
@@ -794,7 +918,8 @@ function selectRole(roleId, roleName, permissionCodes, isMaster) {
     if (statusEl) statusEl.textContent = '';
 
     var sel = document.getElementById('rp-assign-user');
-    if (sel) {
+    var assignBtn = document.getElementById('rp-assign-btn');
+    if (sel && assignBtn) {
     var opts = Array.from(sel.options);
     opts.forEach(function(o, i) {
         if (i === 0) { o.disabled = false; return; }
@@ -803,7 +928,7 @@ function selectRole(roleId, roleName, permissionCodes, isMaster) {
         o.disabled = ids.indexOf(roleId) !== -1;
         if (ids.indexOf(roleId) !== -1 && o.selected) sel.selectedIndex = 0;
     });
-    document.getElementById('rp-assign-btn').disabled = true;
+    assignBtn.disabled = true;
     sel.value = '';
     }
 }
@@ -833,7 +958,7 @@ function rpCancelEditMode() {
     var saveBtn = document.getElementById('rp-save-permissions-btn');
     var cancelBtn = document.getElementById('rp-cancel-edit-btn');
     if (editBtn) {
-        editBtn.classList.toggle('hidden', !window._rpSelectedRoleId);
+        editBtn.classList.toggle('hidden', !(window._rpSelectedRoleId && window.__rbacRolesManage));
     }
     if (saveBtn) saveBtn.classList.add('hidden');
     if (cancelBtn) cancelBtn.classList.add('hidden');
@@ -939,7 +1064,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (wrap && !wrap.contains(e.target)) document.getElementById('admin-brands-panel').classList.add('hidden');
     });
     var sel = document.getElementById('rp-assign-user');
-    if (sel) sel.addEventListener('change', function() { document.getElementById('rp-assign-btn').disabled = !this.value || this.value === ''; });
+    var assignBtn = document.getElementById('rp-assign-btn');
+    if (sel && assignBtn) sel.addEventListener('change', function() { assignBtn.disabled = !this.value || this.value === ''; });
     var firstRole = document.querySelector('.rbac-role-row');
     if (firstRole) selectRoleFromRow(firstRole);
     // Expand/collapse tree groups
@@ -991,6 +1117,7 @@ function adminBrandsSelectAll() {
 }
 
 function rpShowCreateRoleModal() {
+    if (!window.__rbacRolesManage) return;
     document.getElementById('rp-create-role-modal').classList.remove('hidden');
     document.getElementById('rp-create-role-name').value = '';
     var rpp = document.getElementById('rp-create-role-partner-id');
@@ -1262,7 +1389,9 @@ function userEditTogglePinField() {
     wrap.classList.toggle('hidden', sa.checked);
 }
 function usersShowAddForm() {
-    document.getElementById('user-add-form').classList.remove('hidden');
+    var addForm = document.getElementById('user-add-form');
+    if (!addForm) return;
+    addForm.classList.remove('hidden');
     document.getElementById('user-form-email').value = '';
     document.getElementById('user-form-login').value = '';
     document.getElementById('user-form-display-name').value = '';
@@ -1281,7 +1410,10 @@ function usersShowAddForm() {
     document.getElementById('user-form-status').textContent = '';
     filterAddFormRolesByPartner();
 }
-function usersHideAddForm() { document.getElementById('user-add-form').classList.add('hidden'); }
+function usersHideAddForm() {
+    var addForm = document.getElementById('user-add-form');
+    if (addForm) addForm.classList.add('hidden');
+}
 function getMultiSelect(sel) { return Array.from(sel.selectedOptions).map(function(o) { return parseInt(o.value, 10); }).filter(function(n) { return !isNaN(n); }); }
 function getSingleRoleId(sel) {
     var v = sel && sel.value;
@@ -1360,6 +1492,72 @@ function usersEdit(userId) {
         })
         .catch(function() { document.getElementById('user-edit-status').textContent = 'Failed to load user'; });
 }
+function usersCloseAuditModal() {
+    var m = document.getElementById('user-audit-modal');
+    if (m) m.classList.add('hidden');
+}
+function usersOpenAuditModal(userId) {
+    var modal = document.getElementById('user-audit-modal');
+    var sub = document.getElementById('user-audit-modal-sub');
+    var loading = document.getElementById('user-audit-loading');
+    var empty = document.getElementById('user-audit-empty');
+    var wrap = document.getElementById('user-audit-table-wrap');
+    var tbody = document.getElementById('user-audit-tbody');
+    if (!modal) return;
+    if (sub) sub.textContent = '(user #' + userId + ')';
+    modal.classList.remove('hidden');
+    if (loading) loading.classList.remove('hidden');
+    if (empty) {
+        empty.classList.add('hidden');
+        empty.textContent = 'No audit entries yet. Future saves will appear here.';
+    }
+    if (wrap) wrap.classList.add('hidden');
+    if (tbody) tbody.innerHTML = '';
+    fetch('/api/rbac/users/' + userId + '/audit')
+        .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+        .then(function(x) {
+            if (loading) loading.classList.add('hidden');
+            if (!x.ok) {
+                if (empty) {
+                    empty.textContent = formatRbacApiDetail(x.j) || 'Could not load audit log';
+                    empty.classList.remove('hidden');
+                }
+                return;
+            }
+            var entries = x.j.entries || [];
+            if (entries.length === 0) {
+                if (empty) empty.classList.remove('hidden');
+                return;
+            }
+            if (wrap) wrap.classList.remove('hidden');
+            entries.forEach(function(e) {
+                var tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-700/40';
+                var cells = [
+                    { k: 'created_at', cls: 'px-2 py-2 align-top text-slate-400 whitespace-nowrap' },
+                    { k: 'action', cls: 'px-2 py-2 align-top text-slate-300' },
+                    { k: 'actor_label', cls: 'px-2 py-2 align-top' },
+                    { k: 'was', cls: 'px-2 py-2 align-top text-slate-400 break-words' },
+                    { k: 'now', cls: 'px-2 py-2 align-top text-slate-300 break-words' }
+                ];
+                cells.forEach(function(c) {
+                    var td = document.createElement('td');
+                    td.className = c.cls;
+                    var v = e[c.k];
+                    td.textContent = (v !== undefined && v !== null && String(v) !== '') ? String(v) : '—';
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(function() {
+            if (loading) loading.classList.add('hidden');
+            if (empty) {
+                empty.textContent = 'Could not load audit log.';
+                empty.classList.remove('hidden');
+            }
+        });
+}
 function usersCloseEditModal() { document.getElementById('user-edit-modal').classList.add('hidden'); }
 async function usersSubmitEdit() {
     var id = document.getElementById('user-edit-id').value;
@@ -1411,6 +1609,12 @@ async function usersSubmitEdit() {
 <script>
 window.__rbacEnforcedPartnerId = {{ rbac_enforced_partner_id | tojson }};
 window.__rbacPlatformScopeLabel = {{ rbac_platform_scope_label | tojson }};
+window.__rbacUserPerms = {
+    create: {{ rbac_can_any(request, 'rbac.users.create') | tojson }},
+    edit: {{ rbac_can_any(request, 'rbac.users.edit') | tojson }},
+    audit: {{ rbac_can_any(request, 'rbac.users.audit') | tojson }}
+};
+window.__rbacRolesManage = {{ rbac_can_any(request, 'rbac.roles.manage') | tojson }};
 window.__usersData = {{ users | tojson }};
 window.__rolesData = {{ roles | tojson }};
 </script>

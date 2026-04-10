@@ -1,0 +1,18 @@
+G,name
+1,Match Winner
+2,Match Point Handicap
+14,Odd Even Total Points
+15,Match Total Points Home
+17,Match Total Points
+62,Match Total Points Away
+109,Set Handicap
+110,Exact Total Sets
+136,Correct Set Score
+147,Score After 3 Sets
+182,Total Sets Over/Under
+343,Score After 2 Sets
+809,
+2663,Team 1 Result + Total Points
+2665,Team 2 Result + Total Points
+2744,1st Set/Match Winner (Maybe)
+2746,Either Team Wins A Match Having Been Behing 0:2

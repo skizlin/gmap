@@ -5,6 +5,21 @@
 
 {% block title %}Entities{% endblock %}
 
+{# Tab RBAC at template scope: visible in {% block scripts %} (Jinja block-scopes {% set %} inside blocks). #}
+{% set sport_tab_ok = rbac_can_any(request, 'entity.sport.view') %}
+{% set category_tab_ok = rbac_can_any(request, 'entity.category.view') %}
+{% set competition_tab_ok = rbac_can_any(request, 'entity.competition.view') %}
+{% set team_tab_ok = rbac_can_any(request, 'entity.team.view') %}
+{% set markets_tab_ok = rbac_can_any(request, 'entity.markets.view') %}
+{% set dtab = namespace(v='categories') %}
+{% if sport_tab_ok %}{% set dtab.v = 'sports' %}
+{% elif category_tab_ok %}{% set dtab.v = 'categories' %}
+{% elif competition_tab_ok %}{% set dtab.v = 'competitions' %}
+{% elif team_tab_ok %}{% set dtab.v = 'teams' %}
+{% elif markets_tab_ok %}{% set dtab.v = 'markets' %}
+{% endif %}
+{% set default_entity_tab = dtab.v %}
+
 {% block content %}
 <div class="flex flex-col h-full space-y-3">
 
@@ -95,21 +110,25 @@
         ('markets', 'fa-chart-line', 'Markets', stats.markets),
         ] %}
         {% for key, icon, label, count in tabs %}
+        {% if (key == 'sports' and not sport_tab_ok) or (key == 'categories' and not category_tab_ok) or (key == 'competitions' and not competition_tab_ok) or (key == 'teams' and not team_tab_ok) or (key == 'markets' and not markets_tab_ok) %}
+        {% else %}
         <a href="#{{ key }}" id="tab-{{ key }}" data-tab-key="{{ key }}" onclick="event.preventDefault(); switchEntityTab('{{ key }}');"
             class="entity-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 no-underline cursor-pointer
-                   {% if loop.first %}text-primary border-primary{% else %}text-slate-400 border-transparent hover:text-white{% endif %}">
+                   {% if key == default_entity_tab %}text-primary border-primary{% else %}text-slate-400 border-transparent hover:text-white{% endif %}">
             <i class="fa-solid {{ icon }} text-xs"></i>
             {{ label }}
             <span class="text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-mono">{{ count
                 }}</span>
         </a>
+        {% endif %}
         {% endfor %}
     </div>
 
     <!-- Panel container -->
     {% set panels = ['sports', 'categories', 'competitions', 'teams', 'markets'] %}
     {% for key in panels %}
-    <div id="panel-{{ key }}" class="{% if not loop.first %}hidden {% endif %}flex flex-col flex-1 space-y-3 min-h-0">
+    {% if not ((key == 'sports' and not sport_tab_ok) or (key == 'categories' and not category_tab_ok) or (key == 'competitions' and not competition_tab_ok) or (key == 'teams' and not team_tab_ok) or (key == 'markets' and not markets_tab_ok)) %}
+    <div id="panel-{{ key }}" class="{% if key != default_entity_tab %}hidden {% endif %}flex flex-col flex-1 space-y-3 min-h-0">
 
         {% if key == 'markets' %}
         {# ─── Market Types (QNX design from PDF) ─── #}
@@ -132,9 +151,11 @@
             </label>
             <button type="button" onclick="mtClearFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-slate-700" title="Clear">× Clear</button>
             <button type="button" onclick="mtSort()" class="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-slate-500">Sort Market Types</button>
+            {% if rbac_can_any(request, 'entity.markets.create') %}
             <button type="button" onclick="mtToggleCreateForm()" class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> create Market Type
             </button>
+            {% endif %}
         </div>
 
         <!-- Create / Edit Market Type form (hidden by default) — fields match table columns -->
@@ -315,7 +336,7 @@
                         <th class="px-3 py-2 font-semibold">Score Type</th>
                         <th class="px-3 py-2 font-semibold">Side Type</th>
                         <th class="px-3 py-2 font-semibold">Score Dependant</th>
-                        <th class="px-3 py-2 font-semibold">#Feeds</th>
+                        <th class="px-3 py-2 font-semibold" title="Feed mappings per market type: prematch / live">#Feeds</th>
                         <th class="px-3 py-2 font-semibold">Created</th>
                         <th class="px-3 py-2 font-semibold">Last edited</th>
                         <th class="px-3 py-2 font-semibold text-right">Actions</th>
@@ -328,7 +349,7 @@
                     {% set entity_data = entities.markets %}
                     {% if entity_data %}
                     {% for entity in entity_data %}
-                    {% set refs = entity_feed_refs_by_key.get('markets:' ~ entity.domain_id, []) %}
+                    {% set mfc = market_feed_counts_by_market_id.get(entity.domain_id, {'prematch': 0, 'live': 0}) %}
                     {% set _tpl = namespace(t=None) %}
                     {% for t in market_templates %}{% if t.code == entity.get('template') %}{% set _tpl.t = t %}{% endif %}{% endfor %}
                     {% set _per = namespace(p=None) %}
@@ -349,7 +370,7 @@
                         <td class="px-3 py-2 text-slate-400">{% if _scr.s %}{{ _scr.s.name }} ({{ _scr.s.code }}){% else %}—{% endif %}</td>
                         <td class="px-3 py-2 text-slate-400">{{ entity.get('side_type') or '—' }}</td>
                         <td class="px-3 py-2 text-slate-400">{{ 'Yes' if entity.get('score_dependant') == '1' else '—' }}</td>
-                        <td class="px-3 py-2 text-slate-400">{{ refs | length }}</td>
+                        <td class="px-3 py-2 text-slate-400 font-mono tabular-nums" title="Prematch feed mappings / Live feed mappings">{{ mfc.prematch }}/{{ mfc.live }}</td>
                         <td class="px-3 py-2 text-slate-400">{{ entity.get('created_at') | format_entity_date }}</td>
                         <td class="px-3 py-2 text-slate-400">{{ entity.get('updated_at') | format_entity_date }}</td>
                         <td class="px-3 py-2 text-right align-top">
@@ -435,15 +456,15 @@
             <button type="button" onclick="clearCompetitionsFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
             {% endif %}
             <span id="count-{{ key }}" class="text-xs text-slate-500">Showing all {{ key }}</span>
-            {% if key == 'categories' %}
+            {% if key == 'categories' and rbac_can_any(request, 'entity.category.create') %}
             <button type="button" onclick="openNewEntityForm('categories')" class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> New Category
             </button>
-            {% elif key == 'competitions' %}
+            {% elif key == 'competitions' and rbac_can_any(request, 'entity.competition.create') %}
             <button type="button" onclick="openNewEntityForm('competitions')" class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> New Competition
             </button>
-            {% elif key == 'teams' %}
+            {% elif key == 'teams' and rbac_can_any(request, 'entity.team.create') %}
             <button type="button" onclick="openNewEntityForm('teams')" class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> New Team
             </button>
@@ -532,11 +553,53 @@
                         <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">{{ entity.get('created_at') | format_entity_date }}</td>
                         <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">{{ entity.get('updated_at') | format_entity_date }}</td>
                         <td class="px-4 py-2.5 text-right align-top">
+                            {% if key == 'sports' %}
+                            {% if rbac_can_any(request, 'entity.sport.edit', 'entity.sport.remove_mappings', 'entity.sport.active_inactive') %}
                             <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
                                 data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
                                 aria-haspopup="true" title="Actions">
                                 <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                             </button>
+                            {% else %}
+                            <span class="text-slate-600 text-[11px]">—</span>
+                            {% endif %}
+                            {% elif key == 'categories' %}
+                            {% if rbac_can_any(request, 'entity.category.edit', 'entity.category.remove_mappings', 'entity.category.active_inactive') %}
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
+                                aria-haspopup="true" title="Actions">
+                                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+                            </button>
+                            {% else %}
+                            <span class="text-slate-600 text-[11px]">—</span>
+                            {% endif %}
+                            {% elif key == 'competitions' %}
+                            {% if rbac_can_any(request, 'entity.competition.edit', 'entity.competition.remove_mappings', 'entity.competition.active_inactive') %}
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
+                                aria-haspopup="true" title="Actions">
+                                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+                            </button>
+                            {% else %}
+                            <span class="text-slate-600 text-[11px]">—</span>
+                            {% endif %}
+                            {% elif key == 'teams' %}
+                            {% if rbac_can_any(request, 'entity.team.edit', 'entity.team.remove_mappings', 'entity.team.active_inactive') %}
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
+                                aria-haspopup="true" title="Actions">
+                                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+                            </button>
+                            {% else %}
+                            <span class="text-slate-600 text-[11px]">—</span>
+                            {% endif %}
+                            {% else %}
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                                data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
+                                aria-haspopup="true" title="Actions">
+                                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
+                            </button>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -552,6 +615,7 @@
         </div>
         {% endif %}
     </div>
+    {% endif %}
     {% endfor %}
 
     <!-- Edit entity modal (name + country for cat/comp/team) -->
@@ -725,9 +789,71 @@
     .entity-kebab-dropdown:not([data-entity-panel="markets"]) .entity-action-map { display: none; }
 </style>
 <script>
-    var ENTITY_TAB_KEYS = ['sports', 'categories', 'competitions', 'teams', 'markets'];
+    window.__rbacEntitySport = {
+        view: {{ rbac_can_any(request, 'entity.sport.view') | tojson }},
+        edit: {{ rbac_can_any(request, 'entity.sport.edit') | tojson }},
+        removeMappings: {{ rbac_can_any(request, 'entity.sport.remove_mappings') | tojson }},
+        activeInactive: {{ rbac_can_any(request, 'entity.sport.active_inactive') | tojson }}
+    };
+    window.__rbacEntityTabs = {
+        sports: window.__rbacEntitySport,
+        categories: {
+            edit: {{ rbac_can_any(request, 'entity.category.edit') | tojson }},
+            removeMappings: {{ rbac_can_any(request, 'entity.category.remove_mappings') | tojson }},
+            activeInactive: {{ rbac_can_any(request, 'entity.category.active_inactive') | tojson }}
+        },
+        competitions: {
+            edit: {{ rbac_can_any(request, 'entity.competition.edit') | tojson }},
+            removeMappings: {{ rbac_can_any(request, 'entity.competition.remove_mappings') | tojson }},
+            activeInactive: {{ rbac_can_any(request, 'entity.competition.active_inactive') | tojson }}
+        },
+        teams: {
+            edit: {{ rbac_can_any(request, 'entity.team.edit') | tojson }},
+            removeMappings: {{ rbac_can_any(request, 'entity.team.remove_mappings') | tojson }},
+            activeInactive: {{ rbac_can_any(request, 'entity.team.active_inactive') | tojson }}
+        }
+    };
+    window.__rbacEntityCreate = {
+        categories: {{ rbac_can_any(request, 'entity.category.create') | tojson }},
+        competitions: {{ rbac_can_any(request, 'entity.competition.create') | tojson }},
+        teams: {{ rbac_can_any(request, 'entity.team.create') | tojson }},
+        markets: {{ rbac_can_any(request, 'entity.markets.create') | tojson }}
+    };
+    var DEFAULT_ENTITY_TAB = {{ default_entity_tab | tojson }};
+    var ENTITY_TAB_KEYS = [
+        {% if sport_tab_ok %}'sports',{% endif %}
+        {% if category_tab_ok %}'categories',{% endif %}
+        {% if competition_tab_ok %}'competitions',{% endif %}
+        {% if team_tab_ok %}'teams',{% endif %}
+        {% if markets_tab_ok %}'markets',{% endif %}
+    ];
+    function userCanCreateEntityType(tabKey) {
+        if (tabKey === 'sports') return false;
+        var c = window.__rbacEntityCreate;
+        if (!c) return true;
+        if (tabKey === 'categories') return !!c.categories;
+        if (tabKey === 'competitions') return !!c.competitions;
+        if (tabKey === 'teams') return !!c.teams;
+        if (tabKey === 'markets') return !!c.markets;
+        return false;
+    }
+    function applyEntityKebabRbac(panel) {
+        var d = document.getElementById('entity-kebab-dropdown');
+        if (!d) return;
+        var t = (window.__rbacEntityTabs && window.__rbacEntityTabs[panel]) || null;
+        var edit = d.querySelector('.entity-action-edit');
+        var rm = d.querySelector('.entity-action-remove-mappings');
+        var ai = d.querySelector('.entity-action-active-inactive');
+        [edit, rm, ai].forEach(function (el) { if (el) el.classList.remove('hidden'); });
+        if (!t) return;
+        if (edit) edit.classList.toggle('hidden', !t.edit);
+        if (rm) rm.classList.toggle('hidden', !t.removeMappings);
+        if (ai) ai.classList.toggle('hidden', !t.activeInactive);
+    }
     function switchEntityTab(key) {
-        if (!ENTITY_TAB_KEYS.includes(key)) key = 'sports';
+        if (!ENTITY_TAB_KEYS.length) return;
+        if (!ENTITY_TAB_KEYS.includes(key)) key = DEFAULT_ENTITY_TAB;
+        if (!ENTITY_TAB_KEYS.includes(key)) key = ENTITY_TAB_KEYS[0];
         document.querySelectorAll('.entity-tab').forEach(t => {
             t.classList.remove('text-primary', 'border-primary');
             t.classList.add('text-slate-400', 'border-transparent');
@@ -753,26 +879,31 @@
     }
     function getCurrentEntityTab() {
         const t = document.querySelector('.entity-tab.text-primary');
-        return t ? (t.dataset.tabKey || t.id.replace('tab-', '')) : 'sports';
+        return t ? (t.dataset.tabKey || t.id.replace('tab-', '')) : DEFAULT_ENTITY_TAB;
     }
     function reloadPreservingTab() {
         window.location.hash = getCurrentEntityTab();
         window.location.reload();
     }
     function applyEntityTabFromHash() {
-        var hash = (window.location.hash || '#sports').replace('#', '').toLowerCase();
-        if (ENTITY_TAB_KEYS.includes(hash)) switchEntityTab(hash);
-        else switchEntityTab('sports');
+        if (!ENTITY_TAB_KEYS.length) return;
+        var hash = (window.location.hash || ('#' + DEFAULT_ENTITY_TAB)).replace('#', '').toLowerCase();
+        if (!ENTITY_TAB_KEYS.includes(hash)) hash = DEFAULT_ENTITY_TAB;
+        if (!ENTITY_TAB_KEYS.includes(hash)) hash = ENTITY_TAB_KEYS[0];
+        switchEntityTab(hash);
     }
     window.addEventListener('hashchange', applyEntityTabFromHash);
     document.addEventListener('DOMContentLoaded', function () {
-        if (!window.location.hash) window.location.hash = 'sports';
+        if (!ENTITY_TAB_KEYS.length) return;
+        if (!window.location.hash) window.location.hash = DEFAULT_ENTITY_TAB;
         applyEntityTabFromHash();
     });
 
     function toggleNewEntityForm() {
         const activeTab = document.querySelector('.entity-tab.text-primary');
         if (activeTab && activeTab.id === 'tab-sports') return;
+        const tabKey = activeTab ? (activeTab.dataset.tabKey || activeTab.id.replace('tab-', '')) : '';
+        if (tabKey && !userCanCreateEntityType(tabKey)) return;
         const form = document.getElementById('new-entity-form');
         form.classList.toggle('hidden');
         if (!form.classList.contains('hidden')) {
@@ -786,6 +917,7 @@
 
     function openNewEntityForm(type) {
         if (type === 'sports') return;
+        if (!userCanCreateEntityType(type)) return;
         const form = document.getElementById('new-entity-form');
         const typeSel = document.getElementById('nef-type');
         if (typeSel) typeSel.value = type;
@@ -831,6 +963,11 @@
         const type = document.getElementById('nef-type').value;
         const feedId = type === 'sports' ? '' : (document.getElementById('nef-feedid').value.trim() || name);
         const statusEl = document.getElementById('nef-status');
+        if (!userCanCreateEntityType(type)) {
+            statusEl.textContent = 'You do not have permission to create this entity type.';
+            statusEl.className = 'text-xs text-red-400 shrink-0';
+            return;
+        }
         if (!name) { statusEl.textContent = 'Name required.'; statusEl.className = 'text-xs text-red-400 shrink-0'; return; }
         const sport = document.getElementById('nef-sport')?.value || null;
         const category = document.getElementById('nef-category')?.value || null;
@@ -1049,6 +1186,7 @@
                 dropdown.setAttribute('data-entity-panel', panel);
                 dropdown.setAttribute('data-entity-id', id);
                 dropdown.setAttribute('data-entity-name', name);
+                applyEntityKebabRbac(panel);
                 dropdown.classList.add('entity-kebab-dropdown--open');
                 dropdown.setAttribute('aria-hidden', 'false');
                 positionDropdown(kebabBtn);
@@ -1173,10 +1311,15 @@
         alert('Sort Market Types: UI coming soon. Order will define display order on site.');
     }
     function mtToggleCreateForm() {
+        if (!userCanCreateEntityType('markets')) return;
         const form = document.getElementById('mt-create-form');
         if (form) form.classList.toggle('hidden');
     }
     async function mtSaveMarketType() {
+        if (!userCanCreateEntityType('markets')) {
+            alert('You do not have permission to create market types.');
+            return;
+        }
         const sportEl = document.getElementById('mt-form-sport');
         const sport = sportEl?.value?.trim() || null;
         if (!sport) { alert('Sport is required. Select the sport for this market.'); return; }

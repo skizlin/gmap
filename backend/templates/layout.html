@@ -522,6 +522,35 @@
             setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, durationMs);
         };
 
+        window.showToastWarning = function (message, durationMs) {
+            durationMs = durationMs || 6000;
+            var container = document.getElementById('toast-container');
+            if (!container) return;
+            var el = document.createElement('div');
+            el.className = 'px-4 py-3 rounded-lg bg-amber-950/95 border border-amber-600/70 text-amber-100 text-sm shadow-lg max-w-md leading-snug';
+            el.setAttribute('role', 'alert');
+            el.textContent = message;
+            container.appendChild(el);
+            setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, durationMs);
+        };
+
+        (function rbacDeniedBannerFromQuery() {
+            try {
+                var q = new URLSearchParams(window.location.search);
+                if (q.get('rbac_denied') !== '1') return;
+                var msg = "You don't have permission to view that page. If you need access, contact your administrator.";
+                if (typeof window.showToastWarning === 'function') {
+                    window.showToastWarning(msg, 8000);
+                } else if (typeof window.showToast === 'function') {
+                    window.showToast(msg, 8000);
+                }
+                q.delete('rbac_denied');
+                var rest = q.toString();
+                var clean = window.location.pathname + (rest ? '?' + rest : '') + window.location.hash;
+                window.history.replaceState({}, '', clean);
+            } catch (e) { /* ignore */ }
+        })();
+
         window.copyFeederEventId = function (feedId) {
             if (feedId === undefined || feedId === null) return;
             var id = String(feedId);
