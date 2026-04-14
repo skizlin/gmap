@@ -5028,9 +5028,31 @@ def _dashboard_feed_stats() -> list[dict]:
     return stats
 
 
+def _changelog_date_display(raw: str | None, *, today: date) -> str:
+    """
+    Human-readable date for the What's new panel.
+    Use date="live" for the current tip release so it always shows the server's local calendar date when viewed.
+    ISO YYYY-MM-DD is formatted (e.g. 31 March 2026); other non-empty strings are shown as stored.
+    """
+    fmt = "%d %B %Y"
+    if isinstance(raw, str) and raw.strip().lower() == "live":
+        return today.strftime(fmt)
+    if raw is None:
+        return ""
+    s = str(raw).strip()
+    if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+        try:
+            y, m, d = int(s[0:4]), int(s[5:7]), int(s[8:10])
+            return date(y, m, d).strftime(fmt)
+        except ValueError:
+            pass
+    return s
+
+
 # Changelog for dashboard (new features / bugs fixed per version). Edit here or move to a file.
+# Tip release may use "date": "live" so the dashboard shows today's real calendar date (server local time).
 DASHBOARD_CHANGELOG = [
-    {"version": "1.2.7", "date": "2026-04-12", "items": [
+    {"version": "1.2.7", "date": "live", "items": [
         "UI / theming: light mode uses cream-tinted surfaces and stronger contrast on muted text; top bar in light mode uses a warm espresso tone instead of a cool blue strip.",
         "Tables: shared `gmp-data-table` styling and surface tokens for headers and rows across major grids; Feeder Events rows are no longer zebra-striped. Event Navigator event names use the same medium weight as Feeder Events.",
         "Page chrome: removed generic page subtitles under main headings; slightly tighter page header padding.",
@@ -5091,6 +5113,11 @@ DASHBOARD_CHANGELOG = [
 ]
 
 
+def _dashboard_changelog_rows() -> list[dict]:
+    today = date.today()
+    return [{**row, "date_display": _changelog_date_display(row.get("date"), today=today)} for row in DASHBOARD_CHANGELOG]
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """
@@ -5100,7 +5127,7 @@ async def dashboard(request: Request):
         "request": request,
         "section": "dashboard",
         "feed_stats": _dashboard_feed_stats(),
-        "changelog": DASHBOARD_CHANGELOG,
+        "changelog": _dashboard_changelog_rows(),
     })
 
 

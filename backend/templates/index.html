@@ -47,7 +47,7 @@
         <div class="space-y-4">
             {% for release in changelog %}
             <div class="border-l-2 border-gmp-border pl-4">
-                <p class="text-gmp-text-heading font-medium">Version {{ release.version }}{% if release.date %} <span class="text-gmp-text-faint font-normal">({{ release.date }})</span>{% endif %}</p>
+                <p class="text-gmp-text-heading font-medium">Version {{ release.version }}{% if release.date_display %} <span class="text-gmp-text-faint font-normal">({{ release.date_display }})</span>{% endif %}</p>
                 <ul class="mt-1 text-gmp-text-muted text-sm space-y-0.5">
                     {% for item in release["items"] %}
                     <li>· {{ item }}</li>
