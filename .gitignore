@@ -48,6 +48,9 @@ backend/data/feed_event_details/
 # Last-pull timestamps (per-environment)
 backend/data/feed_last_pull.csv
 
+# Dashboard "new since last pull" event ids (per-environment)
+backend/data/feed_dashboard_state.json
+
 # Audit / log files: per-environment (local and server each have their own). Whole folder ignored.
 backend/data/audit/
 

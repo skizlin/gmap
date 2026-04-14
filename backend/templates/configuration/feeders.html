@@ -73,64 +73,118 @@
     </div>
     {% else %}
 
-    <!-- Feeder configuration grid (settings as rows, feeders as columns) -->
+    <!-- Feeder configuration: read-only grid; edit one row at a time in a modal -->
     <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-hidden">
-        <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint px-4 py-3 border-b border-gmp-border/50">Feeder configuration</h2>
-        <p class="text-[11px] text-gmp-text-faint px-4 py-2 border-b border-gmp-border/50">Only the options below are active in this product. Values are stored per scope (All Sports, sport, category, or competition) and are not applied by the runtime yet.</p>
-        <div class="overflow-x-auto">
+        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-gmp-border/50">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint m-0">Feeder configuration</h2>
+            {% if can_feeder_audit %}
+            <button type="button" id="feeder-config-scope-audit-btn" class="text-[11px] font-medium px-2.5 py-1 rounded border border-gmp-border/70 text-gmp-text-menu hover:bg-gmp-hover/15 hover:text-gmp-text-heading shrink-0">
+                <i class="fa-solid fa-clock-rotate-left text-[10px] mr-1" aria-hidden="true"></i>Audit log
+            </button>
+            {% endif %}
+        </div>
+        <p class="text-[11px] text-gmp-text-faint px-4 py-2 border-b border-gmp-border/50">Values are stored per scope (All Sports, sport, category, or competition). <strong class="text-gmp-text-heading">Auto map Events</strong> and <strong class="text-gmp-text-heading">Auto create Events</strong> are applied after feed pulls and when you map or create from Feeder Events (per feed where set to Yes). Open <strong class="text-gmp-text-heading">Actions</strong> (<strong class="text-gmp-text-heading">⋮</strong>) on a row and choose <strong class="text-gmp-text-heading">Edit</strong> to change that setting only. New feeds appear as <strong>No</strong> until you configure them; exclusive rows keep at most one <strong>Yes</strong>.</p>
+        <div id="feeder-config-table-scroll" class="overflow-x-auto">
             <table class="gmp-data-table w-full text-left border-collapse text-xs">
                 <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-3 py-2.5 font-semibold w-48 min-w-[12rem] sticky left-0 bg-gmp-tableChrome z-10">Setting</th>
                         {% for feed in feeds %}
-                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap">{{ feed.name }}</th>
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap text-center">{{ feed.name }}</th>
                         {% endfor %}
+                        {% if can_feeder_update or can_feeder_audit %}
+                        <th class="px-2 py-2.5 font-semibold whitespace-nowrap text-center w-14 min-w-[3.5rem]">Actions</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody class="text-gmp-text-menu">
-                    {% for key, label, hint in system_actions %}
-                    <tr class="border-b border-gmp-border/40 hover:bg-gmp-hover/5">
+                    {% for row in feeder_settings %}
+                    <tr class="feeder-cfg-row border-b border-gmp-border/40 hover:bg-gmp-hover/5" data-setting="{{ row.key }}" data-ui-mode="{{ row.ui_mode }}">
                         <td class="px-3 py-2 font-medium text-gmp-text-heading sticky left-0 bg-gmp-tableRow z-10 align-middle">
                             <span class="inline-flex items-center gap-1.5 flex-wrap">
-                                <span>{{ label }}</span>
-                                {% if hint %}
+                                <span>{{ row.label }}</span>
+                                {% if row.hint %}
                                 <span class="relative inline-flex shrink-0 group">
-                                    <button type="button" class="cursor-help rounded p-0.5 text-gmp-text-faint hover:text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-primary bg-transparent border-0"
-                                        aria-label="Prerequisites for this setting">
+                                    <button type="button" class="cursor-help rounded p-0.5 text-gmp-text-faint hover:text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-primary bg-transparent border-0" aria-label="Help">
                                         <i class="fa-regular fa-circle-question text-[13px]" aria-hidden="true"></i>
                                     </button>
-                                    <span class="pointer-events-none absolute left-1/2 bottom-full z-[45] mb-1.5 hidden w-max max-w-[min(17rem,calc(100vw-3rem))] -translate-x-1/2 rounded-md border border-gmp-border bg-gmp-surface-raised px-2.5 py-2 text-left text-[10px] font-normal text-gmp-text-menu shadow-lg leading-snug group-hover:block group-focus-within:block">
-                                        {{ hint }}
-                                    </span>
+                                    <span class="pointer-events-none absolute left-1/2 bottom-full z-[45] mb-1.5 hidden w-max max-w-[min(17rem,calc(100vw-3rem))] -translate-x-1/2 rounded-md border border-gmp-border bg-gmp-surface-raised px-2.5 py-2 text-left text-[10px] font-normal text-gmp-text-menu shadow-lg leading-snug group-hover:block group-focus-within:block">{{ row.hint }}</span>
                                 </span>
                                 {% endif %}
                             </span>
                         </td>
                         {% for feed in feeds %}
-                        <td class="px-2 py-2">
-                            <select name="fc_{{ feed.domain_id }}_{{ key }}" class="feeder-config-cell bg-gmp-surface-raised border border-gmp-border rounded px-1.5 py-1 text-[11px] w-full max-w-[90px]"
-                                data-feed-id="{{ feed.domain_id }}" data-setting="{{ key }}">
-                                {% set fc_val = feeder_config_lookup.get((feed.domain_id, key), 'No') %}
-                                <option value="No" {% if fc_val != 'Yes' %}selected{% endif %}>No</option>
-                                <option value="Yes" {% if fc_val == 'Yes' %}selected{% endif %}>Yes</option>
-                            </select>
-                        </td>
+                        {% set v = feeder_config_lookup.get((feed.domain_id, row.key), 'No') %}
+                        <td class="fc-cell px-2 py-2 text-center text-[11px] font-mono text-gmp-text-menu" data-fid="{{ feed.domain_id }}">{{ v }}</td>
                         {% endfor %}
+                        {% if can_feeder_update or can_feeder_audit %}
+                        <td class="px-2 py-2 text-center align-middle">
+                            <button type="button" class="feeder-row-kebab-btn inline-flex items-center justify-center w-8 h-8 rounded border border-gmp-border/60 bg-gmp-surface-raised text-gmp-text-muted hover:bg-gmp-hover/15 hover:text-gmp-text-heading focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" title="Actions" aria-label="Actions for {{ row.label|e }}" data-setting-key="{{ row.key|e }}" data-setting-label="{{ row.label|e }}">
+                                <i class="fa-solid fa-ellipsis-vertical text-sm" aria-hidden="true"></i>
+                            </button>
+                        </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        <div class="px-4 py-2 border-t border-gmp-border/50 flex justify-end gap-2">
-            <button type="button" id="feeder-config-save" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded">Save</button>
-            <span id="feeder-config-status" class="text-xs text-gmp-text-muted"></span>
+    </div>
+
+    <!-- Modal: one setting row -->
+    <!-- Floating row Actions menu (fixed so it is not clipped by table overflow) -->
+    <div id="feeder-cfg-kebab-menu" class="hidden fixed z-[80] min-w-[168px] py-1 bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl" role="menu" aria-hidden="true">
+        {% if can_feeder_update %}
+        <button type="button" id="feeder-cfg-kebab-edit" class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
+            <i class="fa-solid fa-pen-to-square text-[11px] text-gmp-text-muted" aria-hidden="true"></i>Edit
+        </button>
+        {% endif %}
+        {% if can_feeder_audit %}
+        <button type="button" id="feeder-cfg-kebab-audit" class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-[11px] text-gmp-text-muted" aria-hidden="true"></i>Audit log
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Modal: audit log entries -->
+    <div id="feeder-audit-modal" class="hidden fixed inset-0 z-[75] flex items-center justify-center p-4" aria-modal="true" role="dialog" aria-labelledby="feeder-audit-modal-title">
+        <button type="button" id="feeder-audit-modal-backdrop" class="absolute inset-0 bg-[rgb(var(--gmp-backdrop-scrim)/0.75)] backdrop-blur-sm border-0 cursor-default" aria-label="Close"></button>
+        <div class="relative w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col rounded-lg border border-gmp-border bg-gmp-surface-raised shadow-2xl">
+            <div class="flex items-start justify-between gap-2 px-4 py-3 border-b border-gmp-border shrink-0">
+                <h3 id="feeder-audit-modal-title" class="text-sm font-semibold text-gmp-text-heading pr-2">Audit log</h3>
+                <button type="button" id="feeder-audit-modal-x" class="shrink-0 p-1.5 rounded-lg text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 border-0 bg-transparent" aria-label="Close"><i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i></button>
+            </div>
+            <div id="feeder-audit-modal-body" class="px-4 py-3 overflow-y-auto text-xs text-gmp-text-menu flex-1 min-h-0"></div>
+        </div>
+    </div>
+
+    <div id="feeder-row-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4" aria-modal="true" role="dialog" aria-labelledby="feeder-row-modal-title">
+        <button type="button" id="feeder-row-modal-backdrop" class="absolute inset-0 bg-[rgb(var(--gmp-backdrop-scrim)/0.75)] backdrop-blur-sm border-0 cursor-default" aria-label="Close"></button>
+        <div class="relative w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col rounded-lg border border-gmp-border bg-gmp-surface-raised shadow-2xl">
+            <div class="flex items-start justify-between gap-2 px-4 py-3 border-b border-gmp-border shrink-0">
+                <h3 id="feeder-row-modal-title" class="text-sm font-semibold text-gmp-text-heading pr-2">Setting</h3>
+                <button type="button" id="feeder-row-modal-x" class="shrink-0 p-1.5 rounded-lg text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 border-0 bg-transparent" aria-label="Close"><i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i></button>
+            </div>
+            <div id="feeder-row-modal-body" class="px-4 py-3 overflow-y-auto text-sm text-gmp-text-menu"></div>
+            <div class="flex flex-wrap items-center justify-end gap-2 px-4 py-3 border-t border-gmp-border bg-gmp-surface-inset/20 shrink-0">
+                <span id="feeder-row-modal-status" class="text-xs text-gmp-text-muted mr-auto"></span>
+                <button type="button" id="feeder-row-modal-cancel" class="text-xs px-3 py-1.5 rounded border border-gmp-border text-gmp-text hover:bg-gmp-hover/10">Cancel</button>
+                <button type="button" id="feeder-row-modal-save" class="text-xs font-medium px-3 py-1.5 rounded bg-primary hover:bg-primaryHover text-white">Save</button>
+            </div>
         </div>
     </div>
 
     <!-- Feeder Incidents Configuration (only when specific sport selected, not All Sports) -->
     {% if selected_sport_id and selected_sport_id != 'all' %}
     <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-hidden">
-        <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint px-4 py-3 border-b border-gmp-border/50">Feeder Incidents Configuration</h2>
+        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-gmp-border/50">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint m-0">Feeder Incidents Configuration</h2>
+            {% if can_feeder_audit %}
+            <button type="button" id="feeder-incidents-audit-btn" class="text-[11px] font-medium px-2.5 py-1 rounded border border-gmp-border/70 text-gmp-text-menu hover:bg-gmp-hover/15 hover:text-gmp-text-heading shrink-0">
+                <i class="fa-solid fa-clock-rotate-left text-[10px] mr-1" aria-hidden="true"></i>Audit log
+            </button>
+            {% endif %}
+        </div>
         <p class="text-[11px] text-gmp-text-faint px-4 py-2">Configure which incident data each feeder provides for the selected sport.</p>
         <div class="overflow-x-auto">
             <table class="gmp-data-table w-full text-left border-collapse text-xs">
@@ -294,6 +348,448 @@ function feederSportChange() {
     const sportId = {{ selected_sport_id | tojson if selected_sport_id else 'null' }};
     const categoryId = {{ selected_category_id | tojson if selected_category_id else 'null' }};
     const competitionId = {{ selected_competition_id | tojson if selected_competition_id else 'null' }};
+    const FEEDS_LIST = {{ feeds | tojson }};
+    const FEEDER_SETTINGS = {{ feeder_settings | tojson }};
+    const CAN_FEEDER_UPDATE = {{ can_feeder_update | tojson }};
+    const CAN_FEEDER_AUDIT = {{ can_feeder_audit | tojson }};
+
+    var modalCurrentTr = null;
+    var modalCurrentKey = null;
+    var modalCurrentMode = null;
+
+    function readRowValues(tr) {
+        var m = {};
+        tr.querySelectorAll('.fc-cell[data-fid]').forEach(function (td) {
+            var fid = td.getAttribute('data-fid');
+            m[fid] = (td.textContent || '').trim() === 'Yes' ? 'Yes' : 'No';
+        });
+        return m;
+    }
+
+    function feedById(id) {
+        var s = String(id);
+        for (var i = 0; i < FEEDS_LIST.length; i++) {
+            if (String(FEEDS_LIST[i].domain_id) === s) return FEEDS_LIST[i];
+        }
+        return null;
+    }
+
+    function buildPriorityOrderFromMap(map) {
+        var order = [];
+        FEEDS_LIST.forEach(function (f) {
+            if (map[String(f.domain_id)] === 'Yes') order.push(f.domain_id);
+        });
+        return order;
+    }
+
+    function bindPrioLi(li) {
+        li.querySelector('.fc-prio-up').addEventListener('click', function () {
+            var prev = li.previousElementSibling;
+            if (prev) li.parentNode.insertBefore(li, prev);
+        });
+        li.querySelector('.fc-prio-down').addEventListener('click', function () {
+            var nx = li.nextElementSibling;
+            if (nx) li.parentNode.insertBefore(nx, li);
+        });
+        li.querySelector('.fc-prio-remove').addEventListener('click', function () {
+            li.remove();
+        });
+    }
+
+    function escapeHtml(s) {
+        if (s == null || s === '') return '';
+        var d = document.createElement('div');
+        d.textContent = String(s);
+        return d.innerHTML;
+    }
+
+    function auditClipCell(s, maxLen) {
+        var t = (s == null) ? '' : String(s);
+        if (t.length <= maxLen) return t;
+        return t.slice(0, maxLen - 1) + '…';
+    }
+
+    function buildAuditLogUrl(params) {
+        var q = [
+            'resource=' + encodeURIComponent(params.resource || 'feeder_config'),
+            'limit=' + encodeURIComponent(String(params.limit || 200)),
+        ];
+        if (params.setting_key) q.push('setting_key=' + encodeURIComponent(params.setting_key));
+        if (params.sport_id != null && params.sport_id !== '' && params.sport_id !== 'all') {
+            q.push('sport_id=' + encodeURIComponent(String(params.sport_id)));
+        }
+        return '/api/admin/audit-log?' + q.join('&');
+    }
+
+    async function openFeederAuditModal(title, fetchParams) {
+        var modal = document.getElementById('feeder-audit-modal');
+        var body = document.getElementById('feeder-audit-modal-body');
+        var ttl = document.getElementById('feeder-audit-modal-title');
+        if (!modal || !body || !ttl) return;
+        ttl.textContent = title || 'Audit log';
+        body.innerHTML = '<p class="text-gmp-text-muted">Loading…</p>';
+        modal.classList.remove('hidden');
+        try {
+            var url = buildAuditLogUrl(fetchParams || {});
+            var res = await fetch(url);
+            var data = await res.json().catch(function () { return {}; });
+            if (!res.ok) {
+                body.innerHTML = '<p class="text-danger">' + escapeHtml((data && data.detail) ? data.detail : 'Failed to load audit log') + '</p>';
+                return;
+            }
+            var entries = (data && data.entries) ? data.entries : [];
+            if (!entries.length) {
+                body.innerHTML = '<p class="text-gmp-text-muted">No entries yet for this filter.</p>';
+                return;
+            }
+            var tbl = document.createElement('table');
+            tbl.className = 'gmp-data-table w-full text-left border-collapse';
+            tbl.innerHTML = '<thead class="text-gmp-text-faint uppercase tracking-wider border-b border-gmp-border/50"><tr>' +
+                '<th class="py-2 pr-3 font-semibold whitespace-nowrap">When (UTC)</th>' +
+                '<th class="py-2 pr-3 font-semibold">Actor</th>' +
+                '<th class="py-2 pr-3 font-semibold">Action</th>' +
+                '<th class="py-2 pr-3 font-semibold">Subject</th>' +
+                '<th class="py-2 pr-3 font-semibold">Before</th>' +
+                '<th class="py-2 font-semibold">After</th></tr></thead>';
+            var tb = document.createElement('tbody');
+            tb.className = 'divide-y divide-gmp-border/40';
+            entries.forEach(function (row) {
+                var tr = document.createElement('tr');
+                tr.className = 'align-top';
+                var subj = auditClipCell(row.subject || '', 120);
+                var was = auditClipCell(row.was || '', 160);
+                var now = auditClipCell(row.now || '', 160);
+                tr.innerHTML =
+                    '<td class="py-2 pr-2 font-mono text-[10px] whitespace-nowrap text-gmp-text-muted">' + escapeHtml(row.created_at || '') + '</td>' +
+                    '<td class="py-2 pr-2">' + escapeHtml(row.actor_label || '') + '</td>' +
+                    '<td class="py-2 pr-2 whitespace-nowrap">' + escapeHtml(row.action || '') + '</td>' +
+                    '<td class="py-2 pr-2 font-mono text-[10px] break-all" title="' + escapeHtml(row.subject || '') + '">' + escapeHtml(subj) + '</td>' +
+                    '<td class="py-2 pr-2 font-mono text-[10px] break-all" title="' + escapeHtml(row.was || '') + '">' + escapeHtml(was) + '</td>' +
+                    '<td class="py-2 font-mono text-[10px] break-all" title="' + escapeHtml(row.now || '') + '">' + escapeHtml(now) + '</td>';
+                tb.appendChild(tr);
+            });
+            tbl.appendChild(tb);
+            body.innerHTML = '';
+            body.appendChild(tbl);
+        } catch (e) {
+            body.innerHTML = '<p class="text-danger">Request failed.</p>';
+        }
+    }
+
+    function closeFeederAuditModal() {
+        var modal = document.getElementById('feeder-audit-modal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    var feederCfgKebabMenu = document.getElementById('feeder-cfg-kebab-menu');
+    var feederCfgKebabCurrentTr = null;
+
+    function hideFeederCfgKebabMenu() {
+        if (!feederCfgKebabMenu || feederCfgKebabMenu.classList.contains('hidden')) return;
+        feederCfgKebabMenu.classList.add('hidden');
+        feederCfgKebabMenu.setAttribute('aria-hidden', 'true');
+        feederCfgKebabCurrentTr = null;
+    }
+
+    function openFeederRowModal(tr) {
+        modalCurrentTr = tr;
+        modalCurrentKey = tr.getAttribute('data-setting');
+        modalCurrentMode = (tr.getAttribute('data-ui-mode') || 'multiselect').toLowerCase();
+        var meta = FEEDER_SETTINGS.find(function (r) { return r.key === modalCurrentKey; });
+        var label = meta ? meta.label : modalCurrentKey;
+        document.getElementById('feeder-row-modal-title').textContent = label;
+        document.getElementById('feeder-row-modal-status').textContent = '';
+        var map = readRowValues(tr);
+        var body = document.getElementById('feeder-row-modal-body');
+        body.innerHTML = '';
+
+        if (modalCurrentMode === 'priority') {
+            var hint = document.createElement('p');
+            hint.className = 'text-xs text-gmp-text-faint mb-3';
+            hint.textContent = 'Top feed wins: only the first in the list is saved as Yes; others are No. Use Add to build fallback order.';
+            body.appendChild(hint);
+            var ol = document.createElement('ol');
+            ol.id = 'fc-prio-list';
+            ol.className = 'list-decimal list-inside space-y-1 text-gmp-text mb-3 pl-1';
+            buildPriorityOrderFromMap(map).forEach(function (fid) {
+                var f = feedById(fid);
+                if (!f) return;
+                var li = document.createElement('li');
+                li.className = 'fc-prio-item flex flex-wrap items-center gap-2 py-1.5 border-b border-gmp-border/40';
+                li.setAttribute('data-fid', String(fid));
+                li.innerHTML = '<span class="text-gmp-text-heading min-w-[6rem]">' + (f.name || f.code) + '</span>' +
+                    '<button type="button" class="fc-prio-up text-xs px-2 py-0.5 rounded border border-gmp-border hover:bg-gmp-hover/10">Up</button>' +
+                    '<button type="button" class="fc-prio-down text-xs px-2 py-0.5 rounded border border-gmp-border hover:bg-gmp-hover/10">Down</button>' +
+                    '<button type="button" class="fc-prio-remove text-xs px-2 py-0.5 rounded border border-gmp-border text-warning hover:bg-gmp-hover/10">Remove</button>';
+                ol.appendChild(li);
+                bindPrioLi(li);
+            });
+            body.appendChild(ol);
+            var addWrap = document.createElement('div');
+            addWrap.className = 'flex flex-wrap items-center gap-2';
+            var sel = document.createElement('select');
+            sel.id = 'fc-prio-add-feed';
+            sel.className = 'bg-gmp-surface border border-gmp-border rounded px-2 py-1.5 text-sm text-gmp-text-heading min-w-[11rem]';
+            var opt0 = document.createElement('option');
+            opt0.value = '';
+            opt0.textContent = '— add feed —';
+            sel.appendChild(opt0);
+            FEEDS_LIST.forEach(function (f) {
+                var o = document.createElement('option');
+                o.value = String(f.domain_id);
+                o.textContent = f.name || f.code;
+                sel.appendChild(o);
+            });
+            addWrap.appendChild(sel);
+            var addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'text-xs px-3 py-1.5 rounded bg-gmp-surface-raised border border-gmp-border hover:bg-gmp-hover/10';
+            addBtn.textContent = 'Add';
+            addBtn.addEventListener('click', function () {
+                var v = sel.value;
+                if (!v) return;
+                if (ol.querySelector('.fc-prio-item[data-fid="' + v + '"]')) return;
+                var f = feedById(v);
+                if (!f) return;
+                var li2 = document.createElement('li');
+                li2.className = 'fc-prio-item flex flex-wrap items-center gap-2 py-1.5 border-b border-gmp-border/40';
+                li2.setAttribute('data-fid', v);
+                li2.innerHTML = '<span class="text-gmp-text-heading min-w-[6rem]">' + (f.name || f.code) + '</span>' +
+                    '<button type="button" class="fc-prio-up text-xs px-2 py-0.5 rounded border border-gmp-border hover:bg-gmp-hover/10">Up</button>' +
+                    '<button type="button" class="fc-prio-down text-xs px-2 py-0.5 rounded border border-gmp-border hover:bg-gmp-hover/10">Down</button>' +
+                    '<button type="button" class="fc-prio-remove text-xs px-2 py-0.5 rounded border border-gmp-border text-warning hover:bg-gmp-hover/10">Remove</button>';
+                ol.appendChild(li2);
+                bindPrioLi(li2);
+                sel.value = '';
+            });
+            addWrap.appendChild(addBtn);
+            body.appendChild(addWrap);
+        } else if (modalCurrentMode === 'exclusive') {
+            var p = document.createElement('p');
+            p.className = 'text-xs text-gmp-text-faint mb-3';
+            p.textContent = 'At most one feed may be Yes, or none.';
+            body.appendChild(p);
+            var chosen = null;
+            FEEDS_LIST.forEach(function (f) {
+                if (map[String(f.domain_id)] === 'Yes') chosen = String(f.domain_id);
+            });
+            var group = document.createElement('div');
+            group.className = 'space-y-2';
+            FEEDS_LIST.forEach(function (f) {
+                var id = 'fc-ex-' + modalCurrentKey + '-' + f.domain_id;
+                var row = document.createElement('label');
+                row.className = 'flex items-center gap-2 cursor-pointer';
+                var rb = document.createElement('input');
+                rb.type = 'radio';
+                rb.name = 'fc-exclusive-radio';
+                rb.id = id;
+                rb.value = String(f.domain_id);
+                rb.className = 'border-gmp-border text-primary';
+                if (chosen === String(f.domain_id)) rb.checked = true;
+                row.appendChild(rb);
+                var sp = document.createElement('span');
+                sp.textContent = f.name || f.code;
+                row.appendChild(sp);
+                group.appendChild(row);
+            });
+            var rown = document.createElement('label');
+            rown.className = 'flex items-center gap-2 cursor-pointer text-gmp-text-faint';
+            var rbn = document.createElement('input');
+            rbn.type = 'radio';
+            rbn.name = 'fc-exclusive-radio';
+            rbn.value = '';
+            if (!chosen) rbn.checked = true;
+            rown.appendChild(rbn);
+            var spn = document.createElement('span');
+            spn.textContent = 'None (all No)';
+            rown.appendChild(spn);
+            group.appendChild(rown);
+            body.appendChild(group);
+        } else {
+            var p2 = document.createElement('p');
+            p2.className = 'text-xs text-gmp-text-faint mb-3';
+            p2.textContent = 'Any subset of feeds can be Yes.';
+            body.appendChild(p2);
+            var g2 = document.createElement('div');
+            g2.className = 'space-y-2';
+            FEEDS_LIST.forEach(function (f) {
+                var id = 'fc-ms-' + modalCurrentKey + '-' + f.domain_id;
+                var row = document.createElement('label');
+                row.className = 'flex items-center gap-2 cursor-pointer';
+                var cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.id = id;
+                cb.setAttribute('data-fid', String(f.domain_id));
+                cb.className = 'rounded border-gmp-border bg-gmp-surface-raised text-primary';
+                cb.checked = map[String(f.domain_id)] === 'Yes';
+                row.appendChild(cb);
+                var sp = document.createElement('span');
+                sp.textContent = f.name || f.code;
+                row.appendChild(sp);
+                g2.appendChild(row);
+            });
+            body.appendChild(g2);
+        }
+
+        document.getElementById('feeder-row-modal').classList.remove('hidden');
+    }
+
+    function closeFeederRowModal() {
+        document.getElementById('feeder-row-modal').classList.add('hidden');
+        modalCurrentTr = null;
+        modalCurrentKey = null;
+    }
+
+    function collectModalPayload() {
+        var key = modalCurrentKey;
+        if (!key) return null;
+        var mode = modalCurrentMode;
+        if (mode === 'priority') {
+            var list = document.getElementById('fc-prio-list');
+            var ids = [];
+            if (list) list.querySelectorAll('.fc-prio-item[data-fid]').forEach(function (li) {
+                ids.push(parseInt(li.getAttribute('data-fid'), 10));
+            });
+            return { setting_key: key, ordered_feed_ids: ids };
+        }
+        if (mode === 'exclusive') {
+            var sel = document.querySelector('#feeder-row-modal-body input[name="fc-exclusive-radio"]:checked');
+            var v = sel ? sel.value : '';
+            var values = FEEDS_LIST.map(function (f) {
+                return { feed_provider_id: f.domain_id, value: (v && String(f.domain_id) === v) ? 'Yes' : 'No' };
+            });
+            return { setting_key: key, values: values };
+        }
+        var values2 = FEEDS_LIST.map(function (f) {
+            var cb = document.getElementById('fc-ms-' + key + '-' + f.domain_id);
+            return { feed_provider_id: f.domain_id, value: (cb && cb.checked) ? 'Yes' : 'No' };
+        });
+        return { setting_key: key, values: values2 };
+    }
+
+    document.body.addEventListener('click', function (e) {
+        var kbtn = e.target.closest('.feeder-row-kebab-btn');
+        if (!kbtn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (!feederCfgKebabMenu) return;
+        var tr = kbtn.closest('.feeder-cfg-row');
+        if (!tr) return;
+        var sk = kbtn.getAttribute('data-setting-key') || '';
+        var same = !feederCfgKebabMenu.classList.contains('hidden') && feederCfgKebabCurrentTr === tr;
+        if (same) {
+            hideFeederCfgKebabMenu();
+            return;
+        }
+        feederCfgKebabCurrentTr = tr;
+        feederCfgKebabMenu.setAttribute('data-setting-key', sk);
+        feederCfgKebabMenu.setAttribute('data-setting-label', kbtn.getAttribute('data-setting-label') || '');
+        feederCfgKebabMenu.classList.remove('hidden');
+        feederCfgKebabMenu.setAttribute('aria-hidden', 'false');
+        var br = kbtn.getBoundingClientRect();
+        var mw = 180;
+        feederCfgKebabMenu.style.left = Math.max(8, br.right - mw) + 'px';
+        feederCfgKebabMenu.style.top = (br.bottom + 4) + 'px';
+    });
+    document.body.addEventListener('click', function (e) {
+        if (!feederCfgKebabMenu || feederCfgKebabMenu.classList.contains('hidden')) return;
+        if (e.target.closest('#feeder-cfg-kebab-menu') || e.target.closest('.feeder-row-kebab-btn')) return;
+        hideFeederCfgKebabMenu();
+    });
+    var feederCfgTableScroll = document.getElementById('feeder-config-table-scroll');
+    if (feederCfgTableScroll) feederCfgTableScroll.addEventListener('scroll', hideFeederCfgKebabMenu);
+    window.addEventListener('resize', hideFeederCfgKebabMenu);
+
+    var kebabEdit = document.getElementById('feeder-cfg-kebab-edit');
+    if (kebabEdit) {
+        kebabEdit.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var tr = feederCfgKebabCurrentTr;
+            hideFeederCfgKebabMenu();
+            if (tr) openFeederRowModal(tr);
+        });
+    }
+    var kebabAudit = document.getElementById('feeder-cfg-kebab-audit');
+    if (kebabAudit) {
+        kebabAudit.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var sk = feederCfgKebabMenu ? feederCfgKebabMenu.getAttribute('data-setting-key') : '';
+            var lbl = feederCfgKebabMenu ? feederCfgKebabMenu.getAttribute('data-setting-label') : '';
+            hideFeederCfgKebabMenu();
+            var fp = { resource: 'feeder_config', setting_key: sk || undefined, limit: 200 };
+            if (level && level !== 'all_sports' && sportId) fp.sport_id = sportId;
+            openFeederAuditModal((lbl ? ('Audit: ' + lbl) : 'Audit log'), fp);
+        });
+    }
+
+    document.getElementById('feeder-config-scope-audit-btn')?.addEventListener('click', function () {
+        var fp = { resource: 'feeder_config', limit: 250 };
+        if (level && level !== 'all_sports' && sportId) fp.sport_id = sportId;
+        openFeederAuditModal('Feeder configuration — audit log', fp);
+    });
+    document.getElementById('feeder-incidents-audit-btn')?.addEventListener('click', function () {
+        if (!sportId) return;
+        openFeederAuditModal('Feeder incidents — audit log', { resource: 'feeder_incidents', sport_id: sportId, limit: 200 });
+    });
+
+    var faBackdrop = document.getElementById('feeder-audit-modal-backdrop');
+    var faX = document.getElementById('feeder-audit-modal-x');
+    if (faBackdrop) faBackdrop.addEventListener('click', closeFeederAuditModal);
+    if (faX) faX.addEventListener('click', closeFeederAuditModal);
+
+    var mbackdrop = document.getElementById('feeder-row-modal-backdrop');
+    var mx = document.getElementById('feeder-row-modal-x');
+    var mcancel = document.getElementById('feeder-row-modal-cancel');
+    if (mbackdrop) mbackdrop.addEventListener('click', closeFeederRowModal);
+    if (mx) mx.addEventListener('click', closeFeederRowModal);
+    if (mcancel) mcancel.addEventListener('click', closeFeederRowModal);
+
+    var msave = document.getElementById('feeder-row-modal-save');
+    if (msave) msave.addEventListener('click', async function () {
+        if (!level || !modalCurrentTr) return;
+        if (level !== 'all_sports' && !sportId) return;
+        var st = document.getElementById('feeder-row-modal-status');
+        st.textContent = 'Saving…';
+        st.className = 'text-xs text-gmp-text-muted';
+        var part = collectModalPayload();
+        if (!part) return;
+        var payload = Object.assign({
+            level: level,
+            sport_id: level === 'all_sports' ? null : sportId,
+            category_id: categoryId || null,
+            competition_id: competitionId || null,
+        }, part);
+        try {
+            var res = await fetch('/api/feeder-config/row', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            var data = await res.json().catch(function () { return {}; });
+            if (res.ok) {
+                st.textContent = 'Saved.';
+                st.className = 'text-xs text-success';
+                var map2 = {};
+                if (modalCurrentMode === 'priority' && part.ordered_feed_ids && part.ordered_feed_ids.length) {
+                    var win = part.ordered_feed_ids[0];
+                    FEEDS_LIST.forEach(function (f) {
+                        map2[String(f.domain_id)] = (Number(f.domain_id) === Number(win)) ? 'Yes' : 'No';
+                    });
+                } else if (part.values) {
+                    part.values.forEach(function (v) {
+                        map2[String(v.feed_provider_id)] = v.value === 'Yes' ? 'Yes' : 'No';
+                    });
+                }
+                modalCurrentTr.querySelectorAll('.fc-cell[data-fid]').forEach(function (td) {
+                    var fid = td.getAttribute('data-fid');
+                    td.textContent = map2[fid] || 'No';
+                });
+                setTimeout(closeFeederRowModal, 400);
+            } else {
+                st.textContent = (data && data.detail) ? data.detail : 'Failed';
+                st.className = 'text-xs text-danger';
+            }
+        } catch (e) {
+            st.textContent = 'Error';
+            st.className = 'text-xs text-danger';
+        }
+    });
 
     document.getElementById('fs-add-btn')?.addEventListener('click', async function () {
         var feed = document.getElementById('fs-feed').value.trim();
@@ -325,29 +821,6 @@ function feederSportChange() {
         } catch (e) {
             statusEl.textContent = 'Request failed.';
             statusEl.className = 'text-xs text-danger';
-        }
-    });
-
-    document.getElementById('feeder-config-save')?.addEventListener('click', async function () {
-        if (!level) return;
-        if (level !== 'all_sports' && !sportId) return;
-        const status = document.getElementById('feeder-config-status');
-        status.textContent = 'Saving…';
-        const payload = { level, sport_id: (level === 'all_sports' ? null : sportId), category_id: categoryId || null, competition_id: competitionId || null, settings: [] };
-        document.querySelectorAll('.feeder-config-cell').forEach(function (el) {
-            const feedId = el.getAttribute('data-feed-id');
-            const setting = el.getAttribute('data-setting');
-            const value = el.tagName === 'SELECT' ? el.value : (el.value || '').trim() || null;
-            if (feedId && setting) payload.settings.push({ feed_provider_id: parseInt(feedId, 10), setting_key: setting, value: (value === 'Yes' ? 'Yes' : 'No') });
-        });
-        try {
-            const res = await fetch('/api/feeder-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            const data = await res.json().catch(function () { return {}; });
-            status.textContent = res.ok ? 'Saved.' : (data.detail || 'Failed');
-            status.className = 'text-xs ' + (res.ok ? 'text-success' : 'text-danger');
-        } catch (e) {
-            status.textContent = 'Error';
-            status.className = 'text-xs text-danger';
         }
     });
 

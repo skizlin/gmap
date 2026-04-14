@@ -28,6 +28,7 @@ FILES=(
   backend/data/feeder_ignored_events.csv
   backend/data/feeds.csv
   backend/data/feed_time_statuses.csv
+  backend/data/feed_dashboard_state.json
   backend/data/languages.csv
   backend/data/margin_template_competitions.csv
   backend/data/margin_templates.csv

@@ -94,6 +94,7 @@ ENTITY_FEED_MAPPING_FIELDS = ["entity_type", "domain_id", "feed_provider_id", "f
 DOMAIN_EVENT_FIELDS = [
     "domain_id", "sport", "category", "competition",
     "home", "home_id", "away", "away_id", "start_time",
+    "sport_id", "category_id", "competition_id",
 ]
 MAPPING_FIELDS = ["domain_event_id", "feed_provider", "feed_valid_id"]
 
@@ -136,6 +137,8 @@ FEEDER_IGNORED_EVENTS_PATH = DATA_DIR / "feeder_ignored_events.csv"  # feed_prov
 DATA_AUDIT_DIR = DATA_DIR / "audit"
 DATA_AUDIT_DIR.mkdir(exist_ok=True)
 FEEDER_EVENT_LOG_PATH = DATA_AUDIT_DIR / "feeder_event_log.csv"  # feed_provider, feed_valid_id, action_type, details, created_at
+# Append-only: configuration changes by admins (feeder config, incidents, etc.).
+ADMIN_AUDIT_LOG_PATH = DATA_AUDIT_DIR / "admin_audit_log.csv"
 NOTES_PATH = DATA_NOTES_DIR / "platform_notes.csv"  # + created_by, updated_by, requires_confirmation
 NOTES_PATH_LEGACY = DATA_DIR / "platform_notes.csv"  # one-time move from here to NOTES_PATH if present
 EVENT_NAVIGATOR_NOTES_PATH = DATA_NOTES_DIR / "event_navigator_notes.csv"  # domain_event_id, note_text, updated_at (Event Navigator screen only)
@@ -172,7 +175,7 @@ RBAC_AUDIT_LOG_FIELDS = ["id", "created_at", "actor_user_id", "action", "target_
 # these sources. See .cursor/rules/rbac-permissions.mdc for the full checklist.
 
 def _perm(prefix: str, *actions: str) -> list[dict]:
-    action_labels = {"view": "View", "create": "Create", "update": "Update", "delete": "Delete", "unmap": "Unmap", "pause": "Pause", "cascade": "Cascade", "manage": "Manage"}
+    action_labels = {"view": "View", "create": "Create", "update": "Update", "delete": "Delete", "unmap": "Unmap", "pause": "Pause", "cascade": "Cascade", "manage": "Manage", "audit": "Audit log"}
     return [{"code": f"{prefix}.{a}", "label": action_labels.get(a, a.title())} for a in actions]
 
 
@@ -279,7 +282,7 @@ RBAC_MENU_SOURCE = [
             {"label": "Entities", "view": "menu.configuration.entities.view", "entities": "entity_main"},
             {"label": "Localization", "view": "menu.configuration.localization.view", "entities": [("config.localization", "Localization")]},
             {"label": "Brands", "view": "menu.configuration.brands.view", "entities": "config_partners_brands"},
-            {"label": "Feeder", "view": "menu.configuration.feeders.view", "entities": [("config.feeders", "Feeder")]},
+            {"label": "Feeder", "view": "menu.configuration.feeders.view", "entities": [("config.feeders", "Feeder", ("view", "create", "update", "delete", "audit"))]},
             {"label": "Margin", "view": "menu.configuration.margin.view", "entities": [("config.margin", "Margin")]},
             {"label": "Risk Rules", "view": "menu.configuration.risk_rules.view", "entities": [("config.risk_rules", "Risk Rules")]},
             {"label": "Compliance", "view": "menu.configuration.compliance.view", "entities": [("config.compliance", "Compliance")]},

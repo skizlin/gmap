@@ -231,7 +231,16 @@
             var skipOrUpdate = data.updated !== undefined
                 ? ('Updated: ' + (data.updated || 0))
                 : ('Skipped: ' + (data.skipped || 0));
-            el.textContent = 'Added: ' + (data.added || 0) + ', ' + skipOrUpdate + (data.total ? ' (API total: ' + data.total + ')' : '');
+            var msg = 'Added: ' + (data.added || 0) + ', ' + skipOrUpdate + (data.total ? ' (API total: ' + data.total + ')' : '');
+            var am = data.auto_mapped_domain_events;
+            if (am && am > 0) {
+                msg += ' · Auto-mapped to domain: ' + am;
+            }
+            var ac = data.auto_created_domain_events;
+            if (ac && ac > 0) {
+                msg += ' · Auto-created domain events: ' + ac;
+            }
+            el.textContent = msg;
             el.classList.add('text-success');
         }
         el.classList.remove('hidden');
@@ -309,7 +318,16 @@
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.ok) {
-                resultEl.textContent = 'Done. ' + (data.results && data.results.length ? data.results.length + ' sports pulled.' : '');
+                var baseMsg = 'Done. ' + (data.results && data.results.length ? data.results.length + ' sports pulled.' : '');
+                var am = data.auto_mapped_domain_events;
+                if (am && am > 0) {
+                    baseMsg += ' Auto-mapped to domain: ' + am + '.';
+                }
+                var ac = data.auto_created_domain_events;
+                if (ac && ac > 0) {
+                    baseMsg += ' Auto-created domain events: ' + ac + '.';
+                }
+                resultEl.textContent = baseMsg;
                 resultEl.classList.remove('text-gmp-text-muted', 'text-danger');
                 resultEl.classList.add('text-success');
                 if (data.last_pull_display) {

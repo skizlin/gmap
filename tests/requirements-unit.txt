@@ -1,0 +1,2 @@
+# Unit tests: pytest tests/unit/
+pytest>=8.0.0

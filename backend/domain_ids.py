@@ -73,6 +73,36 @@ def entity_ids_equal(a: Any, b: Any) -> bool:
     return fid_str(a) == fid_str(b) and fid_str(a) != ""
 
 
+def mapping_feed_id_key(val: Any) -> str:
+    """
+    Canonical key for entity_feed_mappings feed_id (categories, competitions, teams, …).
+    Strips; normalizes plain numeric strings (123 / 123.0 → "123"); for PREFIX:rest normalizes
+    the rest when numeric (e.g. COMP:10070454.0 → COMP:10070454). Non-numeric strings are kept as-is.
+    """
+    if val is None:
+        return ""
+    s = str(val).strip()
+    if not s:
+        return ""
+    if ":" in s:
+        prefix, _, rest = s.partition(":")
+        prefix = prefix.strip()
+        rest = rest.strip()
+        if not prefix:
+            return s
+        if not rest:
+            return f"{prefix}:"
+        try:
+            rest_norm = str(int(float(rest)))
+        except (ValueError, TypeError):
+            rest_norm = rest
+        return f"{prefix}:{rest_norm}"
+    try:
+        return str(int(float(s)))
+    except (ValueError, TypeError):
+        return s
+
+
 def nullable_fk_equal(a: Any, b: Any) -> bool:
     """True when both FK cells are empty or the same non-empty id (for optional category_id, etc.)."""
     return fid_str(a) == fid_str(b)

@@ -12,7 +12,7 @@
         <h3 class="text-gmp-text-muted text-sm font-medium uppercase tracking-wider mb-2 flex items-center gap-2">
             <i class="fa-solid fa-chart-simple text-gmp-text-faint"></i> Per-feed summary
         </h3>
-        <p class="text-gmp-text-faint text-xs mb-4">Go to <a href="/feeder-events" class="text-primary hover:text-success">Feeder Events</a> to map events.</p>
+        <p class="text-gmp-text-faint text-xs mb-4">Future fixtures only (past events excluded). <span id="dashboard-feed-stats-asof" class="text-gmp-text-faint/80"></span> Go to <a href="/feeder-events" class="text-primary hover:text-success">Feeder Events</a> to map events.</p>
         <div class="overflow-x-auto">
             <table class="gmp-data-table w-full text-sm">
                 <thead>
@@ -21,22 +21,75 @@
                         <th class="pb-2 pr-4 font-medium text-right">Total</th>
                         <th class="pb-2 pr-4 font-medium text-right text-primary">Mapped</th>
                         <th class="pb-2 pr-4 font-medium text-right text-warning">Unmapped</th>
+                        <th class="pb-2 pr-4 font-medium text-right text-secondary">New</th>
+                        <th class="pb-2 font-medium whitespace-nowrap">Last pull</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="dashboard-feed-stats-tbody">
                     {% for s in feed_stats %}
                     <tr class="border-b border-gmp-border/50 last:border-0">
                         <td class="py-2 pr-4 text-gmp-text-heading">{{ s.feed_name }}</td>
                         <td class="py-2 pr-4 text-right text-gmp-text-menu">{{ s.total }}</td>
                         <td class="py-2 pr-4 text-right text-primary">{{ s.mapped }}</td>
                         <td class="py-2 pr-4 text-right text-warning/90">{{ s.unmapped }}</td>
+                        <td class="py-2 pr-4 text-right text-secondary/90">{{ s["new"] }}</td>
+                        <td class="py-2 text-gmp-text-faint text-xs whitespace-nowrap">{{ s.last_pull_display }}</td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="4" class="py-4 text-gmp-text-faint italic">No feed data yet. Pull feeds to see counts.</td></tr>
+                    <tr><td colspan="6" class="py-4 text-gmp-text-faint italic">No feed data yet. Pull feeds to see counts.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        <script>
+        (function () {
+            var tbody = document.getElementById("dashboard-feed-stats-tbody");
+            var asofEl = document.getElementById("dashboard-feed-stats-asof");
+            function esc(s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
+            function fmtAsOf(iso) {
+                if (!iso) return "";
+                try {
+                    var d = new Date(iso.indexOf("Z") === -1 && iso.indexOf("+") === -1 ? iso + "Z" : iso);
+                    if (isNaN(d.getTime())) return "";
+                    return "Summary as of " + d.toLocaleString() + " (refreshes here every 10 min).";
+                } catch (e) { return ""; }
+            }
+            function applyRows(feeds) {
+                if (!tbody || !feeds || !feeds.length) {
+                    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-gmp-text-faint italic">No feed data yet. Pull feeds to see counts.</td></tr>';
+                    if (asofEl) asofEl.textContent = "";
+                    return;
+                }
+                var first = feeds[0] || {};
+                if (asofEl) asofEl.textContent = fmtAsOf(first.as_of);
+                var html = "";
+                for (var i = 0; i < feeds.length; i++) {
+                    var s = feeds[i];
+                    html += "<tr class=\"border-b border-gmp-border/50 last:border-0\">" +
+                        "<td class=\"py-2 pr-4 text-gmp-text-heading\">" + esc(s.feed_name) + "</td>" +
+                        "<td class=\"py-2 pr-4 text-right text-gmp-text-menu\">" + esc(s.total) + "</td>" +
+                        "<td class=\"py-2 pr-4 text-right text-primary\">" + esc(s.mapped) + "</td>" +
+                        "<td class=\"py-2 pr-4 text-right text-warning/90\">" + esc(s.unmapped) + "</td>" +
+                        "<td class=\"py-2 pr-4 text-right text-secondary/90\">" + esc(s["new"]) + "</td>" +
+                        "<td class=\"py-2 text-gmp-text-faint text-xs whitespace-nowrap\">" + esc(s.last_pull_display) + "</td></tr>";
+                }
+                tbody.innerHTML = html;
+            }
+            function poll() {
+                fetch("/api/dashboard-feed-stats", { credentials: "same-origin" })
+                    .then(function (r) { if (!r.ok) throw new Error("stats"); return r.json(); })
+                    .then(function (data) { applyRows(data.feeds || []); })
+                    .catch(function () {});
+            }
+            {% if feed_stats and feed_stats|length > 0 %}
+            if (tbody && asofEl) {
+                var fs0 = {{ feed_stats[0] | tojson }};
+                if (fs0 && fs0.as_of) asofEl.textContent = fmtAsOf(fs0.as_of);
+            }
+            {% endif %}
+            setInterval(poll, 600000);
+        })();
+        </script>
     </div>
 
     <!-- What's new -->

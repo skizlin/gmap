@@ -39,10 +39,9 @@
         —
         {% endif %}
     </td>
-    <!-- Category: darker when ignored -->
+    <!-- Category: darker when ignored; green when entity_feed_mappings resolves (see _feeder_events_attach_row_mapping_flags) -->
     {% set cat_display = event.category or (event.category_id | string) or '' %}
-    {% set cat_id = event.category_id | string if event.category_id else event.category %}
-    {% set cat_mapped = cat_id and selected_feed_pid is not none and event.domain_sport_id is not none and (selected_feed_pid, cat_id, event.domain_sport_id) in mapped_category_feed_ids %}
+    {% set cat_mapped = event.feed_category_mapped %}
     <td class="px-3 py-1.5 {{ 'text-gmp-text-faint' if is_ignored else ('text-success' if cat_mapped else 'text-gmp-text-muted') }}">
         {% if cat_display %}
         <button type="button" class="feeder-filter-shortcut text-left w-full hover:underline" data-feeder-filter="category" data-feeder-value="{{ cat_display | e }}">{{ event.category or event.category_id or '—' }}</button>
@@ -50,10 +49,9 @@
         <span class="text-gmp-text-faint">—</span>
         {% endif %}
     </td>
-    <!-- Competition: darker when ignored -->
+    <!-- Competition: darker when ignored; green when mapping resolves (id or league name fallback) -->
     {% set comp_display = event.raw_league_name or (event.raw_league_id | string) or '' %}
-    {% set comp_id = event.raw_league_id | string if event.raw_league_id else event.raw_league_name %}
-    {% set comp_mapped = comp_id and selected_feed_pid is not none and event.domain_sport_id is not none and (selected_feed_pid, comp_id, event.domain_sport_id) in mapped_comp_feed_ids %}
+    {% set comp_mapped = event.feed_competition_mapped %}
     <td class="px-3 py-1.5 max-w-[150px] truncate {{ 'text-gmp-text-faint' if is_ignored else ('text-success' if comp_mapped else 'text-gmp-text-menu') }}"
         title="{{ event.raw_league_name or '—' }}">
         {% if comp_display %}
@@ -73,12 +71,10 @@
         {% set event_mapped = event.domain_id and event.domain_id != '0' %}
         <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if event_mapped else 'text-gmp-text-heading dark:text-white') }}" title="{{ event.market_name }}">{{ event.market_name }}</span>
         {% else %}
-        {% set home_id = event.raw_home_id | string if event.raw_home_id else event.raw_home_name %}
-        {% set away_id = event.raw_away_id | string if event.raw_away_id else event.raw_away_name %}
-        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if home_id and selected_feed_pid is not none and (selected_feed_pid, home_id) in mapped_team_feed_ids else 'text-gmp-text-heading dark:text-white') }}">{{
+        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if event.feed_home_team_mapped else 'text-gmp-text-heading dark:text-white') }}">{{
             event.raw_home_name }}</span>
         <span class="text-gmp-text-muted dark:text-gmp-text-faint mx-1">vs</span>
-        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if away_id and selected_feed_pid is not none and (selected_feed_pid, away_id) in mapped_team_feed_ids else 'text-gmp-text-heading dark:text-white') }}">{{
+        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if event.feed_away_team_mapped else 'text-gmp-text-heading dark:text-white') }}">{{
             event.raw_away_name }}</span>
         {% endif %}
     </td>
