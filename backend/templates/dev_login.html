@@ -4,16 +4,16 @@
 {% block content %}
 <div class="max-w-md mx-auto w-full my-8">
     <h1 class="text-xl font-bold text-white mb-1">Sign in</h1>
-    <p class="text-sm text-slate-500 mb-6">Choose your account and enter your PIN. Standard accounts use PIN <code class="text-slate-400">1234</code> unless an administrator set a different one.</p>
-    <div class="bg-cardbg/80 border border-slate-700/60 rounded-xl p-6 shadow-xl">
+    <p class="text-sm text-gmp-text-faint mb-6">Choose your account and enter your PIN. Standard accounts use PIN <code class="text-gmp-text-muted">1234</code> unless an administrator set a different one.</p>
+    <div class="bg-cardbg/80 border border-gmp-border/60 rounded-xl p-6 shadow-xl">
         {% if error %}
-        <div class="mb-4 px-3 py-2 rounded-lg bg-red-950/50 border border-red-800/60 text-red-200 text-sm" role="alert">{{ error }}</div>
+        <div class="mb-4 px-3 py-2 rounded-lg bg-danger/10 border border-danger/40 text-danger text-sm" role="alert">{{ error }}</div>
         {% endif %}
         <form method="post" action="/dev/login" class="space-y-4">
             <div>
-                <label for="dev-login-user" class="block text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">User</label>
+                <label for="dev-login-user" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold mb-1">User</label>
                 <select name="user_id" id="dev-login-user" required
-                    class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-primary">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-primary">
                     {% for u in users %}
                     <option value="{{ u.user_id }}" {% if not u.active %}disabled{% endif %}>
                         {{ u.email }}{% if u.login %} ({{ u.login }}){% endif %} — {{ u.partner_label }}{% if not u.active %} (inactive){% endif %}
@@ -21,17 +21,17 @@
                     {% endfor %}
                 </select>
                 {% if not users %}
-                <p class="text-xs text-amber-400/90 mt-2">No user accounts yet. Ask an administrator to bootstrap the system.</p>
+                <p class="text-xs text-warning/90 mt-2">No user accounts yet. Ask an administrator to bootstrap the system.</p>
                 {% endif %}
             </div>
             <div>
-                <label for="dev-login-pin" class="block text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">PIN</label>
+                <label for="dev-login-pin" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold mb-1">PIN</label>
                 <input type="password" name="pin" id="dev-login-pin" inputmode="numeric" autocomplete="off" placeholder="PIN"
-                    class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-primary"
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-primary"
                     required>
             </div>
             <button type="submit" {% if not users %}disabled{% endif %}
-                class="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed">
+                class="w-full py-2.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primaryHover disabled:opacity-40 disabled:cursor-not-allowed">
                 Sign in
             </button>
         </form>

@@ -10,55 +10,55 @@
 
     <!-- TOP BAR FILTER -->
     <div
-        class="relative z-10 bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg p-3 flex flex-wrap items-center gap-3">
+        class="relative z-10 bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg p-3 flex flex-wrap items-center gap-3">
 
         <!-- 1. Period (Start Time) – placeholder, no filter logic -->
         <div class="relative" id="fe-period-dropdown-wrap">
             <button type="button" id="fe-period-trigger" onclick="toggleFeederPeriodDropdown()"
-                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[200px] hover:border-slate-500 transition-colors text-left">
-                <i class="fa-regular fa-calendar text-slate-400 text-[10px]"></i>
+                class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[200px] hover:border-gmp-border transition-colors text-left">
+                <i class="fa-regular fa-calendar text-gmp-text-muted text-[10px]"></i>
                 <span id="fe-period-label">07/03/2026 - 07/03/2026</span>
-                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+                <i class="fa-solid fa-chevron-down text-gmp-text-muted text-[10px] ml-auto"></i>
             </button>
             <input type="hidden" name="date" id="feeder-date-input" value="{{ selected_date | default('') }}">
             <input type="hidden" name="date_from" id="feeder-date-from" value="{{ date_from | default('') }}">
             <input type="hidden" name="date_to" id="feeder-date-to" value="{{ date_to | default('') }}">
             <div id="fe-period-panel"
-                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl min-w-[200px] max-w-[280px] py-1">
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl min-w-[200px] max-w-[280px] py-1">
                 <button type="button" data-period="today" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors rounded-none text-white bg-primary/20 border-l-2 border-primary">
                     Today
                 </button>
-                <button type="button" data-period="tomorrow" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                <button type="button" data-period="tomorrow" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
                     Tomorrow
                 </button>
-                <button type="button" data-period="next_7_days" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                <button type="button" data-period="next_7_days" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
                     Next 7 Days
                 </button>
-                <button type="button" data-period="this_month" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                <button type="button" data-period="this_month" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
                     This Month
                 </button>
-                <button type="button" data-period="next_month" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                <button type="button" data-period="next_month" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
                     Next Month
                 </button>
-                <button type="button" data-period="yesterday" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                <button type="button" data-period="yesterday" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
                     Yesterday
                 </button>
-                <button type="button" data-period="last_7_days" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                <button type="button" data-period="last_7_days" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
                     Last 7 Days
                 </button>
-                <button type="button" data-period="custom" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-slate-300">
+                <button type="button" data-period="custom" class="fe-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
                     Custom range
                 </button>
-                <div id="fe-custom-range-block" class="border-t border-slate-700 px-3 py-3 space-y-2 mt-1">
-                    <p class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">From – To</p>
+                <div id="fe-custom-range-block" class="border-t border-gmp-border px-3 py-3 space-y-2 mt-1">
+                    <p class="text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold">From – To</p>
                     <div class="flex gap-2 items-center">
-                        <input type="date" id="fe-custom-from" class="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white focus:border-primary outline-none" title="Start date">
-                        <span class="text-slate-500 text-xs">–</span>
-                        <input type="date" id="fe-custom-to" class="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white focus:border-primary outline-none" title="End date">
+                        <input type="date" id="fe-custom-from" class="flex-1 min-w-0 bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1.5 text-xs text-white focus:border-primary outline-none" title="Start date">
+                        <span class="text-gmp-text-faint text-xs">–</span>
+                        <input type="date" id="fe-custom-to" class="flex-1 min-w-0 bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1.5 text-xs text-white focus:border-primary outline-none" title="End date">
                     </div>
                     <div class="flex gap-2 justify-end">
-                        <button type="button" id="fe-custom-clear" class="text-xs text-slate-400 hover:text-white px-2 py-1 rounded border border-slate-600 hover:border-slate-500">Clear</button>
-                        <button type="button" id="fe-custom-apply" class="text-xs bg-primary hover:bg-emerald-600 text-white px-3 py-1 rounded">Apply</button>
+                        <button type="button" id="fe-custom-clear" class="text-xs text-gmp-text-muted hover:text-white px-2 py-1 rounded border border-gmp-border hover:border-gmp-border">Clear</button>
+                        <button type="button" id="fe-custom-apply" class="text-xs bg-primary hover:bg-primaryHover text-white px-3 py-1 rounded">Apply</button>
                     </div>
                 </div>
             </div>
@@ -70,7 +70,7 @@
                 hx-swap="innerHTML" hx-trigger="change"
                 hx-include="#feed-filter,[name='date'],[name='date_from'],[name='date_to'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']"
                 onchange="document.getElementById('feeder-page-input').value = '1';"
-                class="bg-slate-900 text-white text-xs rounded border border-secondary/60 px-3 py-1.5 pr-7 appearance-none ring-1 ring-secondary/30">
+                class="bg-gmp-surface text-white text-xs rounded border border-secondary/60 px-3 py-1.5 pr-7 appearance-none ring-1 ring-secondary/30">
                 {% for feed in feeds %}
                 <option value="{{ feed }}" {% if feed==selected_feed %}selected{% endif %}>{{ feed }}</option>
                 {% endfor %}
@@ -88,8 +88,8 @@
         </div>
         <div class="relative" id="sport-dropdown-wrap">
             <button type="button" id="sport-trigger" onclick="toggleSportDropdown()"
-                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[130px] hover:border-slate-500 transition-colors">
-                <i class="fa-solid fa-futbol text-slate-400 text-[10px]"></i>
+                class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors">
+                <i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]"></i>
                 <span id="sport-label">
                     {% if selected_sports | length == sports | length %}All Sports
                     {% elif selected_sports | length == 0 %}No Sport
@@ -97,14 +97,14 @@
                     {% else %}{{ selected_sports | length }} Sports
                     {% endif %}
                 </span>
-                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+                <i class="fa-solid fa-chevron-down text-gmp-text-muted text-[10px] ml-auto"></i>
             </button>
             <div id="sport-panel"
-                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-52 py-1">
-                <div class="flex items-center justify-between px-3 py-1.5 border-b border-slate-700 mb-1">
-                    <span class="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Sport</span>
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl w-52 py-1">
+                <div class="flex items-center justify-between px-3 py-1.5 border-b border-gmp-border mb-1">
+                    <span class="text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold">Sport</span>
                     <button type="button" id="sport-all-btn" onclick="selectAllSports()"
-                        class="text-[10px] text-secondary hover:text-blue-300 font-medium">Select All</button>
+                        class="text-[10px] text-secondary hover:text-info font-medium">Select All</button>
                 </div>
                 <div id="sport-checkboxes-container" hx-get="/feeder-events/sport-options"
                     hx-trigger="change from:#feed-filter" hx-include="[name='feed_provider']" hx-swap="innerHTML">
@@ -112,8 +112,8 @@
                     <label
                         class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
                         <input type="checkbox" value="{{ sport }}" {% if sport in selected_sports %}checked{% endif %}
-                            onchange="onSportChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
-                        <span class="text-xs text-slate-300">{{ sport }}</span>
+                            onchange="onSportChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
+                        <span class="text-xs text-gmp-text-menu">{{ sport }}</span>
                     </label>
                     {% endfor %}
                 </div>
@@ -128,20 +128,20 @@
         </div>
         <div class="relative" id="feeder-category-dropdown-wrap">
             <button type="button" id="feeder-category-trigger" onclick="toggleFeederCategoryDropdown()"
-                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[130px] hover:border-slate-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 {% if not selected_sports %}disabled{% endif %}
                 title="{% if not selected_sports %}Select sport first{% endif %}">
-                <i class="fa-solid fa-globe text-slate-400 text-[10px]"></i>
+                <i class="fa-solid fa-globe text-gmp-text-muted text-[10px]"></i>
                 <span id="feeder-category-label">
                     {% if not selected_categories %}All Categories
                     {% elif selected_categories | length == 1 %}{{ selected_categories[0] }}
                     {% else %}{{ selected_categories | length }} Categories
                     {% endif %}
                 </span>
-                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+                <i class="fa-solid fa-chevron-down text-gmp-text-muted text-[10px] ml-auto"></i>
             </button>
             <div id="feeder-category-panel"
-                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-52 py-1 max-h-[280px] overflow-y-auto">
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl w-52 py-1 max-h-[280px] overflow-y-auto">
                 <div id="feeder-category-checkboxes-container"
                     hx-get="/feeder-events/category-options"
                     hx-trigger="load, feederCategoriesRefresh from:body"
@@ -150,12 +150,12 @@
                     {% for cat in available_categories %}
                     <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
                         <input type="checkbox" value="{{ cat | e }}" {% if cat in selected_categories %}checked{% endif %}
-                            onchange="onFeederCategoryChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
-                        <span class="text-xs text-slate-300">{{ cat }}</span>
+                            onchange="onFeederCategoryChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
+                        <span class="text-xs text-gmp-text-menu">{{ cat }}</span>
                     </label>
                     {% endfor %}
                     {% if not available_categories %}
-                    <p class="text-[10px] text-slate-500 italic px-3 py-2">Select sport first</p>
+                    <p class="text-[10px] text-gmp-text-faint italic px-3 py-2">Select sport first</p>
                     {% endif %}
                 </div>
             </div>
@@ -169,19 +169,19 @@
         </div>
         <div class="relative" id="feeder-competition-dropdown-wrap">
             <button type="button" id="feeder-competition-trigger" onclick="toggleFeederCompetitionDropdown()"
-                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[130px] hover:border-slate-500 transition-colors"
+                class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors"
                 title="Filter by competition">
-                <i class="fa-solid fa-trophy text-slate-400 text-[10px]"></i>
+                <i class="fa-solid fa-trophy text-gmp-text-muted text-[10px]"></i>
                 <span id="feeder-competition-label">
                     {% if not selected_competitions %}All Competitions
                     {% elif selected_competitions | length == 1 %}{{ selected_competitions[0] }}
                     {% else %}{{ selected_competitions | length }} Competitions
                     {% endif %}
                 </span>
-                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+                <i class="fa-solid fa-chevron-down text-gmp-text-muted text-[10px] ml-auto"></i>
             </button>
             <div id="feeder-competition-panel"
-                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-52 py-1 max-h-[280px] overflow-y-auto">
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl w-52 py-1 max-h-[280px] overflow-y-auto">
                 <div id="feeder-competition-checkboxes-container"
                     hx-get="/feeder-events/competition-options"
                     hx-trigger="load, feederCompetitionsRefresh from:body"
@@ -190,12 +190,12 @@
                     {% for comp in available_competitions %}
                     <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
                         <input type="checkbox" value="{{ comp | e }}" {% if comp in selected_competitions %}checked{% endif %}
-                            onchange="onFeederCompetitionChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
-                        <span class="text-xs text-slate-300">{{ comp }}</span>
+                            onchange="onFeederCompetitionChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
+                        <span class="text-xs text-gmp-text-menu">{{ comp }}</span>
                     </label>
                     {% endfor %}
                     {% if not available_competitions %}
-                    <p class="text-[10px] text-slate-500 italic px-3 py-2">Select sport and category first</p>
+                    <p class="text-[10px] text-gmp-text-faint italic px-3 py-2">Select sport and category first</p>
                     {% endif %}
                 </div>
             </div>
@@ -209,24 +209,24 @@
         </div>
         <div class="relative" id="feeder-status-dropdown-wrap">
             <button type="button" id="feeder-status-trigger" onclick="toggleFeederStatusDropdown()"
-                class="flex items-center gap-2 bg-slate-900 text-white text-xs rounded border border-slate-700 px-3 py-1.5 min-w-[120px] hover:border-slate-500 transition-colors"
+                class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[120px] hover:border-gmp-border transition-colors"
                 title="Filter by event status">
-                <i class="fa-solid fa-circle-dot text-slate-400 text-[10px]"></i>
+                <i class="fa-solid fa-circle-dot text-gmp-text-muted text-[10px]"></i>
                 <span id="feeder-status-label">
                     {% if not selected_statuses %}All Statuses
                     {% elif selected_statuses | length == 1 %}{{ selected_statuses[0] | time_status_description }}
                     {% else %}{{ selected_statuses | length }} Statuses
                     {% endif %}
                 </span>
-                <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] ml-auto"></i>
+                <i class="fa-solid fa-chevron-down text-gmp-text-muted text-[10px] ml-auto"></i>
             </button>
             <div id="feeder-status-panel"
-                class="hidden absolute top-full left-0 mt-1 z-[200] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-44 py-1 max-h-[240px] overflow-y-auto">
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl w-44 py-1 max-h-[240px] overflow-y-auto">
                 {% for code, desc in available_statuses %}
                 <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
                     <input type="checkbox" name="status_check" value="{{ code | e }}" data-description="{{ desc | e }}" {% if code in selected_statuses %}checked{% endif %}
-                        onchange="onFeederStatusChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
-                    <span class="text-xs text-slate-300">{{ desc }}</span>
+                        onchange="onFeederStatusChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
+                    <span class="text-xs text-gmp-text-menu">{{ desc }}</span>
                 </label>
                 {% endfor %}
             </div>
@@ -235,53 +235,53 @@
         <!-- 7. Live match status (pre-match vs live) – icon toggle, default off = show all -->
         <input type="hidden" id="live-only-input" name="live_only" value="{{ live_only | default('0') }}">
         <button type="button" id="live-only-btn" onclick="setLiveOnlyFilter(this)" title="Show all (deselected) or live only (selected)"
-            class="feeder-filter-icon inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-slate-700 bg-slate-900 transition-colors hover:border-slate-500">
-            <i id="live-only-icon" class="fa-solid fa-tower-broadcast text-sm {{ 'text-red-500' if live_only == '1' else 'text-slate-400' }}" aria-hidden="true"></i>
+            class="feeder-filter-icon inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-gmp-border bg-gmp-surface transition-colors hover:border-gmp-border">
+            <i id="live-only-icon" class="fa-solid fa-tower-broadcast text-sm {{ 'text-danger' if live_only == '1' else 'text-gmp-text-muted' }}" aria-hidden="true"></i>
         </button>
 
         <!-- 8. Notes filter – icon toggle, default off = show all; on = only events with notes -->
         <input type="hidden" id="notes-only-input" name="notes_only" value="{{ notes_only | default('0') }}">
         <button type="button" id="notes-only-btn" onclick="setNotesOnlyFilter(this)" title="Show all (deselected) or only with notes (selected)"
-            class="feeder-filter-icon inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-slate-700 bg-slate-900 transition-colors hover:border-slate-500">
-            <i id="notes-only-icon" class="fa-solid fa-note-sticky text-sm {{ 'text-amber-400' if notes_only == '1' else 'text-slate-400' }}" aria-hidden="true"></i>
+            class="feeder-filter-icon inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-gmp-border bg-gmp-surface transition-colors hover:border-gmp-border">
+            <i id="notes-only-icon" class="fa-solid fa-note-sticky text-sm {{ 'text-warning' if notes_only == '1' else 'text-gmp-text-muted' }}" aria-hidden="true"></i>
         </button>
 
-        <div class="border-l border-slate-700 h-6 mx-1"></div>
+        <div class="border-l border-gmp-border h-6 mx-1"></div>
 
         <!-- 9. IsOutright toggle -->
         <input type="hidden" id="outright-input" name="outright_filter" value="">
-        <div class="flex bg-slate-900 rounded p-0.5 border border-slate-700" id="outright-toggle">
+        <div class="flex bg-gmp-surface rounded p-0.5 border border-gmp-border" id="outright-toggle">
             <button type="button" data-outright="" onclick="setOutrightFilter(this)"
-                class="px-3 py-1 rounded text-xs font-medium bg-slate-700 text-white shadow">All</button>
+                class="px-3 py-1 rounded text-xs font-medium bg-gmp-surface-raised text-white shadow">All</button>
             <button type="button" data-outright="outright" onclick="setOutrightFilter(this)"
-                class="px-3 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">Outright</button>
+                class="px-3 py-1 rounded text-xs font-medium text-gmp-text-muted hover:text-white">Outright</button>
             <button type="button" data-outright="regular" onclick="setOutrightFilter(this)"
-                class="px-3 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">Regular</button>
+                class="px-3 py-1 rounded text-xs font-medium text-gmp-text-muted hover:text-white">Regular</button>
         </div>
 
-        <div class="border-l border-slate-700 h-6 mx-1"></div>
+        <div class="border-l border-gmp-border h-6 mx-1"></div>
 
         <!-- 7. Mapping status toggle -->
         <input type="hidden" id="mapping-status-input" name="mapping_status_filter" value="">
-        <div class="flex bg-slate-900 rounded p-0.5 border border-slate-700" id="mapping-toggle">
+        <div class="flex bg-gmp-surface rounded p-0.5 border border-gmp-border" id="mapping-toggle">
             <button type="button" data-status="UNMAPPED" onclick="setMappingFilter(this)"
                 class="px-3 py-1 rounded text-xs font-medium bg-secondary text-white shadow">Unmapped</button>
             <button type="button" data-status="MAPPED" onclick="setMappingFilter(this)"
-                class="px-3 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">Mapped</button>
+                class="px-3 py-1 rounded text-xs font-medium text-gmp-text-muted hover:text-white">Mapped</button>
             <button type="button" data-status="" onclick="setMappingFilter(this)"
-                class="px-3 py-1 rounded text-xs font-medium text-slate-400 hover:text-white">All</button>
+                class="px-3 py-1 rounded text-xs font-medium text-gmp-text-muted hover:text-white">All</button>
         </div>
 
-        <div class="border-l border-slate-700 h-6 mx-1"></div>
+        <div class="border-l border-gmp-border h-6 mx-1"></div>
 
         <!-- 8. Search -->
-        <div class="flex items-center bg-slate-900 rounded border border-slate-700 px-2.5 py-1.5 min-w-[200px]">
-            <i class="fa-solid fa-search text-slate-500 mr-2 text-xs"></i>
+        <div class="flex items-center bg-gmp-surface rounded border border-gmp-border px-2.5 py-1.5 min-w-[200px]">
+            <i class="fa-solid fa-search text-gmp-text-faint mr-2 text-xs"></i>
             <input type="text" id="search-input" name="q" placeholder="Sport, category, competition, event…"
                 hx-get="/feeder-events/table" hx-target="#feeder-events-body" hx-swap="innerHTML"
                 hx-trigger="input changed delay:350ms"
                 hx-include="[name='feed_provider'],[name='date'],[name='date_from'],[name='date_to'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='sort_start_time'],[name='page'],[name='per_page']"
-                class="bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full">
+                class="bg-transparent border-none text-xs text-white placeholder-gmp-text-faint focus:ring-0 p-0 w-full">
         </div>
 
         <!-- Sort + paging (included in table reload) -->
@@ -295,14 +295,14 @@
 
     <!-- MAIN TABLE -->
     <div
-        class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg flex-1 overflow-hidden flex flex-col">
+        class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg flex-1 overflow-hidden flex flex-col">
         <div class="overflow-x-auto flex-1">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr
-                        class="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700 whitespace-nowrap">
+                        class="bg-gmp-surface/50 text-gmp-text-muted text-xs uppercase tracking-wider border-b border-gmp-border whitespace-nowrap">
                         <th class="px-3 py-2 font-semibold w-10 align-middle">
-                            <input type="checkbox" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary" aria-label="Bulk select all" id="feeder-events-bulk-select">
+                            <input type="checkbox" class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary" aria-label="Bulk select all" id="feeder-events-bulk-select">
                         </th>
                         <th class="px-3 py-2 font-semibold">Feed Source</th>
                         <th class="px-3 py-2 font-semibold">Feed ID</th>
@@ -311,7 +311,7 @@
                             <button type="button" id="feeder-sort-start-time-btn" class="inline-flex items-center gap-1 text-left hover:text-white transition-colors"
                                 title="Sort by start time (click to toggle)">
                                 Start Time
-                                <span id="feeder-sort-start-time-icon" class="text-slate-500">
+                                <span id="feeder-sort-start-time-icon" class="text-gmp-text-faint">
                                     {% if (feeder_sort_start_time | default('asc')) == 'desc' %}
                                     <i class="fa-solid fa-sort-down" aria-hidden="true"></i>
                                     {% else %}
@@ -330,7 +330,7 @@
                         <th class="px-3 py-2 font-semibold text-right w-14">Action</th>
                     </tr>
                 </thead>
-                <tbody id="feeder-events-body" class="divide-y divide-slate-700/40 text-xs"
+                <tbody id="feeder-events-body" class="divide-y divide-gmp-border/40 text-xs"
                     hx-get="/feeder-events/table" hx-trigger="reload" hx-swap="innerHTML"
                     hx-include="#feed-filter,[name='date'],[name='date_from'],[name='date_to'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']">
                     {% include 'feeder_events/_rows.html' %}
@@ -341,13 +341,13 @@
 
         <!-- Pagination -->
         <div id="feeder-events-pager"
-            class="px-4 py-2 bg-slate-900/50 border-t border-slate-800 flex justify-between items-center text-xs text-slate-500 flex-shrink-0"
+            class="px-4 py-2 bg-gmp-surface/50 border-t border-gmp-border-subtle flex justify-between items-center text-xs text-gmp-text-faint flex-shrink-0"
             data-total="{{ feeder_total_events | default(0) }}"
             data-page="{{ feeder_page | default(1) }}"
             data-per-page="{{ feeder_per_page | default(50) }}"
             data-total-pages="{{ feeder_total_pages | default(1) }}">
             <div class="flex items-center gap-3">
-                <button type="button" class="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 border border-slate-600" disabled title="Bulk update – coming soon">Bulk Update</button>
+                <button type="button" class="px-3 py-1 bg-gmp-surface-raised hover:bg-surfaceHover rounded text-gmp-text border border-gmp-border" disabled title="Bulk update – coming soon">Bulk Update</button>
                 <span id="feeder-pager-summary">
                     {% set fe_total = feeder_total_events | default(0) %}
                     {% set fe_start = (feeder_page - 1) * feeder_per_page + 1 if fe_total else 0 %}
@@ -356,8 +356,8 @@
                 </span>
             </div>
             <div class="flex space-x-2">
-                <button type="button" id="feeder-pager-prev" class="feeder-pager-btn px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-200 border border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed" {% if feeder_page <= 1 %}disabled{% endif %}>Previous</button>
-                <button type="button" id="feeder-pager-next" class="feeder-pager-btn px-3 py-1 bg-slate-800 rounded hover:bg-slate-700 text-slate-200 border border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed" {% if feeder_page >= feeder_total_pages %}disabled{% endif %}>Next</button>
+                <button type="button" id="feeder-pager-prev" class="feeder-pager-btn px-3 py-1 bg-gmp-surface-raised rounded hover:bg-gmp-surface-popover text-gmp-text border border-gmp-border disabled:opacity-50 disabled:cursor-not-allowed" {% if feeder_page <= 1 %}disabled{% endif %}>Previous</button>
+                <button type="button" id="feeder-pager-next" class="feeder-pager-btn px-3 py-1 bg-gmp-surface-raised rounded hover:bg-gmp-surface-popover text-gmp-text border border-gmp-border disabled:opacity-50 disabled:cursor-not-allowed" {% if feeder_page >= feeder_total_pages %}disabled{% endif %}>Next</button>
             </div>
         </div>
     </div>
@@ -431,10 +431,10 @@
         if (labelEl && period) labelEl.textContent = getFeederPeriodLabel(period, fromVal || '', toVal || '');
         document.querySelectorAll('.fe-period-option').forEach(function (o) {
             o.classList.remove('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
-            o.classList.add('text-slate-300');
+            o.classList.add('text-gmp-text-menu');
             if (o.getAttribute('data-period') === period) {
                 o.classList.add('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
-                o.classList.remove('text-slate-300');
+                o.classList.remove('text-gmp-text-menu');
             }
         });
     }
@@ -768,15 +768,15 @@
         if (q) badges.push({ type: 'search', label: 'Search: "' + q + '"', value: q });
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
         let html = badges.map(b =>
-            `<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-slate-700/80 border border-slate-600 text-slate-200">
+            `<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-gmp-surface-raised/80 border border-gmp-border text-gmp-text">
                 ${esc(b.label)}
-                <button type="button" class="remove-feeder-filter-badge hover:bg-slate-600 rounded p-0.5 transition-colors" data-filter-type="${esc(b.type)}" data-filter-value="${esc(b.value)}" aria-label="Remove filter">
+                <button type="button" class="remove-feeder-filter-badge hover:bg-surfaceHover rounded p-0.5 transition-colors" data-filter-type="${esc(b.type)}" data-filter-value="${esc(b.value)}" aria-label="Remove filter">
                     <i class="fa-solid fa-times text-[10px]"></i>
                 </button>
             </span>`
         ).join('');
         if (badges.length > 0) {
-            html += `<button type="button" id="feeder-clear-all-filters" class="text-xs text-slate-400 hover:text-primary transition-colors ml-1">Clear all</button>`;
+            html += `<button type="button" id="feeder-clear-all-filters" class="text-xs text-gmp-text-muted hover:text-primary transition-colors ml-1">Clear all</button>`;
         }
         container.innerHTML = html;
         container.querySelectorAll('.remove-feeder-filter-badge').forEach(btn => {
@@ -803,25 +803,25 @@
         if (searchEl) { searchEl.value = ''; }
         document.getElementById('outright-input').value = '';
         document.querySelectorAll('#outright-toggle button').forEach(b => {
-            b.classList.remove('bg-slate-700', 'text-white', 'shadow');
-            b.classList.add('text-slate-400', 'hover:text-white');
+            b.classList.remove('bg-gmp-surface-raised', 'text-white', 'shadow');
+            b.classList.add('text-gmp-text-muted', 'hover:text-white');
         });
-        document.querySelector('#outright-toggle button[data-outright=""]').classList.add('bg-slate-700', 'text-white', 'shadow');
+        document.querySelector('#outright-toggle button[data-outright=""]').classList.add('bg-gmp-surface-raised', 'text-white', 'shadow');
         document.getElementById('mapping-status-input').value = '';
         document.querySelectorAll('#mapping-toggle button').forEach(b => {
             b.classList.remove('bg-secondary', 'text-white', 'shadow');
-            b.classList.add('text-slate-400', 'hover:text-white');
+            b.classList.add('text-gmp-text-muted', 'hover:text-white');
         });
         const allMappingBtn = document.querySelector('#mapping-toggle button[data-status=""]');
         if (allMappingBtn) allMappingBtn.classList.add('bg-secondary', 'text-white', 'shadow');
         var liveInput = document.getElementById('live-only-input');
         if (liveInput) liveInput.value = '0';
         var liveIcon = document.getElementById('live-only-icon');
-        if (liveIcon) { liveIcon.classList.add('text-slate-400'); liveIcon.classList.remove('text-red-500'); }
+        if (liveIcon) { liveIcon.classList.add('text-gmp-text-muted'); liveIcon.classList.remove('text-danger'); }
         var notesInput = document.getElementById('notes-only-input');
         if (notesInput) notesInput.value = '0';
         var notesIcon = document.getElementById('notes-only-icon');
-        if (notesIcon) { notesIcon.classList.add('text-slate-400'); notesIcon.classList.remove('text-amber-400'); }
+        if (notesIcon) { notesIcon.classList.add('text-gmp-text-muted'); notesIcon.classList.remove('text-warning'); }
         updateFeederCategoryButtonState();
         updateFeederCompetitionButtonState();
         triggerTableRefresh();
@@ -862,16 +862,16 @@
         } else if (type === 'outright') {
             document.getElementById('outright-input').value = '';
             document.querySelectorAll('#outright-toggle button').forEach(b => {
-                b.classList.remove('bg-slate-700', 'text-white', 'shadow');
-                b.classList.add('text-slate-400', 'hover:text-white');
+                b.classList.remove('bg-gmp-surface-raised', 'text-white', 'shadow');
+                b.classList.add('text-gmp-text-muted', 'hover:text-white');
             });
-            document.querySelector('#outright-toggle button[data-outright=""]').classList.add('bg-slate-700', 'text-white', 'shadow');
+            document.querySelector('#outright-toggle button[data-outright=""]').classList.add('bg-gmp-surface-raised', 'text-white', 'shadow');
             triggerTableRefresh();
         } else if (type === 'mapping_status') {
             document.getElementById('mapping-status-input').value = '';
             document.querySelectorAll('#mapping-toggle button').forEach(b => {
                 b.classList.remove('bg-secondary', 'text-white', 'shadow');
-                b.classList.add('text-slate-400', 'hover:text-white');
+                b.classList.add('text-gmp-text-muted', 'hover:text-white');
             });
             const allBtn = document.querySelector('#mapping-toggle button[data-status=""]');
             if (allBtn) allBtn.classList.add('bg-secondary', 'text-white', 'shadow');
@@ -893,11 +893,11 @@
     function setOutrightFilter(btn) {
         document.getElementById('outright-input').value = btn.dataset.outright;
         document.querySelectorAll('#outright-toggle button').forEach(b => {
-            b.classList.remove('bg-slate-700', 'text-white', 'shadow');
-            b.classList.add('text-slate-400', 'hover:text-white');
+            b.classList.remove('bg-gmp-surface-raised', 'text-white', 'shadow');
+            b.classList.add('text-gmp-text-muted', 'hover:text-white');
         });
-        btn.classList.add('bg-slate-700', 'text-white', 'shadow');
-        btn.classList.remove('text-slate-400', 'hover:text-white');
+        btn.classList.add('bg-gmp-surface-raised', 'text-white', 'shadow');
+        btn.classList.remove('text-gmp-text-muted', 'hover:text-white');
         triggerTableRefresh();
     }
 
@@ -906,10 +906,10 @@
         document.getElementById('mapping-status-input').value = btn.dataset.status;
         document.querySelectorAll('#mapping-toggle button').forEach(b => {
             b.classList.remove('bg-secondary', 'text-white', 'shadow');
-            b.classList.add('text-slate-400', 'hover:text-white');
+            b.classList.add('text-gmp-text-muted', 'hover:text-white');
         });
         btn.classList.add('bg-secondary', 'text-white', 'shadow');
-        btn.classList.remove('text-slate-400', 'hover:text-white');
+        btn.classList.remove('text-gmp-text-muted', 'hover:text-white');
         triggerTableRefresh();
     }
 
@@ -919,7 +919,7 @@
         var on = input && input.value === '1';
         if (input) input.value = on ? '0' : '1';
         var icon = document.getElementById('live-only-icon');
-        if (icon) { icon.classList.toggle('text-red-500', !on); icon.classList.toggle('text-slate-400', on); }
+        if (icon) { icon.classList.toggle('text-danger', !on); icon.classList.toggle('text-gmp-text-muted', on); }
         triggerTableRefresh();
     }
     function setNotesOnlyFilter(btn) {
@@ -927,7 +927,7 @@
         var on = input && input.value === '1';
         if (input) input.value = on ? '0' : '1';
         var icon = document.getElementById('notes-only-icon');
-        if (icon) { icon.classList.toggle('text-amber-400', !on); icon.classList.toggle('text-slate-400', on); }
+        if (icon) { icon.classList.toggle('text-warning', !on); icon.classList.toggle('text-gmp-text-muted', on); }
         triggerTableRefresh();
     }
 

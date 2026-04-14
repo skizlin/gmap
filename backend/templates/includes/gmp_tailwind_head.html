@@ -1,0 +1,106 @@
+{# Shared Tailwind + GMP semantic CSS variables (dark). Used by layout.html and login_layout.html #}
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: {
+            extend: {
+                colors: {
+                    primary: 'rgb(var(--gmp-primary) / <alpha-value>)',
+                    primaryHover: 'rgb(var(--gmp-primary-hover) / <alpha-value>)',
+                    secondary: 'rgb(var(--gmp-secondary) / <alpha-value>)',
+                    darkbg: 'rgb(var(--gmp-canvas) / <alpha-value>)',
+                    cardbg: 'rgb(var(--gmp-surface-raised) / <alpha-value>)',
+                    gmp: {
+                        canvas: 'rgb(var(--gmp-canvas) / <alpha-value>)',
+                        surface: {
+                            DEFAULT: 'rgb(var(--gmp-surface-base) / <alpha-value>)',
+                            raised: 'rgb(var(--gmp-surface-raised) / <alpha-value>)',
+                            popover: 'rgb(var(--gmp-surface-popover) / <alpha-value>)',
+                            inset: 'rgb(var(--gmp-surface-inset) / <alpha-value>)',
+                        },
+                        border: {
+                            DEFAULT: 'rgb(var(--gmp-border) / <alpha-value>)',
+                            subtle: 'rgb(var(--gmp-border-subtle) / <alpha-value>)',
+                        },
+                        text: {
+                            DEFAULT: 'rgb(var(--gmp-text-body) / <alpha-value>)',
+                            menu: 'rgb(var(--gmp-text-menu) / <alpha-value>)',
+                            muted: 'rgb(var(--gmp-text-muted) / <alpha-value>)',
+                            faint: 'rgb(var(--gmp-text-faint) / <alpha-value>)',
+                            heading: 'rgb(var(--gmp-text-heading) / <alpha-value>)',
+                        },
+                    },
+                    success: 'rgb(var(--gmp-success) / <alpha-value>)',
+                    warning: 'rgb(var(--gmp-warning) / <alpha-value>)',
+                    danger: 'rgb(var(--gmp-danger) / <alpha-value>)',
+                    info: 'rgb(var(--gmp-info) / <alpha-value>)',
+                    infoHover: 'rgb(var(--gmp-info-hover) / <alpha-value>)',
+                    surfaceHover: 'rgb(var(--gmp-surface-hover) / <alpha-value>)',
+                },
+                accentColor: {
+                    warning: 'rgb(var(--gmp-warning) / <alpha-value>)',
+                },
+            }
+        }
+    }
+</script>
+<style>
+    html.dark {
+        --gmp-canvas: 15 23 42;
+        --gmp-surface-base: 15 23 42;
+        --gmp-surface-raised: 30 41 59;
+        --gmp-surface-popover: 30 41 59;
+        --gmp-surface-inset: 2 6 23;
+        --gmp-border-subtle: 30 41 59;
+        --gmp-border: 51 65 85;
+        --gmp-text-heading: 255 255 255;
+        --gmp-text-body: 226 232 240;
+        --gmp-text-menu: 203 213 225;
+        --gmp-text-muted: 148 163 184;
+        --gmp-text-faint: 100 116 139;
+        --gmp-primary: 16 185 129;
+        --gmp-primary-hover: 5 150 105;
+        --gmp-secondary: 59 130 246;
+        --gmp-success: 16 185 129;
+        --gmp-warning: 245 158 11;
+        --gmp-danger: 248 113 113;
+        --gmp-info: 59 130 246;
+        --gmp-info-hover: 37 99 235;
+        --gmp-toast-success-bg: 6 78 59;
+        --gmp-toast-success-fg: 209 250 229;
+        --gmp-toast-warning-bg: 69 26 3;
+        --gmp-toast-warning-fg: 254 243 199;
+        --gmp-backdrop-scrim: 15 23 42;
+        --gmp-surface-hover: 51 65 85;
+    }
+
+    .glass-panel {
+        background-color: rgb(var(--gmp-surface-raised) / 0.8);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgb(var(--gmp-border) / 0.5);
+    }
+
+    .gmp-toast-success {
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+        background-color: rgb(var(--gmp-toast-success-bg) / 0.95);
+        border: 1px solid rgb(var(--gmp-success) / 0.6);
+        color: rgb(var(--gmp-toast-success-fg));
+    }
+
+    .gmp-toast-warning {
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        line-height: 1.375;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+        max-width: 28rem;
+        background-color: rgb(var(--gmp-toast-warning-bg) / 0.95);
+        border: 1px solid rgb(var(--gmp-warning) / 0.7);
+        color: rgb(var(--gmp-toast-warning-fg));
+    }
+</style>

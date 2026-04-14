@@ -10,30 +10,30 @@
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- Per-feed summary (real data) -->
     <div class="glass-panel p-6 rounded-lg">
-        <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2 flex items-center gap-2">
-            <i class="fa-solid fa-chart-simple text-slate-500"></i> Per-feed summary
+        <h3 class="text-gmp-text-muted text-sm font-medium uppercase tracking-wider mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-chart-simple text-gmp-text-faint"></i> Per-feed summary
         </h3>
-        <p class="text-slate-500 text-xs mb-4">Go to <a href="/feeder-events" class="text-primary hover:text-emerald-400">Feeder Events</a> to map events.</p>
+        <p class="text-gmp-text-faint text-xs mb-4">Go to <a href="/feeder-events" class="text-primary hover:text-success">Feeder Events</a> to map events.</p>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="text-left text-slate-500 border-b border-slate-700">
+                    <tr class="text-left text-gmp-text-faint border-b border-gmp-border">
                         <th class="pb-2 pr-4 font-medium">Feed</th>
                         <th class="pb-2 pr-4 font-medium text-right">Total</th>
                         <th class="pb-2 pr-4 font-medium text-right text-primary">Mapped</th>
-                        <th class="pb-2 pr-4 font-medium text-right text-amber-400">Unmapped</th>
+                        <th class="pb-2 pr-4 font-medium text-right text-warning">Unmapped</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for s in feed_stats %}
-                    <tr class="border-b border-slate-700/50 last:border-0">
+                    <tr class="border-b border-gmp-border/50 last:border-0">
                         <td class="py-2 pr-4 text-white">{{ s.feed_name }}</td>
-                        <td class="py-2 pr-4 text-right text-slate-300">{{ s.total }}</td>
+                        <td class="py-2 pr-4 text-right text-gmp-text-menu">{{ s.total }}</td>
                         <td class="py-2 pr-4 text-right text-primary">{{ s.mapped }}</td>
-                        <td class="py-2 pr-4 text-right text-amber-400/90">{{ s.unmapped }}</td>
+                        <td class="py-2 pr-4 text-right text-warning/90">{{ s.unmapped }}</td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="4" class="py-4 text-slate-500 italic">No feed data yet. Pull feeds to see counts.</td></tr>
+                    <tr><td colspan="4" class="py-4 text-gmp-text-faint italic">No feed data yet. Pull feeds to see counts.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -42,57 +42,57 @@
 
     <!-- What's new -->
     <div class="glass-panel p-6 rounded-lg">
-        <h3 class="text-slate-400 text-sm font-medium uppercase tracking-wider mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-list-check text-slate-500"></i> What's new
+        <h3 class="text-gmp-text-muted text-sm font-medium uppercase tracking-wider mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-gmp-text-faint"></i> What's new
         </h3>
         <div class="space-y-4">
             {% for release in changelog %}
-            <div class="border-l-2 border-slate-600 pl-4">
-                <p class="text-white font-medium">Version {{ release.version }}{% if release.date %} <span class="text-slate-500 font-normal">({{ release.date }})</span>{% endif %}</p>
-                <ul class="mt-1 text-slate-400 text-sm space-y-0.5">
+            <div class="border-l-2 border-gmp-border pl-4">
+                <p class="text-white font-medium">Version {{ release.version }}{% if release.date %} <span class="text-gmp-text-faint font-normal">({{ release.date }})</span>{% endif %}</p>
+                <ul class="mt-1 text-gmp-text-muted text-sm space-y-0.5">
                     {% for item in release["items"] %}
                     <li>· {{ item }}</li>
                     {% endfor %}
                 </ul>
             </div>
             {% else %}
-            <p class="text-slate-500 italic">No release notes yet.</p>
+            <p class="text-gmp-text-faint italic">No release notes yet.</p>
             {% endfor %}
         </div>
     </div>
 </div>
 
 <!-- Footer: Application stack (3 cols) + Pull Feeds Data (1 col) -->
-<footer class="glass-panel p-6 rounded-lg border-t border-slate-700/50 mt-auto">
+<footer class="glass-panel p-6 rounded-lg border-t border-gmp-border/50 mt-auto">
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div>
-            <h3 class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">Application stack</h3>
+            <h3 class="text-gmp-text-muted text-xs font-medium uppercase tracking-wider mb-3">Application stack</h3>
             <ul class="space-y-1.5 text-sm">
-                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Python</span><span class="text-slate-500 text-xs">runtime</span></li>
-                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">FastAPI</span><span class="text-slate-500 text-xs">web framework</span></li>
-                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Uvicorn</span><span class="text-slate-500 text-xs">ASGI server</span></li>
+                <li class="flex items-center gap-2 text-gmp-text-menu"><span class="font-mono text-primary/90">Python</span><span class="text-gmp-text-faint text-xs">runtime</span></li>
+                <li class="flex items-center gap-2 text-gmp-text-menu"><span class="font-mono text-primary/90">FastAPI</span><span class="text-gmp-text-faint text-xs">web framework</span></li>
+                <li class="flex items-center gap-2 text-gmp-text-menu"><span class="font-mono text-primary/90">Uvicorn</span><span class="text-gmp-text-faint text-xs">ASGI server</span></li>
             </ul>
         </div>
         <div>
-            <h3 class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">&nbsp;</h3>
+            <h3 class="text-gmp-text-muted text-xs font-medium uppercase tracking-wider mb-3">&nbsp;</h3>
             <ul class="space-y-1.5 text-sm">
-                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Jinja2</span><span class="text-slate-500 text-xs">templating</span></li>
-                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Pydantic</span><span class="text-slate-500 text-xs">validation</span></li>
-                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Tailwind CSS</span><span class="text-slate-500 text-xs">styling</span></li>
+                <li class="flex items-center gap-2 text-gmp-text-menu"><span class="font-mono text-primary/90">Jinja2</span><span class="text-gmp-text-faint text-xs">templating</span></li>
+                <li class="flex items-center gap-2 text-gmp-text-menu"><span class="font-mono text-primary/90">Pydantic</span><span class="text-gmp-text-faint text-xs">validation</span></li>
+                <li class="flex items-center gap-2 text-gmp-text-menu"><span class="font-mono text-primary/90">Tailwind CSS</span><span class="text-gmp-text-faint text-xs">styling</span></li>
             </ul>
         </div>
         <div>
-            <h3 class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">&nbsp;</h3>
+            <h3 class="text-gmp-text-muted text-xs font-medium uppercase tracking-wider mb-3">&nbsp;</h3>
             <ul class="space-y-1.5 text-sm">
-                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">HTMX</span><span class="text-slate-500 text-xs">dynamic UI</span></li>
-                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">Font Awesome</span><span class="text-slate-500 text-xs">icons</span></li>
-                <li class="flex items-center gap-2 text-slate-300"><span class="font-mono text-primary/90">CSV / JSON</span><span class="text-slate-500 text-xs">data layer</span></li>
+                <li class="flex items-center gap-2 text-gmp-text-menu"><span class="font-mono text-primary/90">HTMX</span><span class="text-gmp-text-faint text-xs">dynamic UI</span></li>
+                <li class="flex items-center gap-2 text-gmp-text-menu"><span class="font-mono text-primary/90">Font Awesome</span><span class="text-gmp-text-faint text-xs">icons</span></li>
+                <li class="flex items-center gap-2 text-gmp-text-menu"><span class="font-mono text-primary/90">CSV / JSON</span><span class="text-gmp-text-faint text-xs">data layer</span></li>
             </ul>
         </div>
         <div class="lg:text-right">
-            <h3 class="text-slate-400 text-xs font-medium uppercase tracking-wider mb-3">Data</h3>
+            <h3 class="text-gmp-text-muted text-xs font-medium uppercase tracking-wider mb-3">Data</h3>
             <a href="/pull-feeds"
-                class="inline-flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-lg transition-all font-medium text-sm">
+                class="inline-flex items-center px-4 py-2 bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text border border-gmp-border rounded-lg transition-all font-medium text-sm">
                 <i class="fa-solid fa-download mr-2"></i> Pull Feeds Data
             </a>
         </div>

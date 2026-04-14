@@ -9,9 +9,9 @@
 <div class="flex flex-col h-full space-y-3">
 
     <!-- Tabs (hash-based: #partners, #brands for direct links) -->
-    <div class="flex border-b border-slate-700" role="tablist">
+    <div class="flex border-b border-gmp-border" role="tablist">
         <a href="#partners" id="tab-partners" data-tab-key="partners" onclick="event.preventDefault(); switchBrandsTab('partners');"
-            class="brands-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-white transition-colors no-underline cursor-pointer">
+            class="brands-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gmp-text-muted hover:text-white transition-colors no-underline cursor-pointer">
             <i class="fa-solid fa-handshake mr-1.5"></i> Partners
         </a>
         <a href="#brands" id="tab-brands" data-tab-key="brands" onclick="event.preventDefault(); switchBrandsTab('brands');"
@@ -24,41 +24,41 @@
     <div id="panel-partners" class="hidden flex flex-col h-full space-y-3 flex-1 min-h-0">
         <div class="flex items-center justify-end">
             <button type="button" onclick="partnersShowAddForm()"
-                class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
+                class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> Add partner
             </button>
         </div>
-        <div id="partner-add-form" class="hidden bg-cardbg/80 border border-slate-700 rounded-lg p-5 space-y-4">
+        <div id="partner-add-form" class="hidden bg-cardbg/80 border border-gmp-border rounded-lg p-5 space-y-4">
             <h3 class="text-sm font-semibold text-white">Add partner</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name <span class="text-red-500">*</span></label>
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name <span class="text-danger">*</span></label>
                     <input type="text" id="partner-form-name" placeholder="Partner name"
-                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
                     <input type="text" id="partner-form-code" placeholder="e.g. acme_corp (optional)"
-                        class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <label class="flex items-center gap-2 text-sm text-slate-300">
-                    <input type="checkbox" id="partner-form-active" checked class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary">
+                <label class="flex items-center gap-2 text-sm text-gmp-text-menu">
+                    <input type="checkbox" id="partner-form-active" checked class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary">
                     Active
                 </label>
             </div>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="partnersSubmitAdd()"
-                    class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                    class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
                 <button type="button" onclick="partnersHideAddForm()"
-                    class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
-                <span id="partner-form-status" class="text-xs text-slate-400"></span>
+                    class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                <span id="partner-form-status" class="text-xs text-gmp-text-muted"></span>
             </div>
         </div>
-        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
             <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
                     <tr>
                         <th class="px-3 py-2 font-semibold w-48">Name</th>
                         <th class="px-3 py-2 font-semibold w-32">Code</th>
@@ -69,26 +69,26 @@
                 </thead>
                 <tbody>
                     {% for partner in partners %}
-                    <tr class="hover:bg-white/5 transition-colors border-b border-slate-700/30" data-partner-id="{{ partner.id }}">
+                    <tr class="hover:bg-white/5 transition-colors border-b border-gmp-border/30" data-partner-id="{{ partner.id }}">
                         <td class="px-3 py-2 text-white font-medium">{{ partner.name }}</td>
-                        <td class="px-3 py-2 text-slate-400 font-mono">{{ partner.code }}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted font-mono">{{ partner.code }}</td>
                         <td class="px-3 py-2">
                             {% if partner.active %}
                             <span class="text-primary">Yes</span>
                             {% else %}
-                            <span class="text-slate-500">No</span>
+                            <span class="text-gmp-text-faint">No</span>
                             {% endif %}
                         </td>
-                        <td class="px-3 py-2 text-slate-300">
+                        <td class="px-3 py-2 text-gmp-text-menu">
                             {% if partner.brands %}
                             {% for b in partner.brands %}{{ b.name }}{% if not loop.last %}, {% endif %}{% endfor %}
                             {% else %}
-                            <span class="text-slate-500">—</span>
+                            <span class="text-gmp-text-faint">—</span>
                             {% endif %}
                         </td>
                         <td class="px-3 py-2 text-right">
                             <button type="button" onclick="partnersEdit({{ partner.id }})"
-                                class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-slate-700 text-slate-200 hover:bg-slate-600">
+                                class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-gmp-surface-raised text-gmp-text hover:bg-surfaceHover">
                                 Edit
                             </button>
                         </td>
@@ -96,7 +96,7 @@
                     {% endfor %}
                     {% if not partners %}
                     <tr>
-                        <td colspan="5" class="px-3 py-6 text-center text-slate-500">No partners yet. Add a partner, then assign brands on the Brands tab.</td>
+                        <td colspan="5" class="px-3 py-6 text-center text-gmp-text-faint">No partners yet. Add a partner, then assign brands on the Brands tab.</td>
                     </tr>
                     {% endif %}
                 </tbody>
@@ -108,93 +108,93 @@
     <div id="panel-brands" class="flex flex-col h-full space-y-3 flex-1 min-h-0">
     <div class="flex items-center justify-end">
         <button type="button" onclick="brandsShowAddForm()"
-            class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
+            class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
             <i class="fa-solid fa-plus"></i> Add brand
         </button>
     </div>
 
     <!-- Add brand form (hidden by default) -->
-    <div id="brand-add-form" class="hidden bg-cardbg/80 border border-slate-700 rounded-lg p-5 space-y-4">
+    <div id="brand-add-form" class="hidden bg-cardbg/80 border border-gmp-border rounded-lg p-5 space-y-4">
         <h3 class="text-sm font-semibold text-white">Add brand</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name <span class="text-red-500">*</span></label>
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name <span class="text-danger">*</span></label>
                 <input type="text" id="brand-form-name" placeholder="Brand name"
-                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
             </div>
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
                 <input type="text" id="brand-form-code" placeholder="e.g. brand_uk (optional)"
-                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
             </div>
             <div class="md:col-span-2">
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
-                <select id="brand-form-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Partner</label>
+                <select id="brand-form-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                     <option value="">Global (platform)</option>
                     {% for p in partners %}
                     <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
                     {% endfor %}
                 </select>
-                <span class="text-[10px] text-slate-500">Global = our company; assign to a partner for B2B client brands.</span>
+                <span class="text-[10px] text-gmp-text-faint">Global = our company; assign to a partner for B2B client brands.</span>
             </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Jurisdiction</label>
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Jurisdiction</label>
                 <select id="brand-form-jurisdiction" multiple
-                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
                     {% for c in countries %}
                     <option value="{{ c.cc }}">{{ c.name }}</option>
                     {% endfor %}
                 </select>
-                <span class="text-[10px] text-slate-500">Ctrl+click to select multiple</span>
+                <span class="text-[10px] text-gmp-text-faint">Ctrl+click to select multiple</span>
             </div>
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Languages</label>
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Languages</label>
                 <select id="brand-form-language-ids" multiple
-                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
                     {% for lang in languages %}
                     <option value="{{ lang.id }}">{{ lang.name }}</option>
                     {% endfor %}
                 </select>
-                <span class="text-[10px] text-slate-500">Ctrl+click to select multiple</span>
+                <span class="text-[10px] text-gmp-text-faint">Ctrl+click to select multiple</span>
             </div>
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Currencies</label>
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Currencies</label>
                 <select id="brand-form-currencies" multiple
-                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
                     {% for curr in currencies %}
                     <option value="{{ curr }}">{{ curr }}</option>
                     {% endfor %}
                 </select>
-                <span class="text-[10px] text-slate-500">Ctrl+click to select multiple</span>
+                <span class="text-[10px] text-gmp-text-faint">Ctrl+click to select multiple</span>
             </div>
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Odds formats</label>
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Odds formats</label>
                 <select id="brand-form-odds-formats" multiple
-                    class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
                     {% for fmt in odds_formats %}
                     <option value="{{ fmt }}">{{ fmt }}</option>
                     {% endfor %}
                 </select>
-                <span class="text-[10px] text-slate-500">Ctrl+click to select multiple</span>
+                <span class="text-[10px] text-gmp-text-faint">Ctrl+click to select multiple</span>
             </div>
         </div>
         <div class="flex items-center gap-2">
             <button type="button" onclick="brandsSubmitAdd()"
-                class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">
+                class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">
                 Save
             </button>
             <button type="button" onclick="brandsHideAddForm()"
-                class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
-            <span id="brand-form-status" class="text-xs text-slate-400"></span>
+                class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <span id="brand-form-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>
 
     <!-- Brands table -->
-    <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+    <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
         <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-            <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+            <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
                 <tr>
                     <th class="px-3 py-2 font-semibold w-40">Name</th>
                     <th class="px-3 py-2 font-semibold w-28">Code</th>
@@ -208,28 +208,28 @@
             </thead>
             <tbody>
                 <!-- Global row (read-only) -->
-                <tr class="bg-slate-800/50 border-b border-slate-700/50">
+                <tr class="bg-gmp-surface-raised/50 border-b border-gmp-border/50">
                     <td class="px-3 py-2 font-medium text-white">Global</td>
-                    <td class="px-3 py-2 text-slate-500">—</td>
-                    <td class="px-3 py-2 text-slate-400">—</td>
-                    <td class="px-3 py-2 text-slate-400">All</td>
-                    <td class="px-3 py-2 text-slate-400">All</td>
-                    <td class="px-3 py-2 text-slate-400">All</td>
-                    <td class="px-3 py-2 text-slate-400">All</td>
-                    <td class="px-3 py-2 text-right text-slate-500">—</td>
+                    <td class="px-3 py-2 text-gmp-text-faint">—</td>
+                    <td class="px-3 py-2 text-gmp-text-muted">—</td>
+                    <td class="px-3 py-2 text-gmp-text-muted">All</td>
+                    <td class="px-3 py-2 text-gmp-text-muted">All</td>
+                    <td class="px-3 py-2 text-gmp-text-muted">All</td>
+                    <td class="px-3 py-2 text-gmp-text-muted">All</td>
+                    <td class="px-3 py-2 text-right text-gmp-text-faint">—</td>
                 </tr>
                 {% for brand in brands %}
-                <tr class="hover:bg-white/5 transition-colors border-b border-slate-700/30" data-brand-id="{{ brand.id }}">
+                <tr class="hover:bg-white/5 transition-colors border-b border-gmp-border/30" data-brand-id="{{ brand.id }}">
                     <td class="px-3 py-2 text-white">{{ brand.name }}</td>
-                    <td class="px-3 py-2 text-slate-400 font-mono">{{ brand.code }}</td>
-                    <td class="px-3 py-2 text-slate-300">{{ brand.partner_name }}</td>
-                    <td class="px-3 py-2 text-slate-300">{{ brand.jurisdiction_display }}</td>
-                    <td class="px-3 py-2 text-slate-300">{{ brand.language_display }}</td>
-                    <td class="px-3 py-2 text-slate-300">{{ brand.currencies or '—' }}</td>
-                    <td class="px-3 py-2 text-slate-300">{{ brand.odds_formats or '—' }}</td>
+                    <td class="px-3 py-2 text-gmp-text-muted font-mono">{{ brand.code }}</td>
+                    <td class="px-3 py-2 text-gmp-text-menu">{{ brand.partner_name }}</td>
+                    <td class="px-3 py-2 text-gmp-text-menu">{{ brand.jurisdiction_display }}</td>
+                    <td class="px-3 py-2 text-gmp-text-menu">{{ brand.language_display }}</td>
+                    <td class="px-3 py-2 text-gmp-text-menu">{{ brand.currencies or '—' }}</td>
+                    <td class="px-3 py-2 text-gmp-text-menu">{{ brand.odds_formats or '—' }}</td>
                     <td class="px-3 py-2 text-right">
                         <button type="button" onclick="brandsEdit({{ brand.id }})"
-                            class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-slate-700 text-slate-200 hover:bg-slate-600">
+                            class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-gmp-surface-raised text-gmp-text hover:bg-surfaceHover">
                             Edit
                         </button>
                     </td>
@@ -243,58 +243,58 @@
 
 <!-- Edit partner modal -->
 <div id="partner-edit-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
+    <div class="bg-gmp-surface border border-gmp-border rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
         <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-white">Edit partner</h3>
-            <button type="button" onclick="partnersCloseEditModal()" class="text-slate-400 hover:text-white p-1">
+            <button type="button" onclick="partnersCloseEditModal()" class="text-gmp-text-muted hover:text-white p-1">
                 <i class="fa-solid fa-times"></i>
             </button>
         </div>
         <input type="hidden" id="partner-edit-id" value="">
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
-            <input type="text" id="partner-edit-name" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
+            <input type="text" id="partner-edit-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
         </div>
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
-            <input type="text" id="partner-edit-code" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
+            <input type="text" id="partner-edit-code" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
         </div>
         <div class="flex items-center gap-2">
-            <label class="flex items-center gap-2 text-sm text-slate-300">
-                <input type="checkbox" id="partner-edit-active" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary">
+            <label class="flex items-center gap-2 text-sm text-gmp-text-menu">
+                <input type="checkbox" id="partner-edit-active" class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary">
                 Active
             </label>
         </div>
         <div class="flex items-center gap-2">
-            <button type="button" onclick="partnersSubmitEdit()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
-            <button type="button" onclick="partnersCloseEditModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
-            <span id="partner-edit-status" class="text-xs text-slate-400"></span>
+            <button type="button" onclick="partnersSubmitEdit()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+            <button type="button" onclick="partnersCloseEditModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <span id="partner-edit-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>
 </div>
 
 <!-- Edit brand modal (hidden by default) -->
 <div id="brand-edit-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
+    <div class="bg-gmp-surface border border-gmp-border rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
         <div class="flex items-center justify-between">
             <h3 class="text-sm font-semibold text-white">Edit brand</h3>
-            <button type="button" onclick="brandsCloseEditModal()" class="text-slate-400 hover:text-white p-1">
+            <button type="button" onclick="brandsCloseEditModal()" class="text-gmp-text-muted hover:text-white p-1">
                 <i class="fa-solid fa-times"></i>
             </button>
         </div>
         <input type="hidden" id="brand-edit-id" value="">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
-                <input type="text" id="brand-edit-name" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
+                <input type="text" id="brand-edit-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
             </div>
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
-                <input type="text" id="brand-edit-code" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
+                <input type="text" id="brand-edit-code" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
             </div>
             <div class="md:col-span-2">
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Partner</label>
-                <select id="brand-edit-partner-id" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Partner</label>
+                <select id="brand-edit-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                     <option value="">Global (platform)</option>
                     {% for p in partners %}
                     <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
@@ -304,32 +304,32 @@
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Jurisdiction</label>
-                <select id="brand-edit-jurisdiction" multiple class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Jurisdiction</label>
+                <select id="brand-edit-jurisdiction" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
                     {% for c in countries %}
                     <option value="{{ c.cc }}">{{ c.name }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Languages</label>
-                <select id="brand-edit-language-ids" multiple class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Languages</label>
+                <select id="brand-edit-language-ids" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
                     {% for lang in languages %}
                     <option value="{{ lang.id }}">{{ lang.name }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Currencies</label>
-                <select id="brand-edit-currencies" multiple class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Currencies</label>
+                <select id="brand-edit-currencies" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
                     {% for curr in currencies %}
                     <option value="{{ curr }}">{{ curr }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Odds formats</label>
-                <select id="brand-edit-odds-formats" multiple class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Odds formats</label>
+                <select id="brand-edit-odds-formats" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
                     {% for fmt in odds_formats %}
                     <option value="{{ fmt }}">{{ fmt }}</option>
                     {% endfor %}
@@ -337,9 +337,9 @@
             </div>
         </div>
         <div class="flex items-center gap-2">
-            <button type="button" onclick="brandsSubmitEdit()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
-            <button type="button" onclick="brandsCloseEditModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
-            <span id="brand-edit-status" class="text-xs text-slate-400"></span>
+            <button type="button" onclick="brandsSubmitEdit()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+            <button type="button" onclick="brandsCloseEditModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <span id="brand-edit-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>
 </div>
@@ -359,7 +359,7 @@
                 tabs[key].classList.toggle('border-primary', key === tab);
                 tabs[key].classList.toggle('text-primary', key === tab);
                 tabs[key].classList.toggle('border-transparent', key !== tab);
-                tabs[key].classList.toggle('text-slate-400', key !== tab);
+                tabs[key].classList.toggle('text-gmp-text-muted', key !== tab);
             }
         });
         window.location.hash = tab;
@@ -389,14 +389,14 @@
         const name = document.getElementById('partner-form-name').value.trim();
         if (!name) {
             document.getElementById('partner-form-status').textContent = 'Name is required.';
-            document.getElementById('partner-form-status').className = 'text-xs text-amber-400';
+            document.getElementById('partner-form-status').className = 'text-xs text-warning';
             return;
         }
         const code = document.getElementById('partner-form-code').value.trim();
         const active = document.getElementById('partner-form-active').checked;
         const statusEl = document.getElementById('partner-form-status');
         statusEl.textContent = 'Saving…';
-        statusEl.className = 'text-xs text-slate-400';
+        statusEl.className = 'text-xs text-gmp-text-muted';
         try {
             const r = await fetch('/api/partners', {
                 method: 'POST',
@@ -406,7 +406,7 @@
             const data = await r.json();
             if (!r.ok) {
                 statusEl.textContent = data.detail || 'Failed to create partner';
-                statusEl.className = 'text-xs text-red-400';
+                statusEl.className = 'text-xs text-danger';
                 return;
             }
             statusEl.textContent = 'Saved. Reloading…';
@@ -416,7 +416,7 @@
             window.location.reload();
         } catch (e) {
             statusEl.textContent = 'Request failed: ' + e.message;
-            statusEl.className = 'text-xs text-red-400';
+            statusEl.className = 'text-xs text-danger';
         }
     }
     function partnersEdit(partnerId) {
@@ -440,7 +440,7 @@
         const active = document.getElementById('partner-edit-active').checked;
         const statusEl = document.getElementById('partner-edit-status');
         statusEl.textContent = 'Saving…';
-        statusEl.className = 'text-xs text-slate-400';
+        statusEl.className = 'text-xs text-gmp-text-muted';
         try {
             const r = await fetch('/api/partners/' + id, {
                 method: 'PUT',
@@ -450,7 +450,7 @@
             const data = await r.json();
             if (!r.ok) {
                 statusEl.textContent = data.detail || 'Failed to update partner';
-                statusEl.className = 'text-xs text-red-400';
+                statusEl.className = 'text-xs text-danger';
                 return;
             }
             statusEl.textContent = 'Saved. Reloading…';
@@ -460,7 +460,7 @@
             window.location.reload();
         } catch (e) {
             statusEl.textContent = 'Request failed: ' + e.message;
-            statusEl.className = 'text-xs text-red-400';
+            statusEl.className = 'text-xs text-danger';
         }
     }
 
@@ -493,7 +493,7 @@
         const name = document.getElementById('brand-form-name').value.trim();
         if (!name) {
             document.getElementById('brand-form-status').textContent = 'Name is required.';
-            document.getElementById('brand-form-status').className = 'text-xs text-amber-400';
+            document.getElementById('brand-form-status').className = 'text-xs text-warning';
             return;
         }
         const code = document.getElementById('brand-form-code').value.trim();
@@ -506,7 +506,7 @@
 
         const statusEl = document.getElementById('brand-form-status');
         statusEl.textContent = 'Saving…';
-        statusEl.className = 'text-xs text-slate-400';
+        statusEl.className = 'text-xs text-gmp-text-muted';
         try {
             const r = await fetch('/api/brands', {
                 method: 'POST',
@@ -524,7 +524,7 @@
             const data = await r.json();
             if (!r.ok) {
                 statusEl.textContent = data.detail || 'Failed to create brand';
-                statusEl.className = 'text-xs text-red-400';
+                statusEl.className = 'text-xs text-danger';
                 return;
             }
             statusEl.textContent = 'Saved. Reloading…';
@@ -534,7 +534,7 @@
             window.location.reload();
         } catch (e) {
             statusEl.textContent = 'Request failed: ' + e.message;
-            statusEl.className = 'text-xs text-red-400';
+            statusEl.className = 'text-xs text-danger';
         }
     }
 
@@ -591,7 +591,7 @@
 
         const statusEl = document.getElementById('brand-edit-status');
         statusEl.textContent = 'Saving…';
-        statusEl.className = 'text-xs text-slate-400';
+        statusEl.className = 'text-xs text-gmp-text-muted';
         try {
             const partnerIdEl = document.getElementById('brand-edit-partner-id');
             const partner_id = partnerIdEl && partnerIdEl.value ? parseInt(partnerIdEl.value, 10) : null;
@@ -611,7 +611,7 @@
             const data = await r.json();
             if (!r.ok) {
                 statusEl.textContent = data.detail || 'Failed to update brand';
-                statusEl.className = 'text-xs text-red-400';
+                statusEl.className = 'text-xs text-danger';
                 return;
             }
             statusEl.textContent = 'Saved. Reloading…';
@@ -621,7 +621,7 @@
             window.location.reload();
         } catch (e) {
             statusEl.textContent = 'Request failed: ' + e.message;
-            statusEl.className = 'text-xs text-red-400';
+            statusEl.className = 'text-xs text-danger';
         }
     }
 </script>

@@ -25,11 +25,11 @@
 
     <!-- Quick-add form (hidden by default) -->
     <div id="new-entity-form"
-        class="hidden bg-slate-900 border border-slate-700 rounded-lg px-5 py-4 flex items-end gap-3">
+        class="hidden bg-gmp-surface border border-gmp-border rounded-lg px-5 py-4 flex items-end gap-3">
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Type</label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Type</label>
             <select id="nef-type" onchange="onNefTypeChange()"
-                class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 <option value="categories">Category</option>
                 <option value="competitions">Competition</option>
                 <option value="teams">Team</option>
@@ -39,10 +39,10 @@
 
         <!-- Sport parent: shown for categories, competitions, teams -->
         <div id="nef-sport-wrap" class="hidden">
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sport <span
-                    class="text-red-500">*</span></label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Sport <span
+                    class="text-danger">*</span></label>
             <select id="nef-sport" onchange="onNefSportChange()"
-                class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 <option value="">— select —</option>
                 {% for s in entities.sports %}
                 <option value="{{ s.name }}">{{ s.name }}</option>
@@ -52,18 +52,18 @@
 
         <!-- Category parent: shown only for competitions -->
         <div id="nef-category-wrap" class="hidden">
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Category <span
-                    class="text-red-500">*</span></label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Category <span
+                    class="text-danger">*</span></label>
             <select id="nef-category"
-                class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 <option value="">— select sport first —</option>
             </select>
         </div>
         <!-- Country (ISO / None): categories, competitions, teams -->
         <div id="nef-country-wrap" class="hidden">
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Country</label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Country</label>
             <select id="nef-country"
-                class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-w-[140px]">
+                class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-w-[140px]">
                 {% for c in countries %}
                 <option value="{{ c.cc }}">{{ c.name }}</option>
                 {% endfor %}
@@ -71,37 +71,37 @@
         </div>
         <!-- Base ID: shown for sports only (optional, from previous platform) -->
         <div id="nef-baseid-wrap" class="hidden">
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Base ID <span class="text-slate-600 normal-case">(optional)</span></label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Base ID <span class="text-gmp-text-faint normal-case">(optional)</span></label>
             <input type="text" id="nef-baseid" placeholder="e.g. 1"
-                class="bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-w-[100px]">
+                class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-w-[100px]">
         </div>
         <div id="nef-code-wrap" class="hidden">
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
             <input id="nef-code" type="text" placeholder="e.g. MR, OU"
-                class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-slate-600 max-w-[6rem]">
+                class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-gmp-text-faint max-w-[6rem]">
         </div>
         <div class="flex-1">
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
             <input id="nef-name" type="text" placeholder="e.g. England"
-                class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-slate-600">
+                class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-gmp-text-faint">
         </div>
         <div id="nef-feedid-wrap" class="flex-1">
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Feed ID <span
-                    class="text-slate-600 normal-case">(blank = use name)</span></label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Feed ID <span
+                    class="text-gmp-text-faint normal-case">(blank = use name)</span></label>
             <input id="nef-feedid" type="text" placeholder="e.g. 1, Soccer, FA Cup"
-                class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-slate-600">
+                class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-gmp-text-faint">
         </div>
         <button onclick="submitNewEntity()"
-            class="shrink-0 bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded transition-all">
+            class="shrink-0 bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded transition-all">
             <i class="fa-solid fa-plus mr-1"></i> Create
         </button>
         <button onclick="toggleNewEntityForm()"
-            class="shrink-0 text-slate-500 hover:text-white text-xs px-2 py-1.5">Cancel</button>
+            class="shrink-0 text-gmp-text-faint hover:text-white text-xs px-2 py-1.5">Cancel</button>
         <span id="nef-status" class="text-xs shrink-0"></span>
     </div>
 
     <!-- Entity type tabs (hash-based: #sports, #categories, #competitions, #teams, #markets for direct links) -->
-    <div class="flex border-b border-slate-700 gap-0" role="tablist">
+    <div class="flex border-b border-gmp-border gap-0" role="tablist">
         {% set tabs = [
         ('sports', 'fa-futbol', 'Sports', stats.sports),
         ('categories', 'fa-earth-europe', 'Categories', stats.categories),
@@ -114,10 +114,10 @@
         {% else %}
         <a href="#{{ key }}" id="tab-{{ key }}" data-tab-key="{{ key }}" onclick="event.preventDefault(); switchEntityTab('{{ key }}');"
             class="entity-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 no-underline cursor-pointer
-                   {% if key == default_entity_tab %}text-primary border-primary{% else %}text-slate-400 border-transparent hover:text-white{% endif %}">
+                   {% if key == default_entity_tab %}text-primary border-primary{% else %}text-gmp-text-muted border-transparent hover:text-white{% endif %}">
             <i class="fa-solid {{ icon }} text-xs"></i>
             {{ label }}
-            <span class="text-[10px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-full font-mono">{{ count
+            <span class="text-[10px] bg-gmp-surface-raised text-gmp-text-faint px-1.5 py-0.5 rounded-full font-mono">{{ count
                 }}</span>
         </a>
         {% endif %}
@@ -133,39 +133,39 @@
         {% if key == 'markets' %}
         {# ─── Market Types (QNX design from PDF) ─── #}
         <!-- Top filters and actions -->
-        <div class="flex flex-wrap items-center gap-3 bg-cardbg/80 border border-slate-700/50 rounded-lg p-3">
-            <label class="text-[10px] uppercase tracking-wider text-slate-500 self-center">Sport</label>
-            <select id="mt-sport" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none" title="Select a sport to view its market types" onchange="mtSportChange()">
+        <div class="flex flex-wrap items-center gap-3 bg-cardbg/80 border border-gmp-border/50 rounded-lg p-3">
+            <label class="text-[10px] uppercase tracking-wider text-gmp-text-faint self-center">Sport</label>
+            <select id="mt-sport" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none" title="Select a sport to view its market types" onchange="mtSportChange()">
                 <option value="">— Select sport —</option>
                 {% for s in entities.sports %}
                 <option value="{{ s.domain_id }}" {% if market_sport_id is not none and market_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
             </select>
-            <div class="flex items-center bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 min-w-[160px]">
-                <i class="fa-solid fa-search text-slate-500 mr-2 text-xs"></i>
-                <input type="text" id="mt-name" placeholder="Name" class="bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full outline-none">
+            <div class="flex items-center bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 min-w-[160px]">
+                <i class="fa-solid fa-search text-gmp-text-faint mr-2 text-xs"></i>
+                <input type="text" id="mt-name" placeholder="Name" class="bg-transparent border-none text-xs text-white placeholder-gmp-text-faint focus:ring-0 p-0 w-full outline-none">
             </div>
-            <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
-                <input type="checkbox" id="mt-active-only" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/30">
+            <label class="flex items-center gap-2 text-xs text-gmp-text-muted cursor-pointer">
+                <input type="checkbox" id="mt-active-only" class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary/30">
                 Active only
             </label>
-            <button type="button" onclick="mtClearFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-slate-700" title="Clear">× Clear</button>
-            <button type="button" onclick="mtSort()" class="text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-slate-500">Sort Market Types</button>
+            <button type="button" onclick="mtClearFilters()" class="text-gmp-text-faint hover:text-white text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover" title="Clear">× Clear</button>
+            <button type="button" onclick="mtSort()" class="text-gmp-text-muted hover:text-white text-xs px-3 py-1.5 rounded border border-gmp-border hover:border-gmp-border">Sort Market Types</button>
             {% if rbac_can_any(request, 'entity.markets.create') %}
-            <button type="button" onclick="mtToggleCreateForm()" class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded flex items-center gap-1.5">
+            <button type="button" onclick="mtToggleCreateForm()" class="ml-auto bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> create Market Type
             </button>
             {% endif %}
         </div>
 
         <!-- Create / Edit Market Type form (hidden by default) — fields match table columns -->
-        <div id="mt-create-form" class="hidden bg-slate-900 border border-slate-700 rounded-lg p-5 space-y-4">
+        <div id="mt-create-form" class="hidden bg-gmp-surface border border-gmp-border rounded-lg p-5 space-y-4">
             <h3 class="text-sm font-semibold text-white">Create Market Type</h3>
-            <p class="text-[11px] text-slate-400">Markets are per sport. Select the sport first.</p>
+            <p class="text-[11px] text-gmp-text-muted">Markets are per sport. Select the sport first.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sport <span class="text-amber-400">(required)</span></label>
-                    <select id="mt-form-sport" required class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Sport <span class="text-warning">(required)</span></label>
+                    <select id="mt-form-sport" required class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">— select sport —</option>
                         {% for s in entities.sports %}
                         <option value="{{ s.name }}" {% if market_sport_id is not none and market_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
@@ -173,16 +173,16 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
-                    <input type="text" id="mt-form-name" placeholder="Market type name" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
+                    <input type="text" id="mt-form-name" placeholder="Market type name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Abb.</label>
-                    <input type="text" id="mt-form-abb" placeholder="e.g. 3W, MR" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Abb.</label>
+                    <input type="text" id="mt-form-abb" placeholder="e.g. 3W, MR" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Market Type</label>
-                    <select id="mt-form-market-type" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Market Type</label>
+                    <select id="mt-form-market-type" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="both">Both</option>
                         <option value="prematch">PreMatch</option>
                         <option value="live">Live</option>
@@ -190,19 +190,19 @@
                 </div>
                 <div class="flex items-end gap-2">
                     <div class="flex-1">
-                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Market Group</label>
-                        <select id="mt-form-market-group" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Market Group</label>
+                        <select id="mt-form-market-group" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                             <option value="">— select —</option>
                             {% for g in market_groups %}
                             <option value="{{ g.code }}">{{ g.name }} ({{ g.code }})</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <button type="button" onclick="openMarketGroupModal()" class="text-xs text-secondary hover:text-blue-300 shrink-0 pb-6" title="Create Market Group if it doesn't exist">Create Market Group</button>
+                    <button type="button" onclick="openMarketGroupModal()" class="text-xs text-secondary hover:text-info shrink-0 pb-6" title="Create Market Group if it doesn't exist">Create Market Group</button>
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Template</label>
-                    <select id="mt-form-template" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Template</label>
+                    <select id="mt-form-template" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">— select —</option>
                         {% for t in market_templates %}
                         <option value="{{ t.code }}">{{ t.name }} ({{ t.code }})</option>
@@ -210,8 +210,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Period Type</label>
-                    <select id="mt-form-period-type" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Period Type</label>
+                    <select id="mt-form-period-type" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">— select —</option>
                         {% for p in market_period_types %}
                         <option value="{{ p.code }}">{{ p.name }} ({{ p.code }})</option>
@@ -219,8 +219,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Score Type</label>
-                    <select id="mt-form-score-type" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Score Type</label>
+                    <select id="mt-form-score-type" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">— select —</option>
                         {% for s in market_score_types %}
                         <option value="{{ s.code }}">{{ s.name }} ({{ s.code }})</option>
@@ -228,8 +228,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Side Type</label>
-                    <select id="mt-form-side-type" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Side Type</label>
+                    <select id="mt-form-side-type" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="undefined">Undefined</option>
                         <option value="home">Home</option>
                         <option value="away">Away</option>
@@ -238,92 +238,92 @@
                     </select>
                 </div>
                 <div class="flex items-end">
-                    <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
-                        <input type="checkbox" id="mt-form-score-dependant" class="rounded border-slate-600 bg-slate-800 text-primary">
+                    <label class="flex items-center gap-2 text-xs text-gmp-text-muted cursor-pointer">
+                        <input type="checkbox" id="mt-form-score-dependant" class="rounded border-gmp-border bg-gmp-surface-raised text-primary">
                         Score Dependant
                     </label>
                 </div>
             </div>
             <div class="flex gap-2">
-                <button type="button" onclick="mtSaveMarketType()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
-                <button type="button" onclick="mtToggleCreateForm()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                <button type="button" onclick="mtSaveMarketType()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                <button type="button" onclick="mtToggleCreateForm()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
             </div>
         </div>
 
         <!-- Market Mapper modal (Mapping [name] market type) -->
-        <div id="market-mapper-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 overflow-y-auto" aria-modal="true">
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-[90rem] my-8" onclick="event.stopPropagation()">
-                <div class="p-4 border-b border-slate-700">
+        <div id="market-mapper-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gmp-surface/80 overflow-y-auto" aria-modal="true">
+            <div class="bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl w-full max-w-[90rem] my-8" onclick="event.stopPropagation()">
+                <div class="p-4 border-b border-gmp-border">
                     <h2 id="market-mapper-title" class="text-lg font-semibold text-white">Mapping <span id="market-mapper-name">—</span> market type</h2>
                 </div>
-                <div class="p-4 bg-slate-900/50 text-xs text-slate-400 border-b border-slate-700">
+                <div class="p-4 bg-gmp-surface/50 text-xs text-gmp-text-muted border-b border-gmp-border">
                     <span id="market-mapper-details">Market type details row (name, group, template, period, etc.)</span>
                 </div>
                 <div class="p-4 flex gap-4 flex-col lg:flex-row">
                     <div class="flex-1 space-y-4">
                         <div>
-                            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Prematch</h3>
-                            <div id="market-mapper-prematch" class="min-h-[80px] bg-slate-900 border border-slate-700 rounded p-3 space-y-2">
-                                <p id="market-mapper-prematch-empty" class="text-slate-500 italic text-[11px]">No prematch mappings. Use + next to a market in Available markets to add.</p>
+                            <h3 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-2">Prematch</h3>
+                            <div id="market-mapper-prematch" class="min-h-[80px] bg-gmp-surface border border-gmp-border rounded p-3 space-y-2">
+                                <p id="market-mapper-prematch-empty" class="text-gmp-text-faint italic text-[11px]">No prematch mappings. Use + next to a market in Available markets to add.</p>
                                 <div id="market-mapper-prematch-list" class="space-y-1.5"></div>
                             </div>
                         </div>
                         <div>
-                            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Live</h3>
-                            <div id="market-mapper-live" class="min-h-[80px] bg-slate-900 border border-slate-700 rounded p-3 space-y-2">
-                                <p id="market-mapper-live-empty" class="text-slate-500 italic text-[11px]">No live mappings. Use + next to a market in Available markets to add.</p>
+                            <h3 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-2">Live</h3>
+                            <div id="market-mapper-live" class="min-h-[80px] bg-gmp-surface border border-gmp-border rounded p-3 space-y-2">
+                                <p id="market-mapper-live-empty" class="text-gmp-text-faint italic text-[11px]">No live mappings. Use + next to a market in Available markets to add.</p>
                                 <div id="market-mapper-live-list" class="space-y-1.5"></div>
                             </div>
                         </div>
                     </div>
                     <div class="lg:w-[32rem] xl:w-[36rem] flex-shrink-0 space-y-2">
-                        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Available markets</h3>
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint">Available markets</h3>
                         <div class="flex flex-wrap gap-2">
-                            <select id="market-mapper-feed" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-primary outline-none">
+                            <select id="market-mapper-feed" class="bg-gmp-surface border border-gmp-border rounded px-2 py-1 text-xs text-white focus:border-primary outline-none">
                                 <option value="">— Feed —</option>
                                 {% for f in (mapper_feeds if mapper_feeds is defined else feeds) %}
                                 <option value="{{ f.domain_id }}">{{ f.name }}</option>
                                 {% endfor %}
                             </select>
-                            <input type="text" id="market-mapper-name-filter" placeholder="Name" class="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white flex-1 min-w-[12rem]" title="Filter list by market name">
+                            <input type="text" id="market-mapper-name-filter" placeholder="Name" class="bg-gmp-surface border border-gmp-border rounded px-2 py-1 text-xs text-white flex-1 min-w-[12rem]" title="Filter list by market name">
                         </div>
-                        <div id="market-mapper-available-list" class="border border-slate-700 rounded max-h-[28rem] overflow-y-auto p-2 space-y-1">
-                            <p class="text-slate-500 italic text-[11px]">Select a feed to load its markets for the current sport (e.g. Volleyball).</p>
+                        <div id="market-mapper-available-list" class="border border-gmp-border rounded max-h-[28rem] overflow-y-auto p-2 space-y-1">
+                            <p class="text-gmp-text-faint italic text-[11px]">Select a feed to load its markets for the current sport (e.g. Volleyball).</p>
                         </div>
                     </div>
                 </div>
-                <div class="p-4 border-t border-slate-700 flex justify-end gap-2">
-                    <button type="button" onclick="closeMarketMapper()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
-                    <button type="button" onclick="saveMarketMapper()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                <div class="p-4 border-t border-gmp-border flex justify-end gap-2">
+                    <button type="button" onclick="closeMarketMapper()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                    <button type="button" onclick="saveMarketMapper()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
                 </div>
             </div>
         </div>
 
         <!-- Create Market Group modal (hidden by default) -->
-        <div id="market-group-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80" aria-modal="true">
-            <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-md p-5" onclick="event.stopPropagation()">
+        <div id="market-group-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-gmp-surface/80" aria-modal="true">
+            <div class="bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl w-full max-w-md p-5" onclick="event.stopPropagation()">
                 <h3 class="text-sm font-semibold text-white mb-4">Create Market Group</h3>
                 <div class="space-y-3">
                     <div>
-                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
-                        <input type="text" id="mg-modal-name" placeholder="Market group name" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
+                        <input type="text" id="mg-modal-name" placeholder="Market group name" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                     </div>
                     <div>
-                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Code</label>
-                        <input type="text" id="mg-modal-code" placeholder="e.g. main, outright" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
+                        <input type="text" id="mg-modal-code" placeholder="e.g. main, outright" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                     </div>
                 </div>
                 <div class="flex gap-2 mt-4">
-                    <button type="button" onclick="saveMarketGroup()" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
-                    <button type="button" onclick="closeMarketGroupModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                    <button type="button" onclick="saveMarketGroup()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                    <button type="button" onclick="closeMarketGroupModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
                 </div>
             </div>
         </div>
 
         <!-- Market Types table (QNX columns) -->
-        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
             <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
                     <tr>
                         <th class="px-3 py-2 font-semibold">ID</th>
                         <th class="px-3 py-2 font-semibold">Sport</th>
@@ -342,9 +342,9 @@
                         <th class="px-3 py-2 font-semibold text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-700/40 entity-tbody" data-panel="markets">
+                <tbody class="divide-y divide-gmp-border/40 entity-tbody" data-panel="markets">
                     <tr id="mt-no-sport-row" class="mt-select-sport-placeholder" style="display: none;">
-                        <td colspan="15" class="px-4 py-10 text-center text-slate-500">Select a sport above to view market types.</td>
+                        <td colspan="15" class="px-4 py-10 text-center text-gmp-text-faint">Select a sport above to view market types.</td>
                     </tr>
                     {% set entity_data = entities.markets %}
                     {% if entity_data %}
@@ -359,22 +359,22 @@
                     {% set _grp = namespace(g=None) %}
                     {% for g in market_groups %}{% if g.code == entity.get('market_group') %}{% set _grp.g = g %}{% endif %}{% endfor %}
                     <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ (entity.name ~ ' ' ~ (entity.get('code') or '') ~ ' ' ~ (entity.get('abb') or '')) | lower }}" data-sport-id="{{ entity.get('sport_id') or '' }}">
-                        <td class="px-3 py-2 font-mono text-slate-400">{{ entity.domain_id }}</td>
-                        <td class="px-3 py-2 text-slate-400">{{ sports_by_id.get(entity.sport_id, '—') }}</td>
+                        <td class="px-3 py-2 font-mono text-gmp-text-muted">{{ entity.domain_id }}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{{ sports_by_id.get(entity.sport_id, '—') }}</td>
                         <td class="px-3 py-2 text-white font-medium">{{ entity.name }}</td>
-                        <td class="px-3 py-2 text-slate-400">{{ entity.get('abb') or entity.get('code') or '—' }}</td>
-                        <td class="px-3 py-2 text-slate-400">{{ entity.get('market_type') or '—' }}</td>
-                        <td class="px-3 py-2 text-slate-400">{% if _grp.g %}{{ _grp.g.name }} ({{ _grp.g.code }}){% else %}—{% endif %}</td>
-                        <td class="px-3 py-2 text-slate-400">{% if _tpl.t %}{{ _tpl.t.name }} ({{ _tpl.t.code }}){% else %}—{% endif %}</td>
-                        <td class="px-3 py-2 text-slate-400">{% if _per.p %}{{ _per.p.name }} ({{ _per.p.code }}){% else %}—{% endif %}</td>
-                        <td class="px-3 py-2 text-slate-400">{% if _scr.s %}{{ _scr.s.name }} ({{ _scr.s.code }}){% else %}—{% endif %}</td>
-                        <td class="px-3 py-2 text-slate-400">{{ entity.get('side_type') or '—' }}</td>
-                        <td class="px-3 py-2 text-slate-400">{{ 'Yes' if entity.get('score_dependant') == '1' else '—' }}</td>
-                        <td class="px-3 py-2 text-slate-400 font-mono tabular-nums" title="Prematch feed mappings / Live feed mappings">{{ mfc.prematch }}/{{ mfc.live }}</td>
-                        <td class="px-3 py-2 text-slate-400">{{ entity.get('created_at') | format_entity_date }}</td>
-                        <td class="px-3 py-2 text-slate-400">{{ entity.get('updated_at') | format_entity_date }}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{{ entity.get('abb') or entity.get('code') or '—' }}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{{ entity.get('market_type') or '—' }}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{% if _grp.g %}{{ _grp.g.name }} ({{ _grp.g.code }}){% else %}—{% endif %}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{% if _tpl.t %}{{ _tpl.t.name }} ({{ _tpl.t.code }}){% else %}—{% endif %}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{% if _per.p %}{{ _per.p.name }} ({{ _per.p.code }}){% else %}—{% endif %}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{% if _scr.s %}{{ _scr.s.name }} ({{ _scr.s.code }}){% else %}—{% endif %}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{{ entity.get('side_type') or '—' }}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{{ 'Yes' if entity.get('score_dependant') == '1' else '—' }}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted font-mono tabular-nums" title="Prematch feed mappings / Live feed mappings">{{ mfc.prematch }}/{{ mfc.live }}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{{ entity.get('created_at') | format_entity_date }}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{{ entity.get('updated_at') | format_entity_date }}</td>
                         <td class="px-3 py-2 text-right align-top">
-                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors"
                                 data-entity-panel="markets" data-entity-id="{{ entity.domain_id }}"
                                 data-entity-name="{{ entity.name | e }}"
                                 aria-haspopup="true" title="Actions">
@@ -385,7 +385,7 @@
                     {% endfor %}
                     {% else %}
                     <tr class="entity-empty-row">
-                        <td colspan="15" class="px-4 py-10 text-center text-slate-600 italic">No market types yet. Use “+ create Market Type” or add data when ready.</td>
+                        <td colspan="15" class="px-4 py-10 text-center text-gmp-text-faint italic">No market types yet. Use “+ create Market Type” or add data when ready.</td>
                     </tr>
                     {% endif %}
                 </tbody>
@@ -395,88 +395,88 @@
         {% else %}
         <!-- Search + filter bar -->
         <div class="flex flex-wrap items-center gap-3">
-            <div class="flex items-center bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 flex-1 max-w-xs min-w-[140px]">
-                <i class="fa-solid fa-search text-slate-500 mr-2 text-xs"></i>
+            <div class="flex items-center bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 flex-1 max-w-xs min-w-[140px]">
+                <i class="fa-solid fa-search text-gmp-text-faint mr-2 text-xs"></i>
                 <input type="text" id="search-{{ key }}" placeholder="Search {{ key }}…" data-panel="{{ key }}"
-                    class="entity-search bg-transparent border-none text-xs text-white placeholder-slate-600 focus:ring-0 p-0 w-full outline-none">
+                    class="entity-search bg-transparent border-none text-xs text-white placeholder-gmp-text-faint focus:ring-0 p-0 w-full outline-none">
             </div>
             {% if key == 'categories' %}
-            <select id="filter-categories-sport" class="filter-categories bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
+            <select id="filter-categories-sport" class="filter-categories bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
                 <option value="">— Sport —</option>
                 {% for s in entities.sports %}
                 <option value="{{ s.domain_id }}">{{ s.name }}</option>
                 {% endfor %}
             </select>
-            <button type="button" onclick="clearCategoriesFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
+            <button type="button" onclick="clearCategoriesFilters()" class="text-gmp-text-faint hover:text-white text-xs px-2 py-1 rounded hover:bg-gmp-surface-popover" title="Clear filters">Clear</button>
             {% endif %}
             {% if key == 'teams' %}
-            <select id="filter-teams-sport" class="filter-teams bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
+            <select id="filter-teams-sport" class="filter-teams bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
                 <option value="">— Sport —</option>
                 {% for s in entities.sports %}
                 <option value="{{ s.domain_id }}">{{ s.name }}</option>
                 {% endfor %}
             </select>
-            <select id="filter-teams-participant-type" class="filter-teams bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[140px]" title="Filter by type">
+            <select id="filter-teams-participant-type" class="filter-teams bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[140px]" title="Filter by type">
                 <option value="">— Type —</option>
                 {% for pt in participant_types %}
                 <option value="{{ pt.id }}">{{ pt.name }}</option>
                 {% endfor %}
             </select>
-            <select id="filter-teams-amateur" class="filter-teams bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by amateur">
+            <select id="filter-teams-amateur" class="filter-teams bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by amateur">
                 <option value="">— Amateur —</option>
                 <option value="1">Yes</option>
                 <option value="0">No</option>
             </select>
-            <select id="filter-teams-age-category" class="filter-teams bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by age category">
+            <select id="filter-teams-age-category" class="filter-teams bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by age category">
                 <option value="">— Age category —</option>
                 {% for u in underage_categories %}
                 <option value="{{ u.id }}">{{ u.name }}</option>
                 {% endfor %}
             </select>
-            <button type="button" onclick="clearTeamsFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
+            <button type="button" onclick="clearTeamsFilters()" class="text-gmp-text-faint hover:text-white text-xs px-2 py-1 rounded hover:bg-gmp-surface-popover" title="Clear filters">Clear</button>
             {% endif %}
             {% if key == 'competitions' %}
-            <select id="filter-competitions-sport" class="filter-competitions bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
+            <select id="filter-competitions-sport" class="filter-competitions bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
                 <option value="">— Sport —</option>
                 {% for s in entities.sports %}
                 <option value="{{ s.domain_id }}">{{ s.name }}</option>
                 {% endfor %}
             </select>
-            <select id="filter-competitions-amateur" class="filter-competitions bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by amateur">
+            <select id="filter-competitions-amateur" class="filter-competitions bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by amateur">
                 <option value="">— Amateur —</option>
                 <option value="1">Yes</option>
                 <option value="0">No</option>
             </select>
-            <select id="filter-competitions-age-category" class="filter-competitions bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by age category">
+            <select id="filter-competitions-age-category" class="filter-competitions bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none min-w-[100px]" title="Filter by age category">
                 <option value="">— Age category —</option>
                 {% for u in underage_categories %}
                 <option value="{{ u.id }}">{{ u.name }}</option>
                 {% endfor %}
             </select>
-            <button type="button" onclick="clearCompetitionsFilters()" class="text-slate-500 hover:text-white text-xs px-2 py-1 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
+            <button type="button" onclick="clearCompetitionsFilters()" class="text-gmp-text-faint hover:text-white text-xs px-2 py-1 rounded hover:bg-gmp-surface-popover" title="Clear filters">Clear</button>
             {% endif %}
-            <span id="count-{{ key }}" class="text-xs text-slate-500">Showing all {{ key }}</span>
+            <span id="count-{{ key }}" class="text-xs text-gmp-text-faint">Showing all {{ key }}</span>
             {% if key == 'categories' and rbac_can_any(request, 'entity.category.create') %}
-            <button type="button" onclick="openNewEntityForm('categories')" class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
+            <button type="button" onclick="openNewEntityForm('categories')" class="ml-auto bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> New Category
             </button>
             {% elif key == 'competitions' and rbac_can_any(request, 'entity.competition.create') %}
-            <button type="button" onclick="openNewEntityForm('competitions')" class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
+            <button type="button" onclick="openNewEntityForm('competitions')" class="ml-auto bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> New Competition
             </button>
             {% elif key == 'teams' and rbac_can_any(request, 'entity.team.create') %}
-            <button type="button" onclick="openNewEntityForm('teams')" class="ml-auto bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
+            <button type="button" onclick="openNewEntityForm('teams')" class="ml-auto bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> New Team
             </button>
             {% endif %}
         </div>
 
         <!-- Table -->
-        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr
-                        class="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+                        class="bg-gmp-surface/50 text-gmp-text-muted text-xs uppercase tracking-wider border-b border-gmp-border">
                         <th class="px-4 py-2.5 font-semibold">ID</th>
                         <th class="px-4 py-2.5 font-semibold">
                             {% if key == 'sports' %}
@@ -505,7 +505,7 @@
                         <th class="px-4 py-2.5 font-semibold text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-700/40 text-xs entity-tbody" data-panel="{{ key }}">
+                <tbody class="divide-y divide-gmp-border/40 text-xs entity-tbody" data-panel="{{ key }}">
                     {% set entity_data = entities[key] %}
                     {% if entity_data %}
                     {% for entity in entity_data %}
@@ -513,88 +513,88 @@
                     {% set ns = namespace(parts=[entity.domain_id | string, entity.name, (entity.get('code') or ''), (sports_by_id.get(entity.get('sport_id'), '') or ''), (categories_by_id.get(entity.get('category_id'), '') or '')]) %}
                     {% for r in refs %}{% set ns.parts = ns.parts + [feeds_by_id.get(r.feed_provider_id, '') or '', r.feed_id] %}{% endfor %}
                     <tr class="entity-row hover:bg-white/3 transition-colors" data-search="{{ ns.parts | join(' ') | lower }}" data-entity-id="{{ entity.domain_id }}"{% if key == 'categories' %} data-sport-id="{{ entity.get('sport_id') or '' }}"{% endif %}{% if key == 'teams' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-participant-type-id="{{ entity.get('participant_type_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}{% if key == 'competitions' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}>
-                        <td class="px-4 py-2.5 font-mono text-slate-400">{{ entity.domain_id }}</td>
+                        <td class="px-4 py-2.5 font-mono text-gmp-text-muted">{{ entity.domain_id }}</td>
                         <td class="px-4 py-2.5 text-white font-medium" data-entity-name="1">{{ entity.name }}</td>
                         {% if key in ('sports', 'categories', 'competitions', 'teams') %}
-                        <td class="px-4 py-2.5 text-slate-400 font-mono" data-entity-baseid="{{ entity.get('baseid') or '' }}">{{ entity.get('baseid') or '—' }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted font-mono" data-entity-baseid="{{ entity.get('baseid') or '' }}">{{ entity.get('baseid') or '—' }}</td>
                         {% endif %}
                         {% if key in ('categories', 'competitions', 'teams') %}
-                        <td class="px-4 py-2.5 text-slate-400">{{ sports_by_id.get(entity.get('sport_id'), '—') }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted">{{ sports_by_id.get(entity.get('sport_id'), '—') }}</td>
                         {% endif %}
                         {% if key == 'competitions' %}
-                        <td class="px-4 py-2.5 text-slate-400">{{ categories_by_id.get(entity.get('category_id'), '—')
+                        <td class="px-4 py-2.5 text-gmp-text-muted">{{ categories_by_id.get(entity.get('category_id'), '—')
                             }}</td>
-                        <td class="px-4 py-2.5 text-slate-400" data-entity-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}">{% if entity.get('is_amateur') %}Yes{% else %}—{% endif %}</td>
-                        <td class="px-4 py-2.5 text-slate-400" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}">{% if entity.get('is_amateur') %}Yes{% else %}—{% endif %}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
                         {% endif %}
                         {% if key == 'teams' %}
-                        <td class="px-4 py-2.5 text-slate-400" data-entity-participant-type-id="{{ entity.get('participant_type_id') or '' }}">{{ participant_types_by_id.get(entity.get('participant_type_id'), '—') }}</td>
-                        <td class="px-4 py-2.5 text-slate-400" data-entity-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}">{% if entity.get('is_amateur') %}Yes{% else %}—{% endif %}</td>
-                        <td class="px-4 py-2.5 text-slate-400" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-participant-type-id="{{ entity.get('participant_type_id') or '' }}">{{ participant_types_by_id.get(entity.get('participant_type_id'), '—') }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}">{% if entity.get('is_amateur') %}Yes{% else %}—{% endif %}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
                         {% endif %}
                         {% if key in ('categories', 'competitions', 'teams') %}
-                        <td class="px-4 py-2.5 text-slate-400" data-entity-country="{{ entity.get('country') or '-' }}" title="Country">{{ countries_by_cc.get(entity.get('country') or '-', '—') }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-country="{{ entity.get('country') or '-' }}" title="Country">{{ countries_by_cc.get(entity.get('country') or '-', '—') }}</td>
                         {% endif %}
                         <td class="px-4 py-2.5">
                             {# All entity types (sports, categories, competitions, teams, markets): feed refs from entity_feed_mappings #}
                             {% if refs %}
                             <div class="flex flex-wrap gap-1">
                                     {% for r in refs %}
-                                    <span class="bg-slate-700/80 text-slate-200 px-2 py-1 rounded text-[10px] inline-flex items-center gap-1" title="Feed ID: {{ r.feed_id }}">
-                                        <i class="fa-solid fa-satellite-dish text-slate-500 text-[8px]"></i>
-                                        {{ feeds_by_id.get(r.feed_provider_id, 'Feed #' ~ r.feed_provider_id) }} <span class="text-slate-500">·</span> <span class="font-mono">{{ r.feed_id }}</span>
+                                    <span class="bg-gmp-surface-raised/80 text-gmp-text px-2 py-1 rounded text-[10px] inline-flex items-center gap-1" title="Feed ID: {{ r.feed_id }}">
+                                        <i class="fa-solid fa-satellite-dish text-gmp-text-faint text-[8px]"></i>
+                                        {{ feeds_by_id.get(r.feed_provider_id, 'Feed #' ~ r.feed_provider_id) }} <span class="text-gmp-text-faint">·</span> <span class="font-mono">{{ r.feed_id }}</span>
                                 </span>
                                 {% endfor %}
                             </div>
                             {% else %}
-                            <span class="text-slate-600 italic text-[11px]">No feeds mapped</span>
+                            <span class="text-gmp-text-faint italic text-[11px]">No feeds mapped</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">{{ entity.get('created_at') | format_entity_date }}</td>
-                        <td class="px-4 py-2.5 text-slate-400 whitespace-nowrap">{{ entity.get('updated_at') | format_entity_date }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted whitespace-nowrap">{{ entity.get('created_at') | format_entity_date }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted whitespace-nowrap">{{ entity.get('updated_at') | format_entity_date }}</td>
                         <td class="px-4 py-2.5 text-right align-top">
                             {% if key == 'sports' %}
                             {% if rbac_can_any(request, 'entity.sport.edit', 'entity.sport.remove_mappings', 'entity.sport.active_inactive') %}
-                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors"
                                 data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
                                 aria-haspopup="true" title="Actions">
                                 <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                             </button>
                             {% else %}
-                            <span class="text-slate-600 text-[11px]">—</span>
+                            <span class="text-gmp-text-faint text-[11px]">—</span>
                             {% endif %}
                             {% elif key == 'categories' %}
                             {% if rbac_can_any(request, 'entity.category.edit', 'entity.category.remove_mappings', 'entity.category.active_inactive') %}
-                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors"
                                 data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
                                 aria-haspopup="true" title="Actions">
                                 <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                             </button>
                             {% else %}
-                            <span class="text-slate-600 text-[11px]">—</span>
+                            <span class="text-gmp-text-faint text-[11px]">—</span>
                             {% endif %}
                             {% elif key == 'competitions' %}
                             {% if rbac_can_any(request, 'entity.competition.edit', 'entity.competition.remove_mappings', 'entity.competition.active_inactive') %}
-                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors"
                                 data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
                                 aria-haspopup="true" title="Actions">
                                 <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                             </button>
                             {% else %}
-                            <span class="text-slate-600 text-[11px]">—</span>
+                            <span class="text-gmp-text-faint text-[11px]">—</span>
                             {% endif %}
                             {% elif key == 'teams' %}
                             {% if rbac_can_any(request, 'entity.team.edit', 'entity.team.remove_mappings', 'entity.team.active_inactive') %}
-                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors"
                                 data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
                                 aria-haspopup="true" title="Actions">
                                 <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                             </button>
                             {% else %}
-                            <span class="text-slate-600 text-[11px]">—</span>
+                            <span class="text-gmp-text-faint text-[11px]">—</span>
                             {% endif %}
                             {% else %}
-                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors"
                                 data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
                                 aria-haspopup="true" title="Actions">
                                 <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
@@ -605,7 +605,7 @@
                     {% endfor %}
                     {% else %}
                     <tr class="entity-row entity-empty-row">
-                        <td colspan="12" class="px-4 py-10 text-center text-slate-600 italic">
+                        <td colspan="12" class="px-4 py-10 text-center text-gmp-text-faint italic">
                             No {{ key }} yet. Create them here or from the mapping modal.
                         </td>
                     </tr>
@@ -620,34 +620,34 @@
 
     <!-- Edit entity modal (name + country for cat/comp/team) -->
     <div id="entity-edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" aria-modal="true" onclick="if (event.target === this) closeEntityEditModal()">
-        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-md p-5" onclick="event.stopPropagation()">
+        <div class="bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl w-full max-w-md p-5" onclick="event.stopPropagation()">
             <h3 id="entity-edit-modal-title" class="text-sm font-semibold text-white mb-4">Edit</h3>
             <input type="hidden" id="entity-edit-type" value="">
             <input type="hidden" id="entity-edit-domain-id" value="">
             <div class="space-y-3">
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
                     <input type="text" id="entity-edit-name" placeholder="Name"
-                        class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 </div>
                 <div id="entity-edit-country-wrap" class="hidden">
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Country</label>
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Country</label>
                     <select id="entity-edit-country"
-                        class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         {% for c in countries %}
                         <option value="{{ c.cc }}">{{ c.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div id="entity-edit-baseid-wrap" class="hidden">
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Base ID <span class="text-slate-600 normal-case">(optional, from previous platform)</span></label>
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Base ID <span class="text-gmp-text-faint normal-case">(optional, from previous platform)</span></label>
                     <input type="text" id="entity-edit-baseid" placeholder="e.g. 1 or legacy-id"
-                        class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 </div>
                 <div id="entity-edit-type-wrap" class="hidden">
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Type</label>
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Type</label>
                     <select id="entity-edit-participant-type"
-                        class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">—</option>
                         {% for pt in participant_types %}
                         <option value="{{ pt.id }}">{{ pt.name }}</option>
@@ -655,15 +655,15 @@
                     </select>
                 </div>
                 <div id="entity-edit-amateur-wrap" class="hidden">
-                    <label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-                        <input type="checkbox" id="entity-edit-is-amateur" class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/30">
+                    <label class="flex items-center gap-2 text-sm text-gmp-text-menu cursor-pointer">
+                        <input type="checkbox" id="entity-edit-is-amateur" class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary/30">
                         <span>Amateur</span>
                     </label>
                 </div>
                 <div id="entity-edit-age-category-wrap" class="hidden">
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Age category</label>
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Age category</label>
                     <select id="entity-edit-underage-category"
-                        class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">—</option>
                         {% for u in underage_categories %}
                         <option value="{{ u.id }}">{{ u.name }}</option>
@@ -672,46 +672,46 @@
                 </div>
             </div>
             <div class="flex gap-2 mt-4">
-                <button type="button" id="entity-edit-save" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
-                <button type="button" onclick="closeEntityEditModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
-                <span id="entity-edit-status" class="text-xs text-slate-400 self-center"></span>
+                <button type="button" id="entity-edit-save" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                <button type="button" onclick="closeEntityEditModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                <span id="entity-edit-status" class="text-xs text-gmp-text-muted self-center"></span>
             </div>
         </div>
     </div>
 
     <!-- Entity row kebab dropdown (single floating menu; content toggled by data-entity-panel) -->
-    <div id="entity-kebab-dropdown" class="entity-kebab-dropdown hidden fixed z-[9999] min-w-[180px] py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl" role="menu" aria-hidden="true">
-        <button type="button" class="entity-action-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="edit">
-            <i class="fa-solid fa-pen-to-square w-4 text-slate-400"></i> Edit
+    <div id="entity-kebab-dropdown" class="entity-kebab-dropdown hidden fixed z-[9999] min-w-[180px] py-1 bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl" role="menu" aria-hidden="true">
+        <button type="button" class="entity-action-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-action="edit">
+            <i class="fa-solid fa-pen-to-square w-4 text-gmp-text-muted"></i> Edit
         </button>
-        <button type="button" class="entity-action-remove-mappings w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="remove-mappings" title="Placeholder – behaviour to be implemented">
-            <i class="fa-solid fa-unlink w-4 text-slate-400"></i> Remove Mappings
+        <button type="button" class="entity-action-remove-mappings w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-action="remove-mappings" title="Placeholder – behaviour to be implemented">
+            <i class="fa-solid fa-unlink w-4 text-gmp-text-muted"></i> Remove Mappings
         </button>
-        <button type="button" class="entity-action-map w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="map" title="Map this market type to feed markets">
-            <i class="fa-solid fa-link w-4 text-slate-400"></i> Map
+        <button type="button" class="entity-action-map w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-action="map" title="Map this market type to feed markets">
+            <i class="fa-solid fa-link w-4 text-gmp-text-muted"></i> Map
         </button>
-        <button type="button" class="entity-action-active-inactive w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="active-inactive" title="Placeholder – behaviour to be implemented">
-            <i class="fa-solid fa-toggle-on w-4 text-slate-400"></i> Active/Inactive
+        <button type="button" class="entity-action-active-inactive w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-action="active-inactive" title="Placeholder – behaviour to be implemented">
+            <i class="fa-solid fa-toggle-on w-4 text-gmp-text-muted"></i> Active/Inactive
         </button>
     </div>
 
     <!-- Edit Market Type modal (same fields as create; loaded from entity, saved via PATCH) -->
     <div id="market-edit-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60" aria-modal="true" onclick="if (event.target === this) closeMarketEditModal()">
-        <div class="bg-slate-800 border border-slate-700 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5" onclick="event.stopPropagation()">
+        <div class="bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5" onclick="event.stopPropagation()">
             <h3 class="text-sm font-semibold text-white mb-4">Edit Market Type</h3>
             <input type="hidden" id="market-edit-domain-id" value="">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Name</label>
-                    <input type="text" id="market-edit-name" placeholder="Market type name" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
+                    <input type="text" id="market-edit-name" placeholder="Market type name" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Abb.</label>
-                    <input type="text" id="market-edit-abb" placeholder="e.g. 3W, MR" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Abb.</label>
+                    <input type="text" id="market-edit-abb" placeholder="e.g. 3W, MR" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Market Type</label>
-                    <select id="market-edit-market-type" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Market Type</label>
+                    <select id="market-edit-market-type" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="both">Both</option>
                         <option value="prematch">PreMatch</option>
                         <option value="live">Live</option>
@@ -719,8 +719,8 @@
                 </div>
                 <div class="flex items-end gap-2">
                     <div class="flex-1">
-                        <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Market Group</label>
-                        <select id="market-edit-market-group" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Market Group</label>
+                        <select id="market-edit-market-group" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                             <option value="">— select —</option>
                             {% for g in market_groups %}
                             <option value="{{ g.code }}">{{ g.name }} ({{ g.code }})</option>
@@ -729,8 +729,8 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Template</label>
-                    <select id="market-edit-template" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Template</label>
+                    <select id="market-edit-template" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">— select —</option>
                         {% for t in market_templates %}
                         <option value="{{ t.code }}">{{ t.name }} ({{ t.code }})</option>
@@ -738,8 +738,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Period Type</label>
-                    <select id="market-edit-period-type" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Period Type</label>
+                    <select id="market-edit-period-type" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">— select —</option>
                         {% for p in market_period_types %}
                         <option value="{{ p.code }}">{{ p.name }} ({{ p.code }})</option>
@@ -747,8 +747,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Score Type</label>
-                    <select id="market-edit-score-type" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Score Type</label>
+                    <select id="market-edit-score-type" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="">— select —</option>
                         {% for s in market_score_types %}
                         <option value="{{ s.code }}">{{ s.name }} ({{ s.code }})</option>
@@ -756,8 +756,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Side Type</label>
-                    <select id="market-edit-side-type" class="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Side Type</label>
+                    <select id="market-edit-side-type" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
                         <option value="undefined">Undefined</option>
                         <option value="home">Home</option>
                         <option value="away">Away</option>
@@ -766,16 +766,16 @@
                     </select>
                 </div>
                 <div class="flex items-end">
-                    <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
-                        <input type="checkbox" id="market-edit-score-dependant" class="rounded border-slate-600 bg-slate-800 text-primary">
+                    <label class="flex items-center gap-2 text-xs text-gmp-text-muted cursor-pointer">
+                        <input type="checkbox" id="market-edit-score-dependant" class="rounded border-gmp-border bg-gmp-surface-raised text-primary">
                         Score Dependant
                     </label>
                 </div>
             </div>
             <div class="flex gap-2 mt-4">
-                <button type="button" id="market-edit-save" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
-                <button type="button" onclick="closeMarketEditModal()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5">Cancel</button>
-                <span id="market-edit-status" class="text-xs text-slate-400 self-center"></span>
+                <button type="button" id="market-edit-save" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
+                <button type="button" onclick="closeMarketEditModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                <span id="market-edit-status" class="text-xs text-gmp-text-muted self-center"></span>
             </div>
         </div>
     </div>
@@ -856,14 +856,14 @@
         if (!ENTITY_TAB_KEYS.includes(key)) key = ENTITY_TAB_KEYS[0];
         document.querySelectorAll('.entity-tab').forEach(t => {
             t.classList.remove('text-primary', 'border-primary');
-            t.classList.add('text-slate-400', 'border-transparent');
+            t.classList.add('text-gmp-text-muted', 'border-transparent');
         });
         document.querySelectorAll('[id^=panel-]').forEach(p => p.classList.add('hidden'));
 
         const tab = document.getElementById('tab-' + key);
         if (tab) {
             tab.classList.add('text-primary', 'border-primary');
-            tab.classList.remove('text-slate-400', 'border-transparent');
+            tab.classList.remove('text-gmp-text-muted', 'border-transparent');
         }
         const panel = document.getElementById('panel-' + key);
         if (panel) panel.classList.remove('hidden');
@@ -965,13 +965,13 @@
         const statusEl = document.getElementById('nef-status');
         if (!userCanCreateEntityType(type)) {
             statusEl.textContent = 'You do not have permission to create this entity type.';
-            statusEl.className = 'text-xs text-red-400 shrink-0';
+            statusEl.className = 'text-xs text-danger shrink-0';
             return;
         }
-        if (!name) { statusEl.textContent = 'Name required.'; statusEl.className = 'text-xs text-red-400 shrink-0'; return; }
+        if (!name) { statusEl.textContent = 'Name required.'; statusEl.className = 'text-xs text-danger shrink-0'; return; }
         const sport = document.getElementById('nef-sport')?.value || null;
         const category = document.getElementById('nef-category')?.value || null;
-        statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-slate-400"></i>';
+        statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-gmp-text-muted"></i>';
         const payload = { entity_type: type, feed_id: feedId, name, sport, category };
         if (type === 'markets') payload.code = (document.getElementById('nef-code')?.value || '').trim() || null;
         if (['categories', 'competitions', 'teams'].includes(type)) {
@@ -989,14 +989,14 @@
         const data = await res.json();
         if (res.ok && data.created) {
             statusEl.textContent = `Created ${data.domain_id}`;
-            statusEl.className = 'text-xs text-emerald-400 shrink-0';
+            statusEl.className = 'text-xs text-success shrink-0';
             setTimeout(reloadPreservingTab, 600);
         } else if (res.ok) {
             statusEl.textContent = `Already exists ${data.domain_id}`;
-            statusEl.className = 'text-xs text-amber-400 shrink-0';
+            statusEl.className = 'text-xs text-warning shrink-0';
         } else {
             statusEl.textContent = 'Error.';
-            statusEl.className = 'text-xs text-red-400 shrink-0';
+            statusEl.className = 'text-xs text-danger shrink-0';
         }
     }
 
@@ -1076,7 +1076,7 @@
         const statusEl = document.getElementById('entity-edit-status');
         if (!name) {
             statusEl.textContent = 'Name is required.';
-            statusEl.className = 'text-xs text-amber-400 self-center';
+            statusEl.className = 'text-xs text-warning self-center';
             return;
         }
         const payload = { entity_type: panelKey, domain_id: domainId, name };
@@ -1106,7 +1106,7 @@
             payload.underage_category_id = ageCatVal ? parseInt(ageCatVal, 10) : null;
         }
         statusEl.textContent = 'Saving…';
-        statusEl.className = 'text-xs text-slate-400 self-center';
+        statusEl.className = 'text-xs text-gmp-text-muted self-center';
         document.getElementById('entity-edit-save').disabled = true;
         try {
             const res = await fetch('/api/entities/name', {
@@ -1117,7 +1117,7 @@
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
                 statusEl.textContent = data.detail || 'Failed to save.';
-                statusEl.className = 'text-xs text-red-400 self-center';
+                statusEl.className = 'text-xs text-danger self-center';
                 return;
             }
             statusEl.textContent = 'Saved.';
@@ -1125,7 +1125,7 @@
             setTimeout(function () { closeEntityEditModal(); reloadPreservingTab(); }, 400);
         } catch (e) {
             statusEl.textContent = 'Request failed.';
-            statusEl.className = 'text-xs text-red-400 self-center';
+            statusEl.className = 'text-xs text-danger self-center';
         } finally {
             document.getElementById('entity-edit-save').disabled = false;
         }
@@ -1406,14 +1406,14 @@
         const liveEmptyEl = document.getElementById('market-mapper-live-empty');
         if (!prematchListEl || !liveListEl) return;
         prematchListEl.innerHTML = mapperPrematchList.map(function (m, idx) {
-            return '<div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-slate-800" data-idx="' + idx + '" data-phase="prematch">' +
-                '<span class="text-white text-xs truncate">' + (m.name || '—') + ' <span class="text-slate-500">(ID: ' + (m.id != null ? m.id : '') + ') (' + (m.feed_name || '') + ')</span></span>' +
-                '<button type="button" class="text-slate-400 hover:text-red-400 p-1 rounded remove-mapper-item" title="Remove"><i class="fa-solid fa-times"></i></button></div>';
+            return '<div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-gmp-surface-raised" data-idx="' + idx + '" data-phase="prematch">' +
+                '<span class="text-white text-xs truncate">' + (m.name || '—') + ' <span class="text-gmp-text-faint">(ID: ' + (m.id != null ? m.id : '') + ') (' + (m.feed_name || '') + ')</span></span>' +
+                '<button type="button" class="text-gmp-text-muted hover:text-danger p-1 rounded remove-mapper-item" title="Remove"><i class="fa-solid fa-times"></i></button></div>';
         }).join('');
         liveListEl.innerHTML = mapperLiveList.map(function (m, idx) {
-            return '<div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-slate-800" data-idx="' + idx + '" data-phase="live">' +
-                '<span class="text-white text-xs truncate">' + (m.name || '—') + ' <span class="text-slate-500">(ID: ' + (m.id != null ? m.id : '') + ') (' + (m.feed_name || '') + ')</span></span>' +
-                '<button type="button" class="text-slate-400 hover:text-red-400 p-1 rounded remove-mapper-item" title="Remove"><i class="fa-solid fa-times"></i></button></div>';
+            return '<div class="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-gmp-surface-raised" data-idx="' + idx + '" data-phase="live">' +
+                '<span class="text-white text-xs truncate">' + (m.name || '—') + ' <span class="text-gmp-text-faint">(ID: ' + (m.id != null ? m.id : '') + ') (' + (m.feed_name || '') + ')</span></span>' +
+                '<button type="button" class="text-gmp-text-muted hover:text-danger p-1 rounded remove-mapper-item" title="Remove"><i class="fa-solid fa-times"></i></button></div>';
         }).join('');
         if (prematchEmptyEl) prematchEmptyEl.style.display = mapperPrematchList.length ? 'none' : '';
         if (liveEmptyEl) liveEmptyEl.style.display = mapperLiveList.length ? 'none' : '';
@@ -1500,17 +1500,17 @@
         if (!feedSelect || !listEl) return;
         const feedProviderId = feedSelect.value ? parseInt(feedSelect.value, 10) : null;
         if (!feedProviderId) {
-            listEl.innerHTML = '<p class="text-slate-500 italic text-[11px]">Select a feed to load its markets for the current sport (e.g. Football).</p>';
+            listEl.innerHTML = '<p class="text-gmp-text-faint italic text-[11px]">Select a feed to load its markets for the current sport (e.g. Football).</p>';
             marketMapperFeedMarkets = [];
             return;
         }
         const domainSportId = getMapperDomainSportId();
         if (!domainSportId) {
-            listEl.innerHTML = '<p class="text-slate-500 italic text-[11px]">Select a sport in the filter above (or open Map from a market row).</p>';
+            listEl.innerHTML = '<p class="text-gmp-text-faint italic text-[11px]">Select a sport in the filter above (or open Map from a market row).</p>';
             marketMapperFeedMarkets = [];
             return;
         }
-        listEl.innerHTML = '<p class="text-slate-500 italic text-[11px]">Loading…</p>';
+        listEl.innerHTML = '<p class="text-gmp-text-faint italic text-[11px]">Loading…</p>';
         try {
             const res = await fetch('/api/feed-markets?feed_provider_id=' + feedProviderId + '&domain_sport_id=' + encodeURIComponent(domainSportId));
             const data = await res.json();
@@ -1518,7 +1518,7 @@
             currentMapperFeedName = data.feed_name || '';
             renderMarketMapperAvailableList();
         } catch (e) {
-            listEl.innerHTML = '<p class="text-amber-400 text-[11px]">Failed to load feed markets.</p>';
+            listEl.innerHTML = '<p class="text-warning text-[11px]">Failed to load feed markets.</p>';
             marketMapperFeedMarkets = [];
         }
     }
@@ -1546,20 +1546,20 @@
             });
         }
         if (items.length === 0) {
-            listEl.innerHTML = '<p class="text-slate-500 italic text-[11px]">No markets found.</p>';
+            listEl.innerHTML = '<p class="text-gmp-text-faint italic text-[11px]">No markets found.</p>';
             return;
         }
         const feedName = marketMapperFeedMarkets[0] && marketMapperFeedMarkets[0].feed_name ? marketMapperFeedMarkets[0].feed_name : '';
         listEl.innerHTML = items.map(function (m) {
             const phase = m.is_prematch ? 'PreMatch' : 'Live';
-            const phaseCls = m.is_prematch ? 'bg-slate-600' : 'bg-emerald-600/80';
+            const phaseCls = m.is_prematch ? 'bg-surfaceHover' : 'bg-primaryHover/80';
             const idStr = m.id != null ? String(m.id) : '—';
             const sportStr = (m.sport_name || '').trim() || '—';
             const linePart = (m.line && String(m.line).trim()) ? ' · ' + String(m.line).trim() : '';
             const line = idStr + ' · ' + (m.name || '—') + linePart + ' · ' + sportStr + ' · ' + (feedName || '') + ' · ' + phase;
-            return '<div class="flex items-center justify-between gap-2 py-1 px-2 rounded hover:bg-slate-700/50 mapper-available-row text-xs" data-market-id="' + (m.id != null ? String(m.id) : '') + '" data-market-name="' + (m.name || '').replace(/"/g, '&quot;') + '" data-is-prematch="' + (m.is_prematch ? '1' : '0') + '">' +
+            return '<div class="flex items-center justify-between gap-2 py-1 px-2 rounded hover:bg-gmp-surface-raised/50 mapper-available-row text-xs" data-market-id="' + (m.id != null ? String(m.id) : '') + '" data-market-name="' + (m.name || '').replace(/"/g, '&quot;') + '" data-is-prematch="' + (m.is_prematch ? '1' : '0') + '">' +
                 '<span class="text-white truncate min-w-0 flex-1" title="' + (m.name || '').replace(/"/g, '&quot;') + '">' + line + '</span>' +
-                '<button type="button" class="mapper-add-btn text-secondary hover:text-blue-300 p-1 rounded shrink-0" title="Add to ' + phase + ' mapping"><i class="fa-solid fa-plus"></i></button></div>';
+                '<button type="button" class="mapper-add-btn text-secondary hover:text-info p-1 rounded shrink-0" title="Add to ' + phase + ' mapping"><i class="fa-solid fa-plus"></i></button></div>';
         }).join('');
         listEl.querySelectorAll('.mapper-add-btn').forEach(function (btn) {
             btn.addEventListener('click', function (e) {

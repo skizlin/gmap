@@ -7,49 +7,49 @@
 
 {% block content %}
 <div class="flex flex-col h-full space-y-4">
-    <div class="flex items-center gap-2 text-slate-500 text-sm">
-        <a href="/" class="text-primary hover:text-emerald-400">Dashboard</a>
+    <div class="flex items-center gap-2 text-gmp-text-faint text-sm">
+        <a href="/" class="text-primary hover:text-success">Dashboard</a>
         <i class="fa-solid fa-chevron-right text-[10px]"></i>
-        <span class="text-slate-400">Pull Feeds Data</span>
+        <span class="text-gmp-text-muted">Pull Feeds Data</span>
     </div>
 
     <div class="glass-panel rounded-lg p-6 space-y-6">
         <h2 class="text-lg font-semibold text-white flex items-center gap-2">
             <i class="fa-solid fa-download text-primary"></i> Pull Feeds Data
         </h2>
-        <p class="text-slate-400 text-sm max-w-2xl">
+        <p class="text-gmp-text-muted text-sm max-w-2xl">
             Pull upcoming/prematch events from feed APIs. New events are added; existing event IDs are skipped. Enter the API key per feed when you want to pull; keys are not stored.
         </p>
 
         <!-- Bet365 -->
-        <div class="border border-slate-700/50 rounded-lg overflow-hidden">
-            <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
+        <div class="border border-gmp-border/50 rounded-lg overflow-hidden">
+            <div class="bg-gmp-surface-raised/60 px-4 py-2.5 border-b border-gmp-border/50 flex flex-wrap items-center gap-4">
                 <span class="font-medium text-white">Bet365</span>
-                <span class="text-slate-400 text-sm">Upcoming events per sport (paginated)</span>
+                <span class="text-gmp-text-muted text-sm">Upcoming events per sport (paginated)</span>
                 <span id="pull-all-result-bet365" class="pull-all-result text-sm hidden"></span>
-                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 rounded text-sm font-medium transition-colors"
+                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-primaryHover/30 hover:bg-primaryHover/50 text-success border border-success/50 rounded text-sm font-medium transition-colors"
                         data-feed="bet365">
                     <i class="fa-solid fa-download mr-1.5"></i> Pull all
                 </button>
                 <label class="flex items-center gap-2 ml-auto">
-                    <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
+                    <span class="text-gmp-text-muted text-sm whitespace-nowrap">API key</span>
                     <input type="password"
                            id="bet365-api-key"
                            name="api_token"
                            placeholder="Enter key to pull"
                            autocomplete="off"
-                           class="bet365-api-key-input w-48 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-sm text-white placeholder-slate-500 focus:border-primary focus:outline-none">
+                           class="bet365-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-white placeholder-gmp-text-faint focus:border-primary focus:outline-none">
                 </label>
             </div>
-            <div class="divide-y divide-slate-700/50">
+            <div class="divide-y divide-gmp-border/50">
                 {% for sport in bet365_sports %}
                 <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
                     <div class="flex items-center gap-3">
                         <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
-                        <span class="text-slate-500 text-sm">sport_id: {{ sport.feed_sport_id }}</span>
+                        <span class="text-gmp-text-faint text-sm">sport_id: {{ sport.feed_sport_id }}</span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span id="last-pull-bet365-{{ sport.feed_sport_id }}" class="text-slate-500 text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
+                        <span id="last-pull-bet365-{{ sport.feed_sport_id }}" class="text-gmp-text-faint text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
                         <span id="pull-result-{{ sport.feed_sport_id }}" class="pull-result text-sm hidden"></span>
                         <button type="button"
                                 class="pull-btn inline-flex items-center px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-medium transition-colors"
@@ -63,41 +63,41 @@
                 {% endfor %}
             </div>
             {% if not bet365_sports %}
-            <div class="px-4 py-4 text-slate-500 text-sm">
+            <div class="px-4 py-4 text-gmp-text-faint text-sm">
                 No Bet365 sports configured. Add entries in Configuration → Sport–Feed Mappings (feed_sports) for feed_provider <code>bet365</code>.
             </div>
             {% endif %}
         </div>
 
         <!-- Betfair -->
-        <div class="border border-slate-700/50 rounded-lg overflow-hidden">
-            <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
+        <div class="border border-gmp-border/50 rounded-lg overflow-hidden">
+            <div class="bg-gmp-surface-raised/60 px-4 py-2.5 border-b border-gmp-border/50 flex flex-wrap items-center gap-4">
                 <span class="font-medium text-white">Betfair</span>
-                <span class="text-slate-400 text-sm">Upcoming events per sport (paginated)</span>
+                <span class="text-gmp-text-muted text-sm">Upcoming events per sport (paginated)</span>
                 <span id="pull-all-result-betfair" class="pull-all-result text-sm hidden"></span>
-                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 rounded text-sm font-medium transition-colors"
+                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-primaryHover/30 hover:bg-primaryHover/50 text-success border border-success/50 rounded text-sm font-medium transition-colors"
                         data-feed="betfair">
                     <i class="fa-solid fa-download mr-1.5"></i> Pull all
                 </button>
                 <label class="flex items-center gap-2 ml-auto">
-                    <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
+                    <span class="text-gmp-text-muted text-sm whitespace-nowrap">API key</span>
                     <input type="password"
                            id="betfair-api-key"
                            name="api_token"
                            placeholder="Enter key to pull"
                            autocomplete="off"
-                           class="betfair-api-key-input w-48 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-sm text-white placeholder-slate-500 focus:border-primary focus:outline-none">
+                           class="betfair-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-white placeholder-gmp-text-faint focus:border-primary focus:outline-none">
                 </label>
             </div>
-            <div class="divide-y divide-slate-700/50">
+            <div class="divide-y divide-gmp-border/50">
                 {% for sport in betfair_sports %}
                 <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
                     <div class="flex items-center gap-3">
                         <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
-                        <span class="text-slate-500 text-sm">sport_id: {{ sport.feed_sport_id }}</span>
+                        <span class="text-gmp-text-faint text-sm">sport_id: {{ sport.feed_sport_id }}</span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span id="last-pull-betfair-{{ sport.feed_sport_id }}" class="text-slate-500 text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
+                        <span id="last-pull-betfair-{{ sport.feed_sport_id }}" class="text-gmp-text-faint text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
                         <span id="pull-result-betfair-{{ sport.feed_sport_id }}" class="pull-result text-sm hidden"></span>
                         <button type="button"
                                 class="pull-btn inline-flex items-center px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-medium transition-colors"
@@ -111,41 +111,41 @@
                 {% endfor %}
             </div>
             {% if not betfair_sports %}
-            <div class="px-4 py-4 text-slate-500 text-sm">
+            <div class="px-4 py-4 text-gmp-text-faint text-sm">
                 No Betfair sports configured. Add entries in Configuration → Sport–Feed Mappings (feed_sports) for feed_provider <code>betfair</code>.
             </div>
             {% endif %}
         </div>
 
         <!-- 1xbet -->
-        <div class="border border-slate-700/50 rounded-lg overflow-hidden">
-            <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
+        <div class="border border-gmp-border/50 rounded-lg overflow-hidden">
+            <div class="bg-gmp-surface-raised/60 px-4 py-2.5 border-b border-gmp-border/50 flex flex-wrap items-center gap-4">
                 <span class="font-medium text-white">1xbet</span>
-                <span class="text-slate-400 text-sm">Upcoming events per sport (paginated)</span>
+                <span class="text-gmp-text-muted text-sm">Upcoming events per sport (paginated)</span>
                 <span id="pull-all-result-1xbet" class="pull-all-result text-sm hidden"></span>
-                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 rounded text-sm font-medium transition-colors"
+                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-primaryHover/30 hover:bg-primaryHover/50 text-success border border-success/50 rounded text-sm font-medium transition-colors"
                         data-feed="1xbet">
                     <i class="fa-solid fa-download mr-1.5"></i> Pull all
                 </button>
                 <label class="flex items-center gap-2 ml-auto">
-                    <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
+                    <span class="text-gmp-text-muted text-sm whitespace-nowrap">API key</span>
                     <input type="password"
                            id="1xbet-api-key"
                            name="api_token"
                            placeholder="Enter key to pull"
                            autocomplete="off"
-                           class="onexbet-api-key-input w-48 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-sm text-white placeholder-slate-500 focus:border-primary focus:outline-none">
+                           class="onexbet-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-white placeholder-gmp-text-faint focus:border-primary focus:outline-none">
                 </label>
             </div>
-            <div class="divide-y divide-slate-700/50">
+            <div class="divide-y divide-gmp-border/50">
                 {% for sport in onexbet_sports %}
                 <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
                     <div class="flex items-center gap-3">
                         <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
-                        <span class="text-slate-500 text-sm">sport_id: {{ sport.feed_sport_id }}</span>
+                        <span class="text-gmp-text-faint text-sm">sport_id: {{ sport.feed_sport_id }}</span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span id="last-pull-1xbet-{{ sport.feed_sport_id }}" class="text-slate-500 text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
+                        <span id="last-pull-1xbet-{{ sport.feed_sport_id }}" class="text-gmp-text-faint text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
                         <span id="pull-result-1xbet-{{ sport.feed_sport_id }}" class="pull-result text-sm hidden"></span>
                         <button type="button"
                                 class="pull-btn inline-flex items-center px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-medium transition-colors"
@@ -159,41 +159,41 @@
                 {% endfor %}
             </div>
             {% if not onexbet_sports %}
-            <div class="px-4 py-4 text-slate-500 text-sm">
+            <div class="px-4 py-4 text-gmp-text-faint text-sm">
                 No 1xbet sports configured. Add entries in Configuration → Sport–Feed Mappings (feed_sports) for feed_provider <code>1xbet</code>.
             </div>
             {% endif %}
         </div>
 
         <!-- Bwin -->
-        <div class="border border-slate-700/50 rounded-lg overflow-hidden">
-            <div class="bg-slate-800/60 px-4 py-2.5 border-b border-slate-700/50 flex flex-wrap items-center gap-4">
+        <div class="border border-gmp-border/50 rounded-lg overflow-hidden">
+            <div class="bg-gmp-surface-raised/60 px-4 py-2.5 border-b border-gmp-border/50 flex flex-wrap items-center gap-4">
                 <span class="font-medium text-white">Bwin</span>
-                <span class="text-slate-400 text-sm">Prematch events per sport (100 per page)</span>
+                <span class="text-gmp-text-muted text-sm">Prematch events per sport (100 per page)</span>
                 <span id="pull-all-result-bwin" class="pull-all-result text-sm hidden"></span>
-                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 rounded text-sm font-medium transition-colors"
+                <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-primaryHover/30 hover:bg-primaryHover/50 text-success border border-success/50 rounded text-sm font-medium transition-colors"
                         data-feed="bwin">
                     <i class="fa-solid fa-download mr-1.5"></i> Pull all
                 </button>
                 <label class="flex items-center gap-2 ml-auto">
-                    <span class="text-slate-400 text-sm whitespace-nowrap">API key</span>
+                    <span class="text-gmp-text-muted text-sm whitespace-nowrap">API key</span>
                     <input type="password"
                            id="bwin-api-key"
                            name="api_token"
                            placeholder="Enter key to pull"
                            autocomplete="off"
-                           class="bwin-api-key-input w-48 px-3 py-1.5 bg-slate-800 border border-slate-600 rounded text-sm text-white placeholder-slate-500 focus:border-primary focus:outline-none">
+                           class="bwin-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-white placeholder-gmp-text-faint focus:border-primary focus:outline-none">
                 </label>
             </div>
-            <div class="divide-y divide-slate-700/50">
+            <div class="divide-y divide-gmp-border/50">
                 {% for sport in bwin_sports %}
                 <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
                     <div class="flex items-center gap-3">
                         <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
-                        <span class="text-slate-500 text-sm">sport_id: {{ sport.feed_sport_id }}</span>
+                        <span class="text-gmp-text-faint text-sm">sport_id: {{ sport.feed_sport_id }}</span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span id="last-pull-bwin-{{ sport.feed_sport_id }}" class="text-slate-500 text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
+                        <span id="last-pull-bwin-{{ sport.feed_sport_id }}" class="text-gmp-text-faint text-sm whitespace-nowrap">Last pull: {{ sport.last_pull }}</span>
                         <span id="pull-result-bwin-{{ sport.feed_sport_id }}" class="pull-result text-sm hidden"></span>
                         <button type="button"
                                 class="pull-btn inline-flex items-center px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-medium transition-colors"
@@ -207,13 +207,13 @@
                 {% endfor %}
             </div>
             {% if not bwin_sports %}
-            <div class="px-4 py-4 text-slate-500 text-sm">
+            <div class="px-4 py-4 text-gmp-text-faint text-sm">
                 No Bwin sports configured. Add entries in Configuration → Sport–Feed Mappings (feed_sports) for feed_provider <code>bwin</code>.
             </div>
             {% endif %}
         </div>
 
-        <p class="text-slate-500 text-xs italic">
+        <p class="text-gmp-text-faint text-xs italic">
             All four feeds (Bet365, Betfair, 1xbet, Bwin) are available above.
         </p>
     </div>
@@ -224,16 +224,16 @@
     function setResult(resultId, data) {
         var el = document.getElementById('pull-result-' + resultId);
         if (!el) return;
-        el.classList.remove('hidden', 'text-red-400', 'text-amber-400', 'text-emerald-400');
+        el.classList.remove('hidden', 'text-danger', 'text-warning', 'text-success');
         if (data.error) {
             el.textContent = 'Error: ' + data.error;
-            el.classList.add('text-red-400');
+            el.classList.add('text-danger');
         } else {
             var skipOrUpdate = data.updated !== undefined
                 ? ('Updated: ' + (data.updated || 0))
                 : ('Skipped: ' + (data.skipped || 0));
             el.textContent = 'Added: ' + (data.added || 0) + ', ' + skipOrUpdate + (data.total ? ' (API total: ' + data.total + ')' : '');
-            el.classList.add('text-emerald-400');
+            el.classList.add('text-success');
         }
         el.classList.remove('hidden');
     }
@@ -246,7 +246,7 @@
         var sportName = btn.getAttribute('data-sport-name') || '';
         var resultId = btn.getAttribute('data-result-id') || (feed === 'betfair' ? 'betfair-' + sportId : feed === '1xbet' ? '1xbet-' + sportId : feed === 'bwin' ? 'bwin-' + sportId : sportId) || feed;
         var resultEl = document.getElementById('pull-result-' + resultId);
-        if (resultEl) { resultEl.textContent = 'Pulling…'; resultEl.classList.remove('hidden'); resultEl.classList.add('text-slate-400'); }
+        if (resultEl) { resultEl.textContent = 'Pulling…'; resultEl.classList.remove('hidden'); resultEl.classList.add('text-gmp-text-muted'); }
 
         var keyId = feed === 'bwin' ? 'bwin-api-key' : feed === 'betfair' ? 'betfair-api-key' : feed === '1xbet' ? '1xbet-api-key' : 'bet365-api-key';
         var keyInput = document.getElementById(keyId);
@@ -291,13 +291,13 @@
         if (!resultEl) return;
         if (!token) {
             resultEl.textContent = 'Enter API key first';
-            resultEl.classList.remove('hidden', 'text-emerald-400');
-            resultEl.classList.add('text-amber-400');
+            resultEl.classList.remove('hidden', 'text-success');
+            resultEl.classList.add('text-warning');
             return;
         }
         resultEl.textContent = 'Pulling all sports…';
-        resultEl.classList.remove('hidden', 'text-red-400', 'text-emerald-400');
-        resultEl.classList.add('text-slate-400');
+        resultEl.classList.remove('hidden', 'text-danger', 'text-success');
+        resultEl.classList.add('text-gmp-text-muted');
         var form = new FormData();
         form.append('feed_provider', feed);
         form.append('api_token', token);
@@ -311,8 +311,8 @@
         .then(function(data) {
             if (data.ok) {
                 resultEl.textContent = 'Done. ' + (data.results && data.results.length ? data.results.length + ' sports pulled.' : '');
-                resultEl.classList.remove('text-slate-400', 'text-red-400');
-                resultEl.classList.add('text-emerald-400');
+                resultEl.classList.remove('text-gmp-text-muted', 'text-danger');
+                resultEl.classList.add('text-success');
                 if (data.last_pull_display) {
                     document.querySelectorAll('[id^="last-pull-' + feed + '-"]').forEach(function(span) {
                         span.textContent = 'Last pull: ' + data.last_pull_display;
@@ -320,14 +320,14 @@
                 }
             } else {
                 resultEl.textContent = 'Error: ' + (data.error || 'Pull failed');
-                resultEl.classList.remove('text-slate-400', 'text-emerald-400');
-                resultEl.classList.add('text-red-400');
+                resultEl.classList.remove('text-gmp-text-muted', 'text-success');
+                resultEl.classList.add('text-danger');
             }
         })
         .catch(function(err) {
             resultEl.textContent = 'Error: ' + (err.message || 'Request failed');
-            resultEl.classList.remove('text-slate-400', 'text-emerald-400');
-            resultEl.classList.add('text-red-400');
+            resultEl.classList.remove('text-gmp-text-muted', 'text-success');
+            resultEl.classList.add('text-danger');
         });
     });
 })();

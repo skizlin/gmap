@@ -1,20 +1,20 @@
 {# Event Navigator notes modal – screen-only; not related to Feeder Events notes #}
 <div class="p-6">
-    <h3 class="text-lg font-semibold text-white mb-1">Notes <span class="text-slate-500 font-normal text-xs">(Event Navigator)</span></h3>
-    <p class="text-xs text-slate-400 mb-4">Domain event: {{ event_label | e }} — for this screen only.</p>
+    <h3 class="text-lg font-semibold text-white mb-1">Notes <span class="text-gmp-text-faint font-normal text-xs">(Event Navigator)</span></h3>
+    <p class="text-xs text-gmp-text-muted mb-4">Domain event: {{ event_label | e }} — for this screen only.</p>
 
-    <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-600">
-        <label class="block text-xs font-medium text-slate-400 mb-2">Note</label>
+    <div class="p-3 rounded-lg bg-gmp-surface/60 border border-gmp-border">
+        <label class="block text-xs font-medium text-gmp-text-muted mb-2">Note</label>
         <textarea id="en-note-text" rows="4" placeholder="Type a note for this event…"
-            class="w-full rounded border border-slate-600 bg-slate-900 text-white text-sm p-2 focus:ring-2 focus:ring-primary/50 placeholder-slate-500 mb-2">{{ note_text }}</textarea>
+            class="w-full rounded border border-gmp-border bg-gmp-surface text-white text-sm p-2 focus:ring-2 focus:ring-primary/50 placeholder-gmp-text-faint mb-2">{{ note_text }}</textarea>
         <label class="flex items-start gap-2 mt-2 mb-2 cursor-pointer">
-            <input type="checkbox" id="en-note-requires-confirmation" class="rounded border-amber-500/50 bg-slate-800 text-amber-500 mt-0.5 accent-amber-500">
-            <span class="text-xs text-amber-200/90">IMPORTANT! Please confirm you read and understood!</span>
+            <input type="checkbox" id="en-note-requires-confirmation" class="rounded border-warning/50 bg-gmp-surface-raised text-warning mt-0.5 accent-warning">
+            <span class="text-xs text-warning/90">IMPORTANT! Please confirm you read and understood!</span>
         </label>
-        <p class="text-[11px] text-slate-500 mb-3">If checked, all users will see a notification (top right) until they confirm they have read it.</p>
+        <p class="text-[11px] text-gmp-text-faint mb-3">If checked, all users will see a notification (top right) until they confirm they have read it.</p>
         <div class="flex gap-2">
-            <button type="button" id="en-note-save-btn" onclick="enNoteSave()" class="px-3 py-1.5 rounded text-xs font-medium bg-primary text-white hover:bg-emerald-600">Save</button>
-            <button type="button" onclick="closeModal()" class="px-3 py-1.5 rounded text-xs font-medium bg-slate-600 text-slate-200 hover:bg-slate-500">Cancel</button>
+            <button type="button" id="en-note-save-btn" onclick="enNoteSave()" class="px-3 py-1.5 rounded text-xs font-medium bg-primary text-white hover:bg-primaryHover">Save</button>
+            <button type="button" onclick="closeModal()" class="px-3 py-1.5 rounded text-xs font-medium bg-surfaceHover text-gmp-text hover:bg-gmp-border">Cancel</button>
         </div>
     </div>
 </div>

@@ -7,6 +7,12 @@
 
 This answers the checklist from **Design System UI_UX.pdf** where we already have stable choices in the prototype; other items (full Figma library, all breakpoints, every component state) remain for a later design pass.
 
+### Semantic tokens (prototype implementation)
+
+The Jinja prototype defines **CSS variables** on `html.dark` in **`backend/templates/includes/gmp_tailwind_head.html`** (included by `layout.html` and `login_layout.html`). Variables include `--gmp-canvas`, `--gmp-surface-*`, `--gmp-text-*`, `--gmp-success`, `--gmp-warning`, `--gmp-danger`, `--gmp-info`, `--gmp-primary-hover`, `--gmp-info-hover`, `--gmp-surface-hover`, etc. Tailwind `extend.colors` maps **`primary`**, **`primaryHover`**, **`secondary`**, **`darkbg`**, **`cardbg`**, **`surfaceHover`**, **`infoHover`**, **`gmp.*`**, **`success` / `warning` / `danger` / `info`**, and **`accentColor.warning`** to those RGB tokens (`<alpha-value>` for opacity).
+
+**Templates:** backoffice HTML under `backend/templates/` has been **normalized to semantic utilities** for dark mode (replacing raw `slate-*`, `emerald-*`, and most `red-*` / `amber-*` / `blue-*` chains). Re-run or extend **`scripts/normalize_gmp_theme_templates.py`** if new raw Tailwind color utilities appear. **`.glass-panel`** and **`.gmp-toast-success` / `.gmp-toast-warning`** live in the same include.
+
 ---
 
 ## 1. Color palette (dark)

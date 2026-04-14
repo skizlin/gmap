@@ -8,26 +8,26 @@
 {% block content %}
 <div class="flex flex-col h-full space-y-3">
     <!-- Tabs: Events | Feed Events -->
-    <div class="flex border-b border-slate-700 shrink-0 flex-nowrap" role="tablist">
+    <div class="flex border-b border-gmp-border shrink-0 flex-nowrap" role="tablist">
         <a href="#events" id="archived-tab-events" class="archived-tab px-4 py-2.5 text-sm font-medium border-b-2 border-primary text-primary no-underline hover:opacity-90">
             <i class="fa-solid fa-calendar-days mr-1.5"></i> Events
         </a>
-        <a href="#feed-events" id="archived-tab-feed-events" class="archived-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-white transition-colors no-underline">
+        <a href="#feed-events" id="archived-tab-feed-events" class="archived-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gmp-text-muted hover:text-white transition-colors no-underline">
             <i class="fa-solid fa-rss mr-1.5"></i> Feed Events
         </a>
     </div>
 
     <!-- Panel: Events -->
     <div id="archived-panel-events" class="flex flex-col flex-1 min-h-0 overflow-auto">
-        <div class="bg-cardbg/80 border border-slate-700/50 rounded-lg p-6 flex-1 min-h-0">
-            <p class="text-sm text-slate-500">Archived domain events. Content and logic coming later.</p>
+        <div class="bg-cardbg/80 border border-gmp-border/50 rounded-lg p-6 flex-1 min-h-0">
+            <p class="text-sm text-gmp-text-faint">Archived domain events. Content and logic coming later.</p>
         </div>
     </div>
 
     <!-- Panel: Feed Events -->
     <div id="archived-panel-feed-events" class="hidden flex flex-col flex-1 min-h-0 overflow-auto">
-        <div class="bg-cardbg/80 border border-slate-700/50 rounded-lg p-6 flex-1 min-h-0">
-            <p class="text-sm text-slate-500">Archived feed events. Content and logic coming later.</p>
+        <div class="bg-cardbg/80 border border-gmp-border/50 rounded-lg p-6 flex-1 min-h-0">
+            <p class="text-sm text-gmp-text-faint">Archived feed events. Content and logic coming later.</p>
         </div>
     </div>
 </div>
@@ -43,8 +43,8 @@
         var tabFeed = document.getElementById('archived-tab-feed-events');
         if (panelEvents) { panelEvents.classList.toggle('hidden', !isEvents); panelEvents.classList.toggle('flex', isEvents); }
         if (panelFeed) { panelFeed.classList.toggle('hidden', isEvents); panelFeed.classList.toggle('flex', !isEvents); }
-        if (tabEvents) { tabEvents.classList.toggle('border-primary', isEvents); tabEvents.classList.toggle('text-primary', isEvents); tabEvents.classList.toggle('border-transparent', !isEvents); tabEvents.classList.toggle('text-slate-400', !isEvents); }
-        if (tabFeed) { tabFeed.classList.toggle('border-primary', !isEvents); tabFeed.classList.toggle('text-primary', !isEvents); tabFeed.classList.toggle('border-transparent', isEvents); tabFeed.classList.toggle('text-slate-400', isEvents); }
+        if (tabEvents) { tabEvents.classList.toggle('border-primary', isEvents); tabEvents.classList.toggle('text-primary', isEvents); tabEvents.classList.toggle('border-transparent', !isEvents); tabEvents.classList.toggle('text-gmp-text-muted', !isEvents); }
+        if (tabFeed) { tabFeed.classList.toggle('border-primary', !isEvents); tabFeed.classList.toggle('text-primary', !isEvents); tabFeed.classList.toggle('border-transparent', isEvents); tabFeed.classList.toggle('text-gmp-text-muted', isEvents); }
     }
     window.addEventListener('hashchange', applyArchivedTabFromHash);
     document.addEventListener('DOMContentLoaded', function() {

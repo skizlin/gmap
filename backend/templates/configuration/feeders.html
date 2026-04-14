@@ -9,28 +9,28 @@
 <div class="flex flex-col space-y-4 pb-6">
 
     <!-- Tabs (hash-based: #config, #feed_sports for direct links) -->
-    <div class="flex border-b border-slate-700 gap-0" role="tablist">
+    <div class="flex border-b border-gmp-border gap-0" role="tablist">
         <a href="#config" id="feeder-tab-config" data-tab-key="config" onclick="event.preventDefault(); switchFeederTab('config');"
             class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-primary border-primary no-underline cursor-pointer">
             <i class="fa-solid fa-sliders text-xs"></i>
             Configuration
         </a>
         <a href="#feed_sports" id="feeder-tab-feed_sports" data-tab-key="feed_sports" onclick="event.preventDefault(); switchFeederTab('feed_sports');"
-            class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white no-underline cursor-pointer">
+            class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-gmp-text-muted border-transparent hover:text-white no-underline cursor-pointer">
             <i class="fa-solid fa-satellite-dish text-xs"></i>
             Feed Sports
-            <span class="text-slate-500 text-xs">({{ feed_sports_count|default(0) }})</span>
+            <span class="text-gmp-text-faint text-xs">({{ feed_sports_count|default(0) }})</span>
         </a>
     </div>
 
     <!-- Panel: Configuration (feeder settings + incidents) -->
     <div id="feeder-panel-config" class="feeder-panel flex flex-col space-y-4">
     <!-- Filters -->
-    <form method="get" action="/feeders" id="feeder-filters-form" class="flex flex-wrap items-end gap-3 bg-cardbg/80 border border-slate-700/50 rounded-lg p-4">
+    <form method="get" action="/feeders" id="feeder-filters-form" class="flex flex-wrap items-end gap-3 bg-cardbg/80 border border-gmp-border/50 rounded-lg p-4">
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sport</label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Sport</label>
             <select name="sport_id" id="feeder-filter-sport" onchange="feederSportChange()"
-                class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]">
+                class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]">
                 <option value="">— select —</option>
                 <option value="all" {% if selected_sport_id == 'all' %}selected{% endif %}>All Sports</option>
                 {% for s in sports %}
@@ -39,9 +39,9 @@
             </select>
         </div>
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Category</label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Category</label>
             <select name="category_id" id="feeder-filter-category" onchange="this.form.submit()"
-                class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]"
+                class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]"
                 {% if not selected_sport_id or selected_sport_id == 'all' %}disabled{% endif %}>
                 <option value="">— select —</option>
                 {% for c in categories %}
@@ -52,9 +52,9 @@
             </select>
         </div>
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Competition</label>
+            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Competition</label>
             <select name="competition_id" id="feeder-filter-competition" onchange="this.form.submit()"
-                class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]"
+                class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]"
                 {% if not selected_category_id or selected_sport_id == 'all' %}disabled{% endif %}>
                 <option value="">— select —</option>
                 {% for comp in competitions %}
@@ -65,42 +65,42 @@
             </select>
         </div>
         <button type="button" onclick="document.getElementById('feeder-filter-sport').value=''; document.getElementById('feeder-filter-category').value=''; document.getElementById('feeder-filter-competition').value=''; document.getElementById('feeder-filter-category').disabled=false; document.getElementById('feeder-filter-competition').disabled=false; document.getElementById('feeder-filters-form').submit();"
-            class="text-slate-500 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-slate-700" title="Clear filters">Clear</button>
+            class="text-gmp-text-faint hover:text-white text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover" title="Clear filters">Clear</button>
     </form>
 
     {% if not selected_sport_id %}
-    <div class="bg-cardbg/80 border border-slate-700/50 rounded-lg p-8 text-center text-slate-500 text-sm">
+    <div class="bg-cardbg/80 border border-gmp-border/50 rounded-lg p-8 text-center text-gmp-text-faint text-sm">
         Select <strong>All Sports</strong> or a specific <strong>Sport</strong> (and optionally Category and Competition) above to configure feeder settings for that level.
     </div>
     {% else %}
 
     <!-- Feeder configuration grid (settings as rows, feeders as columns) -->
-    <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-hidden">
-        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 border-b border-slate-700/50">Feeder configuration</h2>
-        <p class="text-[11px] text-slate-500 px-4 py-2 border-b border-slate-700/50">Only the options below are active in this product. Values are stored per scope (All Sports, sport, category, or competition) and are not applied by the runtime yet.</p>
+    <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-hidden">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint px-4 py-3 border-b border-gmp-border/50">Feeder configuration</h2>
+        <p class="text-[11px] text-gmp-text-faint px-4 py-2 border-b border-gmp-border/50">Only the options below are active in this product. Values are stored per scope (All Sports, sport, category, or competition) and are not applied by the runtime yet.</p>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
-                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border">
                     <tr>
-                        <th class="px-3 py-2.5 font-semibold w-48 min-w-[12rem] sticky left-0 bg-slate-900/50 z-10">Setting</th>
+                        <th class="px-3 py-2.5 font-semibold w-48 min-w-[12rem] sticky left-0 bg-gmp-surface/50 z-10">Setting</th>
                         {% for feed in feeds %}
                         <th class="px-2 py-2.5 font-semibold whitespace-nowrap">{{ feed.name }}</th>
                         {% endfor %}
                     </tr>
                 </thead>
-                <tbody class="text-slate-300">
+                <tbody class="text-gmp-text-menu">
                     {% for key, label, hint in system_actions %}
-                    <tr class="border-b border-slate-700/40 hover:bg-white/3">
+                    <tr class="border-b border-gmp-border/40 hover:bg-white/3">
                         <td class="px-3 py-2 font-medium text-white sticky left-0 bg-cardbg/95 z-10 align-middle">
                             <span class="inline-flex items-center gap-1.5 flex-wrap">
                                 <span>{{ label }}</span>
                                 {% if hint %}
                                 <span class="relative inline-flex shrink-0 group">
-                                    <button type="button" class="cursor-help rounded p-0.5 text-slate-500 hover:text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-primary bg-transparent border-0"
+                                    <button type="button" class="cursor-help rounded p-0.5 text-gmp-text-faint hover:text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-primary bg-transparent border-0"
                                         aria-label="Prerequisites for this setting">
                                         <i class="fa-regular fa-circle-question text-[13px]" aria-hidden="true"></i>
                                     </button>
-                                    <span class="pointer-events-none absolute left-1/2 bottom-full z-[45] mb-1.5 hidden w-max max-w-[min(17rem,calc(100vw-3rem))] -translate-x-1/2 rounded-md border border-slate-600 bg-slate-800 px-2.5 py-2 text-left text-[10px] font-normal text-slate-300 shadow-lg leading-snug group-hover:block group-focus-within:block">
+                                    <span class="pointer-events-none absolute left-1/2 bottom-full z-[45] mb-1.5 hidden w-max max-w-[min(17rem,calc(100vw-3rem))] -translate-x-1/2 rounded-md border border-gmp-border bg-gmp-surface-raised px-2.5 py-2 text-left text-[10px] font-normal text-gmp-text-menu shadow-lg leading-snug group-hover:block group-focus-within:block">
                                         {{ hint }}
                                     </span>
                                 </span>
@@ -109,7 +109,7 @@
                         </td>
                         {% for feed in feeds %}
                         <td class="px-2 py-2">
-                            <select name="fc_{{ feed.domain_id }}_{{ key }}" class="feeder-config-cell bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-[11px] w-full max-w-[90px]"
+                            <select name="fc_{{ feed.domain_id }}_{{ key }}" class="feeder-config-cell bg-gmp-surface-raised border border-gmp-border rounded px-1.5 py-1 text-[11px] w-full max-w-[90px]"
                                 data-feed-id="{{ feed.domain_id }}" data-setting="{{ key }}">
                                 {% set fc_val = feeder_config_lookup.get((feed.domain_id, key), 'No') %}
                                 <option value="No" {% if fc_val != 'Yes' %}selected{% endif %}>No</option>
@@ -122,20 +122,20 @@
                 </tbody>
             </table>
         </div>
-        <div class="px-4 py-2 border-t border-slate-700/50 flex justify-end gap-2">
-            <button type="button" id="feeder-config-save" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded">Save</button>
-            <span id="feeder-config-status" class="text-xs text-slate-400"></span>
+        <div class="px-4 py-2 border-t border-gmp-border/50 flex justify-end gap-2">
+            <button type="button" id="feeder-config-save" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded">Save</button>
+            <span id="feeder-config-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>
 
     <!-- Feeder Incidents Configuration (only when specific sport selected, not All Sports) -->
     {% if selected_sport_id and selected_sport_id != 'all' %}
-    <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-hidden">
-        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 border-b border-slate-700/50">Feeder Incidents Configuration</h2>
-        <p class="text-[11px] text-slate-500 px-4 py-2">Configure which incident data each feeder provides for the selected sport.</p>
+    <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-hidden">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint px-4 py-3 border-b border-gmp-border/50">Feeder Incidents Configuration</h2>
+        <p class="text-[11px] text-gmp-text-faint px-4 py-2">Configure which incident data each feeder provides for the selected sport.</p>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
-                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border">
                     <tr>
                         <th class="px-3 py-2.5 font-semibold w-40">Feeder</th>
                         {% for key, label in incident_types %}
@@ -144,20 +144,20 @@
                         <th class="px-2 py-2.5 font-semibold">Enabled</th>
                     </tr>
                 </thead>
-                <tbody class="text-slate-300">
+                <tbody class="text-gmp-text-menu">
                     {% for feed in feeds %}
-                    <tr class="border-b border-slate-700/40 hover:bg-white/3">
+                    <tr class="border-b border-gmp-border/40 hover:bg-white/3">
                         <td class="px-3 py-2 font-medium text-white">{{ feed.name }}</td>
                         {% for key, label in incident_types %}
                         <td class="px-2 py-2">
-                            <input type="checkbox" name="inc_{{ feed.domain_id }}_{{ key }}" class="feeder-incident-cell rounded border-slate-600 bg-slate-800 text-primary"
+                            <input type="checkbox" name="inc_{{ feed.domain_id }}_{{ key }}" class="feeder-incident-cell rounded border-gmp-border bg-gmp-surface-raised text-primary"
                                 {% if feeder_incident_lookup.get((feed.domain_id, key)) %}checked{% endif %}
                                 data-feed-id="{{ feed.domain_id }}" data-incident="{{ key }}">
                         </td>
                         {% endfor %}
                         <td class="px-2 py-2">
                             <label class="flex items-center gap-1 cursor-pointer">
-                                <input type="checkbox" class="feeder-source-enabled rounded border-slate-600 bg-slate-800 text-primary" data-feed-id="{{ feed.domain_id }}" checked>
+                                <input type="checkbox" class="feeder-source-enabled rounded border-gmp-border bg-gmp-surface-raised text-primary" data-feed-id="{{ feed.domain_id }}" checked>
                                 <span class="text-[11px]">On</span>
                             </label>
                         </td>
@@ -166,15 +166,15 @@
                 </tbody>
             </table>
         </div>
-        <div class="px-4 py-2 border-t border-slate-700/50 flex justify-between items-center">
+        <div class="px-4 py-2 border-t border-gmp-border/50 flex justify-between items-center">
             <div class="flex gap-2">
-                <button type="button" class="text-slate-400 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-slate-700">Sort</button>
-                <button type="button" class="text-slate-400 hover:text-white text-xs px-2 py-1.5 rounded hover:bg-slate-700">+ Add</button>
+                <button type="button" class="text-gmp-text-muted hover:text-white text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover">Sort</button>
+                <button type="button" class="text-gmp-text-muted hover:text-white text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover">+ Add</button>
             </div>
             <div class="flex gap-2">
-                <button type="button" id="feeder-incidents-save" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded">Save</button>
-                <button type="button" onclick="window.location.reload()" class="text-slate-500 hover:text-white text-xs px-3 py-1.5 rounded">Cancel</button>
-                <span id="feeder-incidents-status" class="text-xs text-slate-400"></span>
+                <button type="button" id="feeder-incidents-save" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded">Save</button>
+                <button type="button" onclick="window.location.reload()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5 rounded">Cancel</button>
+                <span id="feeder-incidents-status" class="text-xs text-gmp-text-muted"></span>
             </div>
         </div>
     </div>
@@ -186,11 +186,11 @@
 
     <!-- Panel: Feed Sports (feed_sports.csv) -->
     <div id="feeder-panel-feed_sports" class="feeder-panel hidden flex flex-col space-y-4">
-        <p class="text-xs text-slate-500">Per-feed sport IDs and display names. Used in Feeder Events and mapping. Add rows so events with different <code class="text-slate-400">sport_id</code> show the correct name.</p>
-        <div class="flex flex-wrap items-end gap-3 bg-cardbg/80 border border-slate-700/50 rounded-lg p-3">
+        <p class="text-xs text-gmp-text-faint">Per-feed sport IDs and display names. Used in Feeder Events and mapping. Add rows so events with different <code class="text-gmp-text-muted">sport_id</code> show the correct name.</p>
+        <div class="flex flex-wrap items-end gap-3 bg-cardbg/80 border border-gmp-border/50 rounded-lg p-3">
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Feed</label>
-                <select id="fs-feed" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[120px]">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Feed</label>
+                <select id="fs-feed" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[120px]">
                     <option value="">— select —</option>
                     {% for f in feeds %}
                     <option value="{{ f.code }}">{{ f.name }}</option>
@@ -198,34 +198,34 @@
                 </select>
             </div>
             <div>
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Feed sport ID</label>
-                <input type="text" id="fs-sport-id" placeholder="e.g. 1, 2, 13" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary w-28">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Feed sport ID</label>
+                <input type="text" id="fs-sport-id" placeholder="e.g. 1, 2, 13" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary w-28">
             </div>
             <div class="flex-1 min-w-[140px]">
-                <label class="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Feed sport name</label>
-                <input type="text" id="fs-sport-name" placeholder="e.g. Soccer, Tennis" class="bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary w-full">
+                <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Feed sport name</label>
+                <input type="text" id="fs-sport-name" placeholder="e.g. Soccer, Tennis" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary w-full">
             </div>
-            <button type="button" id="fs-add-btn" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-4 py-1.5 rounded">Add</button>
-            <span id="fs-status" class="text-xs text-slate-500"></span>
+            <button type="button" id="fs-add-btn" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Add</button>
+            <span id="fs-status" class="text-xs text-gmp-text-faint"></span>
         </div>
-        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg overflow-auto flex-1 min-h-0">
+        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
             <table class="w-full text-left border-collapse text-xs">
-                <thead class="bg-slate-900/50 text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border">
                     <tr>
                         <th class="px-4 py-2.5 font-semibold">Feed</th>
                         <th class="px-4 py-2.5 font-semibold">Feed sport ID</th>
                         <th class="px-4 py-2.5 font-semibold">Feed sport name</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-700/40">
+                <tbody class="divide-y divide-gmp-border/40">
                     {% for row in feed_sports %}
                     <tr class="hover:bg-white/3">
-                        <td class="px-4 py-2.5 text-slate-300">{{ row.feed_provider }}</td>
-                        <td class="px-4 py-2.5 font-mono text-slate-400">{{ row.feed_sport_id }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-menu">{{ row.feed_provider }}</td>
+                        <td class="px-4 py-2.5 font-mono text-gmp-text-muted">{{ row.feed_sport_id }}</td>
                         <td class="px-4 py-2.5 text-white">{{ row.feed_sport_name or '—' }}</td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="3" class="px-4 py-8 text-center text-slate-500 italic">No feed sports yet. Add rows above.</td></tr>
+                    <tr><td colspan="3" class="px-4 py-8 text-center text-gmp-text-faint italic">No feed sports yet. Add rows above.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -241,7 +241,7 @@ function switchFeederTab(tabKey) {
     if (!FEEDER_TAB_KEYS.includes(tabKey)) tabKey = 'config';
     document.querySelectorAll('.feeder-tab').forEach(function (btn) {
         btn.classList.remove('text-primary', 'border-primary');
-        btn.classList.add('text-slate-400', 'border-transparent');
+        btn.classList.add('text-gmp-text-muted', 'border-transparent');
     });
     document.querySelectorAll('.feeder-panel').forEach(function (panel) {
         panel.classList.add('hidden');
@@ -249,7 +249,7 @@ function switchFeederTab(tabKey) {
     var tabBtn = document.getElementById('feeder-tab-' + tabKey);
     var panel = document.getElementById('feeder-panel-' + tabKey);
     if (tabBtn) {
-        tabBtn.classList.remove('text-slate-400', 'border-transparent');
+        tabBtn.classList.remove('text-gmp-text-muted', 'border-transparent');
         tabBtn.classList.add('text-primary', 'border-primary');
     }
     if (panel) panel.classList.remove('hidden');
@@ -303,11 +303,11 @@ function feederSportChange() {
         var statusEl = document.getElementById('fs-status');
         if (!feed || !sportIdInput) {
             statusEl.textContent = 'Feed and Feed sport ID required.';
-            statusEl.className = 'text-xs text-amber-400';
+            statusEl.className = 'text-xs text-warning';
             return;
         }
         statusEl.textContent = 'Adding…';
-        statusEl.className = 'text-xs text-slate-400';
+        statusEl.className = 'text-xs text-gmp-text-muted';
         var formData = new FormData();
         formData.set('feed_provider', feed);
         formData.set('feed_sport_id', sportIdInput);
@@ -317,15 +317,15 @@ function feederSportChange() {
             var data = await res.json().catch(function () { return {}; });
             if (res.ok) {
                 statusEl.textContent = data.created ? 'Added.' : 'Already exists.';
-                statusEl.className = 'text-xs text-emerald-400';
+                statusEl.className = 'text-xs text-success';
                 setTimeout(function () { window.location.reload(); }, 500);
             } else {
                 statusEl.textContent = data.detail || 'Failed.';
-                statusEl.className = 'text-xs text-red-400';
+                statusEl.className = 'text-xs text-danger';
             }
         } catch (e) {
             statusEl.textContent = 'Request failed.';
-            statusEl.className = 'text-xs text-red-400';
+            statusEl.className = 'text-xs text-danger';
         }
     });
 
@@ -345,10 +345,10 @@ function feederSportChange() {
             const res = await fetch('/api/feeder-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json().catch(function () { return {}; });
             status.textContent = res.ok ? 'Saved.' : (data.detail || 'Failed');
-            status.className = 'text-xs ' + (res.ok ? 'text-emerald-400' : 'text-red-400');
+            status.className = 'text-xs ' + (res.ok ? 'text-success' : 'text-danger');
         } catch (e) {
             status.textContent = 'Error';
-            status.className = 'text-xs text-red-400';
+            status.className = 'text-xs text-danger';
         }
     });
 
@@ -366,10 +366,10 @@ function feederSportChange() {
             const res = await fetch('/api/feeder-incidents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json().catch(function () { return {}; });
             status.textContent = res.ok ? 'Saved.' : (data.detail || 'Failed');
-            status.className = 'text-xs ' + (res.ok ? 'text-emerald-400' : 'text-red-400');
+            status.className = 'text-xs ' + (res.ok ? 'text-success' : 'text-danger');
         } catch (e) {
             status.textContent = 'Error';
-            status.className = 'text-xs text-red-400';
+            status.className = 'text-xs text-danger';
         }
     });
 })();

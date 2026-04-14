@@ -9,19 +9,19 @@
 <div class="flex flex-col h-full space-y-3">
 
     <!-- Tabs (hash-based: #configurations, #classes, #categories for direct links) -->
-    <div class="flex border-b border-slate-700 gap-0" role="tablist">
+    <div class="flex border-b border-gmp-border gap-0" role="tablist">
         <a href="#configurations" id="risk-tab-configurations" data-tab-key="configurations" onclick="event.preventDefault(); switchRiskRulesTab('configurations');"
             class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-primary border-primary no-underline cursor-pointer">
             <i class="fa-solid fa-sliders text-xs"></i>
             Configurations
         </a>
         <a href="#classes" id="risk-tab-classes" data-tab-key="classes" onclick="event.preventDefault(); switchRiskRulesTab('classes');"
-            class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white no-underline cursor-pointer">
+            class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-gmp-text-muted border-transparent hover:text-white no-underline cursor-pointer">
             <i class="fa-solid fa-layer-group text-xs"></i>
             Classes
         </a>
         <a href="#categories" id="risk-tab-categories" data-tab-key="categories" onclick="event.preventDefault(); switchRiskRulesTab('categories');"
-            class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-slate-400 border-transparent hover:text-white no-underline cursor-pointer">
+            class="risk-rules-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-gmp-text-muted border-transparent hover:text-white no-underline cursor-pointer">
             <i class="fa-solid fa-tags text-xs"></i>
             Categories
         </a>
@@ -29,95 +29,95 @@
 
     <!-- Panel: Configurations -->
     <div id="risk-panel-configurations" class="risk-rules-panel flex flex-col flex-1 min-h-0">
-        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg flex-1 overflow-auto flex flex-col min-h-0">
-            <p class="text-xs text-slate-500 px-4 pt-4 pb-2">Global configuration applies by default; override per brand in the columns on the right.</p>
+        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg flex-1 overflow-auto flex flex-col min-h-0">
+            <p class="text-xs text-gmp-text-faint px-4 pt-4 pb-2">Global configuration applies by default; override per brand in the columns on the right.</p>
             <div class="flex-1 overflow-x-auto min-h-0">
                 <table class="w-full text-left border-collapse text-xs">
-                    <thead class="bg-slate-900/80 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                    <thead class="bg-gmp-surface/80 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
                         <tr>
-                            <th class="px-3 py-2.5 font-semibold w-48 min-w-[10rem] sticky left-0 bg-slate-900/95 z-20 border-r border-slate-700">Risk rule</th>
-                            <th class="px-3 py-2.5 font-semibold w-40 min-w-[8rem] sticky z-20 bg-slate-900/95 border-r border-slate-700" style="left: 12rem;">Parameter name</th>
-                            <th class="px-3 py-2.5 font-semibold min-w-[140px] bg-slate-900/95 border-r border-slate-700">
+                            <th class="px-3 py-2.5 font-semibold w-48 min-w-[10rem] sticky left-0 bg-gmp-surface/95 z-20 border-r border-gmp-border">Risk rule</th>
+                            <th class="px-3 py-2.5 font-semibold w-40 min-w-[8rem] sticky z-20 bg-gmp-surface/95 border-r border-gmp-border" style="left: 12rem;">Parameter name</th>
+                            <th class="px-3 py-2.5 font-semibold min-w-[140px] bg-gmp-surface/95 border-r border-gmp-border">
                                 <span class="block">Global Configuration</span>
-                                <span class="text-[10px] normal-case font-normal text-slate-500 mt-0.5">Parameter value</span>
+                                <span class="text-[10px] normal-case font-normal text-gmp-text-faint mt-0.5">Parameter value</span>
                             </th>
                             {% for brand in brands %}
-                            <th class="px-2 py-2.5 font-semibold min-w-[140px] bg-amber-950/40 border-l border-amber-600/30 align-top">
+                            <th class="px-2 py-2.5 font-semibold min-w-[140px] bg-gmp-surface-inset/40 border-l border-warning/30 align-top">
                                 <div class="flex items-center justify-between gap-2">
-                                    <span class="text-amber-200/90">{{ brand.name }}</span>
-                                    <button type="button" class="reset-brand-overrides text-[10px] text-slate-400 hover:text-amber-300 px-1.5 py-0.5 rounded hover:bg-amber-900/30 transition-colors" data-brand-id="{{ brand.id }}" title="Reset all overrides for this brand">Reset all</button>
+                                    <span class="text-warning/90">{{ brand.name }}</span>
+                                    <button type="button" class="reset-brand-overrides text-[10px] text-gmp-text-muted hover:text-warning px-1.5 py-0.5 rounded hover:bg-warning/10 transition-colors" data-brand-id="{{ brand.id }}" title="Reset all overrides for this brand">Reset all</button>
                                 </div>
-                                <span class="text-[10px] normal-case font-normal text-slate-500 mt-0.5 block">Parameter value</span>
+                                <span class="text-[10px] normal-case font-normal text-gmp-text-faint mt-0.5 block">Parameter value</span>
                             </th>
                             {% endfor %}
                         </tr>
                     </thead>
-                    <tbody class="text-slate-300 divide-y divide-slate-700/40">
+                    <tbody class="text-gmp-text-menu divide-y divide-gmp-border/40">
                         {% for row in risk_config_rows %}
                         <tr class="hover:bg-white/[0.02] transition-colors">
-                            <td class="px-3 py-2 font-medium text-white sticky left-0 bg-cardbg/95 z-10 border-r border-slate-700/50">{{ row.risk_rule }}</td>
-                            <td class="px-3 py-2 text-slate-300 sticky z-10 bg-cardbg/95 border-r border-slate-700/50" style="left: 12rem;">
+                            <td class="px-3 py-2 font-medium text-white sticky left-0 bg-cardbg/95 z-10 border-r border-gmp-border/50">{{ row.risk_rule }}</td>
+                            <td class="px-3 py-2 text-gmp-text-menu sticky z-10 bg-cardbg/95 border-r border-gmp-border/50" style="left: 12rem;">
                                 <span class="flex items-center gap-1">
                                     {{ row.param_name }}
-                                    <i class="fa-solid fa-circle-info text-slate-500 text-[10px] cursor-help opacity-70 hover:opacity-100" title="Info"></i>
+                                    <i class="fa-solid fa-circle-info text-gmp-text-faint text-[10px] cursor-help opacity-70 hover:opacity-100" title="Info"></i>
                                 </span>
                             </td>
-                            <td class="px-2 py-1.5 border-r border-slate-700/50 align-middle">
+                            <td class="px-2 py-1.5 border-r border-gmp-border/50 align-middle">
                                 {% if row.param_type == 'checkbox' %}
                                 <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" class="risk-global-cell rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/30" data-rule="{{ row.risk_rule | e }}" data-param="{{ row.param_name | e }}">
+                                    <input type="checkbox" class="risk-global-cell rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary/30" data-rule="{{ row.risk_rule | e }}" data-param="{{ row.param_name | e }}">
                                 </label>
                                 {% else %}
-                                <input type="{{ 'number' if row.param_type == 'number' else 'text' }}" placeholder="—" class="risk-global-cell w-full max-w-[120px] bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white placeholder-slate-500 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none" data-rule="{{ row.risk_rule | e }}" data-param="{{ row.param_name | e }}">
+                                <input type="{{ 'number' if row.param_type == 'number' else 'text' }}" placeholder="—" class="risk-global-cell w-full max-w-[120px] bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-white placeholder-gmp-text-faint focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none" data-rule="{{ row.risk_rule | e }}" data-param="{{ row.param_name | e }}">
                                 {% endif %}
                             </td>
                             {% for brand in brands %}
-                            <td class="px-2 py-1.5 bg-amber-950/20 border-l border-amber-600/20 align-middle">
+                            <td class="px-2 py-1.5 bg-gmp-surface-inset/20 border-l border-warning/20 align-middle">
                                 {% if row.param_type == 'checkbox' %}
                                 <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" class="risk-brand-cell rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/30" data-rule="{{ row.risk_rule | e }}" data-param="{{ row.param_name | e }}" data-brand-id="{{ brand.id }}">
+                                    <input type="checkbox" class="risk-brand-cell rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary/30" data-rule="{{ row.risk_rule | e }}" data-param="{{ row.param_name | e }}" data-brand-id="{{ brand.id }}">
                                 </label>
                                 {% else %}
-                                <input type="{{ 'number' if row.param_type == 'number' else 'text' }}" placeholder="—" class="risk-brand-cell w-full max-w-[120px] bg-slate-800 border border-slate-600 rounded px-2 py-1 text-white placeholder-slate-500 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none" data-rule="{{ row.risk_rule | e }}" data-param="{{ row.param_name | e }}" data-brand-id="{{ brand.id }}">
+                                <input type="{{ 'number' if row.param_type == 'number' else 'text' }}" placeholder="—" class="risk-brand-cell w-full max-w-[120px] bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-white placeholder-gmp-text-faint focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none" data-rule="{{ row.risk_rule | e }}" data-param="{{ row.param_name | e }}" data-brand-id="{{ brand.id }}">
                                 {% endif %}
                             </td>
                             {% endfor %}
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="{{ 3 + (brands | length) }}" class="px-4 py-8 text-center text-slate-500 italic">No risk rules defined.</td>
+                            <td colspan="{{ 3 + (brands | length) }}" class="px-4 py-8 text-center text-gmp-text-faint italic">No risk rules defined.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            <div class="px-4 py-2 border-t border-slate-700/50 flex justify-end gap-2 flex-shrink-0">
-                <button type="button" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors">Save</button>
-                <span class="text-xs text-slate-500 self-center">Save global and brand overrides</span>
+            <div class="px-4 py-2 border-t border-gmp-border/50 flex justify-end gap-2 flex-shrink-0">
+                <button type="button" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded transition-colors">Save</button>
+                <span class="text-xs text-gmp-text-faint self-center">Save global and brand overrides</span>
             </div>
         </div>
     </div>
 
     <!-- Panel: Classes -->
     <div id="risk-panel-classes" class="risk-rules-panel hidden flex flex-col flex-1 min-h-0">
-        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg flex-1 overflow-hidden flex flex-col min-h-0">
+        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg flex-1 overflow-hidden flex flex-col min-h-0">
             <h2 class="text-sm font-semibold text-white px-4 pt-4 pb-2">Risk Classes</h2>
-            <div class="flex flex-wrap items-center gap-3 px-4 py-3 bg-slate-900/50 border-b border-slate-700/50">
+            <div class="flex flex-wrap items-center gap-3 px-4 py-3 bg-gmp-surface/50 border-b border-gmp-border/50">
                 <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" id="risk-classes-active-only" checked class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/30">
-                    <span class="text-xs text-slate-300">Show only Active</span>
+                    <input type="checkbox" id="risk-classes-active-only" checked class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary/30">
+                    <span class="text-xs text-gmp-text-menu">Show only Active</span>
                 </label>
                 <div class="flex-1 min-w-[120px]">
-                    <input type="text" id="risk-classes-search-input" placeholder="Search" class="w-full max-w-[180px] bg-slate-800 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none">
+                    <input type="text" id="risk-classes-search-input" placeholder="Search" class="w-full max-w-[180px] bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white placeholder-gmp-text-faint focus:border-primary focus:ring-1 focus:ring-primary/30 outline-none">
                 </div>
-                <button type="button" id="risk-classes-search" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors">Search</button>
-                <button type="button" id="risk-classes-reset" class="flex items-center gap-1.5 text-slate-400 hover:text-white text-xs px-3 py-1.5 rounded border border-slate-600 hover:border-slate-500 hover:bg-slate-700/50 transition-colors">
+                <button type="button" id="risk-classes-search" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded transition-colors">Search</button>
+                <button type="button" id="risk-classes-reset" class="flex items-center gap-1.5 text-gmp-text-muted hover:text-white text-xs px-3 py-1.5 rounded border border-gmp-border hover:border-gmp-border hover:bg-gmp-surface-raised/50 transition-colors">
                     <i class="fa-solid fa-times text-[10px]"></i> Reset Filters
                 </button>
             </div>
             <div class="flex-1 overflow-auto min-h-0">
                 <table class="w-full text-left border-collapse text-xs">
-                    <thead class="bg-slate-900/80 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                    <thead class="bg-gmp-surface/80 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
                         <tr>
                             <th class="px-3 py-2.5 font-semibold">Name</th>
                             <th class="px-3 py-2.5 font-semibold">Description</th>
@@ -128,7 +128,7 @@
                             <th class="px-3 py-2.5 font-semibold text-right w-14">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="risk-classes-tbody" class="text-slate-300 divide-y divide-slate-700/40">
+                    <tbody id="risk-classes-tbody" class="text-gmp-text-menu divide-y divide-gmp-border/40">
                         {% for rc in risk_classes %}
                         <tr class="risk-class-row hover:bg-white/[0.02] transition-colors" data-name="{{ (rc.name or '') | lower }}" data-active="{{ 'true' if rc.active else 'false' }}">
                             <td class="px-3 py-2">
@@ -137,23 +137,23 @@
                                     <span class="font-medium text-white">{{ rc.name }}</span>
                                 </span>
                             </td>
-                            <td class="px-3 py-2 text-slate-500">{{ rc.description or '—' }}</td>
+                            <td class="px-3 py-2 text-gmp-text-faint">{{ rc.description or '—' }}</td>
                             <td class="px-3 py-2">
                                 <label class="flex items-center cursor-pointer">
-                                    <input type="checkbox" {% if rc.active %}checked{% endif %} class="rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary/30" disabled>
+                                    <input type="checkbox" {% if rc.active %}checked{% endif %} class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary/30" disabled>
                                 </label>
                             </td>
-                            <td class="px-3 py-2 font-mono text-slate-300">{{ rc.mbl_pct }}</td>
-                            <td class="px-3 py-2 font-mono text-slate-300">{{ rc.msw_pct }}</td>
-                            <td class="px-3 py-2 font-mono text-slate-300">{{ rc.mmw_pct }}</td>
+                            <td class="px-3 py-2 font-mono text-gmp-text-menu">{{ rc.mbl_pct }}</td>
+                            <td class="px-3 py-2 font-mono text-gmp-text-menu">{{ rc.msw_pct }}</td>
+                            <td class="px-3 py-2 font-mono text-gmp-text-menu">{{ rc.mmw_pct }}</td>
                             <td class="px-3 py-2 text-right">
                                 <div class="relative inline-block risk-class-kebab-wrap" data-class-id="{{ rc.id }}">
-                                    <button type="button" class="risk-class-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors" aria-label="Actions">
+                                    <button type="button" class="risk-class-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors" aria-label="Actions">
                                         <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                                     </button>
-                                    <div class="risk-class-kebab-dropdown hidden absolute right-0 top-full mt-0.5 z-50 min-w-[120px] py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl">
-                                        <button type="button" class="risk-class-edit w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-class-id="{{ rc.id }}">
-                                            <i class="fa-solid fa-pen w-4 text-slate-500"></i> Edit
+                                    <div class="risk-class-kebab-dropdown hidden absolute right-0 top-full mt-0.5 z-50 min-w-[120px] py-1 bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl">
+                                        <button type="button" class="risk-class-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-class-id="{{ rc.id }}">
+                                            <i class="fa-solid fa-pen w-4 text-gmp-text-faint"></i> Edit
                                         </button>
                                     </div>
                                 </div>
@@ -161,7 +161,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="px-4 py-8 text-center text-slate-500 italic">No risk classes defined.</td>
+                            <td colspan="7" class="px-4 py-8 text-center text-gmp-text-faint italic">No risk classes defined.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -172,16 +172,16 @@
 
     <!-- Panel: Categories -->
     <div id="risk-panel-categories" class="risk-rules-panel hidden flex flex-col flex-1 min-h-0">
-        <div class="bg-cardbg/80 backdrop-blur-md border border-slate-700/50 rounded-lg flex-1 overflow-hidden flex flex-col min-h-0">
+        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg flex-1 overflow-hidden flex flex-col min-h-0">
             <div class="flex items-center justify-between px-4 pt-4 pb-3 flex-shrink-0">
                 <h2 class="text-sm font-semibold text-white">Risk Category</h2>
-                <button type="button" id="risk-category-add" class="bg-primary hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1.5 rounded transition-colors flex items-center gap-1.5">
+                <button type="button" id="risk-category-add" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded transition-colors flex items-center gap-1.5">
                     <i class="fa-solid fa-plus text-[10px]"></i> Add category
                 </button>
             </div>
             <div class="flex-1 overflow-auto min-h-0">
                 <table class="w-full text-left border-collapse text-xs">
-                    <thead class="bg-slate-900/80 text-slate-400 uppercase tracking-wider border-b border-slate-700 sticky top-0 z-10">
+                    <thead class="bg-gmp-surface/80 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
                         <tr>
                             <th class="px-2 py-2.5 font-semibold w-12">#</th>
                             <th class="px-3 py-2.5 font-semibold w-20">ID</th>
@@ -193,40 +193,40 @@
                             <th class="px-3 py-2.5 font-semibold text-right w-14">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="risk-categories-tbody" class="text-slate-300 divide-y divide-slate-700/40">
+                    <tbody id="risk-categories-tbody" class="text-gmp-text-menu divide-y divide-gmp-border/40">
                         {% for cat in risk_categories %}
                         <tr class="risk-category-row hover:bg-white/[0.02] transition-colors" data-category-id="{{ cat.id }}">
                             <td class="px-2 py-2 align-middle">
                                 <span class="flex items-center gap-1">
-                                    <span class="text-slate-500 font-mono text-[11px]">{{ loop.index }}</span>
-                                    <i class="fa-solid fa-grip-vertical text-slate-500 cursor-grab text-[10px]" title="Reorder"></i>
+                                    <span class="text-gmp-text-faint font-mono text-[11px]">{{ loop.index }}</span>
+                                    <i class="fa-solid fa-grip-vertical text-gmp-text-faint cursor-grab text-[10px]" title="Reorder"></i>
                                 </span>
                             </td>
-                            <td class="px-3 py-2 font-mono text-slate-400">{{ cat.id }}</td>
+                            <td class="px-3 py-2 font-mono text-gmp-text-muted">{{ cat.id }}</td>
                             <td class="px-3 py-2 font-medium text-white">{{ cat.name }}</td>
                             <td class="px-3 py-2">
-                                <span class="inline-block h-4 w-4 rounded border border-slate-600 shrink-0" style="background-color: {{ cat.colour }};" title="{{ cat.colour }}"></span>
+                                <span class="inline-block h-4 w-4 rounded border border-gmp-border shrink-0" style="background-color: {{ cat.colour }};" title="{{ cat.colour }}"></span>
                             </td>
-                            <td class="px-3 py-2 font-mono text-slate-300">{{ cat.factor }}</td>
-                            <td class="px-3 py-2 text-slate-400 max-w-[240px] truncate" title="{{ cat.description or '—' }}">{{ cat.description or '—' }}</td>
-                            <td class="px-3 py-2 text-slate-500 font-mono text-[11px]">{{ cat.updated }}</td>
+                            <td class="px-3 py-2 font-mono text-gmp-text-menu">{{ cat.factor }}</td>
+                            <td class="px-3 py-2 text-gmp-text-muted max-w-[240px] truncate" title="{{ cat.description or '—' }}">{{ cat.description or '—' }}</td>
+                            <td class="px-3 py-2 text-gmp-text-faint font-mono text-[11px]">{{ cat.updated }}</td>
                             <td class="px-3 py-2 text-right align-middle">
                                 <div class="relative inline-block risk-category-kebab-wrap" data-category-id="{{ cat.id }}">
-                                    <button type="button" class="risk-category-kebab-btn p-1.5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors" aria-label="Actions">
+                                    <button type="button" class="risk-category-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors" aria-label="Actions">
                                         <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                                     </button>
-                                    <div class="risk-category-kebab-dropdown hidden absolute right-0 top-full mt-0.5 z-50 min-w-[160px] py-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl">
-                                        <button type="button" class="risk-category-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="edit" data-category-id="{{ cat.id }}"><i class="fa-solid fa-pen w-4 text-slate-500"></i> Edit</button>
-                                        <button type="button" class="risk-category-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="delete" data-category-id="{{ cat.id }}"><i class="fa-solid fa-trash w-4 text-slate-500"></i> Delete</button>
-                                        <button type="button" class="risk-category-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="set-default" data-category-id="{{ cat.id }}"><i class="fa-solid fa-star w-4 text-slate-500"></i> Set As Default</button>
-                                        <button type="button" class="risk-category-action w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/10 flex items-center gap-2" data-action="manage-bog" data-category-id="{{ cat.id }}"><i class="fa-solid fa-list w-4 text-slate-500"></i> Manage/View BOG</button>
+                                    <div class="risk-category-kebab-dropdown hidden absolute right-0 top-full mt-0.5 z-50 min-w-[160px] py-1 bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl">
+                                        <button type="button" class="risk-category-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-action="edit" data-category-id="{{ cat.id }}"><i class="fa-solid fa-pen w-4 text-gmp-text-faint"></i> Edit</button>
+                                        <button type="button" class="risk-category-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-action="delete" data-category-id="{{ cat.id }}"><i class="fa-solid fa-trash w-4 text-gmp-text-faint"></i> Delete</button>
+                                        <button type="button" class="risk-category-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-action="set-default" data-category-id="{{ cat.id }}"><i class="fa-solid fa-star w-4 text-gmp-text-faint"></i> Set As Default</button>
+                                        <button type="button" class="risk-category-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-action="manage-bog" data-category-id="{{ cat.id }}"><i class="fa-solid fa-list w-4 text-gmp-text-faint"></i> Manage/View BOG</button>
                                     </div>
                                 </div>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="8" class="px-4 py-8 text-center text-slate-500 italic">No risk categories. Use &quot;+ Add category&quot; to create one.</td>
+                            <td colspan="8" class="px-4 py-8 text-center text-gmp-text-faint italic">No risk categories. Use &quot;+ Add category&quot; to create one.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -243,7 +243,7 @@ function switchRiskRulesTab(tabKey) {
     if (!RISK_TAB_KEYS.includes(tabKey)) tabKey = 'configurations';
     document.querySelectorAll('.risk-rules-tab').forEach(function (btn) {
         btn.classList.remove('text-primary', 'border-primary');
-        btn.classList.add('text-slate-400', 'border-transparent');
+        btn.classList.add('text-gmp-text-muted', 'border-transparent');
     });
     document.querySelectorAll('.risk-rules-panel').forEach(function (panel) {
         panel.classList.add('hidden');
@@ -251,7 +251,7 @@ function switchRiskRulesTab(tabKey) {
     var tabBtn = document.getElementById('risk-tab-' + tabKey);
     var panel = document.getElementById('risk-panel-' + tabKey);
     if (tabBtn) {
-        tabBtn.classList.remove('text-slate-400', 'border-transparent');
+        tabBtn.classList.remove('text-gmp-text-muted', 'border-transparent');
         tabBtn.classList.add('text-primary', 'border-primary');
     }
     if (panel) panel.classList.remove('hidden');

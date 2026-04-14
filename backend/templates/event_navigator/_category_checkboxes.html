@@ -1,10 +1,10 @@
 {% for cat in categories %}
 <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
     <input type="checkbox" value="{{ cat }}" {% if cat in selected_categories %}checked{% endif %}
-        onchange="onDomainCategoryChange()" class="accent-secondary rounded border-slate-600 w-3.5 h-3.5">
-    <span class="text-xs text-slate-300">{{ cat }}</span>
+        onchange="onDomainCategoryChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
+    <span class="text-xs text-gmp-text-menu">{{ cat }}</span>
 </label>
 {% endfor %}
 {% if not categories %}
-<p class="text-[10px] text-slate-500 italic px-3 py-2">Select sport first</p>
+<p class="text-[10px] text-gmp-text-faint italic px-3 py-2">Select sport first</p>
 {% endif %}

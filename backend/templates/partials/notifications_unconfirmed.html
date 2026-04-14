@@ -1,15 +1,15 @@
 {# Unconfirmed notifications for top-right panel. Each requires user to confirm they read it. #}
 <span class="hidden" data-count="{{ notifications | length }}" aria-hidden="true"></span>
 {% for n in notifications %}
-<div class="platform-notification flex items-start gap-2 p-3 rounded-lg bg-amber-900/30 border border-amber-600/50 text-left" data-notification-id="{{ n.notification_id | e }}">
-    <i class="fa-solid fa-circle-exclamation text-amber-400 mt-0.5"></i>
+<div class="platform-notification flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/50 text-left" data-notification-id="{{ n.notification_id | e }}">
+    <i class="fa-solid fa-circle-exclamation text-warning mt-0.5"></i>
     <div class="flex-1 min-w-0">
-        <p class="text-xs font-medium text-amber-200 mb-1">Important note – please confirm you read and understood</p>
-        <p class="text-sm text-slate-300 whitespace-pre-wrap break-words">{{ n.message_snippet or '' }}</p>
-        <p class="text-[11px] text-slate-500 mt-1">{{ n.created_at or '—' }}</p>
-        <button type="button" class="mt-2 px-2 py-1 rounded text-xs font-medium bg-primary text-white hover:bg-emerald-600 confirm-notification-btn" data-notification-id="{{ n.notification_id | e }}">I've read and understood</button>
+        <p class="text-xs font-medium text-warning mb-1">Important note – please confirm you read and understood</p>
+        <p class="text-sm text-gmp-text-menu whitespace-pre-wrap break-words">{{ n.message_snippet or '' }}</p>
+        <p class="text-[11px] text-gmp-text-faint mt-1">{{ n.created_at or '—' }}</p>
+        <button type="button" class="mt-2 px-2 py-1 rounded text-xs font-medium bg-primary text-white hover:bg-primaryHover confirm-notification-btn" data-notification-id="{{ n.notification_id | e }}">I've read and understood</button>
     </div>
 </div>
 {% else %}
-<div id="no-unconfirmed-notifications" class="text-xs text-slate-500 py-2">No pending confirmations.</div>
+<div id="no-unconfirmed-notifications" class="text-xs text-gmp-text-faint py-2">No pending confirmations.</div>
 {% endfor %}
