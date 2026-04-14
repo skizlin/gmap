@@ -1,7 +1,6 @@
 {% extends "layout.html" %}
 
 {% block page_heading %}Localization{% endblock %}
-{% block page_description %}Manage languages and countries used across the platform.{% endblock %}
 
 {% block title %}Localization{% endblock %}
 
@@ -16,12 +15,12 @@
             Translations
         </a>
         <a href="#languages" id="loc-tab-languages" data-tab-key="languages" onclick="event.preventDefault(); locSwitchTab('languages');"
-            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-gmp-text-muted border-transparent hover:text-white no-underline cursor-pointer">
+            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-gmp-text-muted border-transparent hover:text-gmp-text-heading no-underline cursor-pointer">
             <i class="fa-solid fa-language text-xs"></i>
             Languages
         </a>
         <a href="#countries" id="loc-tab-countries" data-tab-key="countries" onclick="event.preventDefault(); locSwitchTab('countries');"
-            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-gmp-text-muted border-transparent hover:text-white no-underline cursor-pointer">
+            class="px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-gmp-text-muted border-transparent hover:text-gmp-text-heading no-underline cursor-pointer">
             <i class="fa-solid fa-flag text-xs"></i>
             Countries
         </a>
@@ -36,7 +35,7 @@
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Type</label>
                 <select name="tr_type"
-                    class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none">
+                    class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none">
                     {% set type_map = {
                         'all': 'All',
                         'sports': 'Sport',
@@ -54,7 +53,7 @@
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Language</label>
                 <select name="tr_language_id"
-                    class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none">
+                    class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none">
                     {% for lang in languages %}
                     <option value="{{ lang.id }}" {% if translation_selected_language_id == lang.id %}selected{% endif %}>
                         {{ lang.name }}
@@ -65,7 +64,7 @@
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Brand</label>
                 <select name="tr_brand_id"
-                    class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white focus:border-primary outline-none">
+                    class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none">
                     <option value="" {% if translation_selected_brand_id is none %}selected{% endif %}>Global</option>
                     {% for brand in brands %}
                     <option value="{{ brand.id }}" {% if translation_selected_brand_id == brand.id %}selected{% endif %}>{{ brand.name }}</option>
@@ -85,8 +84,8 @@
         </form>
 
         <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
-            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-3 py-2 font-semibold w-32">Type</th>
                         <th class="px-3 py-2 font-semibold w-24">Base ID</th>
@@ -103,13 +102,13 @@
                 <tbody>
                     {% if translation_rows and translation_rows|length > 0 %}
                     {% for row in translation_rows %}
-                    <tr class="hover:bg-white/5 transition-colors">
+                    <tr class="hover:bg-gmp-hover/10 transition-colors">
                         <td class="px-3 py-1.5 text-gmp-text-muted">{{ row.type_label }}</td>
                         <td class="px-3 py-1.5 text-gmp-text-faint font-mono text-[11px]">{{ row.baseid or '—' }}</td>
                         <td class="px-3 py-1.5 text-gmp-text-menu">{{ row.source }}</td>
                         {% if translation_selected_brand_id is none %}
                         <td class="px-3 py-1.5">
-                            <input type="text" class="loc-translation-input w-full bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-xs text-white outline-none focus:border-primary"
+                            <input type="text" class="loc-translation-input w-full bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-xs text-gmp-text-heading outline-none focus:border-primary"
                                 value="{{ row.translation }}">
                         </td>
                         <td class="px-3 py-1.5 text-right">
@@ -126,7 +125,7 @@
                         {% else %}
                         <td class="px-3 py-1.5 text-gmp-text-muted bg-gmp-surface-raised/50 rounded px-2 py-1">{{ row.translation_global or '—' }}</td>
                         <td class="px-3 py-1.5">
-                            <input type="text" class="loc-translation-input loc-translation-brand w-full bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-xs text-white outline-none focus:border-primary"
+                            <input type="text" class="loc-translation-input loc-translation-brand w-full bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-xs text-gmp-text-heading outline-none focus:border-primary"
                                 value="{{ row.translation_brand }}">
                         </td>
                         <td class="px-3 py-1.5 text-right">
@@ -165,17 +164,17 @@
             <div class="flex-1">
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
                 <input id="loc-language-name" type="text" placeholder="Language name (e.g. English)"
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-gmp-text-faint">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary placeholder-gmp-text-faint">
             </div>
             <div class="flex-1">
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Native name</label>
                 <input id="loc-language-native" type="text" placeholder="Native name (e.g. English, Français)"
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-gmp-text-faint">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary placeholder-gmp-text-faint">
             </div>
             <div class="w-32">
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Direction</label>
                 <select id="loc-language-direction"
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                     <option value="ltr">Left to right</option>
                     <option value="rtl">Right to left</option>
                 </select>
@@ -192,15 +191,15 @@
                 <i class="fa-solid fa-save mr-1"></i> <span id="loc-language-submit-label">Add language</span>
             </button>
             <button type="button" onclick="locResetLanguageForm()"
-                class="shrink-0 text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">
+                class="shrink-0 text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">
                 Cancel
             </button>
             <span id="loc-language-status" class="text-xs shrink-0 text-gmp-text-muted"></span>
         </div>
 
         <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
-            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-3 py-2 font-semibold w-48">Name</th>
                         <th class="px-3 py-2 font-semibold w-48">Native name</th>
@@ -214,8 +213,8 @@
                 <tbody>
                     {% if languages %}
                     {% for lang in languages %}
-                    <tr class="hover:bg-white/5 transition-colors">
-                        <td class="px-3 py-1.5 text-white">{{ lang.name }}</td>
+                    <tr class="hover:bg-gmp-hover/10 transition-colors">
+                        <td class="px-3 py-1.5 text-gmp-text-heading">{{ lang.name }}</td>
                         <td class="px-3 py-1.5 text-gmp-text-menu">{{ lang.native_name or '—' }}</td>
                         <td class="px-3 py-1.5 text-gmp-text-muted uppercase text-[11px]">{{ lang.direction or 'ltr' }}</td>
                         <td class="px-3 py-1.5">
@@ -263,19 +262,19 @@
             <div class="flex-1">
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
                 <input id="loc-country-name" type="text" placeholder="Country name"
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-gmp-text-faint">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary placeholder-gmp-text-faint">
             </div>
             <div class="w-32">
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
                 <input id="loc-country-cc" type="text" placeholder="e.g. gb"
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary placeholder-gmp-text-faint">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary placeholder-gmp-text-faint">
             </div>
             <button type="button" onclick="locSubmitCountry()"
                 class="shrink-0 bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded transition-all">
                 <i class="fa-solid fa-save mr-1"></i> <span id="loc-country-submit-label">Add country</span>
             </button>
             <button type="button" onclick="locResetCountryForm()"
-                class="shrink-0 text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">
+                class="shrink-0 text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">
                 Cancel
             </button>
             <span id="loc-country-status" class="text-xs shrink-0 text-gmp-text-muted"></span>
@@ -283,8 +282,8 @@
 
         <!-- Countries table -->
         <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
-            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-3 py-2 font-semibold w-2/3">Name</th>
                         <th class="px-3 py-2 font-semibold w-32">Code</th>
@@ -294,8 +293,8 @@
                 <tbody>
                     {% if countries %}
                     {% for c in countries %}
-                    <tr class="hover:bg-white/5 transition-colors">
-                        <td class="px-3 py-1.5 text-white">{{ c.name }}</td>
+                    <tr class="hover:bg-gmp-hover/10 transition-colors">
+                        <td class="px-3 py-1.5 text-gmp-text-heading">{{ c.name }}</td>
                         <td class="px-3 py-1.5 text-gmp-text-muted font-mono">{{ c.cc }}</td>
                         <td class="px-3 py-1.5 text-right">
                             {% if c.cc == '-' %}

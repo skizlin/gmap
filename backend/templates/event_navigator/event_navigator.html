@@ -1,7 +1,6 @@
 {% extends "layout.html" %}
 
 {% block page_heading %}Event Navigator{% endblock %}
-{% block page_description %}Canonical events built from mapped feed data. Filter by date, sport, category and competition.{% endblock %}
 
 {% block title %}Event Navigator{% endblock %}
 
@@ -15,7 +14,7 @@
         <!-- 1. Period (Start Time) – placeholder, no filter logic -->
         <div class="relative" id="domain-period-dropdown-wrap">
             <button type="button" id="domain-period-trigger" onclick="toggleDomainPeriodDropdown()"
-                class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[200px] hover:border-gmp-border transition-colors text-left">
+                class="flex items-center gap-2 bg-gmp-surface text-gmp-text-heading text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[200px] hover:border-gmp-border transition-colors text-left">
                 <i class="fa-regular fa-calendar text-gmp-text-muted text-[10px]"></i>
                 <span id="domain-period-label">07/03/2026 - 07/03/2026</span>
                 <i class="fa-solid fa-chevron-down text-gmp-text-muted text-[10px] ml-auto"></i>
@@ -25,39 +24,39 @@
             <input type="hidden" name="date_to" id="domain-date-to" value="{{ date_to | default('') }}">
             <div id="domain-period-panel"
                 class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl min-w-[200px] max-w-[280px] py-1">
-                <button type="button" data-period="today" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors rounded-none text-white bg-primary/20 border-l-2 border-primary">
+                <button type="button" data-period="today" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors rounded-none text-primary font-medium bg-primary/20 border-l-2 border-primary">
                     Today
                 </button>
-                <button type="button" data-period="tomorrow" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
+                <button type="button" data-period="tomorrow" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
                     Tomorrow
                 </button>
-                <button type="button" data-period="next_7_days" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
+                <button type="button" data-period="next_7_days" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
                     Next 7 Days
                 </button>
-                <button type="button" data-period="this_month" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
+                <button type="button" data-period="this_month" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
                     This Month
                 </button>
-                <button type="button" data-period="next_month" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
+                <button type="button" data-period="next_month" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
                     Next Month
                 </button>
-                <button type="button" data-period="yesterday" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
+                <button type="button" data-period="yesterday" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
                     Yesterday
                 </button>
-                <button type="button" data-period="last_7_days" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
+                <button type="button" data-period="last_7_days" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
                     Last 7 Days
                 </button>
-                <button type="button" data-period="custom" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-white/5 transition-colors text-gmp-text-menu">
+                <button type="button" data-period="custom" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
                     Custom range
                 </button>
                 <div id="domain-custom-range-block" class="border-t border-gmp-border px-3 py-3 space-y-2 mt-1">
                     <p class="text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold">From – To</p>
                     <div class="flex gap-2 items-center">
-                        <input type="date" id="domain-custom-from" class="flex-1 min-w-0 bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1.5 text-xs text-white focus:border-primary outline-none" title="Start date">
+                        <input type="date" id="domain-custom-from" class="flex-1 min-w-0 bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none" title="Start date">
                         <span class="text-gmp-text-faint text-xs">–</span>
-                        <input type="date" id="domain-custom-to" class="flex-1 min-w-0 bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1.5 text-xs text-white focus:border-primary outline-none" title="End date">
+                        <input type="date" id="domain-custom-to" class="flex-1 min-w-0 bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none" title="End date">
                     </div>
                     <div class="flex gap-2 justify-end">
-                        <button type="button" id="domain-custom-clear" class="text-xs text-gmp-text-muted hover:text-white px-2 py-1 rounded border border-gmp-border hover:border-gmp-border">Clear</button>
+                        <button type="button" id="domain-custom-clear" class="text-xs text-gmp-text-muted hover:text-gmp-text-heading px-2 py-1 rounded border border-gmp-border hover:border-gmp-border">Clear</button>
                         <button type="button" id="domain-custom-apply" class="text-xs bg-primary hover:bg-primaryHover text-white px-3 py-1 rounded">Apply</button>
                     </div>
                 </div>
@@ -72,7 +71,7 @@
         </div>
         <div class="relative" id="domain-sport-dropdown-wrap">
             <button type="button" id="domain-sport-trigger" onclick="toggleDomainSportDropdown()"
-                class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors">
+                class="flex items-center gap-2 bg-gmp-surface text-gmp-text-heading text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors">
                 <i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]"></i>
                 <span id="domain-sport-label">
                     {% if selected_sports | length == sports | length %}All Sports
@@ -93,7 +92,7 @@
                 <div id="domain-sport-checkboxes-container">
                     {% for sport in sports %}
                     <label
-                        class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                        class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors">
                         <input type="checkbox" value="{{ sport }}" {% if sport in selected_sports %}checked{% endif %}
                             onchange="onDomainSportChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
                         <span class="text-xs text-gmp-text-menu">{{ sport }}</span>
@@ -111,7 +110,7 @@
         </div>
         <div class="relative" id="domain-category-dropdown-wrap">
             <button type="button" id="domain-category-trigger" onclick="toggleDomainCategoryDropdown()"
-                class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors {% if not available_categories %}opacity-60 cursor-not-allowed{% endif %}"
+                class="flex items-center gap-2 bg-gmp-surface text-gmp-text-heading text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors {% if not available_categories %}opacity-60 cursor-not-allowed{% endif %}"
                 {% if not available_categories %}disabled title="Select sport first"{% endif %}>
                 <i class="fa-solid fa-layer-group text-gmp-text-muted text-[10px]"></i>
                 <span id="domain-category-label">
@@ -137,7 +136,7 @@
                     hx-include="[name='sports'],[name='categories']"
                     hx-swap="innerHTML">
                     {% for cat in available_categories %}
-                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors">
                         <input type="checkbox" value="{{ cat }}" {% if cat in selected_categories %}checked{% endif %}
                             onchange="onDomainCategoryChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
                         <span class="text-xs text-gmp-text-menu">{{ cat }}</span>
@@ -158,7 +157,7 @@
         </div>
         <div class="relative" id="domain-competition-dropdown-wrap">
             <button type="button" id="domain-competition-trigger" onclick="toggleDomainCompetitionDropdown()"
-                class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors"
+                class="flex items-center gap-2 bg-gmp-surface text-gmp-text-heading text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors"
                 title="Filter by competition">
                 <i class="fa-solid fa-trophy text-gmp-text-muted text-[10px]"></i>
                 <span id="domain-competition-label">
@@ -184,7 +183,7 @@
                     hx-include="[name='sports'],[name='categories'],[name='competitions']"
                     hx-swap="innerHTML">
                     {% for comp in available_competitions %}
-                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors">
                         <input type="checkbox" value="{{ comp }}" {% if comp in selected_competitions %}checked{% endif %}
                             onchange="onDomainCompetitionChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
                         <span class="text-xs text-gmp-text-menu">{{ comp }}</span>
@@ -205,7 +204,7 @@
         </div>
         <div class="relative" id="domain-status-dropdown-wrap">
             <button type="button" id="domain-status-trigger" onclick="toggleDomainStatusDropdown()"
-                class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[120px] hover:border-gmp-border transition-colors"
+                class="flex items-center gap-2 bg-gmp-surface text-gmp-text-heading text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[120px] hover:border-gmp-border transition-colors"
                 title="Filter by event status">
                 <i class="fa-solid fa-circle-dot text-gmp-text-muted text-[10px]"></i>
                 <span id="domain-status-label">All Statuses</span>
@@ -214,7 +213,7 @@
             <div id="domain-status-panel"
                 class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl w-44 py-1 max-h-[240px] overflow-y-auto">
                 {% for st in available_statuses %}
-                <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors">
                     <input type="checkbox" name="domain_status_check" value="{{ st }}" {% if st in (selected_statuses or []) %}checked{% endif %}
                         onchange="onDomainStatusChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
                     <span class="text-xs text-gmp-text-menu">{{ st }}</span>
@@ -251,11 +250,11 @@
         <input type="hidden" id="domain-outright-input" name="outright_filter" value="{{ _outright }}">
         <div class="flex bg-gmp-surface rounded p-0.5 border border-gmp-border" id="domain-outright-toggle">
             <button type="button" data-outright="" onclick="setDomainOutrightFilter(this)"
-                class="px-3 py-1 rounded text-xs font-medium {{ 'bg-gmp-surface-raised text-white shadow' if _outright == '' else 'text-gmp-text-muted hover:text-white' }}">All</button>
+                class="px-3 py-1 rounded text-xs font-medium {{ 'bg-gmp-surface-raised text-gmp-text-heading shadow' if _outright == '' else 'text-gmp-text-muted hover:text-gmp-text-heading' }}">All</button>
             <button type="button" data-outright="outright" onclick="setDomainOutrightFilter(this)"
-                class="px-3 py-1 rounded text-xs font-medium {{ 'bg-gmp-surface-raised text-white shadow' if _outright == 'outright' else 'text-gmp-text-muted hover:text-white' }}">Outright</button>
+                class="px-3 py-1 rounded text-xs font-medium {{ 'bg-gmp-surface-raised text-gmp-text-heading shadow' if _outright == 'outright' else 'text-gmp-text-muted hover:text-gmp-text-heading' }}">Outright</button>
             <button type="button" data-outright="regular" onclick="setDomainOutrightFilter(this)"
-                class="px-3 py-1 rounded text-xs font-medium {{ 'bg-gmp-surface-raised text-white shadow' if _outright == 'regular' else 'text-gmp-text-muted hover:text-white' }}">Regular</button>
+                class="px-3 py-1 rounded text-xs font-medium {{ 'bg-gmp-surface-raised text-gmp-text-heading shadow' if _outright == 'regular' else 'text-gmp-text-muted hover:text-gmp-text-heading' }}">Regular</button>
         </div>
 
         <div class="border-l border-gmp-border h-6 mx-1"></div>
@@ -268,7 +267,7 @@
                 hx-get="/event-navigator/table" hx-target="#domain-events-body" hx-swap="innerHTML"
                 hx-trigger="input changed delay:350ms"
                 hx-include="[name='date'],[name='date_from'],[name='date_to'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='has_bets_only'],[name='brands'],[name='sort_start_time'],[name='page'],[name='per_page']"
-                class="bg-transparent border-none text-xs text-white placeholder-gmp-text-faint focus:ring-0 p-0 w-full">
+                class="bg-transparent border-none text-xs text-gmp-text-heading placeholder-gmp-text-faint focus:ring-0 p-0 w-full">
         </div>
 
         <!-- Sort + paging (included in table reload) -->
@@ -288,7 +287,7 @@
             </div>
             <div class="relative" id="domain-brand-dropdown-wrap">
                 <button type="button" id="domain-brand-trigger" onclick="toggleDomainBrandDropdown()"
-                    class="flex items-center gap-2 bg-gmp-surface text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[120px] hover:border-gmp-border transition-colors text-left">
+                    class="flex items-center gap-2 bg-gmp-surface text-gmp-text-heading text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[120px] hover:border-gmp-border transition-colors text-left">
                     <span id="domain-brand-label">
                         {% if not selected_brands or selected_brands == ['Global'] %}Global
                         {% elif selected_brands | length == 1 %}{{ selected_brands[0] }}
@@ -299,13 +298,13 @@
                 </button>
                 <div id="domain-brand-panel"
                     class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl w-48 py-1 max-h-[240px] overflow-y-auto">
-                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors domain-brand-option" data-brand-value="Global">
+                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors domain-brand-option" data-brand-value="Global">
                         <input type="checkbox" name="domain_brand_check" value="Global" {% if not selected_brands or 'Global' in selected_brands %}checked{% endif %}
                             class="accent-secondary rounded border-gmp-border w-3.5 h-3.5 domain-brand-cb">
                         <span class="text-xs text-gmp-text-menu">Global</span>
                     </label>
                     {% for b in brands or [] %}
-                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors domain-brand-option" data-brand-value="{{ b.id }}">
+                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors domain-brand-option" data-brand-value="{{ b.id }}">
                         <input type="checkbox" name="domain_brand_check" value="{{ b.id }}" {% if selected_brands and (b.id|string) in selected_brands %}checked{% endif %}
                             class="accent-secondary rounded border-gmp-border w-3.5 h-3.5 domain-brand-cb">
                         <span class="text-xs text-gmp-text-menu">{{ b.name }}</span>
@@ -325,16 +324,16 @@
     <div
         class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg flex-1 overflow-hidden flex flex-col">
         <div class="overflow-x-auto flex-1">
-            <table class="w-full text-left border-collapse">
+            <table class="gmp-data-table w-full text-left border-collapse">
                 <thead>
                     <tr
-                        class="bg-gmp-surface/50 text-gmp-text-muted text-xs uppercase tracking-wider border-b border-gmp-border whitespace-nowrap">
+                        class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border whitespace-nowrap dark:text-gmp-text-muted">
                         <th class="px-3 py-2 font-semibold w-10 align-middle">
                             <input type="checkbox" class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary" aria-label="Bulk select all" id="domain-events-bulk-select">
                         </th>
                         <th class="px-3 py-2 font-semibold">Id</th>
                         <th class="px-3 py-2 font-semibold">
-                            <button type="button" id="domain-sort-start-time-btn" class="inline-flex items-center gap-1 text-left hover:text-white transition-colors" title="Sort by start time (click to toggle)">
+                            <button type="button" id="domain-sort-start-time-btn" class="inline-flex items-center gap-1 text-left hover:text-gmp-text-heading transition-colors" title="Sort by start time (click to toggle)">
                                 Start Time
                                 <span id="domain-sort-start-time-icon" class="text-gmp-text-faint">
                                     {% if (en_sort_start_time | default('asc')) == 'desc' %}
@@ -372,7 +371,7 @@
 
         <!-- Footer: Bulk Update, pager -->
         <div id="domain-events-pager"
-            class="px-4 py-2 bg-gmp-surface/50 border-t border-gmp-border-subtle flex justify-between items-center text-xs text-gmp-text-faint flex-shrink-0"
+            class="gmp-table-chrome px-4 py-2 border-t border-gmp-border flex justify-between items-center text-xs text-gmp-text-muted flex-shrink-0 dark:border-gmp-border-subtle dark:text-gmp-text-faint"
             data-total="{{ en_total_events | default(0) }}"
             data-page="{{ en_page | default(1) }}"
             data-per-page="{{ en_per_page | default(50) }}"
@@ -489,10 +488,10 @@
         const labelEl = document.getElementById('domain-period-label');
         if (labelEl && period) labelEl.textContent = getDomainPeriodLabel(period, fromVal || '', toVal || '');
         document.querySelectorAll('.domain-period-option').forEach(function (o) {
-            o.classList.remove('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
+            o.classList.remove('bg-primary/20', 'border-l-2', 'border-primary', 'text-gmp-text-heading');
             o.classList.add('text-gmp-text-menu');
             if (o.getAttribute('data-period') === period) {
-                o.classList.add('bg-primary/20', 'border-l-2', 'border-primary', 'text-white');
+                o.classList.add('bg-primary/20', 'border-l-2', 'border-primary', 'text-gmp-text-heading');
                 o.classList.remove('text-gmp-text-menu');
             }
         });
@@ -609,11 +608,11 @@
         var input = document.getElementById('domain-outright-input');
         if (input) input.value = val;
         document.querySelectorAll('#domain-outright-toggle button').forEach(function (b) {
-            b.classList.remove('bg-gmp-surface-raised', 'text-white', 'shadow');
+            b.classList.remove('bg-gmp-surface-raised', 'text-gmp-text-heading', 'shadow');
             b.classList.add('text-gmp-text-muted');
         });
         if (btn) {
-            btn.classList.add('bg-gmp-surface-raised', 'text-white', 'shadow');
+            btn.classList.add('bg-gmp-surface-raised', 'text-gmp-text-heading', 'shadow');
             btn.classList.remove('text-gmp-text-muted');
         }
         triggerDomainEventsTableRefresh();
@@ -901,11 +900,11 @@
         var outrightInput = document.getElementById('domain-outright-input');
         if (outrightInput) outrightInput.value = '';
         document.querySelectorAll('#domain-outright-toggle button').forEach(function (b) {
-            b.classList.remove('bg-gmp-surface-raised', 'text-white', 'shadow');
+            b.classList.remove('bg-gmp-surface-raised', 'text-gmp-text-heading', 'shadow');
             b.classList.add('text-gmp-text-muted');
         });
         var allOutrightBtn = document.querySelector('#domain-outright-toggle button[data-outright=""]');
-        if (allOutrightBtn) allOutrightBtn.classList.add('bg-gmp-surface-raised', 'text-white', 'shadow');
+        if (allOutrightBtn) allOutrightBtn.classList.add('bg-gmp-surface-raised', 'text-gmp-text-heading', 'shadow');
         var hasBetsInput = document.getElementById('domain-has-bets-input');
         if (hasBetsInput) hasBetsInput.value = '0';
         var hasBetsIcon = document.getElementById('domain-has-bets-icon');

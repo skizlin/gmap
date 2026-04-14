@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 
 <head>
+    {% include "includes/gmp_theme_boot.html" %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Sign in — GMP{% endblock %}</title>
@@ -10,12 +11,41 @@
 </head>
 
 <body class="bg-darkbg text-gmp-text font-sans min-h-screen flex flex-col">
-    <header class="border-b border-gmp-border-subtle px-4 py-3 shrink-0">
+    <header class="border-b border-gmp-border-subtle px-4 py-3 shrink-0 flex items-center justify-between gap-3">
         <span class="text-lg font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">GMP</span>
+        <div class="flex items-center rounded-md border border-gmp-border/70 bg-gmp-surface-raised/90 p-0.5" role="group" aria-label="Theme">
+            <button type="button" id="gmp-login-theme-light" class="gmp-theme-btn px-2 py-1 rounded text-xs text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/12" data-theme-pick="light" title="Light theme"><i class="fa-solid fa-sun" aria-hidden="true"></i></button>
+            <button type="button" id="gmp-login-theme-dark" class="gmp-theme-btn px-2 py-1 rounded text-xs text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/12" data-theme-pick="dark" title="Dark theme"><i class="fa-solid fa-moon" aria-hidden="true"></i></button>
+        </div>
     </header>
     <main class="flex-1 flex flex-col p-6">
         {% block content %}{% endblock %}
     </main>
+    <script>
+        (function () {
+            function sync() {
+                var mode = typeof gmpGetTheme === 'function' ? gmpGetTheme() : 'dark';
+                var lightBtn = document.getElementById('gmp-login-theme-light');
+                var darkBtn = document.getElementById('gmp-login-theme-dark');
+                if (lightBtn && darkBtn) {
+                    lightBtn.classList.toggle('bg-gmp-hover/15', mode === 'light');
+                    lightBtn.classList.toggle('text-gmp-text-heading', mode === 'light');
+                    darkBtn.classList.toggle('bg-gmp-hover/15', mode === 'dark');
+                    darkBtn.classList.toggle('text-gmp-text-heading', mode === 'dark');
+                }
+            }
+            document.addEventListener('click', function (e) {
+                var t = e.target && e.target.closest('[data-theme-pick]');
+                if (!t) return;
+                var m = t.getAttribute('data-theme-pick');
+                if (m && typeof gmpSetTheme === 'function') gmpSetTheme(m);
+                sync();
+            });
+            document.addEventListener('gmp-theme-changed', sync);
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync);
+            else sync();
+        })();
+    </script>
 </body>
 
 </html>

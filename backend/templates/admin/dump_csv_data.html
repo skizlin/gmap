@@ -1,7 +1,6 @@
 {% extends "layout.html" %}
 
 {% block page_heading %}Dump CSV data{% endblock %}
-{% block page_description %}Clear entity and relation data. This page is not linked in the menu; use only when you need to reset data.{% endblock %}
 
 {% block title %}Dump CSV data{% endblock %}
 
@@ -25,7 +24,7 @@
                     Type <code class="px-1.5 py-0.5 rounded bg-gmp-surface-raised text-warning font-mono">DUMP</code> to enable the button:
                 </label>
                 <input type="text" id="dump-confirm" name="confirm" autocomplete="off"
-                    class="w-full max-w-xs bg-gmp-surface-raised border border-gmp-border rounded px-3 py-2 text-white font-mono placeholder-gmp-text-faint focus:border-danger focus:ring-1 focus:ring-danger/30 outline-none"
+                    class="w-full max-w-xs bg-gmp-surface-raised border border-gmp-border rounded px-3 py-2 text-gmp-text-heading font-mono placeholder-gmp-text-faint focus:border-danger focus:ring-1 focus:ring-danger/30 outline-none"
                     placeholder="Type DUMP here">
             </div>
             <div class="flex items-center gap-4">
@@ -34,7 +33,7 @@
                     title="Type DUMP above to enable">
                     <i class="fa-solid fa-trash-can mr-2"></i> Dump CSV data
                 </button>
-                <a href="/" class="text-gmp-text-muted hover:text-white text-sm">Cancel and go to Dashboard</a>
+                <a href="/" class="text-gmp-text-muted hover:text-gmp-text-heading text-sm">Cancel and go to Dashboard</a>
             </div>
         </form>
     </div>

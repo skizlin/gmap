@@ -1,7 +1,6 @@
 {% extends "layout.html" %}
 
 {% block page_heading %}Margin{% endblock %}
-{% block page_description %}Templates are per brand × sport; Global is the default to copy from. Uncategorized is always present. Configure templates and assign competitions.{% endblock %}
 
 {% block title %}Margin{% endblock %}
 
@@ -15,7 +14,7 @@
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Brand</label>
                 <select name="brand_id" id="margin-brand"
-                    class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]">
+                    class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none min-w-[160px]">
                     <option value="" {% if selected_brand_id is none %}selected{% endif %}>Global level</option>
                     {% for b in brands %}
                     <option value="{{ b.id }}" {% if selected_brand_id == b.id %}selected{% endif %}>{{ b.name }}</option>
@@ -25,7 +24,7 @@
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Sport</label>
                 <select name="sport_id" id="margin-sport"
-                    class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]">
+                    class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none min-w-[160px]">
                     <option value="">— select —</option>
                     {% for s in sports %}
                     <option value="{{ s.domain_id }}" {% if selected_sport_id is not none and selected_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
@@ -55,8 +54,8 @@
             </button>
         </div>
         <div class="overflow-x-auto overflow-y-visible">
-            <table class="w-full text-left border-collapse text-xs">
-                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-2 py-2.5 font-semibold w-10"></th>
                         <th class="px-3 py-2.5 font-semibold min-w-[120px]">Name</th>
@@ -74,7 +73,7 @@
                 </thead>
                 <tbody class="text-gmp-text-menu">
                     {% for t in margin_templates %}
-                    <tr class="border-b border-gmp-border/40 hover:bg-white/3">
+                    <tr class="border-b border-gmp-border/40 hover:bg-gmp-hover/5">
                         <td class="px-2 py-2">
                             <input type="radio" name="margin_template" value="{{ t.id }}"
                                 {% if selected_template_id == t.id %}checked{% endif %}
@@ -82,7 +81,7 @@
                                 class="margin-template-radio rounded-full border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary/30"
                                 title="Load this template">
                         </td>
-                        <td class="px-3 py-2 font-medium text-white">{{ t.name }}</td>
+                        <td class="px-3 py-2 font-medium text-gmp-text-heading">{{ t.name }}</td>
                         <td class="px-2 py-2">{{ t.short_name or '—' }}</td>
                         <td class="px-2 py-2 text-gmp-text-muted">{{ t.pm_margin or '—' }}</td>
                         <td class="px-2 py-2 text-gmp-text-muted">{{ t.ip_margin or '—' }}</td>
@@ -103,7 +102,7 @@
                         <td class="px-2 py-2 text-gmp-text-muted">{{ t.markets_count }}</td>
                         <td class="px-2 py-2 text-right align-top">
                             {% set margin_tid = t.id if t.id is not none else loop.index %}
-                            <button type="button" class="margin-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors"
+                            <button type="button" class="margin-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 transition-colors"
                                 data-margin-dropdown-id="margin-action-{{ margin_tid }}"
                                 aria-haspopup="true" title="Actions">
                                 <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
@@ -123,19 +122,19 @@
                     data-short-name="{{ t.short_name or '' }}" data-pm-margin="{{ t.pm_margin or '' }}"
                     data-ip-margin="{{ t.ip_margin or '' }}" data-cashout="{{ t.cashout or '' }}"
                     data-betbuilder="{{ t.betbuilder or '' }}" data-bet-delay="{{ t.bet_delay or '' }}"
-                    class="margin-action-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2">
+                    class="margin-action-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
                     <i class="fa-solid fa-pen-to-square w-4 text-gmp-text-muted"></i> Edit Template
                 </button>
                 <button type="button" data-template-id="{{ t.id }}" data-template-name="{{ t.name }}" data-risk-class-id="{{ t.risk_class_id or '' }}"
-                    class="margin-action-risk-class w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2">
+                    class="margin-action-risk-class w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
                     <i class="fa-solid fa-layer-group w-4 text-gmp-text-muted"></i> Risk Class
                 </button>
                 <button type="button" data-template-id="{{ t.id }}"
-                    class="margin-action-leagues w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2">
+                    class="margin-action-leagues w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
                     <i class="fa-solid fa-trophy w-4 text-gmp-text-muted"></i> Add/Remove Competitions
                 </button>
                 <button type="button" data-template-id="{{ t.id }}"
-                    class="margin-action-markets w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2">
+                    class="margin-action-markets w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
                     <i class="fa-solid fa-chart-line w-4 text-gmp-text-muted"></i> Add/Remove Markets
                 </button>
             </div>
@@ -148,10 +147,10 @@
         <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint px-4 py-3 border-b border-gmp-border/50">{% if selected_template_name %}{{ selected_template_name }} - {% endif %}MARKET CONFIGURATION</h2>
         <p class="text-[11px] text-gmp-text-faint px-4 py-1">View only. Use the Action menu on each row to edit settings.</p>
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs margin-sets-table">
-                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs margin-sets-table">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border dark:text-gmp-text-muted">
                     <tr class="border-b border-gmp-border">
-                        <th class="px-3 py-2 font-semibold w-44 min-w-[11rem] sticky left-0 bg-gmp-surface/50 z-10 border-r border-gmp-border"></th>
+                        <th class="px-3 py-2 font-semibold w-44 min-w-[11rem] sticky left-0 bg-gmp-tableChrome z-10 border-r border-gmp-border"></th>
                         <th class="px-2 py-1.5 font-semibold text-gmp-text-menu border-r border-gmp-border whitespace-nowrap">Risk Class</th>
                         <th colspan="4" class="px-2 py-1.5 font-semibold text-gmp-text-menu border-r border-gmp-border">Margin Configuration</th>
                         <th colspan="4" class="px-2 py-1.5 font-semibold text-gmp-text-menu border-r border-gmp-border">Cashout By Sport</th>
@@ -163,7 +162,7 @@
                         <th class="px-2 py-1.5 font-semibold w-14 border-l border-gmp-border">Action</th>
                     </tr>
                     <tr class="text-[10px]">
-                        <th class="px-3 py-2 font-semibold sticky left-0 bg-gmp-surface/50 z-10 border-r border-gmp-border"></th>
+                        <th class="px-3 py-2 font-semibold sticky left-0 bg-gmp-tableChrome z-10 border-r border-gmp-border"></th>
                         <th class="px-1.5 py-2 font-semibold border-r border-gmp-border"></th>
                         <th class="px-1.5 py-2 font-semibold">#Lines</th>
                         <th class="px-1.5 py-2 font-semibold">Use PL</th>
@@ -189,8 +188,8 @@
                 <tbody class="text-gmp-text-menu">
                     {% set ns = namespace(market_idx=0) %}
                     {% for group_data in market_groups_with_markets %}
-                    <tr class="bg-gmp-surface-raised/70 border-b border-gmp-border">
-                        <td class="px-3 py-2 font-semibold text-gmp-text sticky left-0 bg-gmp-surface-raised/70 z-10 border-r border-gmp-border">{{ group_data.group.name }}</td>
+                    <tr class="bg-gmp-tableRow border-b border-gmp-border">
+                        <td class="px-3 py-2 font-semibold text-gmp-text sticky left-0 bg-gmp-tableRow z-10 border-r border-gmp-border">{{ group_data.group.name }}</td>
                         <td class="px-1.5 py-2 border-r border-gmp-border/50"></td>
                         <td class="px-1.5 py-2 border-r border-gmp-border/50"></td>
                         <td class="px-1.5 py-2"></td>
@@ -214,8 +213,8 @@
                     </tr>
                     {% for m in group_data.markets %}
                     {% set ns.market_idx = ns.market_idx + 1 %}
-                    <tr class="border-b border-gmp-border/40 hover:bg-white/3">
-                        <td class="px-3 py-2 font-medium text-white sticky left-0 bg-cardbg/95 z-10 border-r border-gmp-border">{{ m.name or m.code }}</td>
+                    <tr class="border-b border-gmp-border/40 hover:bg-gmp-hover/5">
+                        <td class="px-3 py-2 font-medium text-gmp-text-heading sticky left-0 bg-gmp-tableRow z-10 border-r border-gmp-border">{{ m.name or m.code }}</td>
                         <td class="px-2 py-2 border-r border-gmp-border/50">
                             {% if template_risk_class %}
                             <span class="flex items-center gap-2">
@@ -245,7 +244,7 @@
                         <td class="px-1.5 py-2 text-gmp-text-muted">—</td>
                         <td class="px-1.5 py-2 text-gmp-text-muted border-r border-gmp-border">—</td>
                         <td class="px-2 py-2 text-right border-l border-gmp-border">
-                            <button type="button" class="market-line-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10"
+                            <button type="button" class="market-line-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15"
                                 data-market-line-dropdown-id="market-line-action-{{ m.domain_id }}-{{ ns.market_idx }}"
                                 title="Actions">
                                 <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
@@ -280,28 +279,28 @@
     {% set ns_dd.idx = ns_dd.idx + 1 %}
     <div id="market-line-action-{{ m.domain_id }}-{{ ns_dd.idx }}" class="market-line-action-dropdown hidden fixed z-[9999] min-w-[200px] py-1 bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl">
         <span class="block px-3 py-2 text-[10px] uppercase text-gmp-text-faint border-b border-gmp-border">Edit</span>
-        <button type="button" class="market-line-risk-class w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+        <button type="button" class="market-line-risk-class w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
             <i class="fa-solid fa-layer-group w-4 text-gmp-text-muted"></i> Risk Class
         </button>
-        <button type="button" class="market-line-edit margin-config-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}" data-market-name="{{ m.name or m.code }}">
+        <button type="button" class="market-line-edit margin-config-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-market-id="{{ m.domain_id }}" data-market-name="{{ m.name or m.code }}">
             <i class="fa-solid fa-sliders w-4 text-gmp-text-muted"></i> Margin Configuration
         </button>
-        <button type="button" class="market-line-edit cashout-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+        <button type="button" class="market-line-edit cashout-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
             <i class="fa-solid fa-percent w-4 text-gmp-text-muted"></i> Cashout By Sport
         </button>
-        <button type="button" class="market-line-edit pricing-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+        <button type="button" class="market-line-edit pricing-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
             <i class="fa-solid fa-chart-line w-4 text-gmp-text-muted"></i> Pricing Margin Monitor
         </button>
-        <button type="button" class="market-line-edit min-price-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+        <button type="button" class="market-line-edit min-price-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
             <i class="fa-solid fa-tag w-4 text-gmp-text-muted"></i> Minimum Price Suspension
         </button>
-        <button type="button" class="market-line-edit minim-odds-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+        <button type="button" class="market-line-edit minim-odds-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
             <i class="fa-solid fa-hashtag w-4 text-gmp-text-muted"></i> Minim. Odds
         </button>
-        <button type="button" class="market-line-edit betbuilder-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+        <button type="button" class="market-line-edit betbuilder-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
             <i class="fa-solid fa-puzzle-piece w-4 text-gmp-text-muted"></i> Bet Builder
         </button>
-        <button type="button" class="market-line-edit brand-mapper-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
+        <button type="button" class="market-line-edit brand-mapper-edit w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-market-id="{{ m.domain_id }}">
             <i class="fa-solid fa-map w-4 text-gmp-text-muted"></i> Brand Mapper
         </button>
     </div>
@@ -314,30 +313,30 @@
         <div class="absolute inset-0 bg-gmp-surface/80" id="edit-template-modal-backdrop"></div>
         <div class="relative bg-cardbg border border-gmp-border rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div class="sticky top-0 bg-cardbg border-b border-gmp-border px-4 py-3 flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-white">Edit Template</h3>
-                <button type="button" id="edit-template-close" class="p-1.5 text-gmp-text-muted hover:text-white rounded" aria-label="Close">&times;</button>
+                <h3 class="text-sm font-semibold text-gmp-text-heading">Edit Template</h3>
+                <button type="button" id="edit-template-close" class="p-1.5 text-gmp-text-muted hover:text-gmp-text-heading rounded" aria-label="Close">&times;</button>
             </div>
             <form id="edit-template-form" class="p-4 space-y-4">
                 <input type="hidden" id="edit-template-id" name="template_id">
                 <div>
                     <label for="edit-template-name" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
-                    <input type="text" id="edit-template-name" name="name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                    <input type="text" id="edit-template-name" name="name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none">
                 </div>
                 <div>
                     <label for="edit-template-short-name" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Short Name</label>
-                    <input type="text" id="edit-template-short-name" name="short_name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                    <input type="text" id="edit-template-short-name" name="short_name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none">
                 </div>
                 <div>
                     <label for="edit-template-pm-margin" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">PM Margin</label>
-                    <input type="text" id="edit-template-pm-margin" name="pm_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="—">
+                    <input type="text" id="edit-template-pm-margin" name="pm_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="—">
                 </div>
                 <div>
                     <label for="edit-template-ip-margin" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">IP Margin</label>
-                    <input type="text" id="edit-template-ip-margin" name="ip_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="—">
+                    <input type="text" id="edit-template-ip-margin" name="ip_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="—">
                 </div>
                 <div>
                     <label for="edit-template-cashout" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Cashout</label>
-                    <select id="edit-template-cashout" name="cashout" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                    <select id="edit-template-cashout" name="cashout" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none">
                         <option value="">—</option>
                         <option value="Enabled">Enabled</option>
                         <option value="Disabled">Disabled</option>
@@ -345,7 +344,7 @@
                 </div>
                 <div>
                     <label for="edit-template-betbuilder" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">BetBuilder</label>
-                    <select id="edit-template-betbuilder" name="betbuilder" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                    <select id="edit-template-betbuilder" name="betbuilder" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none">
                         <option value="">—</option>
                         <option value="Enabled">Enabled</option>
                         <option value="Disabled">Disabled</option>
@@ -353,10 +352,10 @@
                 </div>
                 <div>
                     <label for="edit-template-bet-delay" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Bet Delay</label>
-                    <input type="text" id="edit-template-bet-delay" name="bet_delay" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="e.g. 5 s">
+                    <input type="text" id="edit-template-bet-delay" name="bet_delay" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="e.g. 5 s">
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" id="edit-template-cancel" class="px-3 py-1.5 text-sm text-gmp-text-menu hover:text-white border border-gmp-border rounded">Cancel</button>
+                    <button type="button" id="edit-template-cancel" class="px-3 py-1.5 text-sm text-gmp-text-menu hover:text-gmp-text-heading border border-gmp-border rounded">Cancel</button>
                     <button type="submit" id="edit-template-save" class="px-3 py-1.5 text-sm bg-primary hover:bg-primaryHover text-white rounded">Save</button>
                 </div>
             </form>
@@ -368,11 +367,11 @@
         <div class="absolute inset-0 bg-gmp-surface/80" id="risk-class-modal-backdrop"></div>
         <div class="relative bg-cardbg border border-gmp-border rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div class="sticky top-0 bg-cardbg border-b border-gmp-border px-4 py-3 flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-white">Assign Risk Class</h3>
-                <button type="button" id="risk-class-modal-close" class="p-1.5 text-gmp-text-muted hover:text-white rounded" aria-label="Close">&times;</button>
+                <h3 class="text-sm font-semibold text-gmp-text-heading">Assign Risk Class</h3>
+                <button type="button" id="risk-class-modal-close" class="p-1.5 text-gmp-text-muted hover:text-gmp-text-heading rounded" aria-label="Close">&times;</button>
             </div>
             <div class="p-4">
-                <p class="text-xs text-gmp-text-muted mb-3">Template: <span id="risk-class-modal-template-name" class="text-white font-medium"></span></p>
+                <p class="text-xs text-gmp-text-muted mb-3">Template: <span id="risk-class-modal-template-name" class="text-gmp-text-heading font-medium"></span></p>
                 <input type="hidden" id="risk-class-modal-template-id" value="">
                 <div class="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
                     <label class="flex items-center gap-3 p-2 rounded hover:bg-gmp-surface-raised/50 cursor-pointer">
@@ -388,7 +387,7 @@
                     {% endfor %}
                 </div>
                 <div class="flex justify-end gap-2 pt-4 mt-4 border-t border-gmp-border">
-                    <button type="button" id="risk-class-modal-cancel" class="px-3 py-1.5 text-sm text-gmp-text-menu hover:text-white border border-gmp-border rounded">Cancel</button>
+                    <button type="button" id="risk-class-modal-cancel" class="px-3 py-1.5 text-sm text-gmp-text-menu hover:text-gmp-text-heading border border-gmp-border rounded">Cancel</button>
                     <button type="button" id="risk-class-modal-save" class="px-3 py-1.5 text-sm bg-primary hover:bg-primaryHover text-white rounded">Save</button>
                 </div>
             </div>
@@ -401,10 +400,10 @@
         <div class="relative bg-cardbg border border-gmp-border rounded-lg shadow-xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col">
             <div class="sticky top-0 bg-cardbg border-b border-gmp-border px-4 py-3 flex items-center justify-between flex-shrink-0">
                 <div>
-                    <h3 class="text-sm font-semibold text-white">Add/Remove Competitions</h3>
+                    <h3 class="text-sm font-semibold text-gmp-text-heading">Add/Remove Competitions</h3>
                     <p class="text-xs text-gmp-text-muted mt-0.5">Template: <span id="competitions-modal-template-name" class="font-medium text-primary">—</span></p>
                 </div>
-                <button type="button" id="competitions-modal-close" class="p-1.5 text-gmp-text-muted hover:text-white rounded" aria-label="Close">&times;</button>
+                <button type="button" id="competitions-modal-close" class="p-1.5 text-gmp-text-muted hover:text-gmp-text-heading rounded" aria-label="Close">&times;</button>
             </div>
             <div class="p-4 overflow-y-auto flex-1 min-h-0">
                 <input type="hidden" id="competitions-modal-template-id" value="">
@@ -413,7 +412,7 @@
                 <div class="mb-3">
                     <label for="competitions-search" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Search</label>
                     <input type="text" id="competitions-search" placeholder="Filter by competition or category name…"
-                        class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-3 py-2 text-sm text-white placeholder-gmp-text-faint focus:border-primary outline-none">
+                        class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-3 py-2 text-sm text-gmp-text-heading placeholder-gmp-text-faint focus:border-primary outline-none">
                 </div>
                 <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div class="min-h-0 flex flex-col">
@@ -433,7 +432,7 @@
                 </div>
             </div>
             <div class="flex-shrink-0 px-4 py-3 border-t border-gmp-border flex justify-end">
-                <button type="button" id="competitions-modal-done" class="px-3 py-1.5 text-sm bg-gmp-surface-raised hover:bg-surfaceHover text-white rounded">Done</button>
+                <button type="button" id="competitions-modal-done" class="px-3 py-1.5 text-sm bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading rounded">Done</button>
             </div>
         </div>
     </div>
@@ -444,10 +443,10 @@
         <div class="relative bg-cardbg border border-gmp-border rounded-lg shadow-xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
             <div class="sticky top-0 bg-cardbg border-b border-gmp-border px-4 py-3 flex items-center justify-between flex-shrink-0">
                 <div>
-                    <h3 class="text-sm font-semibold text-white">Copy from brand</h3>
+                    <h3 class="text-sm font-semibold text-gmp-text-heading">Copy from brand</h3>
                     <p class="text-xs text-gmp-text-muted mt-0.5">Copy all templates and settings to: <span id="copy-from-target-label" class="font-medium text-primary">—</span> for <span id="copy-from-sport-label" class="font-medium text-primary">—</span></p>
                 </div>
-                <button type="button" id="copy-from-modal-close" class="p-1.5 text-gmp-text-muted hover:text-white rounded" aria-label="Close">&times;</button>
+                <button type="button" id="copy-from-modal-close" class="p-1.5 text-gmp-text-muted hover:text-gmp-text-heading rounded" aria-label="Close">&times;</button>
             </div>
             <div class="p-4 overflow-y-auto flex-1 min-h-0">
                 <p class="text-[11px] text-gmp-text-muted mb-3">Select a brand to copy all its margin templates (and competition assignments) into the current brand and sport. This is a one-time copy; changes to the source brand later will not affect this one.</p>
@@ -467,29 +466,29 @@
         <div class="absolute inset-0 bg-gmp-surface/80" id="add-template-modal-backdrop"></div>
         <div class="relative bg-cardbg border border-gmp-border rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div class="sticky top-0 bg-cardbg border-b border-gmp-border px-4 py-3 flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-white">Add Template</h3>
-                <button type="button" id="add-template-close" class="p-1.5 text-gmp-text-muted hover:text-white rounded" aria-label="Close">&times;</button>
+                <h3 class="text-sm font-semibold text-gmp-text-heading">Add Template</h3>
+                <button type="button" id="add-template-close" class="p-1.5 text-gmp-text-muted hover:text-gmp-text-heading rounded" aria-label="Close">&times;</button>
             </div>
             <form id="add-template-form" class="p-4 space-y-4">
                 <div>
                     <label for="add-template-name" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name <span class="text-gmp-text-muted">(required)</span></label>
-                    <input type="text" id="add-template-name" name="name" required class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="e.g. Premium Leagues">
+                    <input type="text" id="add-template-name" name="name" required class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="e.g. Premium Leagues">
                 </div>
                 <div>
                     <label for="add-template-short-name" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Short Name</label>
-                    <input type="text" id="add-template-short-name" name="short_name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                    <input type="text" id="add-template-short-name" name="short_name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none">
                 </div>
                 <div>
                     <label for="add-template-pm-margin" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">PM Margin</label>
-                    <input type="text" id="add-template-pm-margin" name="pm_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="—">
+                    <input type="text" id="add-template-pm-margin" name="pm_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="—">
                 </div>
                 <div>
                     <label for="add-template-ip-margin" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">IP Margin</label>
-                    <input type="text" id="add-template-ip-margin" name="ip_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="—">
+                    <input type="text" id="add-template-ip-margin" name="ip_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="—">
                 </div>
                 <div>
                     <label for="add-template-cashout" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Cashout</label>
-                    <select id="add-template-cashout" name="cashout" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                    <select id="add-template-cashout" name="cashout" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none">
                         <option value="">—</option>
                         <option value="Enabled">Enabled</option>
                         <option value="Disabled">Disabled</option>
@@ -497,7 +496,7 @@
                 </div>
                 <div>
                     <label for="add-template-betbuilder" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">BetBuilder</label>
-                    <select id="add-template-betbuilder" name="betbuilder" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none">
+                    <select id="add-template-betbuilder" name="betbuilder" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none">
                         <option value="">—</option>
                         <option value="Enabled">Enabled</option>
                         <option value="Disabled">Disabled</option>
@@ -505,10 +504,10 @@
                 </div>
                 <div>
                     <label for="add-template-bet-delay" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Bet Delay</label>
-                    <input type="text" id="add-template-bet-delay" name="bet_delay" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none" placeholder="e.g. 5 s">
+                    <input type="text" id="add-template-bet-delay" name="bet_delay" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="e.g. 5 s">
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" id="add-template-cancel" class="px-3 py-1.5 text-sm text-gmp-text-menu hover:text-white border border-gmp-border rounded">Cancel</button>
+                    <button type="button" id="add-template-cancel" class="px-3 py-1.5 text-sm text-gmp-text-menu hover:text-gmp-text-heading border border-gmp-border rounded">Cancel</button>
                     <button type="submit" id="add-template-save" class="px-3 py-1.5 text-sm bg-primary hover:bg-primaryHover text-white rounded">Add</button>
                 </div>
             </form>
@@ -1101,7 +1100,7 @@
             var isSelected = copyFromSelectedSourceBrandId === bid || (bid == null && copyFromSelectedSourceBrandId === '');
             var dataId = bid == null ? '' : bid;
             return '<li class="copy-from-brand-item flex items-center gap-2 py-2 px-3 rounded cursor-pointer text-left text-xs ' +
-                (isSelected ? 'bg-primary/20 border border-primary/50 text-white' : 'bg-gmp-surface-raised/50 border border-transparent text-gmp-text hover:bg-gmp-surface-raised/50') +
+                (isSelected ? 'bg-primary/20 border border-primary/50 text-gmp-text-heading' : 'bg-gmp-surface-raised/50 border border-transparent text-gmp-text hover:bg-gmp-surface-raised/50') +
                 '" data-source-brand-id="' + (dataId !== '' ? dataId : '') + '" role="button" tabindex="0">' +
                 '<span class="flex-shrink-0 w-4 h-4 rounded-full border-2 ' + (isSelected ? 'border-primary bg-primary' : 'border-gmp-border') + '"></span>' +
                 '<span class="truncate min-w-0">' + (label.replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</span></li>';

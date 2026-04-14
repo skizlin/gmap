@@ -1,6 +1,6 @@
 {% for event in events %}
 {% set is_ignored = event.mapping_status == 'IGNORED' %}
-<tr class="hover:bg-white/5 transition-colors cursor-pointer" data-feeder-valid-id="{{ event.valid_id }}">
+<tr class="hover:bg-gmp-hover/10 transition-colors cursor-pointer" data-feeder-valid-id="{{ event.valid_id }}">
     <td class="px-3 py-1.5 align-middle">
         <input type="checkbox" class="feeder-event-row-checkbox rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary" aria-label="Select row {{ loop.index }}" data-feeder-valid-id="{{ event.valid_id }}">
     </td>
@@ -63,7 +63,7 @@
         {% endif %}
     </td>
     <!-- Event (Home vs Away): darker when ignored -->
-    <td class="px-3 py-1.5 font-medium whitespace-nowrap max-w-[250px] overflow-hidden text-ellipsis {{ 'text-gmp-text-faint' if is_ignored else 'text-white' }}">
+    <td class="px-3 py-1.5 font-medium whitespace-nowrap max-w-[250px] overflow-hidden text-ellipsis {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-heading dark:text-white' }}">
         {% if event.is_outright %}
         <span class="text-warning/70 text-[10px] mr-1 border border-warning/20 px-1 rounded">OUTRIGHT</span>
         {% if event.is_mainbook %}
@@ -71,14 +71,14 @@
             title="Main Market">M-BOOK</span>
         {% endif %}
         {% set event_mapped = event.domain_id and event.domain_id != '0' %}
-        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if event_mapped else 'text-white') }}" title="{{ event.market_name }}">{{ event.market_name }}</span>
+        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if event_mapped else 'text-gmp-text-heading dark:text-white') }}" title="{{ event.market_name }}">{{ event.market_name }}</span>
         {% else %}
         {% set home_id = event.raw_home_id | string if event.raw_home_id else event.raw_home_name %}
         {% set away_id = event.raw_away_id | string if event.raw_away_id else event.raw_away_name %}
-        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if home_id and selected_feed_pid is not none and (selected_feed_pid, home_id) in mapped_team_feed_ids else 'text-white') }}">{{
+        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if home_id and selected_feed_pid is not none and (selected_feed_pid, home_id) in mapped_team_feed_ids else 'text-gmp-text-heading dark:text-white') }}">{{
             event.raw_home_name }}</span>
-        <span class="text-gmp-text-faint mx-1">vs</span>
-        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if away_id and selected_feed_pid is not none and (selected_feed_pid, away_id) in mapped_team_feed_ids else 'text-white') }}">{{
+        <span class="text-gmp-text-muted dark:text-gmp-text-faint mx-1">vs</span>
+        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if away_id and selected_feed_pid is not none and (selected_feed_pid, away_id) in mapped_team_feed_ids else 'text-gmp-text-heading dark:text-white') }}">{{
             event.raw_away_name }}</span>
         {% endif %}
     </td>
@@ -99,7 +99,7 @@
     <td class="px-3 py-1.5 text-right">
         <div class="relative inline-block action-menu-wrap" data-menu-id="action-{{ event.valid_id }}">
             <button type="button" onclick="toggleActionMenu('action-{{ event.valid_id }}', event)"
-                class="p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors"
+                class="p-1.5 rounded text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 transition-colors"
                 aria-haspopup="true" aria-expanded="false" title="Actions">
                 <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
             </button>
@@ -107,22 +107,22 @@
                 {% if event.mapping_status != 'IGNORED' %}
                 <button type="button" hx-get="/modal/map-event/{{ event.valid_id }}" hx-target="#modal-content" hx-swap="innerHTML"
                     onclick="openModal(); closeActionMenus();"
-                    class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2">
+                    class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
                     <i class="fa-solid fa-link w-4 text-secondary"></i> Map Event
                 </button>
                 {% endif %}
-                <button type="button" class="feeder-copy-feed-id w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2"
+                <button type="button" class="feeder-copy-feed-id w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2"
                     data-feed-id="{{ (event.valid_id or '') | e }}"
                     onclick="copyFeederEventIdFromNode(this); closeActionMenus(); return false;">
                     <i class="fa-solid fa-copy w-4 text-gmp-text-muted"></i> Copy Feed ID
                 </button>
                 <button type="button" hx-get="/modal/feeder-event-log/{{ event.valid_id }}?feed_provider={{ (event.feed_provider or '') | urlencode }}" hx-target="#modal-content" hx-swap="innerHTML"
                     onclick="openModal(); closeActionMenus();"
-                    class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2">
+                    class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
                     <i class="fa-solid fa-list-ul w-4 text-gmp-text-muted"></i> Event Log
                 </button>
                 <button type="button" onclick="feederSetIgnored(this); return false;"
-                    class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2"
+                    class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2"
                     data-feed-provider="{{ (event.feed_provider or '') | e }}"
                     data-feed-valid-id="{{ (event.valid_id or '') | e }}"
                     data-ignored="{{ '1' if event.mapping_status == 'IGNORED' else '0' }}">
@@ -134,7 +134,7 @@
                 </button>
                 <button type="button" hx-get="/modal/feeder-event-notes/{{ event.valid_id }}?feed_provider={{ (event.feed_provider or '') | urlencode }}" hx-target="#modal-content" hx-swap="innerHTML"
                     onclick="openModal(); closeActionMenus();"
-                    class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2 border-t border-gmp-border/50 mt-1 pt-1">
+                    class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2 border-t border-gmp-border/50 mt-1 pt-1">
                     <i class="fa-solid fa-note-sticky w-4 text-warning/80"></i> Notes
                 </button>
             </div>

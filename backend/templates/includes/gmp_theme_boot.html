@@ -1,0 +1,18 @@
+{# Run immediately after <head> opens (before CSS) to avoid theme flash. #}
+<script>
+(function () {
+    try {
+        var t = localStorage.getItem('gmp-theme');
+        var h = document.documentElement;
+        if (t === 'light') {
+            h.classList.remove('dark');
+            h.classList.add('light');
+        } else {
+            h.classList.remove('light');
+            h.classList.add('dark');
+        }
+    } catch (e) {
+        document.documentElement.classList.add('dark');
+    }
+})();
+</script>

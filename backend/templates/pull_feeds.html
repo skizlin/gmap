@@ -1,7 +1,6 @@
 {% extends "layout.html" %}
 
 {% block page_heading %}Pull Feeds Data{% endblock %}
-{% block page_description %}Manually pull fresh data from each feed. Bet365: pull upcoming events per sport (API pagination).{% endblock %}
 
 {% block title %}Pull Feeds Data{% endblock %}
 
@@ -14,7 +13,7 @@
     </div>
 
     <div class="glass-panel rounded-lg p-6 space-y-6">
-        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+        <h2 class="text-lg font-semibold text-gmp-text-heading flex items-center gap-2">
             <i class="fa-solid fa-download text-primary"></i> Pull Feeds Data
         </h2>
         <p class="text-gmp-text-muted text-sm max-w-2xl">
@@ -24,7 +23,7 @@
         <!-- Bet365 -->
         <div class="border border-gmp-border/50 rounded-lg overflow-hidden">
             <div class="bg-gmp-surface-raised/60 px-4 py-2.5 border-b border-gmp-border/50 flex flex-wrap items-center gap-4">
-                <span class="font-medium text-white">Bet365</span>
+                <span class="font-medium text-gmp-text-heading">Bet365</span>
                 <span class="text-gmp-text-muted text-sm">Upcoming events per sport (paginated)</span>
                 <span id="pull-all-result-bet365" class="pull-all-result text-sm hidden"></span>
                 <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-primaryHover/30 hover:bg-primaryHover/50 text-success border border-success/50 rounded text-sm font-medium transition-colors"
@@ -38,14 +37,14 @@
                            name="api_token"
                            placeholder="Enter key to pull"
                            autocomplete="off"
-                           class="bet365-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-white placeholder-gmp-text-faint focus:border-primary focus:outline-none">
+                           class="bet365-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-gmp-text-heading placeholder-gmp-text-faint focus:border-primary focus:outline-none">
                 </label>
             </div>
             <div class="divide-y divide-gmp-border/50">
                 {% for sport in bet365_sports %}
                 <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
                     <div class="flex items-center gap-3">
-                        <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
+                        <span class="text-gmp-text-heading font-medium">{{ sport.feed_sport_name }}</span>
                         <span class="text-gmp-text-faint text-sm">sport_id: {{ sport.feed_sport_id }}</span>
                     </div>
                     <div class="flex items-center gap-3">
@@ -72,7 +71,7 @@
         <!-- Betfair -->
         <div class="border border-gmp-border/50 rounded-lg overflow-hidden">
             <div class="bg-gmp-surface-raised/60 px-4 py-2.5 border-b border-gmp-border/50 flex flex-wrap items-center gap-4">
-                <span class="font-medium text-white">Betfair</span>
+                <span class="font-medium text-gmp-text-heading">Betfair</span>
                 <span class="text-gmp-text-muted text-sm">Upcoming events per sport (paginated)</span>
                 <span id="pull-all-result-betfair" class="pull-all-result text-sm hidden"></span>
                 <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-primaryHover/30 hover:bg-primaryHover/50 text-success border border-success/50 rounded text-sm font-medium transition-colors"
@@ -86,14 +85,14 @@
                            name="api_token"
                            placeholder="Enter key to pull"
                            autocomplete="off"
-                           class="betfair-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-white placeholder-gmp-text-faint focus:border-primary focus:outline-none">
+                           class="betfair-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-gmp-text-heading placeholder-gmp-text-faint focus:border-primary focus:outline-none">
                 </label>
             </div>
             <div class="divide-y divide-gmp-border/50">
                 {% for sport in betfair_sports %}
                 <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
                     <div class="flex items-center gap-3">
-                        <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
+                        <span class="text-gmp-text-heading font-medium">{{ sport.feed_sport_name }}</span>
                         <span class="text-gmp-text-faint text-sm">sport_id: {{ sport.feed_sport_id }}</span>
                     </div>
                     <div class="flex items-center gap-3">
@@ -120,7 +119,7 @@
         <!-- 1xbet -->
         <div class="border border-gmp-border/50 rounded-lg overflow-hidden">
             <div class="bg-gmp-surface-raised/60 px-4 py-2.5 border-b border-gmp-border/50 flex flex-wrap items-center gap-4">
-                <span class="font-medium text-white">1xbet</span>
+                <span class="font-medium text-gmp-text-heading">1xbet</span>
                 <span class="text-gmp-text-muted text-sm">Upcoming events per sport (paginated)</span>
                 <span id="pull-all-result-1xbet" class="pull-all-result text-sm hidden"></span>
                 <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-primaryHover/30 hover:bg-primaryHover/50 text-success border border-success/50 rounded text-sm font-medium transition-colors"
@@ -134,14 +133,14 @@
                            name="api_token"
                            placeholder="Enter key to pull"
                            autocomplete="off"
-                           class="onexbet-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-white placeholder-gmp-text-faint focus:border-primary focus:outline-none">
+                           class="onexbet-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-gmp-text-heading placeholder-gmp-text-faint focus:border-primary focus:outline-none">
                 </label>
             </div>
             <div class="divide-y divide-gmp-border/50">
                 {% for sport in onexbet_sports %}
                 <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
                     <div class="flex items-center gap-3">
-                        <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
+                        <span class="text-gmp-text-heading font-medium">{{ sport.feed_sport_name }}</span>
                         <span class="text-gmp-text-faint text-sm">sport_id: {{ sport.feed_sport_id }}</span>
                     </div>
                     <div class="flex items-center gap-3">
@@ -168,7 +167,7 @@
         <!-- Bwin -->
         <div class="border border-gmp-border/50 rounded-lg overflow-hidden">
             <div class="bg-gmp-surface-raised/60 px-4 py-2.5 border-b border-gmp-border/50 flex flex-wrap items-center gap-4">
-                <span class="font-medium text-white">Bwin</span>
+                <span class="font-medium text-gmp-text-heading">Bwin</span>
                 <span class="text-gmp-text-muted text-sm">Prematch events per sport (100 per page)</span>
                 <span id="pull-all-result-bwin" class="pull-all-result text-sm hidden"></span>
                 <button type="button" class="pull-all-btn inline-flex items-center px-3 py-1.5 bg-primaryHover/30 hover:bg-primaryHover/50 text-success border border-success/50 rounded text-sm font-medium transition-colors"
@@ -182,14 +181,14 @@
                            name="api_token"
                            placeholder="Enter key to pull"
                            autocomplete="off"
-                           class="bwin-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-white placeholder-gmp-text-faint focus:border-primary focus:outline-none">
+                           class="bwin-api-key-input w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-gmp-text-heading placeholder-gmp-text-faint focus:border-primary focus:outline-none">
                 </label>
             </div>
             <div class="divide-y divide-gmp-border/50">
                 {% for sport in bwin_sports %}
                 <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
                     <div class="flex items-center gap-3">
-                        <span class="text-white font-medium">{{ sport.feed_sport_name }}</span>
+                        <span class="text-gmp-text-heading font-medium">{{ sport.feed_sport_name }}</span>
                         <span class="text-gmp-text-faint text-sm">sport_id: {{ sport.feed_sport_id }}</span>
                     </div>
                     <div class="flex items-center gap-3">

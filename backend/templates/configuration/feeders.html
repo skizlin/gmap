@@ -1,7 +1,6 @@
 {% extends "layout.html" %}
 
 {% block page_heading %}Feeder Configuration{% endblock %}
-{% block page_description %}Per-feed automation for categories, competitions, teams, and events. Sports are created and mapped by development—there is no sport auto-creation here. Event auto-creation is only meaningful once category, competition and teams exist. Scope settings with Sport (or All Sports), Category, and Competition.{% endblock %}
 
 {% block title %}Feeder Configuration{% endblock %}
 
@@ -16,7 +15,7 @@
             Configuration
         </a>
         <a href="#feed_sports" id="feeder-tab-feed_sports" data-tab-key="feed_sports" onclick="event.preventDefault(); switchFeederTab('feed_sports');"
-            class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-gmp-text-muted border-transparent hover:text-white no-underline cursor-pointer">
+            class="feeder-tab px-5 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 text-gmp-text-muted border-transparent hover:text-gmp-text-heading no-underline cursor-pointer">
             <i class="fa-solid fa-satellite-dish text-xs"></i>
             Feed Sports
             <span class="text-gmp-text-faint text-xs">({{ feed_sports_count|default(0) }})</span>
@@ -30,7 +29,7 @@
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Sport</label>
             <select name="sport_id" id="feeder-filter-sport" onchange="feederSportChange()"
-                class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]">
+                class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none min-w-[160px]">
                 <option value="">— select —</option>
                 <option value="all" {% if selected_sport_id == 'all' %}selected{% endif %}>All Sports</option>
                 {% for s in sports %}
@@ -41,7 +40,7 @@
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Category</label>
             <select name="category_id" id="feeder-filter-category" onchange="this.form.submit()"
-                class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]"
+                class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none min-w-[160px]"
                 {% if not selected_sport_id or selected_sport_id == 'all' %}disabled{% endif %}>
                 <option value="">— select —</option>
                 {% for c in categories %}
@@ -54,7 +53,7 @@
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Competition</label>
             <select name="competition_id" id="feeder-filter-competition" onchange="this.form.submit()"
-                class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[160px]"
+                class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none min-w-[160px]"
                 {% if not selected_category_id or selected_sport_id == 'all' %}disabled{% endif %}>
                 <option value="">— select —</option>
                 {% for comp in competitions %}
@@ -65,7 +64,7 @@
             </select>
         </div>
         <button type="button" onclick="document.getElementById('feeder-filter-sport').value=''; document.getElementById('feeder-filter-category').value=''; document.getElementById('feeder-filter-competition').value=''; document.getElementById('feeder-filter-category').disabled=false; document.getElementById('feeder-filter-competition').disabled=false; document.getElementById('feeder-filters-form').submit();"
-            class="text-gmp-text-faint hover:text-white text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover" title="Clear filters">Clear</button>
+            class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover" title="Clear filters">Clear</button>
     </form>
 
     {% if not selected_sport_id %}
@@ -79,10 +78,10 @@
         <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint px-4 py-3 border-b border-gmp-border/50">Feeder configuration</h2>
         <p class="text-[11px] text-gmp-text-faint px-4 py-2 border-b border-gmp-border/50">Only the options below are active in this product. Values are stored per scope (All Sports, sport, category, or competition) and are not applied by the runtime yet.</p>
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
-                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border dark:text-gmp-text-muted">
                     <tr>
-                        <th class="px-3 py-2.5 font-semibold w-48 min-w-[12rem] sticky left-0 bg-gmp-surface/50 z-10">Setting</th>
+                        <th class="px-3 py-2.5 font-semibold w-48 min-w-[12rem] sticky left-0 bg-gmp-tableChrome z-10">Setting</th>
                         {% for feed in feeds %}
                         <th class="px-2 py-2.5 font-semibold whitespace-nowrap">{{ feed.name }}</th>
                         {% endfor %}
@@ -90,8 +89,8 @@
                 </thead>
                 <tbody class="text-gmp-text-menu">
                     {% for key, label, hint in system_actions %}
-                    <tr class="border-b border-gmp-border/40 hover:bg-white/3">
-                        <td class="px-3 py-2 font-medium text-white sticky left-0 bg-cardbg/95 z-10 align-middle">
+                    <tr class="border-b border-gmp-border/40 hover:bg-gmp-hover/5">
+                        <td class="px-3 py-2 font-medium text-gmp-text-heading sticky left-0 bg-gmp-tableRow z-10 align-middle">
                             <span class="inline-flex items-center gap-1.5 flex-wrap">
                                 <span>{{ label }}</span>
                                 {% if hint %}
@@ -134,8 +133,8 @@
         <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint px-4 py-3 border-b border-gmp-border/50">Feeder Incidents Configuration</h2>
         <p class="text-[11px] text-gmp-text-faint px-4 py-2">Configure which incident data each feeder provides for the selected sport.</p>
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
-                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-3 py-2.5 font-semibold w-40">Feeder</th>
                         {% for key, label in incident_types %}
@@ -146,8 +145,8 @@
                 </thead>
                 <tbody class="text-gmp-text-menu">
                     {% for feed in feeds %}
-                    <tr class="border-b border-gmp-border/40 hover:bg-white/3">
-                        <td class="px-3 py-2 font-medium text-white">{{ feed.name }}</td>
+                    <tr class="border-b border-gmp-border/40 hover:bg-gmp-hover/5">
+                        <td class="px-3 py-2 font-medium text-gmp-text-heading">{{ feed.name }}</td>
                         {% for key, label in incident_types %}
                         <td class="px-2 py-2">
                             <input type="checkbox" name="inc_{{ feed.domain_id }}_{{ key }}" class="feeder-incident-cell rounded border-gmp-border bg-gmp-surface-raised text-primary"
@@ -168,12 +167,12 @@
         </div>
         <div class="px-4 py-2 border-t border-gmp-border/50 flex justify-between items-center">
             <div class="flex gap-2">
-                <button type="button" class="text-gmp-text-muted hover:text-white text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover">Sort</button>
-                <button type="button" class="text-gmp-text-muted hover:text-white text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover">+ Add</button>
+                <button type="button" class="text-gmp-text-muted hover:text-gmp-text-heading text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover">Sort</button>
+                <button type="button" class="text-gmp-text-muted hover:text-gmp-text-heading text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover">+ Add</button>
             </div>
             <div class="flex gap-2">
                 <button type="button" id="feeder-incidents-save" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded">Save</button>
-                <button type="button" onclick="window.location.reload()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5 rounded">Cancel</button>
+                <button type="button" onclick="window.location.reload()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5 rounded">Cancel</button>
                 <span id="feeder-incidents-status" class="text-xs text-gmp-text-muted"></span>
             </div>
         </div>
@@ -190,7 +189,7 @@
         <div class="flex flex-wrap items-end gap-3 bg-cardbg/80 border border-gmp-border/50 rounded-lg p-3">
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Feed</label>
-                <select id="fs-feed" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white focus:border-primary outline-none min-w-[120px]">
+                <select id="fs-feed" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none min-w-[120px]">
                     <option value="">— select —</option>
                     {% for f in feeds %}
                     <option value="{{ f.code }}">{{ f.name }}</option>
@@ -199,18 +198,18 @@
             </div>
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Feed sport ID</label>
-                <input type="text" id="fs-sport-id" placeholder="e.g. 1, 2, 13" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary w-28">
+                <input type="text" id="fs-sport-id" placeholder="e.g. 1, 2, 13" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary w-28">
             </div>
             <div class="flex-1 min-w-[140px]">
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Feed sport name</label>
-                <input type="text" id="fs-sport-name" placeholder="e.g. Soccer, Tennis" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary w-full">
+                <input type="text" id="fs-sport-name" placeholder="e.g. Soccer, Tennis" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary w-full">
             </div>
             <button type="button" id="fs-add-btn" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Add</button>
             <span id="fs-status" class="text-xs text-gmp-text-faint"></span>
         </div>
         <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
-            <table class="w-full text-left border-collapse text-xs">
-                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-4 py-2.5 font-semibold">Feed</th>
                         <th class="px-4 py-2.5 font-semibold">Feed sport ID</th>
@@ -219,10 +218,10 @@
                 </thead>
                 <tbody class="divide-y divide-gmp-border/40">
                     {% for row in feed_sports %}
-                    <tr class="hover:bg-white/3">
+                    <tr class="hover:bg-gmp-hover/5">
                         <td class="px-4 py-2.5 text-gmp-text-menu">{{ row.feed_provider }}</td>
                         <td class="px-4 py-2.5 font-mono text-gmp-text-muted">{{ row.feed_sport_id }}</td>
-                        <td class="px-4 py-2.5 text-white">{{ row.feed_sport_name or '—' }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-heading">{{ row.feed_sport_name or '—' }}</td>
                     </tr>
                     {% else %}
                     <tr><td colspan="3" class="px-4 py-8 text-center text-gmp-text-faint italic">No feed sports yet. Add rows above.</td></tr>

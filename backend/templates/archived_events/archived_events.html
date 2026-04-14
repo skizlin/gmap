@@ -1,7 +1,6 @@
 {% extends "layout.html" %}
 
 {% block page_heading %}Archived Events{% endblock %}
-{% block page_description %}View and manage past events (domain events and feed events). Events and Feed Events tabs; logic to be added later.{% endblock %}
 
 {% block title %}Archived Events{% endblock %}
 
@@ -12,7 +11,7 @@
         <a href="#events" id="archived-tab-events" class="archived-tab px-4 py-2.5 text-sm font-medium border-b-2 border-primary text-primary no-underline hover:opacity-90">
             <i class="fa-solid fa-calendar-days mr-1.5"></i> Events
         </a>
-        <a href="#feed-events" id="archived-tab-feed-events" class="archived-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gmp-text-muted hover:text-white transition-colors no-underline">
+        <a href="#feed-events" id="archived-tab-feed-events" class="archived-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gmp-text-muted hover:text-gmp-text-heading transition-colors no-underline">
             <i class="fa-solid fa-rss mr-1.5"></i> Feed Events
         </a>
     </div>

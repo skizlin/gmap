@@ -23,7 +23,7 @@
 {% for node in nodes %}
   {% if node.children is defined and node.children %}
     <div class="rp-tree-group border-l border-gmp-border/50 pl-2 my-1">
-      <div class="rp-tree-group-header flex flex-wrap items-center gap-x-3 gap-y-1 py-1 px-1 rounded hover:bg-white/5">
+      <div class="rp-tree-group-header flex flex-wrap items-center gap-x-3 gap-y-1 py-1 px-1 rounded hover:bg-gmp-hover/10">
         <button type="button" class="rp-tree-group-btn flex items-center gap-2 text-left shrink-0 text-gmp-text-menu text-xs font-medium" aria-expanded="true" data-rp-toggle>
           <i class="fa-solid fa-chevron-down rp-tree-chevron text-[10px] w-3 transition-transform"></i>
           <i class="fa-solid fa-folder text-warning/80"></i>
@@ -51,7 +51,6 @@
 {% endmacro %}
 
 {% block page_heading %}Admin Management{% endblock %}
-{% block page_description %}Manage admins. SuperAdmin (developer bootstrap) can exceed Master caps via API when RBAC_TRUST_ACTOR_HEADER is enabled. Roles & Permissions: assign admins to roles; Access Rights lists every menu area and page action from configuration (no stub permissions).{% endblock %}
 
 {% block title %}Admin Management{% endblock %}
 
@@ -63,7 +62,7 @@
         <a href="#admin" id="main-tab-admin" class="main-admin-tab px-4 py-2.5 text-sm font-medium border-b-2 border-primary text-primary no-underline hover:opacity-90">
             <i class="fa-solid fa-user mr-1.5"></i> Admin
         </a>
-        <a href="#roles-perms" id="main-tab-roles-perms" class="main-admin-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gmp-text-muted hover:text-white transition-colors no-underline">
+        <a href="#roles-perms" id="main-tab-roles-perms" class="main-admin-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gmp-text-muted hover:text-gmp-text-heading transition-colors no-underline">
             <i class="fa-solid fa-user-shield mr-1.5"></i> Roles & Permissions
         </a>
     </div>
@@ -79,7 +78,7 @@
                 <input type="hidden" name="partner_id" value="{{ rbac_enforced_partner_id }}">
                 <span class="text-xs text-gmp-text-menu py-1.5 px-1">{{ rbac_enforced_partner_name }}</span>
                 {% else %}
-                <select name="partner_id" id="admin-filter-partner-id" class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary min-w-[140px]">
+                <select name="partner_id" id="admin-filter-partner-id" class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading outline-none focus:border-primary min-w-[140px]">
                     <option value="">All</option>
                     <option value="platform" {% if filter_partner_id == 'platform' %}selected{% endif %}>{{ rbac_platform_scope_label }}</option>
                     {% for p in partners %}
@@ -94,7 +93,7 @@
                 </div>
                 <div class="relative" id="admin-brands-dropdown-wrap">
                     <button type="button" id="admin-brands-trigger" onclick="toggleAdminBrandsDropdown()"
-                        class="flex items-center gap-2 bg-gmp-surface-raised text-white text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="flex items-center gap-2 bg-gmp-surface-raised text-gmp-text-heading text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         {% if not filter_partner_id or filter_partner_id == 'platform' %}disabled title="Select a partner first"{% endif %}>
                         <i class="fa-solid fa-building text-gmp-text-muted text-[10px]"></i>
                         <span id="admin-brands-label">
@@ -114,7 +113,7 @@
                         </div>
                         <div id="admin-brands-checkboxes-container">
                             {% for b in brands_for_partner %}
-                            <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-white/5 cursor-pointer transition-colors">
+                            <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors">
                                 <input type="checkbox" class="admin-brand-cb accent-primary rounded border-gmp-border w-3.5 h-3.5" value="{{ b.id }}" {% if b.id in (filter_brand_ids or []) %}checked{% endif %} onchange="onAdminBrandsChange()">
                                 <span class="text-xs text-gmp-text-menu">{{ b.name }}</span>
                             </label>
@@ -126,7 +125,7 @@
                     </div>
                 </div>
                 <label class="text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold">Role</label>
-                <select name="role_id" class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary min-w-[140px]">
+                <select name="role_id" class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading outline-none focus:border-primary min-w-[140px]">
                     <option value="">All</option>
                     {% for r in roles %}
                     <option value="{{ r.role_id }}" {% if filter_role_id is not none and filter_role_id == r.role_id %}selected{% endif %}>{{ r.name }} ({{ r.partner_name | default(rbac_platform_scope_label) }})</option>
@@ -134,12 +133,12 @@
                 </select>
                 <span class="text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold">Status</span>
                 <div class="flex rounded-lg border border-gmp-border overflow-hidden bg-gmp-surface-raised/80" role="group" aria-label="Filter by status">
-                    <button type="button" class="admin-status-btn px-3 py-1.5 text-xs font-medium transition-colors {% if (filter_status | default('active')) == 'active' %}bg-primary text-white{% else %}text-gmp-text-muted hover:text-white hover:bg-gmp-surface-popover{% endif %}" data-status="active">Active</button>
-                    <button type="button" class="admin-status-btn px-3 py-1.5 text-xs font-medium transition-colors {% if (filter_status | default('active')) == 'inactive' %}bg-primary text-white{% else %}text-gmp-text-muted hover:text-white hover:bg-gmp-surface-popover{% endif %}" data-status="inactive">Inactive</button>
-                    <button type="button" class="admin-status-btn px-3 py-1.5 text-xs font-medium transition-colors {% if (filter_status | default('active')) == 'all' %}bg-primary text-white{% else %}text-gmp-text-muted hover:text-white hover:bg-gmp-surface-popover{% endif %}" data-status="all">All</button>
+                    <button type="button" class="admin-status-btn px-3 py-1.5 text-xs font-medium transition-colors {% if (filter_status | default('active')) == 'active' %}bg-primary text-white{% else %}text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-surface-popover{% endif %}" data-status="active">Active</button>
+                    <button type="button" class="admin-status-btn px-3 py-1.5 text-xs font-medium transition-colors {% if (filter_status | default('active')) == 'inactive' %}bg-primary text-white{% else %}text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-surface-popover{% endif %}" data-status="inactive">Inactive</button>
+                    <button type="button" class="admin-status-btn px-3 py-1.5 text-xs font-medium transition-colors {% if (filter_status | default('active')) == 'all' %}bg-primary text-white{% else %}text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-surface-popover{% endif %}" data-status="all">All</button>
                 </div>
                 <label class="text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold">Search</label>
-                <input type="text" name="search" value="{{ filter_search }}" placeholder="Email, name, login…" class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white placeholder-gmp-text-faint outline-none focus:border-primary w-44">
+                <input type="text" name="search" value="{{ filter_search }}" placeholder="Email, name, login…" class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading placeholder-gmp-text-faint outline-none focus:border-primary w-44">
                 <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded bg-gmp-surface-raised text-gmp-text hover:bg-surfaceHover">Filter</button>
             </form>
             {% if rbac_can_any(request, 'rbac.users.create') %}
@@ -151,7 +150,7 @@
         </div>
         {% if rbac_can_any(request, 'rbac.users.create') %}
         <div id="user-add-form" class="hidden bg-cardbg/80 border border-gmp-border rounded-lg p-5 space-y-4">
-            <h3 class="text-sm font-semibold text-white">Add new admin</h3>
+            <h3 class="text-sm font-semibold text-gmp-text-heading">Add new admin</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Partner</label>
@@ -159,7 +158,7 @@
                     <input type="hidden" id="user-form-partner-id" value="{{ rbac_enforced_partner_id }}">
                     <p class="text-sm text-gmp-text-menu py-1.5">{{ rbac_enforced_partner_name }}</p>
                     {% else %}
-                    <select id="user-form-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary" onchange="filterAddFormRolesByPartner()">
+                    <select id="user-form-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary" onchange="filterAddFormRolesByPartner()">
                         <option value="">{{ rbac_platform_scope_label }}</option>
                         {% for p in partners %}
                         <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
@@ -169,7 +168,7 @@
                 </div>
                 <div>
                     <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Role</label>
-                    <select id="user-form-role-ids" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    <select id="user-form-role-ids" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                         <option value="">— None —</option>
                         {% for r in roles %}
                         <option value="{{ r.role_id }}" data-partner-id="{{ r.partner_id if r.partner_id is not none else '' }}">{{ r.name }} ({{ r.partner_name | default(rbac_platform_scope_label) }})</option>
@@ -180,22 +179,22 @@
                     <div>
                         <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Email <span class="text-danger">*</span></label>
                         <input type="email" id="user-form-email" placeholder="user@example.com"
-                            class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                            class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                     </div>
                     <div>
                         <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Login (optional)</label>
                         <input type="text" id="user-form-login" placeholder="Defaults to email prefix"
-                            class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                            class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                     </div>
                     <div>
                         <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Display name</label>
                         <input type="text" id="user-form-display-name" placeholder="Optional"
-                            class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                            class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                     </div>
                 </div>
                 <div class="md:col-span-2">
                     <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Brands (optional; when partner-scoped)</label>
-                    <select id="user-form-brand-ids" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[60px]">
+                    <select id="user-form-brand-ids" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-h-[60px]">
                         {% for b in brands %}
                         <option value="{{ b.id }}">{{ b.name }} ({{ b.code }})</option>
                         {% endfor %}
@@ -213,20 +212,20 @@
                 <div class="md:col-span-2" id="user-form-pin-wrap">
                     <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Sign-in PIN</label>
                     <input type="password" id="user-form-login-pin" value="1234" autocomplete="new-password"
-                        class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                     <span class="text-[10px] text-gmp-text-faint">Default <code class="text-gmp-text-faint">1234</code> for new accounts. SuperAdmin accounts ignore this.</span>
                 </div>
             </div>
             <div class="flex items-center gap-2">
                 <button type="button" onclick="usersSubmitAdd()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Create New Admin</button>
-                <button type="button" onclick="usersHideAddForm()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                <button type="button" onclick="usersHideAddForm()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">Cancel</button>
                 <span id="user-form-status" class="text-xs text-gmp-text-muted"></span>
             </div>
         </div>
         {% endif %}
         <div id="admin-users-table-scroll" class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
-            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-3 py-2 font-semibold w-28">Partner</th>
                         <th class="px-3 py-2 font-semibold min-w-[120px]">Brands</th>
@@ -245,13 +244,13 @@
                 </thead>
                 <tbody>
                     {% for u in users %}
-                    <tr class="hover:bg-white/5 transition-colors border-b border-gmp-border/30" data-user-id="{{ u.user_id }}">
-                        <td class="px-3 py-2 {% if u.partner_id is none %}text-white{% else %}text-gmp-text-menu{% endif %}">{{ u.partner_name }}</td>
+                    <tr class="hover:bg-gmp-hover/10 transition-colors border-b border-gmp-border/30" data-user-id="{{ u.user_id }}">
+                        <td class="px-3 py-2 {% if u.partner_id is none %}text-gmp-text-heading{% else %}text-gmp-text-menu{% endif %}">{{ u.partner_name }}</td>
                         <td class="px-3 py-2 text-gmp-text-menu">
                             {% for name in (u.brand_names or []) %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %}
                             {% if not (u.brand_names or []) %}<span class="text-gmp-text-faint">—</span>{% endif %}
                         </td>
-                        <td class="px-3 py-2 text-white font-medium">{{ u.email }}</td>
+                        <td class="px-3 py-2 text-gmp-text-heading font-medium">{{ u.email }}</td>
                         <td class="px-3 py-2 text-gmp-text-menu">{{ u.display_name or '—' }}</td>
                         <td class="px-3 py-2">
                             {% if u.active %}
@@ -280,7 +279,7 @@
                         <td class="px-3 py-2 text-gmp-text-muted text-[11px]">{{ u.updated_at or '—' }}</td>
                         <td class="px-3 py-2 text-right">
                             {% if rbac_can_any(request, 'rbac.users.edit', 'rbac.users.audit') %}
-                            <button type="button" class="admin-user-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors inline-flex" aria-label="User actions" data-user-id="{{ u.user_id }}">
+                            <button type="button" class="admin-user-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 transition-colors inline-flex" aria-label="User actions" data-user-id="{{ u.user_id }}">
                                 <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                             </button>
                             {% else %}
@@ -309,7 +308,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0 overflow-hidden">
             <!-- Left: Admin Roles -->
             <div class="flex flex-col bg-cardbg/80 border border-gmp-border/50 rounded-lg overflow-hidden min-h-0">
-                <div class="px-3 py-2 border-b border-gmp-border bg-gmp-surface/50 flex items-center justify-between shrink-0">
+                <div class="gmp-table-chrome px-3 py-2 border-b border-gmp-border flex items-center justify-between shrink-0">
                     <span class="text-sm font-semibold text-gmp-text">Admin Roles</span>
                     {% if rbac_can_any(request, 'rbac.roles.manage') %}
                     <button type="button" onclick="rpShowCreateRoleModal()" class="text-xs px-2 py-1 rounded bg-primary text-white hover:bg-primaryHover">+ Create Role</button>
@@ -321,7 +320,7 @@
                     <input type="hidden" name="rp_partner_id" id="rp-partner-select" value="{{ rbac_enforced_partner_id }}">
                     <span class="text-xs text-gmp-text-menu py-1">{{ rbac_enforced_partner_name }}</span>
                     {% else %}
-                    <select name="rp_partner_id" id="rp-partner-select" class="rp-partner-select bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-primary min-w-[140px]">
+                    <select name="rp_partner_id" id="rp-partner-select" class="rp-partner-select bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading outline-none focus:border-primary min-w-[140px]">
                         <option value="">All</option>
                         <option value="platform" {% if filter_rp_partner_id == 'platform' %}selected{% endif %}>{{ rbac_platform_scope_label }}</option>
                         {% for p in partners %}
@@ -331,8 +330,8 @@
                     {% endif %}
                 </form>
                 <div class="overflow-auto flex-1 min-h-0" id="rp-roles-table-scroll">
-                    <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                        <thead class="bg-gmp-surface-raised/80 text-gmp-text-muted uppercase tracking-wider sticky top-0 z-10">
+                    <table class="gmp-data-table w-full text-left border-collapse text-xs whitespace-nowrap">
+                        <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                             <tr>
                                 <th class="px-2 py-1.5 w-8"></th>
                                 <th class="px-2 py-1.5 font-semibold w-10">Id</th>
@@ -345,7 +344,7 @@
                         </thead>
                         <tbody>
                             {% for r in roles_filtered %}
-                            <tr class="rbac-role-row hover:bg-white/5 border-b border-gmp-border/30 cursor-pointer {% if loop.first %}rbac-role-selected bg-primary/10{% endif %}"
+                            <tr class="rbac-role-row hover:bg-gmp-hover/10 border-b border-gmp-border/30 cursor-pointer {% if loop.first %}rbac-role-selected bg-primary/10{% endif %}"
                                 data-role-id="{{ r.role_id }}" data-role-name="{{ r.name | e }}" data-is-master="{{ '1' if r.is_master else '0' }}"
                                 data-partner-id="{{ r.partner_id if r.partner_id is not none else '' }}"
                                 data-permissions="{{ (r.permission_codes or []) | join(',') }}"
@@ -355,12 +354,12 @@
                                 </td>
                                 <td class="px-2 py-1.5 text-gmp-text-muted">{{ r.role_id }}</td>
                                 <td class="px-2 py-1.5 text-gmp-text-menu">{{ r.partner_name | default(rbac_platform_scope_label) }}</td>
-                                <td class="px-2 py-1.5 text-white font-medium">{{ r.name }}</td>
+                                <td class="px-2 py-1.5 text-gmp-text-heading font-medium">{{ r.name }}</td>
                                 <td class="px-2 py-1.5 text-gmp-text-menu">{% if r.is_master %}<span class="text-primary font-medium">Yes</span>{% else %}<span class="text-gmp-text-faint">—</span>{% endif %}</td>
                                 <td class="px-2 py-1.5 text-gmp-text-menu">{{ r.active_admins | default(0) }}</td>
                                 <td class="px-2 py-1.5 text-right">
                                     {% if rbac_can_any(request, 'rbac.roles.manage') %}
-                                    <button type="button" class="rbac-role-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 transition-colors inline-flex" aria-label="Role actions" data-role-id="{{ r.role_id }}">
+                                    <button type="button" class="rbac-role-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 transition-colors inline-flex" aria-label="Role actions" data-role-id="{{ r.role_id }}">
                                         <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
                                     </button>
                                     {% else %}
@@ -377,11 +376,11 @@
             </div>
             <!-- Middle: Admins in [Role] -->
             <div class="flex flex-col bg-cardbg/80 border border-gmp-border/50 rounded-lg overflow-hidden min-h-0">
-                <div class="px-3 py-2 border-b border-gmp-border bg-gmp-surface/50 shrink-0">
+                <div class="gmp-table-chrome px-3 py-2 border-b border-gmp-border shrink-0">
                     <span class="text-sm font-semibold text-gmp-text" id="rp-admins-title">Admins in <span id="rp-role-name">—</span></span>
                     {% if rbac_can_any(request, 'rbac.users.edit') %}
                     <div class="mt-2 flex flex-wrap items-center gap-2">
-                        <select id="rp-assign-user" class="flex-1 min-w-0 max-w-[180px] bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-xs text-white">
+                        <select id="rp-assign-user" class="flex-1 min-w-0 max-w-[180px] bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-xs text-gmp-text-heading">
                             <option value="">Select user —</option>
                             {% for u in users %}
                             <option value="{{ u.user_id }}" data-role-ids="{{ u.role_ids | join(',') }}">{{ u.email }} ({{ u.login or u.display_name or u.user_id }})</option>
@@ -392,8 +391,8 @@
                     {% endif %}
                 </div>
                 <div class="overflow-auto flex-1 min-h-0">
-                    <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                        <thead class="bg-gmp-surface-raised/80 text-gmp-text-muted uppercase tracking-wider sticky top-0 z-10">
+                    <table class="gmp-data-table w-full text-left border-collapse text-xs whitespace-nowrap">
+                        <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                             <tr>
                                 <th class="px-2 py-1.5 font-semibold">Email</th>
                                 <th class="px-2 py-1.5 font-semibold">Username</th>
@@ -408,7 +407,7 @@
             </div>
             <!-- Right: Access Rights (tree: assign/edit permissions for selected role) -->
             <div class="flex flex-col bg-cardbg/80 border border-gmp-border/50 rounded-lg overflow-hidden min-h-0">
-                <div class="px-3 py-2 border-b border-gmp-border bg-gmp-surface/50 flex items-center justify-between shrink-0">
+                <div class="gmp-table-chrome px-3 py-2 border-b border-gmp-border flex items-center justify-between shrink-0">
                     <span class="text-sm font-semibold text-gmp-text"><i class="fa-solid fa-shield-halved mr-1.5 text-gmp-text-faint"></i>Access Rights</span>
                     <span class="flex items-center gap-1.5">
                         {% if rbac_can_any(request, 'rbac.roles.manage') %}
@@ -439,12 +438,12 @@
 <div id="rp-create-role-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
     <div class="bg-gmp-surface border border-gmp-border rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
         <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white">Create Role</h3>
-            <button type="button" onclick="rpCloseCreateRoleModal()" class="text-gmp-text-muted hover:text-white p-1"><i class="fa-solid fa-times"></i></button>
+            <h3 class="text-sm font-semibold text-gmp-text-heading">Create Role</h3>
+            <button type="button" onclick="rpCloseCreateRoleModal()" class="text-gmp-text-muted hover:text-gmp-text-heading p-1"><i class="fa-solid fa-times"></i></button>
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name <span class="text-danger">*</span></label>
-            <input type="text" id="rp-create-role-name" placeholder="e.g. Brand Admin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <input type="text" id="rp-create-role-name" placeholder="e.g. Brand Admin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Partner</label>
@@ -452,7 +451,7 @@
             <input type="hidden" id="rp-create-role-partner-id" value="{{ rbac_enforced_partner_id }}">
             <p class="text-sm text-gmp-text-menu py-1.5">{{ rbac_enforced_partner_name }}</p>
             {% else %}
-            <select id="rp-create-role-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <select id="rp-create-role-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                 <option value="">{{ rbac_platform_scope_label }}</option>
                 {% for p in partners %}
                 <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
@@ -468,12 +467,12 @@
         <div>
             <label class="flex items-start gap-2 text-sm text-gmp-text-menu cursor-pointer">
                 <input type="checkbox" id="rp-create-role-master" class="mt-0.5 rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary">
-                <span><span class="font-medium text-white">Master role</span> <span class="text-gmp-text-faint text-xs">(one per partner / {{ rbac_platform_scope_label }}; defines the permission ceiling for all other roles in that scope)</span></span>
+                <span><span class="font-medium text-gmp-text-heading">Master role</span> <span class="text-gmp-text-faint text-xs">(one per partner / {{ rbac_platform_scope_label }}; defines the permission ceiling for all other roles in that scope)</span></span>
             </label>
         </div>
         <div class="flex items-center gap-2">
             <button type="button" onclick="rpSubmitCreateRole()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Create</button>
-            <button type="button" onclick="rpCloseCreateRoleModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <button type="button" onclick="rpCloseCreateRoleModal()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">Cancel</button>
             <span id="rp-create-role-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>
@@ -482,12 +481,12 @@
 <!-- Floating kebab: Admin tab user row -->
 <div id="admin-user-kebab-menu" class="hidden fixed z-[300] min-w-[180px] py-1 bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl" role="menu" aria-hidden="true" data-user-id="">
     {% if rbac_can_any(request, 'rbac.users.edit') %}
-    <button type="button" id="admin-user-kebab-edit" class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2">
+    <button type="button" id="admin-user-kebab-edit" class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
         <i class="fa-solid fa-pen w-4 text-gmp-text-faint"></i> Edit
     </button>
     {% endif %}
     {% if rbac_can_any(request, 'rbac.users.audit') %}
-    <button type="button" id="admin-user-kebab-audit" class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2">
+    <button type="button" id="admin-user-kebab-audit" class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
         <i class="fa-solid fa-clock-rotate-left w-4 text-gmp-text-faint"></i> Audit log
     </button>
     {% endif %}
@@ -497,14 +496,14 @@
 <div id="user-audit-modal" class="hidden fixed inset-0 bg-black/60 z-[305] flex items-center justify-center p-4" onclick="if (event.target === this) usersCloseAuditModal()">
     <div class="bg-gmp-surface border border-gmp-border rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
         <div class="px-4 py-3 border-b border-gmp-border flex items-center justify-between shrink-0">
-            <h3 class="text-sm font-semibold text-white">Audit log <span id="user-audit-modal-sub" class="text-gmp-text-muted font-normal"></span></h3>
-            <button type="button" onclick="usersCloseAuditModal()" class="text-gmp-text-muted hover:text-white p-1" aria-label="Close"><i class="fa-solid fa-times"></i></button>
+            <h3 class="text-sm font-semibold text-gmp-text-heading">Audit log <span id="user-audit-modal-sub" class="text-gmp-text-muted font-normal"></span></h3>
+            <button type="button" onclick="usersCloseAuditModal()" class="text-gmp-text-muted hover:text-gmp-text-heading p-1" aria-label="Close"><i class="fa-solid fa-times"></i></button>
         </div>
         <div id="user-audit-loading" class="hidden px-4 py-8 text-center text-gmp-text-faint text-sm">Loading…</div>
         <div id="user-audit-empty" class="hidden px-4 py-8 text-center text-gmp-text-faint text-sm">No audit entries yet. Changes will appear here after this update.</div>
         <div class="overflow-auto flex-1 min-h-0 p-2">
-            <table class="w-full text-left border-collapse text-xs" id="user-audit-table-wrap">
-                <thead class="text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 bg-gmp-surface">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs" id="user-audit-table-wrap">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-2 py-2 font-semibold w-36">When (UTC)</th>
                         <th class="px-2 py-2 font-semibold w-28">Action</th>
@@ -521,10 +520,10 @@
 
 <!-- Floating kebab menu for Admin Roles table (fixed so it is not clipped by overflow) -->
 <div id="rbac-role-kebab-menu" class="hidden fixed z-[300] min-w-[168px] py-1 bg-gmp-surface-raised border border-gmp-border rounded-lg shadow-xl" role="menu" aria-hidden="true" data-role-id="">
-    <button type="button" id="rbac-role-kebab-edit" class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2">
+    <button type="button" id="rbac-role-kebab-edit" class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
         <i class="fa-solid fa-pen w-4 text-gmp-text-faint"></i> Edit
     </button>
-    <button type="button" id="rbac-role-kebab-duplicate" class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-white/10 flex items-center gap-2">
+    <button type="button" id="rbac-role-kebab-duplicate" class="w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2">
         <i class="fa-solid fa-copy w-4 text-gmp-text-faint"></i> Duplicate role
     </button>
 </div>
@@ -533,14 +532,14 @@
 <div id="rp-duplicate-role-modal" class="hidden fixed inset-0 bg-black/60 z-[310] flex items-center justify-center p-4">
     <div class="bg-gmp-surface border border-gmp-border rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
         <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white">Duplicate role</h3>
-            <button type="button" onclick="rpCloseDuplicateRoleModal()" class="text-gmp-text-muted hover:text-white p-1"><i class="fa-solid fa-times"></i></button>
+            <h3 class="text-sm font-semibold text-gmp-text-heading">Duplicate role</h3>
+            <button type="button" onclick="rpCloseDuplicateRoleModal()" class="text-gmp-text-muted hover:text-gmp-text-heading p-1"><i class="fa-solid fa-times"></i></button>
         </div>
         <input type="hidden" id="rp-duplicate-source-role-id" value="">
         <p id="rp-duplicate-source-label" class="text-xs text-gmp-text-muted leading-relaxed"></p>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">New role name <span class="text-danger">*</span></label>
-            <input type="text" id="rp-duplicate-role-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <input type="text" id="rp-duplicate-role-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Partner for new role</label>
@@ -548,7 +547,7 @@
             <input type="hidden" id="rp-duplicate-role-partner-id" value="{{ rbac_enforced_partner_id }}">
             <p class="text-sm text-gmp-text-menu py-1.5">{{ rbac_enforced_partner_name }}</p>
             {% else %}
-            <select id="rp-duplicate-role-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <select id="rp-duplicate-role-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                 <option value="">{{ rbac_platform_scope_label }}</option>
                 {% for p in partners %}
                 <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
@@ -565,12 +564,12 @@
         <div>
             <label class="flex items-start gap-2 text-sm text-gmp-text-menu cursor-pointer">
                 <input type="checkbox" id="rp-duplicate-role-master" class="mt-0.5 rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary">
-                <span><span class="font-medium text-white">Master role</span> <span class="text-gmp-text-faint text-xs">(only if this should be the Master for the selected partner; clears other Master in that scope)</span></span>
+                <span><span class="font-medium text-gmp-text-heading">Master role</span> <span class="text-gmp-text-faint text-xs">(only if this should be the Master for the selected partner; clears other Master in that scope)</span></span>
             </label>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
             <button type="button" onclick="rpSubmitDuplicateRole()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Create copy</button>
-            <button type="button" onclick="rpCloseDuplicateRoleModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <button type="button" onclick="rpCloseDuplicateRoleModal()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">Cancel</button>
             <span id="rp-duplicate-role-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>
@@ -580,13 +579,13 @@
 <div id="rp-edit-role-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
     <div class="bg-gmp-surface border border-gmp-border rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
         <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white">Edit role</h3>
-            <button type="button" onclick="rpCloseEditRoleModal()" class="text-gmp-text-muted hover:text-white p-1"><i class="fa-solid fa-times"></i></button>
+            <h3 class="text-sm font-semibold text-gmp-text-heading">Edit role</h3>
+            <button type="button" onclick="rpCloseEditRoleModal()" class="text-gmp-text-muted hover:text-gmp-text-heading p-1"><i class="fa-solid fa-times"></i></button>
         </div>
         <input type="hidden" id="rp-edit-role-id" value="">
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name <span class="text-danger">*</span></label>
-            <input type="text" id="rp-edit-role-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <input type="text" id="rp-edit-role-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
         </div>
         <div class="flex items-center gap-2">
             <label class="flex items-center gap-2 text-sm text-gmp-text-menu">
@@ -596,12 +595,12 @@
         <div>
             <label class="flex items-start gap-2 text-sm text-gmp-text-menu cursor-pointer">
                 <input type="checkbox" id="rp-edit-role-master" class="mt-0.5 rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary">
-                <span><span class="font-medium text-white">Master role</span> <span class="text-gmp-text-faint text-xs">(clears Master on other roles in the same partner / {{ rbac_platform_scope_label }})</span></span>
+                <span><span class="font-medium text-gmp-text-heading">Master role</span> <span class="text-gmp-text-faint text-xs">(clears Master on other roles in the same partner / {{ rbac_platform_scope_label }})</span></span>
             </label>
         </div>
         <div class="flex items-center gap-2">
             <button type="button" onclick="rpSubmitEditRole()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
-            <button type="button" onclick="rpCloseEditRoleModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <button type="button" onclick="rpCloseEditRoleModal()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">Cancel</button>
             <span id="rp-edit-role-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>
@@ -611,21 +610,21 @@
 <div id="user-edit-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
     <div class="bg-gmp-surface border border-gmp-border rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
         <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white">Edit user</h3>
-            <button type="button" onclick="usersCloseEditModal()" class="text-gmp-text-muted hover:text-white p-1"><i class="fa-solid fa-times"></i></button>
+            <h3 class="text-sm font-semibold text-gmp-text-heading">Edit user</h3>
+            <button type="button" onclick="usersCloseEditModal()" class="text-gmp-text-muted hover:text-gmp-text-heading p-1"><i class="fa-solid fa-times"></i></button>
         </div>
         <input type="hidden" id="user-edit-id" value="">
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Email <span class="text-danger">*</span></label>
-            <input type="email" id="user-edit-email" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <input type="email" id="user-edit-email" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Login</label>
-            <input type="text" id="user-edit-login" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <input type="text" id="user-edit-login" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Display name</label>
-            <input type="text" id="user-edit-display-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <input type="text" id="user-edit-display-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Partner</label>
@@ -633,7 +632,7 @@
             <input type="hidden" id="user-edit-partner-id" value="{{ rbac_enforced_partner_id }}">
             <p class="text-sm text-gmp-text-menu py-1.5">{{ rbac_enforced_partner_name }}</p>
             {% else %}
-            <select id="user-edit-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <select id="user-edit-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                 <option value="">{{ rbac_platform_scope_label }}</option>
                 {% for p in partners %}
                 <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
@@ -643,7 +642,7 @@
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Role</label>
-            <select id="user-edit-role-ids" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <select id="user-edit-role-ids" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                 <option value="">— None —</option>
                 {% for r in roles %}
                 <option value="{{ r.role_id }}">{{ r.name }} ({{ r.partner_name | default(rbac_platform_scope_label) }})</option>
@@ -652,7 +651,7 @@
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Brands (optional)</label>
-            <select id="user-edit-brand-ids" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[60px]">
+            <select id="user-edit-brand-ids" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-h-[60px]">
                 {% for b in brands %}
                 <option value="{{ b.id }}">{{ b.name }}</option>
                 {% endfor %}
@@ -674,12 +673,12 @@
         <div id="user-edit-pin-wrap">
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Sign-in PIN</label>
             <input type="password" id="user-edit-login-pin" autocomplete="new-password" placeholder="Leave blank to keep unchanged"
-                class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
             <span class="text-[10px] text-gmp-text-faint">Set a new PIN for this account (not used for SuperAdmin).</span>
         </div>
         <div class="flex items-center gap-2">
             <button type="button" onclick="usersSubmitEdit()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
-            <button type="button" onclick="usersCloseEditModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <button type="button" onclick="usersCloseEditModal()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">Cancel</button>
             <span id="user-edit-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>
@@ -874,16 +873,16 @@ function selectRole(roleId, roleName, permissionCodes, isMaster) {
     var canAudit = !!up.audit;
     adminsInRole.forEach(function(u) {
         var tr = document.createElement('tr');
-        tr.className = 'border-b border-gmp-border/30 hover:bg-white/5';
+        tr.className = 'border-b border-gmp-border/30 hover:bg-gmp-hover/10';
         var actions = '';
         if (canEdit || canAudit) {
-            actions += '<button type="button" class="admin-user-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-white hover:bg-white/10 inline-flex mr-1" aria-label="User actions" data-user-id="' + u.user_id + '"><i class="fa-solid fa-ellipsis-vertical text-sm"></i></button>';
+            actions += '<button type="button" class="admin-user-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 inline-flex mr-1" aria-label="User actions" data-user-id="' + u.user_id + '"><i class="fa-solid fa-ellipsis-vertical text-sm"></i></button>';
         }
         if (canEdit) {
             actions += '<button type="button" onclick="rpUnassignUser(' + u.user_id + ')" class="text-warning hover:text-warning text-xs">Unassign</button>';
         }
         if (!actions) actions = '<span class="text-gmp-text-faint">—</span>';
-        tr.innerHTML = '<td class="px-2 py-1.5 text-white">' + (u.email || '—') + '</td><td class="px-2 py-1.5 text-gmp-text-menu">' + (u.login || u.display_name || '—') + '</td><td class="px-2 py-1.5 text-right whitespace-nowrap">' + actions + '</td>';
+        tr.innerHTML = '<td class="px-2 py-1.5 text-gmp-text-heading">' + (u.email || '—') + '</td><td class="px-2 py-1.5 text-gmp-text-menu">' + (u.login || u.display_name || '—') + '</td><td class="px-2 py-1.5 text-right whitespace-nowrap">' + actions + '</td>';
         tbody.appendChild(tr);
     });
     if (adminsInRole.length === 0) {

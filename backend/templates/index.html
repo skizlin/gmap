@@ -1,7 +1,6 @@
 {% extends "layout.html" %}
 
 {% block page_heading %}Dashboard{% endblock %}
-{% block page_description %}Overview of incoming events, mapping coverage and platform status.{% endblock %}
 
 {% block title %}Dashboard{% endblock %}
 
@@ -15,7 +14,7 @@
         </h3>
         <p class="text-gmp-text-faint text-xs mb-4">Go to <a href="/feeder-events" class="text-primary hover:text-success">Feeder Events</a> to map events.</p>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+            <table class="gmp-data-table w-full text-sm">
                 <thead>
                     <tr class="text-left text-gmp-text-faint border-b border-gmp-border">
                         <th class="pb-2 pr-4 font-medium">Feed</th>
@@ -27,7 +26,7 @@
                 <tbody>
                     {% for s in feed_stats %}
                     <tr class="border-b border-gmp-border/50 last:border-0">
-                        <td class="py-2 pr-4 text-white">{{ s.feed_name }}</td>
+                        <td class="py-2 pr-4 text-gmp-text-heading">{{ s.feed_name }}</td>
                         <td class="py-2 pr-4 text-right text-gmp-text-menu">{{ s.total }}</td>
                         <td class="py-2 pr-4 text-right text-primary">{{ s.mapped }}</td>
                         <td class="py-2 pr-4 text-right text-warning/90">{{ s.unmapped }}</td>
@@ -48,7 +47,7 @@
         <div class="space-y-4">
             {% for release in changelog %}
             <div class="border-l-2 border-gmp-border pl-4">
-                <p class="text-white font-medium">Version {{ release.version }}{% if release.date %} <span class="text-gmp-text-faint font-normal">({{ release.date }})</span>{% endif %}</p>
+                <p class="text-gmp-text-heading font-medium">Version {{ release.version }}{% if release.date %} <span class="text-gmp-text-faint font-normal">({{ release.date }})</span>{% endif %}</p>
                 <ul class="mt-1 text-gmp-text-muted text-sm space-y-0.5">
                     {% for item in release["items"] %}
                     <li>· {{ item }}</li>

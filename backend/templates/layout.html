@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 
 <head>
+    {% include "includes/gmp_theme_boot.html" %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GMP - Global Mapper Platform</title>
@@ -40,12 +41,12 @@
 
 <body class="bg-gmp-canvas text-gmp-text font-sans h-screen flex flex-col overflow-hidden antialiased">
 
-    <!-- TOP NAVIGATION BAR -->
-    <header class="bg-gmp-surface border-b border-gmp-border-subtle flex-shrink-0 z-40">
+    <!-- TOP NAVIGATION BAR (gmp-top-nav: dark slate in dark theme; warm espresso bar in light theme) -->
+    <header class="gmp-top-nav bg-gmp-surface border-b border-gmp-border-subtle flex-shrink-0 z-40">
         <div class="flex items-center h-12 px-3 sm:px-4 gap-2 min-w-0">
 
             <!-- Mobile menu (drawer trigger) -->
-            <button type="button" id="mobile-nav-open" class="md:hidden shrink-0 flex items-center justify-center w-9 h-9 rounded-lg text-gmp-text hover:text-gmp-text-heading hover:bg-white/10 border border-gmp-border/80"
+            <button type="button" id="mobile-nav-open" class="md:hidden shrink-0 flex items-center justify-center w-9 h-9 rounded-lg text-gmp-text hover:text-gmp-text-heading hover:bg-gmp-hover/15 border border-gmp-border/80"
                 aria-label="Open menu" aria-expanded="false" aria-controls="mobile-nav-panel">
                 <i class="fa-solid fa-bars text-lg" aria-hidden="true"></i>
             </button>
@@ -65,7 +66,7 @@
                 <!-- Admin (User Management) -->
                 <div class="nav-item relative flex items-center">
                     <a href="/users"
-                        class="flex items-center h-full px-4 text-sm transition-colors {% if section == 'users' %}text-primary{% else %}text-gmp-text-muted hover:text-gmp-text-heading hover:bg-white/5{% endif %}">
+                        class="flex items-center h-full px-4 text-sm transition-colors {% if section == 'users' %}text-primary{% else %}text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10{% endif %}">
                         Admin
                     </a>
                 </div>
@@ -75,7 +76,7 @@
                 <!-- Configuration (dropdown) -->
                 <div class="nav-item relative flex items-center group">
                     <button
-                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-white/5 transition-colors gap-1.5 {% if section in ['entities', 'localization', 'brands', 'feeders', 'margin_config', 'risk_rules', 'compliance'] %}text-primary{% endif %}">
+                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10 transition-colors gap-1.5 {% if section in ['entities', 'localization', 'brands', 'feeders', 'margin_config', 'risk_rules', 'compliance'] %}text-primary{% endif %}">
                         Configuration
                         <i class="fa-solid fa-chevron-down text-xs opacity-50"></i>
                     </button>
@@ -83,43 +84,43 @@
                         class="nav-dropdown absolute top-full left-0 w-56 bg-gmp-surface border border-gmp-border rounded-b shadow-xl z-50">
                         {% if rbac_can_any(request, 'menu.configuration.entities.view') %}
                         <a href="/entities"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-gmp-text-heading transition-colors {% if section == 'entities' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'entities' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
                             <i class="fa-solid fa-cubes w-5 text-gmp-text-faint"></i> Entities
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.localization.view') %}
                         <a href="/localization"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-gmp-text-heading transition-colors {% if section == 'localization' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'localization' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
                             <i class="fa-solid fa-language w-5 text-gmp-text-faint"></i> Localization
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.brands.view') %}
                         <a href="/brands"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-gmp-text-heading transition-colors {% if section == 'brands' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'brands' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
                             <i class="fa-solid fa-building w-5 text-gmp-text-faint"></i> Brands
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.feeders.view') %}
                         <a href="/feeders"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-gmp-text-heading transition-colors {% if section == 'feeders' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'feeders' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-gmp-text-faint"></i> Feeder
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.margin.view') %}
                         <a href="/margin"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-gmp-text-heading transition-colors {% if section == 'margin_config' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'margin_config' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
                             <i class="fa-solid fa-percent w-5 text-gmp-text-faint"></i> Margin
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.risk_rules.view') %}
                         <a href="/risk-rules"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-gmp-text-heading transition-colors {% if section == 'risk_rules' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'risk_rules' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
                             <i class="fa-solid fa-shield-halved w-5 text-gmp-text-faint"></i> Risk Rules
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.compliance.view') %}
                         <a href="/compliance"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-gmp-text-heading transition-colors {% if section == 'compliance' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'compliance' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
                             <i class="fa-solid fa-scale-balanced w-5 text-gmp-text-faint"></i> Compliance
                         </a>
                         {% endif %}
@@ -131,7 +132,7 @@
                 <!-- Betting Program (dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <button
-                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-white/5 transition-colors gap-1.5 {% if section in ['domain', 'feeder', 'archived_events'] %}text-primary{% endif %}">
+                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10 transition-colors gap-1.5 {% if section in ['domain', 'feeder', 'archived_events'] %}text-primary{% endif %}">
                         Betting Program
                         <i class="fa-solid fa-chevron-down text-xs opacity-50"></i>
                     </button>
@@ -139,19 +140,19 @@
                         class="nav-dropdown absolute top-full left-0 w-52 bg-gmp-surface border border-gmp-border rounded-b shadow-xl z-50">
                         {% if rbac_can_any(request, 'menu.betting_program.event_navigator.view') %}
                         <a href="/event-navigator"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-gmp-text-heading transition-colors {% if section == 'domain' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'domain' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
                             <i class="fa-solid fa-compass w-5 text-gmp-text-faint"></i> Event Navigator
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.betting_program.feeder_events.view') %}
                         <a href="/feeder-events"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-gmp-text-heading transition-colors {% if section == 'feeder' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'feeder' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-gmp-text-faint"></i> Feeder Events
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.betting_program.archived_events.view') %}
                         <a href="/archived-events"
-                            class="flex items-center px-4 py-2.5 text-sm hover:bg-white/5 hover:text-gmp-text-heading transition-colors {% if section == 'archived_events' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'archived_events' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
                             <i class="fa-solid fa-box-archive w-5 text-gmp-text-faint"></i> Archived Events
                         </a>
                         {% endif %}
@@ -163,7 +164,7 @@
                 <!-- Risk (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
-                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-white/5 transition-colors">
+                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10 transition-colors">
                         Risk
                     </a>
                 </div>
@@ -173,7 +174,7 @@
                 <!-- Bets/PTLs (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
-                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-white/5 transition-colors">
+                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10 transition-colors">
                         Bets/PTLs
                     </a>
                 </div>
@@ -183,7 +184,7 @@
                 <!-- Alerts (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
-                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-white/5 transition-colors">
+                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10 transition-colors">
                         Alerts
                     </a>
                 </div>
@@ -193,7 +194,7 @@
                 <!-- Reports (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
-                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-white/5 transition-colors">
+                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10 transition-colors">
                         Reports
                     </a>
                 </div>
@@ -205,7 +206,7 @@
                 <div class="relative" id="notifications-wrap">
                     <button type="button" onclick="toggleNotificationsPanel()" class="w-7 h-7 rounded-full bg-gmp-surface-raised flex items-center justify-center hover:bg-gmp-surface-popover text-xs relative border border-gmp-border/60" aria-label="Notifications">
                         <i class="fa-regular fa-bell text-gmp-text-muted"></i>
-                        <span id="notifications-badge" class="hidden absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-warning text-[10px] font-bold text-gmp-canvas flex items-center justify-center"></span>
+                        <span id="notifications-badge" class="hidden absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-warning text-[10px] font-bold text-white flex items-center justify-center"></span>
                     </button>
                     <div id="notifications-panel" class="hidden absolute right-0 top-full mt-1 w-80 max-h-[70vh] overflow-y-auto bg-gmp-surface-popover border border-gmp-border rounded-lg shadow-xl z-50 py-2">
                         <p class="px-3 py-1 text-xs font-semibold text-gmp-text-muted uppercase tracking-wider">Confirm you read</p>
@@ -227,11 +228,23 @@
                     <div id="profile-menu-panel" class="hidden absolute right-0 top-full mt-1 w-52 bg-gmp-surface-popover border border-gmp-border rounded-lg shadow-xl z-[60] py-1 text-sm" role="menu">
                         {% if request.state.dev_actor %}
                         <div class="px-3 py-2 border-b border-gmp-border text-xs text-gmp-text-muted truncate" title="{{ request.state.dev_actor.email }}">{{ request.state.dev_actor.email }}</div>
-                        <a href="/dev/login" class="block px-3 py-2 text-gmp-text hover:bg-white/5" role="menuitem">Switch user</a>
-                        <a href="/dev/logout" class="block px-3 py-2 text-gmp-text hover:bg-white/5" role="menuitem">Sign out</a>
+                        <a href="/dev/login" class="block px-3 py-2 text-gmp-text hover:bg-gmp-hover/10" role="menuitem">Switch user</a>
+                        <a href="/dev/logout" class="block px-3 py-2 text-gmp-text hover:bg-gmp-hover/10" role="menuitem">Sign out</a>
                         {% else %}
-                        <a href="/dev/login" class="block px-3 py-2 text-warning hover:bg-white/5 font-medium" role="menuitem">Sign in</a>
+                        <a href="/dev/login" class="block px-3 py-2 text-warning hover:bg-gmp-hover/10 font-medium" role="menuitem">Sign in</a>
                         {% endif %}
+                        <div class="border-t border-gmp-border my-1" role="separator"></div>
+                        <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gmp-text-faint">Theme</div>
+                        <button type="button" class="gmp-theme-row w-full text-left px-3 py-2 text-gmp-text hover:bg-gmp-hover/10 flex items-center gap-2" data-theme-pick="light" role="menuitem">
+                            <i class="fa-solid fa-sun w-4 text-center text-gmp-text-muted" aria-hidden="true"></i>
+                            <span>Light</span>
+                            <i class="fa-solid fa-check text-primary ml-auto text-xs hidden" data-gmp-theme-check="light" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" class="gmp-theme-row w-full text-left px-3 py-2 text-gmp-text hover:bg-gmp-hover/10 flex items-center gap-2" data-theme-pick="dark" role="menuitem">
+                            <i class="fa-solid fa-moon w-4 text-center text-gmp-text-muted" aria-hidden="true"></i>
+                            <span>Dark</span>
+                            <i class="fa-solid fa-check text-primary ml-auto text-xs hidden" data-gmp-theme-check="dark" aria-hidden="true"></i>
+                        </button>
                     </div>
                 </div>
                 {% else %}
@@ -249,57 +262,57 @@
             class="absolute top-0 right-0 h-full w-full max-w-sm bg-gmp-surface border-l border-gmp-border shadow-2xl flex flex-col translate-x-full transition-transform duration-200 ease-out will-change-transform">
             <div class="flex items-center justify-between h-12 px-4 border-b border-gmp-border-subtle shrink-0">
                 <span class="text-sm font-semibold text-gmp-text-heading">Menu</span>
-                <button type="button" id="mobile-nav-close" class="p-2 rounded-lg text-gmp-text-muted hover:text-gmp-text-heading hover:bg-white/10 border-0 bg-transparent" aria-label="Close menu">
+                <button type="button" id="mobile-nav-close" class="p-2 rounded-lg text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 border-0 bg-transparent" aria-label="Close menu">
                     <i class="fa-solid fa-xmark text-xl" aria-hidden="true"></i>
                 </button>
             </div>
-            <nav class="mobile-drawer-nav flex-1 overflow-y-auto py-2" aria-label="Mobile main">
+            <nav class="mobile-drawer-nav flex flex-col flex-1 min-h-0 overflow-y-auto py-2" aria-label="Mobile main">
                 {% if rbac_can_any(request, 'menu.admin.view', 'menu.admin.users.view', 'menu.admin.roles_permissions.view') %}
                 <a href="/users"
-                    class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 {% if section == 'users' %}text-primary bg-white/5{% else %}text-gmp-text hover:bg-white/5{% endif %}">
+                    class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 {% if section == 'users' %}text-primary bg-gmp-hover/10{% else %}text-gmp-text hover:bg-gmp-hover/10{% endif %}">
                     Admin
                 </a>
                 {% endif %}
 
                 {% if rbac_menu_branch_visible(request, 'Configuration') %}
                 <details class="border-b border-gmp-border-subtle/80 group">
-                    <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-gmp-text hover:bg-white/5 {% if section in ['entities', 'localization', 'brands', 'feeders', 'margin_config', 'risk_rules', 'compliance'] %}text-primary{% endif %}">
+                    <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-gmp-text hover:bg-gmp-hover/10 {% if section in ['entities', 'localization', 'brands', 'feeders', 'margin_config', 'risk_rules', 'compliance'] %}text-primary{% endif %}">
                         <span>Configuration</span>
                         <i class="fa-solid fa-chevron-down text-xs text-gmp-text-faint transition-transform group-open:rotate-180"></i>
                     </summary>
                     <div class="pb-1 bg-[rgb(var(--gmp-surface-inset)/0.4)]">
                         {% if rbac_can_any(request, 'menu.configuration.entities.view') %}
-                        <a href="/entities" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'entities' %}text-primary{% else %}text-gmp-text-menu hover:bg-white/5{% endif %}">
+                        <a href="/entities" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'entities' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
                             <i class="fa-solid fa-cubes w-5 text-gmp-text-faint shrink-0"></i> Entities
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.localization.view') %}
-                        <a href="/localization" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'localization' %}text-primary{% else %}text-gmp-text-menu hover:bg-white/5{% endif %}">
+                        <a href="/localization" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'localization' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
                             <i class="fa-solid fa-language w-5 text-gmp-text-faint shrink-0"></i> Localization
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.brands.view') %}
-                        <a href="/brands" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'brands' %}text-primary{% else %}text-gmp-text-menu hover:bg-white/5{% endif %}">
+                        <a href="/brands" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'brands' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
                             <i class="fa-solid fa-building w-5 text-gmp-text-faint shrink-0"></i> Brands
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.feeders.view') %}
-                        <a href="/feeders" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'feeders' %}text-primary{% else %}text-gmp-text-menu hover:bg-white/5{% endif %}">
+                        <a href="/feeders" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'feeders' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-gmp-text-faint shrink-0"></i> Feeder
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.margin.view') %}
-                        <a href="/margin" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'margin_config' %}text-primary{% else %}text-gmp-text-menu hover:bg-white/5{% endif %}">
+                        <a href="/margin" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'margin_config' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
                             <i class="fa-solid fa-percent w-5 text-gmp-text-faint shrink-0"></i> Margin
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.risk_rules.view') %}
-                        <a href="/risk-rules" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'risk_rules' %}text-primary{% else %}text-gmp-text-menu hover:bg-white/5{% endif %}">
+                        <a href="/risk-rules" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'risk_rules' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
                             <i class="fa-solid fa-shield-halved w-5 text-gmp-text-faint shrink-0"></i> Risk Rules
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.configuration.compliance.view') %}
-                        <a href="/compliance" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'compliance' %}text-primary{% else %}text-gmp-text-menu hover:bg-white/5{% endif %}">
+                        <a href="/compliance" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'compliance' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
                             <i class="fa-solid fa-scale-balanced w-5 text-gmp-text-faint shrink-0"></i> Compliance
                         </a>
                         {% endif %}
@@ -309,23 +322,23 @@
 
                 {% if rbac_menu_branch_visible(request, 'Betting Program') %}
                 <details class="border-b border-gmp-border-subtle/80 group">
-                    <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-gmp-text hover:bg-white/5 {% if section in ['domain', 'feeder', 'archived_events'] %}text-primary{% endif %}">
+                    <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-gmp-text hover:bg-gmp-hover/10 {% if section in ['domain', 'feeder', 'archived_events'] %}text-primary{% endif %}">
                         <span>Betting Program</span>
                         <i class="fa-solid fa-chevron-down text-xs text-gmp-text-faint transition-transform group-open:rotate-180"></i>
                     </summary>
                     <div class="pb-1 bg-[rgb(var(--gmp-surface-inset)/0.4)]">
                         {% if rbac_can_any(request, 'menu.betting_program.event_navigator.view') %}
-                        <a href="/event-navigator" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'domain' %}text-primary{% else %}text-gmp-text-menu hover:bg-white/5{% endif %}">
+                        <a href="/event-navigator" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'domain' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
                             <i class="fa-solid fa-compass w-5 text-gmp-text-faint shrink-0"></i> Event Navigator
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.betting_program.feeder_events.view') %}
-                        <a href="/feeder-events" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'feeder' %}text-primary{% else %}text-gmp-text-menu hover:bg-white/5{% endif %}">
+                        <a href="/feeder-events" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'feeder' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
                             <i class="fa-solid fa-satellite-dish w-5 text-gmp-text-faint shrink-0"></i> Feeder Events
                         </a>
                         {% endif %}
                         {% if rbac_can_any(request, 'menu.betting_program.archived_events.view') %}
-                        <a href="/archived-events" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'archived_events' %}text-primary{% else %}text-gmp-text-menu hover:bg-white/5{% endif %}">
+                        <a href="/archived-events" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'archived_events' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
                             <i class="fa-solid fa-box-archive w-5 text-gmp-text-faint shrink-0"></i> Archived Events
                         </a>
                         {% endif %}
@@ -334,16 +347,16 @@
                 {% endif %}
 
                 {% if rbac_can_any(request, 'menu.risk.view') %}
-                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-white/5">Risk</a>
+                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-gmp-hover/10">Risk</a>
                 {% endif %}
                 {% if rbac_can_any(request, 'menu.bets_ptls.view') %}
-                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-white/5">Bets/PTLs</a>
+                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-gmp-hover/10">Bets/PTLs</a>
                 {% endif %}
                 {% if rbac_can_any(request, 'menu.alerts.view') %}
-                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-white/5">Alerts</a>
+                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-gmp-hover/10">Alerts</a>
                 {% endif %}
                 {% if rbac_can_any(request, 'menu.reports.view') %}
-                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-white/5">Reports</a>
+                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-gmp-hover/10">Reports</a>
                 {% endif %}
                 {% if request.state.dev_login_enabled %}
                 <div class="px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text-muted space-y-2">
@@ -381,16 +394,48 @@
             });
             wrap.addEventListener('click', function (e) { e.stopPropagation(); });
         })();
+
+        (function gmpThemeUi() {
+            function sync() {
+                var mode = typeof gmpGetTheme === 'function' ? gmpGetTheme() : 'dark';
+                document.querySelectorAll('[data-gmp-theme-check]').forEach(function (el) {
+                    el.classList.toggle('hidden', el.getAttribute('data-gmp-theme-check') !== mode);
+                });
+            }
+            function onPick(e) {
+                var t = e.target && e.target.closest('[data-theme-pick]');
+                if (!t) return;
+                e.preventDefault();
+                e.stopPropagation();
+                var m = t.getAttribute('data-theme-pick');
+                if (m && typeof gmpSetTheme === 'function') gmpSetTheme(m);
+                sync();
+                /* Close profile menu after pick (clicks inside wrap do not bubble to document). */
+                var panel = document.getElementById('profile-menu-panel');
+                var pbtn = document.getElementById('profile-menu-btn');
+                if (panel && pbtn && t.closest('#profile-menu-panel')) {
+                    panel.classList.add('hidden');
+                    pbtn.setAttribute('aria-expanded', 'false');
+                }
+            }
+            /* Capture: profile wrap uses bubble stopPropagation so theme clicks never reach document otherwise. */
+            document.addEventListener('click', onPick, true);
+            document.addEventListener('gmp-theme-changed', sync);
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', sync);
+            } else {
+                sync();
+            }
+        })();
     </script>
 
     <!-- Main Content (full width) -->
     <main class="flex-1 flex flex-col overflow-hidden">
 
-        <!-- Page header: title + short description (override page_header with empty to hide, e.g. Event details) -->
+        <!-- Page header: title row only (override page_header with empty to hide entirely, e.g. Event details) -->
         {% block page_header %}
-        <div class="bg-[rgb(var(--gmp-surface-base)/0.6)] border-b border-gmp-border-subtle px-6 py-4 flex-shrink-0">
+        <div class="bg-[rgb(var(--gmp-surface-base)/0.6)] border-b border-gmp-border-subtle px-6 py-3 flex-shrink-0">
             <h1 class="text-lg font-bold text-gmp-text-heading">{% block page_heading %}Page{% endblock %}</h1>
-            <p class="text-sm text-gmp-text-faint mt-1">{% block page_description %}{% endblock %}</p>
         </div>
         {% endblock %}
 

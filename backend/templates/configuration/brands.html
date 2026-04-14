@@ -1,7 +1,6 @@
 {% extends "layout.html" %}
 
 {% block page_heading %}Brands & Partners{% endblock %}
-{% block page_description %}Partners are B2B clients; assign brands to partners. Global = platform (our) admins.{% endblock %}
 
 {% block title %}Brands & Partners{% endblock %}
 
@@ -11,7 +10,7 @@
     <!-- Tabs (hash-based: #partners, #brands for direct links) -->
     <div class="flex border-b border-gmp-border" role="tablist">
         <a href="#partners" id="tab-partners" data-tab-key="partners" onclick="event.preventDefault(); switchBrandsTab('partners');"
-            class="brands-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gmp-text-muted hover:text-white transition-colors no-underline cursor-pointer">
+            class="brands-tab px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gmp-text-muted hover:text-gmp-text-heading transition-colors no-underline cursor-pointer">
             <i class="fa-solid fa-handshake mr-1.5"></i> Partners
         </a>
         <a href="#brands" id="tab-brands" data-tab-key="brands" onclick="event.preventDefault(); switchBrandsTab('brands');"
@@ -29,17 +28,17 @@
             </button>
         </div>
         <div id="partner-add-form" class="hidden bg-cardbg/80 border border-gmp-border rounded-lg p-5 space-y-4">
-            <h3 class="text-sm font-semibold text-white">Add partner</h3>
+            <h3 class="text-sm font-semibold text-gmp-text-heading">Add partner</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name <span class="text-danger">*</span></label>
                     <input type="text" id="partner-form-name" placeholder="Partner name"
-                        class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                 </div>
                 <div>
                     <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
                     <input type="text" id="partner-form-code" placeholder="e.g. acme_corp (optional)"
-                        class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                        class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -52,13 +51,13 @@
                 <button type="button" onclick="partnersSubmitAdd()"
                     class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
                 <button type="button" onclick="partnersHideAddForm()"
-                    class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                    class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">Cancel</button>
                 <span id="partner-form-status" class="text-xs text-gmp-text-muted"></span>
             </div>
         </div>
         <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
-            <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-                <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
+            <table class="gmp-data-table w-full text-left border-collapse text-xs whitespace-nowrap">
+                <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-3 py-2 font-semibold w-48">Name</th>
                         <th class="px-3 py-2 font-semibold w-32">Code</th>
@@ -69,8 +68,8 @@
                 </thead>
                 <tbody>
                     {% for partner in partners %}
-                    <tr class="hover:bg-white/5 transition-colors border-b border-gmp-border/30" data-partner-id="{{ partner.id }}">
-                        <td class="px-3 py-2 text-white font-medium">{{ partner.name }}</td>
+                    <tr class="hover:bg-gmp-hover/10 transition-colors border-b border-gmp-border/30" data-partner-id="{{ partner.id }}">
+                        <td class="px-3 py-2 text-gmp-text-heading font-medium">{{ partner.name }}</td>
                         <td class="px-3 py-2 text-gmp-text-muted font-mono">{{ partner.code }}</td>
                         <td class="px-3 py-2">
                             {% if partner.active %}
@@ -115,21 +114,21 @@
 
     <!-- Add brand form (hidden by default) -->
     <div id="brand-add-form" class="hidden bg-cardbg/80 border border-gmp-border rounded-lg p-5 space-y-4">
-        <h3 class="text-sm font-semibold text-white">Add brand</h3>
+        <h3 class="text-sm font-semibold text-gmp-text-heading">Add brand</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name <span class="text-danger">*</span></label>
                 <input type="text" id="brand-form-name" placeholder="Brand name"
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
             </div>
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
                 <input type="text" id="brand-form-code" placeholder="e.g. brand_uk (optional)"
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
             </div>
             <div class="md:col-span-2">
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Partner</label>
-                <select id="brand-form-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <select id="brand-form-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                     <option value="">Global (platform)</option>
                     {% for p in partners %}
                     <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
@@ -142,7 +141,7 @@
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Jurisdiction</label>
                 <select id="brand-form-jurisdiction" multiple
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-h-[80px]">
                     {% for c in countries %}
                     <option value="{{ c.cc }}">{{ c.name }}</option>
                     {% endfor %}
@@ -152,7 +151,7 @@
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Languages</label>
                 <select id="brand-form-language-ids" multiple
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-h-[80px]">
                     {% for lang in languages %}
                     <option value="{{ lang.id }}">{{ lang.name }}</option>
                     {% endfor %}
@@ -162,7 +161,7 @@
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Currencies</label>
                 <select id="brand-form-currencies" multiple
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-h-[80px]">
                     {% for curr in currencies %}
                     <option value="{{ curr }}">{{ curr }}</option>
                     {% endfor %}
@@ -172,7 +171,7 @@
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Odds formats</label>
                 <select id="brand-form-odds-formats" multiple
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-h-[80px]">
                     {% for fmt in odds_formats %}
                     <option value="{{ fmt }}">{{ fmt }}</option>
                     {% endfor %}
@@ -186,15 +185,15 @@
                 Save
             </button>
             <button type="button" onclick="brandsHideAddForm()"
-                class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+                class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">Cancel</button>
             <span id="brand-form-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>
 
     <!-- Brands table -->
     <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
-        <table class="w-full text-left border-collapse text-xs whitespace-nowrap">
-            <thead class="bg-gmp-surface/50 text-gmp-text-muted uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10">
+        <table class="gmp-data-table w-full text-left border-collapse text-xs whitespace-nowrap">
+            <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                 <tr>
                     <th class="px-3 py-2 font-semibold w-40">Name</th>
                     <th class="px-3 py-2 font-semibold w-28">Code</th>
@@ -208,8 +207,8 @@
             </thead>
             <tbody>
                 <!-- Global row (read-only) -->
-                <tr class="bg-gmp-surface-raised/50 border-b border-gmp-border/50">
-                    <td class="px-3 py-2 font-medium text-white">Global</td>
+                <tr class="bg-gmp-tableRow border-b border-gmp-border/50">
+                    <td class="px-3 py-2 font-medium text-gmp-text-heading">Global</td>
                     <td class="px-3 py-2 text-gmp-text-faint">—</td>
                     <td class="px-3 py-2 text-gmp-text-muted">—</td>
                     <td class="px-3 py-2 text-gmp-text-muted">All</td>
@@ -219,8 +218,8 @@
                     <td class="px-3 py-2 text-right text-gmp-text-faint">—</td>
                 </tr>
                 {% for brand in brands %}
-                <tr class="hover:bg-white/5 transition-colors border-b border-gmp-border/30" data-brand-id="{{ brand.id }}">
-                    <td class="px-3 py-2 text-white">{{ brand.name }}</td>
+                <tr class="hover:bg-gmp-hover/10 transition-colors border-b border-gmp-border/30" data-brand-id="{{ brand.id }}">
+                    <td class="px-3 py-2 text-gmp-text-heading">{{ brand.name }}</td>
                     <td class="px-3 py-2 text-gmp-text-muted font-mono">{{ brand.code }}</td>
                     <td class="px-3 py-2 text-gmp-text-menu">{{ brand.partner_name }}</td>
                     <td class="px-3 py-2 text-gmp-text-menu">{{ brand.jurisdiction_display }}</td>
@@ -245,19 +244,19 @@
 <div id="partner-edit-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
     <div class="bg-gmp-surface border border-gmp-border rounded-lg shadow-xl max-w-md w-full p-5 space-y-4">
         <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white">Edit partner</h3>
-            <button type="button" onclick="partnersCloseEditModal()" class="text-gmp-text-muted hover:text-white p-1">
+            <h3 class="text-sm font-semibold text-gmp-text-heading">Edit partner</h3>
+            <button type="button" onclick="partnersCloseEditModal()" class="text-gmp-text-muted hover:text-gmp-text-heading p-1">
                 <i class="fa-solid fa-times"></i>
             </button>
         </div>
         <input type="hidden" id="partner-edit-id" value="">
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
-            <input type="text" id="partner-edit-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <input type="text" id="partner-edit-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
         </div>
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
-            <input type="text" id="partner-edit-code" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+            <input type="text" id="partner-edit-code" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
         </div>
         <div class="flex items-center gap-2">
             <label class="flex items-center gap-2 text-sm text-gmp-text-menu">
@@ -267,7 +266,7 @@
         </div>
         <div class="flex items-center gap-2">
             <button type="button" onclick="partnersSubmitEdit()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
-            <button type="button" onclick="partnersCloseEditModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <button type="button" onclick="partnersCloseEditModal()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">Cancel</button>
             <span id="partner-edit-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>
@@ -277,8 +276,8 @@
 <div id="brand-edit-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
     <div class="bg-gmp-surface border border-gmp-border rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
         <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-white">Edit brand</h3>
-            <button type="button" onclick="brandsCloseEditModal()" class="text-gmp-text-muted hover:text-white p-1">
+            <h3 class="text-sm font-semibold text-gmp-text-heading">Edit brand</h3>
+            <button type="button" onclick="brandsCloseEditModal()" class="text-gmp-text-muted hover:text-gmp-text-heading p-1">
                 <i class="fa-solid fa-times"></i>
             </button>
         </div>
@@ -286,15 +285,15 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Name</label>
-                <input type="text" id="brand-edit-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <input type="text" id="brand-edit-name" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
             </div>
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Code</label>
-                <input type="text" id="brand-edit-code" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <input type="text" id="brand-edit-code" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
             </div>
             <div class="md:col-span-2">
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Partner</label>
-                <select id="brand-edit-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary">
+                <select id="brand-edit-partner-id" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                     <option value="">Global (platform)</option>
                     {% for p in partners %}
                     <option value="{{ p.id }}">{{ p.name }} ({{ p.code }})</option>
@@ -305,7 +304,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Jurisdiction</label>
-                <select id="brand-edit-jurisdiction" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                <select id="brand-edit-jurisdiction" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-h-[80px]">
                     {% for c in countries %}
                     <option value="{{ c.cc }}">{{ c.name }}</option>
                     {% endfor %}
@@ -313,7 +312,7 @@
             </div>
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Languages</label>
-                <select id="brand-edit-language-ids" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                <select id="brand-edit-language-ids" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-h-[80px]">
                     {% for lang in languages %}
                     <option value="{{ lang.id }}">{{ lang.name }}</option>
                     {% endfor %}
@@ -321,7 +320,7 @@
             </div>
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Currencies</label>
-                <select id="brand-edit-currencies" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                <select id="brand-edit-currencies" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-h-[80px]">
                     {% for curr in currencies %}
                     <option value="{{ curr }}">{{ curr }}</option>
                     {% endfor %}
@@ -329,7 +328,7 @@
             </div>
             <div>
                 <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Odds formats</label>
-                <select id="brand-edit-odds-formats" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-white outline-none focus:border-primary min-h-[80px]">
+                <select id="brand-edit-odds-formats" multiple class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-h-[80px]">
                     {% for fmt in odds_formats %}
                     <option value="{{ fmt }}">{{ fmt }}</option>
                     {% endfor %}
@@ -338,7 +337,7 @@
         </div>
         <div class="flex items-center gap-2">
             <button type="button" onclick="brandsSubmitEdit()" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded">Save</button>
-            <button type="button" onclick="brandsCloseEditModal()" class="text-gmp-text-faint hover:text-white text-xs px-3 py-1.5">Cancel</button>
+            <button type="button" onclick="brandsCloseEditModal()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-3 py-1.5">Cancel</button>
             <span id="brand-edit-status" class="text-xs text-gmp-text-muted"></span>
         </div>
     </div>

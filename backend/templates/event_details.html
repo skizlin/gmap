@@ -14,7 +14,7 @@
                     <i class="fa-solid fa-futbol text-gmp-text-muted"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-white">
+                    <h1 class="text-lg font-semibold text-gmp-text-heading">
                         {% if event.home or event.away %}{{ event.home or '—' }} v {{ event.away or '—' }}{% else %}Event {{ event.id }}{% endif %}
                     </h1>
                     <p class="text-xs text-gmp-text-muted mt-0.5">
@@ -32,9 +32,9 @@
             </div>
         </div>
         <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-gmp-border/50">
-            <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-white transition-colors">(S) Suspend</button>
-            <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-white transition-colors">(D) Display</button>
-            <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-white transition-colors">(L) Limits</button>
+            <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(S) Suspend</button>
+            <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(D) Display</button>
+            <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(L) Limits</button>
         </div>
     </div>
 
@@ -106,9 +106,9 @@
                 <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-3">Brand Overview</h2>
                 <p id="brand-overview-empty" class="text-xs text-gmp-text-faint italic">Select a market from the center (radio in header) to see odds by brand.</p>
                 <div id="brand-overview-content" class="hidden">
-                    <table class="w-full text-left text-[11px] border-collapse">
+                    <table class="gmp-data-table w-full text-left text-[11px] border-collapse">
                         <thead>
-                            <tr class="text-gmp-text-faint border-b border-gmp-border">
+                            <tr class="text-gmp-text-menu border-b border-gmp-border dark:text-gmp-text-muted">
                                 <th id="brand-overview-first-col-header" class="py-1.5 pr-2 font-medium text-gmp-text-menu">Brand</th>
                                 <th id="brand-overview-col-L" class="py-1.5 px-2 font-medium brand-col-L">L</th>
                                 <th id="brand-overview-col-1" class="py-1.5 px-2 font-medium">S1</th>
@@ -146,9 +146,9 @@
                 <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-3">Feed Odds<span id="feed-odds-market-name" class="font-normal normal-case text-gmp-text-muted ml-1"></span></h2>
                 <p id="feed-odds-empty" class="text-xs text-gmp-text-faint italic">Select a market from the center (radio in header) to see odds from each feed.</p>
                 <div id="feed-odds-content" class="hidden">
-                    <table class="w-full text-left text-[11px] border-collapse">
+                    <table class="gmp-data-table w-full text-left text-[11px] border-collapse">
                         <thead>
-                            <tr class="text-gmp-text-faint border-b border-gmp-border">
+                            <tr class="text-gmp-text-menu border-b border-gmp-border dark:text-gmp-text-muted">
                                 <th class="py-1.5 pr-2 font-medium text-gmp-text-menu">Feed</th>
                                 <th id="feed-odds-col-L" class="py-1.5 px-2 font-medium feed-col-L">L</th>
                                 <th id="feed-odds-col-1" class="py-1.5 px-2 font-medium">S1</th>
@@ -167,9 +167,9 @@
             <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg p-4 flex-shrink-0 overflow-x-auto">
                 <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-3">Mapped Feeds</h2>
                 {% if mappings %}
-                <table class="w-full text-left text-xs border-collapse">
+                <table class="gmp-data-table w-full text-left text-xs border-collapse">
                     <thead>
-                        <tr class="text-gmp-text-faint border-b border-gmp-border">
+                        <tr class="text-gmp-text-menu border-b border-gmp-border dark:text-gmp-text-muted">
                             <th class="py-1.5 pr-2 font-medium">Feed</th>
                             <th class="py-1.5 font-mono">Feed Event ID</th>
                         </tr>
@@ -245,7 +245,7 @@
         var header = '<div class="bg-gmp-surface-raised/50 border border-gmp-border/50 rounded-lg overflow-hidden" data-market-row="' + info.id + '" id="' + cardId + '" data-market-name="' + escapeHtml(info.name || '') + '" data-market-code="' + escapeHtml(code) + '" data-outcome-count="' + (info.outcomeCount || 3) + '" data-market-has-line="' + (hasLine ? '1' : '0') + '" data-outcome-labels="' + outcomeLabelsAttr + '">' +
             '<div class="px-3 py-2 border-b border-gmp-border/50 flex items-center gap-2">' +
             '<input type="radio" name="brand-overview-market" value="' + info.id + '" class="brand-overview-radio rounded-full border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary" aria-label="Show in Brand Overview">' +
-            '<span class="text-xs font-medium text-white">' + name + '</span>' +
+            '<span class="text-xs font-medium text-gmp-text-heading">' + name + '</span>' +
             (codeEsc ? '<span class="text-[10px] font-mono text-gmp-text-faint">' + codeEsc + '</span>' : '') +
             '</div>';
 
@@ -261,8 +261,8 @@
                 lineMenu += '<button type="button" class="market-line-btn rounded-md px-2.5 py-1 text-[11px] font-medium border transition-colors' + activeClass + '" data-line-index="' + idx + '" data-line="' + escapeHtml(String(label)) + '">' + escapeHtml(label) + '</button>';
             });
             lineMenu += '</div></div>';
-            var table = '<div class="overflow-x-auto"><table class="w-full text-left text-[11px] border-collapse">' +
-                '<thead><tr class="bg-gmp-surface/60 text-gmp-text-muted border-b border-gmp-border">' +
+            var table = '<div class="overflow-x-auto"><table class="gmp-data-table w-full text-left text-[11px] border-collapse">' +
+                '<thead><tr class="text-gmp-text-menu border-b border-gmp-border dark:text-gmp-text-muted">' +
                 '<th class="py-1.5 px-2 font-medium whitespace-nowrap">Selections</th>' +
                 '<th class="py-1.5 px-2 font-medium whitespace-nowrap">Price</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">Original</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">Status</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">#Units</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">Stake</th>' +
                 '<th class="py-1.5 px-2 font-medium whitespace-nowrap">RunOn(1)</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">AllWin</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">ToWin</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">Liability</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">MDL</th><th class="py-1.5 px-2 font-medium whitespace-nowrap">MSW</th>' +
@@ -274,20 +274,20 @@
             lineData.forEach(function (line, idx) {
                 var rowVis = idx === 0 ? '' : ' hidden';
                 table += '<tr class="market-line-row border-b border-gmp-border/40 text-gmp-text-menu' + rowVis + '" data-line-index="' + idx + '">' +
-                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selA) + '</td><td class="py-1.5 px-2 font-mono text-warning/90">' + line.a[1] + '</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint">' + line.a[2] + '</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.a[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-white p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
+                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selA) + '</td><td class="py-1.5 px-2 font-mono text-warning/90">' + line.a[1] + '</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint">' + line.a[2] + '</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.a[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
                 table += '<tr class="market-line-row border-b border-gmp-border/40 text-gmp-text-menu' + rowVis + '" data-line-index="' + idx + '">' +
-                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selB) + '</td><td class="py-1.5 px-2 font-mono text-warning/90">' + line.b[1] + '</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint">' + line.b[2] + '</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.b[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-white p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
+                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selB) + '</td><td class="py-1.5 px-2 font-mono text-warning/90">' + line.b[1] + '</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint">' + line.b[2] + '</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.b[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
             });
             table += '</tbody></table></div>';
-            var footer = '<div class="px-3 py-2 border-t border-gmp-border/50 flex flex-wrap items-center gap-2 bg-gmp-surface/30">' +
+            var footer = '<div class="gmp-table-chrome px-3 py-2 border-t border-gmp-border flex flex-wrap items-center gap-2">' +
                 '<span class="text-[10px] text-gmp-text-faint">Margin</span><input type="text" value="108 %" class="w-16 bg-gmp-surface-raised border border-gmp-border rounded px-1.5 py-0.5 text-[11px] font-mono text-gmp-text-menu">' +
                 '<div class="flex gap-1 ml-2"><button type="button" class="px-2 py-0.5 rounded text-[10px] bg-primaryHover/80 text-white hover:bg-primaryHover">T/O Price</button><button type="button" class="px-2 py-0.5 rounded text-[10px] bg-warning/80 text-white hover:bg-warning">T/O Trade</button><button type="button" class="px-2 py-0.5 rounded text-[10px] bg-gmp-surface-raised text-gmp-text-menu hover:bg-surfaceHover">Release</button></div></div>';
             return header + lineMenu + table + footer + '</div>';
         }
 
         var outcomeCount = Math.max(1, parseInt(info.outcomeCount, 10) || 3);
-        var table = '<div class="overflow-x-auto"><table class="w-full text-left text-[11px] border-collapse">' +
-            '<thead><tr class="bg-gmp-surface/60 text-gmp-text-muted border-b border-gmp-border">' +
+        var table = '<div class="overflow-x-auto"><table class="gmp-data-table w-full text-left text-[11px] border-collapse">' +
+            '<thead><tr class="text-gmp-text-menu border-b border-gmp-border dark:text-gmp-text-muted">' +
             '<th class="py-1.5 px-2 font-medium whitespace-nowrap">Selections</th>' +
             '<th class="py-1.5 px-2 font-medium whitespace-nowrap">Price</th>' +
             '<th class="py-1.5 px-2 font-medium whitespace-nowrap">Original</th>' +
@@ -318,7 +318,7 @@
                 '<td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + sc + '">' + status + '</span></td>' +
                 '<td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td>' +
                 '<td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td>' +
-                '<td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-white p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
+                '<td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
         }
         table += '</tbody></table></div>';
         var footer = '<div class="px-3 py-2 border-t border-gmp-border/50 flex flex-wrap items-center gap-2 bg-gmp-surface/30">' +

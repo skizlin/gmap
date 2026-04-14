@@ -5030,6 +5030,14 @@ def _dashboard_feed_stats() -> list[dict]:
 
 # Changelog for dashboard (new features / bugs fixed per version). Edit here or move to a file.
 DASHBOARD_CHANGELOG = [
+    {"version": "1.2.7", "date": "2026-04-12", "items": [
+        "UI / theming: light mode uses cream-tinted surfaces and stronger contrast on muted text; top bar in light mode uses a warm espresso tone instead of a cool blue strip.",
+        "Tables: shared `gmp-data-table` styling and surface tokens for headers and rows across major grids; Feeder Events rows are no longer zebra-striped. Event Navigator event names use the same medium weight as Feeder Events.",
+        "Page chrome: removed generic page subtitles under main headings; slightly tighter page header padding.",
+        "Light mode fixes: inputs, entity names, and other surfaces no longer force white text where it was unreadable on pale backgrounds (risk disks and primary actions still use white where intended).",
+        "Theme switcher: Light/Dark is only in the profile menu (removed from the top bar and mobile drawer). Clicks inside the menu are handled correctly so the choice applies immediately.",
+        "Early theme class on `<html>` via `gmp_theme_boot.html` in the document head reduces light/dark flash before CSS loads.",
+    ]},
     {"version": "1.2.6", "date": "2026-04-11", "items": [
         "Event details → Feed odds: multi-line markets list every line each feed offers (1xbet, Bet365 handicap/total, Bwin); API query `all_lines` (default true). Center domain line buttons unchanged; L column shows feed lines and a ★ on 1xbet’s CE “main” line where present.",
         "1xbet G=136 (Correct Set Score) and G=343 (Score After 2 Sets): **P** encodes the score (e.g. 3.001 → 3:1), not a handicap/total line; outcomes are flattened and ordered to match domain column order (same idea as before for best-of-five 3:0…0:3).",

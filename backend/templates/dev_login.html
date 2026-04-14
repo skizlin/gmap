@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="max-w-md mx-auto w-full my-8">
-    <h1 class="text-xl font-bold text-white mb-1">Sign in</h1>
+    <h1 class="text-xl font-bold text-gmp-text-heading mb-1">Sign in</h1>
     <p class="text-sm text-gmp-text-faint mb-6">Choose your account and enter your PIN. Standard accounts use PIN <code class="text-gmp-text-muted">1234</code> unless an administrator set a different one.</p>
     <div class="bg-cardbg/80 border border-gmp-border/60 rounded-xl p-6 shadow-xl">
         {% if error %}
@@ -13,7 +13,7 @@
             <div>
                 <label for="dev-login-user" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold mb-1">User</label>
                 <select name="user_id" id="dev-login-user" required
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-primary">
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded-lg px-3 py-2 text-sm text-gmp-text-heading outline-none focus:border-primary">
                     {% for u in users %}
                     <option value="{{ u.user_id }}" {% if not u.active %}disabled{% endif %}>
                         {{ u.email }}{% if u.login %} ({{ u.login }}){% endif %} — {{ u.partner_label }}{% if not u.active %} (inactive){% endif %}
@@ -27,7 +27,7 @@
             <div>
                 <label for="dev-login-pin" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold mb-1">PIN</label>
                 <input type="password" name="pin" id="dev-login-pin" inputmode="numeric" autocomplete="off" placeholder="PIN"
-                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-primary"
+                    class="w-full bg-gmp-surface-raised border border-gmp-border rounded-lg px-3 py-2 text-sm text-gmp-text-heading outline-none focus:border-primary"
                     required>
             </div>
             <button type="submit" {% if not users %}disabled{% endif %}

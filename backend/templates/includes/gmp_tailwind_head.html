@@ -1,4 +1,4 @@
-{# Shared Tailwind + GMP semantic CSS variables (dark). Used by layout.html and login_layout.html #}
+{# Shared Tailwind + GMP semantic CSS variables (dark + light). Used by layout.html and login_layout.html #}
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
     tailwind.config = {
@@ -30,6 +30,9 @@
                             faint: 'rgb(var(--gmp-text-faint) / <alpha-value>)',
                             heading: 'rgb(var(--gmp-text-heading) / <alpha-value>)',
                         },
+                        hover: 'rgb(var(--gmp-hover-overlay) / <alpha-value>)',
+                        tableChrome: 'rgb(var(--gmp-table-chrome) / <alpha-value>)',
+                        tableRow: 'rgb(var(--gmp-table-row) / <alpha-value>)',
                     },
                     success: 'rgb(var(--gmp-success) / <alpha-value>)',
                     warning: 'rgb(var(--gmp-warning) / <alpha-value>)',
@@ -41,9 +44,9 @@
                 accentColor: {
                     warning: 'rgb(var(--gmp-warning) / <alpha-value>)',
                 },
-            }
-        }
-    }
+            },
+        },
+    };
 </script>
 <style>
     html.dark {
@@ -73,6 +76,133 @@
         --gmp-toast-warning-fg: 254 243 199;
         --gmp-backdrop-scrim: 15 23 42;
         --gmp-surface-hover: 51 65 85;
+        --gmp-hover-overlay: 255 255 255;
+        /* Data tables: shared header/footer bar + uniform body rows (no zebra). */
+        --gmp-table-chrome: 30 41 59;
+        --gmp-table-row: 15 23 42;
+    }
+
+    html.light {
+        color-scheme: light;
+        /*
+         * Cream / warm ivory light theme (not flat white).
+         * Surfaces step from page → cards → wells; borders and text are warm stone.
+         */
+        --gmp-canvas: 222 215 202;
+        --gmp-surface-base: 240 234 223;
+        --gmp-surface-raised: 228 221 208;
+        --gmp-surface-popover: 240 234 223;
+        --gmp-surface-inset: 214 206 192;
+        --gmp-border-subtle: 196 186 170;
+        --gmp-border: 158 147 130;
+        --gmp-text-heading: 34 30 26;
+        --gmp-text-body: 52 47 42;
+        --gmp-text-menu: 70 64 56;
+        --gmp-text-muted: 92 85 76;
+        --gmp-text-faint: 118 110 99;
+        --gmp-primary: 5 150 105;
+        --gmp-primary-hover: 4 120 87;
+        --gmp-secondary: 37 99 235;
+        --gmp-success: 5 150 105;
+        --gmp-warning: 217 119 6;
+        --gmp-danger: 220 38 38;
+        --gmp-info: 37 99 235;
+        --gmp-info-hover: 29 78 216;
+        --gmp-toast-success-bg: 216 226 218;
+        --gmp-toast-success-fg: 6 78 59;
+        --gmp-toast-warning-bg: 246 236 216;
+        --gmp-toast-warning-fg: 120 53 15;
+        --gmp-backdrop-scrim: 15 23 42;
+        --gmp-surface-hover: 208 200 186;
+        --gmp-hover-overlay: 34 30 26;
+        --gmp-table-chrome: 214 206 192;
+        --gmp-table-row: 240 234 223;
+    }
+
+    /*
+     * Top app bar: dark strip scoped to <header class="gmp-top-nav"> so page can be light.
+     * Dark theme: same cool slate as html.dark. Light theme: warm espresso / dark cocoa (not blue).
+     */
+    header.gmp-top-nav {
+        color-scheme: dark;
+        --gmp-canvas: 15 23 42;
+        --gmp-surface-base: 15 23 42;
+        --gmp-surface-raised: 30 41 59;
+        --gmp-surface-popover: 30 41 59;
+        --gmp-surface-inset: 2 6 23;
+        --gmp-border-subtle: 30 41 59;
+        --gmp-border: 51 65 85;
+        --gmp-text-heading: 255 255 255;
+        --gmp-text-body: 226 232 240;
+        --gmp-text-menu: 203 213 225;
+        --gmp-text-muted: 148 163 184;
+        --gmp-text-faint: 100 116 139;
+        --gmp-primary: 16 185 129;
+        --gmp-primary-hover: 5 150 105;
+        --gmp-secondary: 59 130 246;
+        --gmp-success: 16 185 129;
+        --gmp-warning: 245 158 11;
+        --gmp-danger: 248 113 113;
+        --gmp-info: 59 130 246;
+        --gmp-info-hover: 37 99 235;
+        --gmp-toast-success-bg: 6 78 59;
+        --gmp-toast-success-fg: 209 250 229;
+        --gmp-toast-warning-bg: 69 26 3;
+        --gmp-toast-warning-fg: 254 243 199;
+        --gmp-backdrop-scrim: 15 23 42;
+        --gmp-surface-hover: 51 65 85;
+        --gmp-hover-overlay: 255 255 255;
+    }
+
+    html.light header.gmp-top-nav {
+        color-scheme: dark;
+        --gmp-canvas: 42 37 33;
+        --gmp-surface-base: 42 37 33;
+        --gmp-surface-raised: 56 49 43;
+        --gmp-surface-popover: 56 49 43;
+        --gmp-surface-inset: 30 26 23;
+        --gmp-border-subtle: 70 61 55;
+        --gmp-border: 92 81 72;
+        --gmp-text-heading: 253 248 242;
+        --gmp-text-body: 235 228 218;
+        --gmp-text-menu: 210 200 188;
+        --gmp-text-muted: 172 162 150;
+        --gmp-text-faint: 138 128 118;
+        --gmp-primary: 16 185 129;
+        --gmp-primary-hover: 5 150 105;
+        --gmp-secondary: 59 130 246;
+        --gmp-success: 16 185 129;
+        --gmp-warning: 245 158 11;
+        --gmp-danger: 248 113 113;
+        --gmp-info: 59 130 246;
+        --gmp-info-hover: 37 99 235;
+        --gmp-toast-success-bg: 6 78 59;
+        --gmp-toast-success-fg: 209 250 229;
+        --gmp-toast-warning-bg: 69 26 3;
+        --gmp-toast-warning-fg: 254 243 199;
+        --gmp-backdrop-scrim: 26 22 19;
+        --gmp-surface-hover: 72 63 56;
+        --gmp-hover-overlay: 255 255 255;
+    }
+
+    html.light input.text-white,
+    html.light select.text-white,
+    html.light textarea.text-white {
+        color: rgb(var(--gmp-text-heading)) !important;
+    }
+
+    html.light .bg-gmp-surface-raised.text-white,
+    html.light .bg-gmp-surface.text-white,
+    html.light .bg-gmp-surface-popover.text-white,
+    html.light .bg-cardbg.text-white,
+    html.light .bg-gmp-surface-inset.text-white {
+        color: rgb(var(--gmp-text-heading));
+    }
+
+    /* Table body cells still using text-white would inherit into chips/links; force readable copy on light. */
+    html.light table.gmp-data-table > tbody > tr > td.text-white,
+    html.light table.gmp-data-table > tbody > tr > th.text-white {
+        color: rgb(var(--gmp-text-heading)) !important;
     }
 
     .glass-panel {
@@ -81,14 +211,35 @@
         border: 1px solid rgb(var(--gmp-border) / 0.5);
     }
 
+    html.light .glass-panel {
+        border-color: rgb(var(--gmp-border) / 0.88);
+        box-shadow: 0 1px 3px rgb(34 30 26 / 0.09);
+    }
+
+    /*
+     * Standard data table: add class `gmp-data-table` on <table>.
+     * Header row(s) and optional sibling bars use class `gmp-table-chrome` (same token as thead).
+     * Body rows use one fill per theme — do not add zebra striping in page templates.
+     */
+    table.gmp-data-table > thead > tr > th,
+    table.gmp-data-table > thead > tr > td {
+        background-color: rgb(var(--gmp-table-chrome));
+    }
+    table.gmp-data-table > tbody > tr {
+        background-color: rgb(var(--gmp-table-row));
+    }
+    .gmp-table-chrome {
+        background-color: rgb(var(--gmp-table-chrome));
+    }
+
     .gmp-toast-success {
         padding: 0.5rem 1rem;
         border-radius: 0.5rem;
         font-size: 0.875rem;
         line-height: 1.25rem;
-        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.12);
         background-color: rgb(var(--gmp-toast-success-bg) / 0.95);
-        border: 1px solid rgb(var(--gmp-success) / 0.6);
+        border: 1px solid rgb(var(--gmp-success) / 0.45);
         color: rgb(var(--gmp-toast-success-fg));
     }
 
@@ -97,10 +248,29 @@
         border-radius: 0.5rem;
         font-size: 0.875rem;
         line-height: 1.375;
-        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2);
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.12);
         max-width: 28rem;
-        background-color: rgb(var(--gmp-toast-warning-bg) / 0.95);
-        border: 1px solid rgb(var(--gmp-warning) / 0.7);
+        background-color: rgb(var(--gmp-toast-warning-bg) / 0.98);
+        border: 1px solid rgb(var(--gmp-warning) / 0.45);
         color: rgb(var(--gmp-toast-warning-fg));
     }
 </style>
+<script>
+    window.gmpGetTheme = function () {
+        return document.documentElement.classList.contains('light') ? 'light' : 'dark';
+    };
+    window.gmpSetTheme = function (mode) {
+        var h = document.documentElement;
+        if (mode === 'light') {
+            h.classList.remove('dark');
+            h.classList.add('light');
+        } else {
+            h.classList.remove('light');
+            h.classList.add('dark');
+        }
+        try {
+            localStorage.setItem('gmp-theme', mode);
+        } catch (e) { /* ignore */ }
+        document.dispatchEvent(new CustomEvent('gmp-theme-changed', { detail: { mode: mode } }));
+    };
+</script>
