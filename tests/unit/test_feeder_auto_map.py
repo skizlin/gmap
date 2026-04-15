@@ -177,6 +177,24 @@ def test_ac5_explain_flags_wrong_team_pair(isolated_matcher):
     assert ex_sw["match"] is True
 
 
+def test_plain_numeric_comp_mapping_matches_comp_category_cell(monkeypatch: pytest.MonkeyPatch):
+    """Entities UI often saves Bet365 league id as 10041282; feed rows use COMP:10041282 on the category cell."""
+    maps = []
+    for m in _mappings_1xbet_bundesliga():
+        row = dict(m)
+        if row.get("entity_type") == "competitions":
+            row["feed_id"] = "96463"
+        maps.append(row)
+    monkeypatch.setattr(main, "FEEDS", _minimal_feeds())
+    monkeypatch.setattr(main, "DOMAIN_ENTITIES", _minimal_domain_entities())
+    monkeypatch.setattr(main, "ENTITY_FEED_MAPPINGS", maps)
+    monkeypatch.setattr(main, "DOMAIN_EVENTS", [_domain_e97()])
+    row = _feeder_row_koln_leverkusen()
+    assert main._resolve_entity("competitions", "COMP:96463", 4, domain_sport_id="S-1") is not None
+    assert main._feeder_event_feed_category_mapped(row, 4) is True
+    assert main._feeder_event_feed_competition_mapped(row, 4) is True
+
+
 def test_lowest_e_id_when_two_domain_rows_match(isolated_matcher, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         main,

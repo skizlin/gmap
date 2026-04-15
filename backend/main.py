@@ -743,6 +743,7 @@ from backend.domain_ids import (
     nullable_fk_equal,
     fid_str,
     mapping_feed_id_key,
+    mapping_related_feed_id_keys,
 )
 
 templates.env.globals["entity_ids_equal"] = entity_ids_equal
@@ -4435,17 +4436,25 @@ def _resolve_entity(etype: str, feed_id: str, feed_provider_id: int, domain_spor
                        and m["feed_provider_id"] == int(feed_provider_id)
                        and (m.get("feed_id") or "").strip().lower() == feed_id_lower), None)
     else:
-        fk = mapping_feed_id_key(feed_id_str)
-        mapping = next(
-            (
-                m
-                for m in ENTITY_FEED_MAPPINGS
-                if m["entity_type"] == etype
-                and m["feed_provider_id"] == int(feed_provider_id)
-                and mapping_feed_id_key(m.get("feed_id")) == fk
-            ),
-            None,
-        )
+        if etype in ("categories", "competitions"):
+            row_keys = mapping_related_feed_id_keys(feed_id_str)
+        else:
+            k = mapping_feed_id_key(feed_id_str)
+            row_keys = [k] if k else []
+        mapping = None
+        for fk in row_keys:
+            mapping = next(
+                (
+                    m
+                    for m in ENTITY_FEED_MAPPINGS
+                    if m["entity_type"] == etype
+                    and m["feed_provider_id"] == int(feed_provider_id)
+                    and mapping_feed_id_key(m.get("feed_id")) == fk
+                ),
+                None,
+            )
+            if mapping is not None:
+                break
     if not mapping:
         return None
     entity = next((e for e in DOMAIN_ENTITIES[etype] if entity_ids_equal(e["domain_id"], mapping["domain_id"])), None)
@@ -4466,9 +4475,12 @@ def _feeder_event_feed_category_mapped(e: dict, feed_provider_id: int | None) ->
     dsid = r["domain_id"] if r else None
     if not dsid:
         return False
-    raw_cid = e.get("category_id")
-    if raw_cid is not None and str(raw_cid).strip() != "":
-        s = str(raw_cid).strip()
+    id_candidates: list[str] = []
+    for src in (e.get("category_id"), e.get("category")):
+        t = str(src or "").strip()
+        if t and t not in id_candidates:
+            id_candidates.append(t)
+    for s in id_candidates:
         if _resolve_entity("categories", s, feed_provider_id, domain_sport_id=dsid) is not None:
             return True
         # Bet365-style feed rows use COMP:<league_id> as the "category" cell; mapping may live on competitions.
@@ -4476,6 +4488,8 @@ def _feeder_event_feed_category_mapped(e: dict, feed_provider_id: int | None) ->
             return True
     name = (e.get("category") or "").strip()
     if not name:
+        return False
+    if name.upper().startswith("COMP:"):
         return False
     cat_ent = next(
         (
@@ -4506,6 +4520,11 @@ def _feeder_event_feed_competition_mapped(e: dict, feed_provider_id: int | None)
     raw_lid = e.get("raw_league_id")
     if raw_lid is not None and str(raw_lid).strip() != "":
         if _resolve_entity("competitions", str(raw_lid).strip(), feed_provider_id, domain_sport_id=dsid) is not None:
+            return True
+    # League id sometimes only appears as COMP:<id> on the category cell (Bet365).
+    for src in (e.get("category_id"), e.get("category")):
+        cell = str(src or "").strip()
+        if cell.upper().startswith("COMP:") and _resolve_entity("competitions", cell, feed_provider_id, domain_sport_id=dsid) is not None:
             return True
     name = (e.get("raw_league_name") or "").strip()
     if not name:
@@ -6631,6 +6650,9 @@ async def dump_csv_data(request: Request):
     DOMAIN_ENTITIES = _load_entities()
     ENTITY_FEED_MAPPINGS = _load_entity_feed_mappings()
     SPORT_FEED_MAPPINGS = _load_sport_feed_mappings()
+    # Feeder rows (DUMMY_EVENTS) keep stale MAPPED until re-synced from event_mappings.csv; dashboard counts use those.
+    _sync_feeder_events_mapping_status()
+    _invalidate_dashboard_feed_stats_cache()
     return RedirectResponse(url="/", status_code=303)
 
 
@@ -7093,7 +7115,7 @@ async def feeder_events_view(
     has_notes = _feeder_notes_has_set()
     if notes_only_active:
         filtered = [e for e in filtered if ((e.get("feed_provider") or "").strip(), (e.get("valid_id") or "").strip()) in has_notes]
-    date_filter = (date or "").strip() or "today"
+    date_filter = (date or "").strip() or "next_7_days"
     date_range = _date_range_from_param(date_filter, date_from, date_to)
     if date_range is not None:
         start_d, end_d = date_range
@@ -7256,7 +7278,7 @@ async def feeder_events_table(
                 continue
         filtered.append(e)
 
-    date_filter = (date or "").strip() or "today"
+    date_filter = (date or "").strip() or "next_7_days"
     date_range = _date_range_from_param(date_filter, date_from, date_to)
     if date_range is not None:
         start_d, end_d = date_range
@@ -7523,7 +7545,7 @@ async def event_navigator_view(
             brand_obj = next((b for b in brands_list if (b.get("name") or "").strip() == first_brand_name), None)
             if brand_obj:
                 selected_brand_id = brand_obj.get("domain_id")
-    date_filter = (date or "").strip() or "today"
+    date_filter = (date or "").strip() or "next_7_days"
     filtered = _filter_domain_events(
         enriched, date_filter, active_sports, q,
         selected_categories if selected_categories else None,
@@ -7642,7 +7664,7 @@ async def event_navigator_table(
             brand_obj = next((b for b in brands_list if (b.get("name") or "").strip() == first_brand_name), None)
             if brand_obj:
                 selected_brand_id = brand_obj.get("domain_id")
-    date_filter = (date or "").strip() or "today"
+    date_filter = (date or "").strip() or "next_7_days"
     filtered = _filter_domain_events(
         enriched, date_filter, active_sports, q,
         categories if categories else None,

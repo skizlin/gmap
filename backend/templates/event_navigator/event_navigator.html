@@ -19,18 +19,18 @@
                 <span id="domain-period-label">07/03/2026 - 07/03/2026</span>
                 <i class="fa-solid fa-chevron-down text-gmp-text-muted text-[10px] ml-auto"></i>
             </button>
-            <input type="hidden" id="domain-date-filter" name="date" value="{{ selected_date }}">
+            <input type="hidden" id="domain-date-filter" name="date" value="{{ selected_date | default('next_7_days') }}">
             <input type="hidden" name="date_from" id="domain-date-from" value="{{ date_from | default('') }}">
             <input type="hidden" name="date_to" id="domain-date-to" value="{{ date_to | default('') }}">
             <div id="domain-period-panel"
                 class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl min-w-[200px] max-w-[280px] py-1">
-                <button type="button" data-period="today" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors rounded-none text-primary font-medium bg-primary/20 border-l-2 border-primary">
+                <button type="button" data-period="today" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
                     Today
                 </button>
                 <button type="button" data-period="tomorrow" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
                     Tomorrow
                 </button>
-                <button type="button" data-period="next_7_days" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
+                <button type="button" data-period="next_7_days" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors rounded-none text-primary font-medium bg-primary/20 border-l-2 border-primary">
                     Next 7 Days
                 </button>
                 <button type="button" data-period="this_month" class="domain-period-option w-full flex items-center px-3 py-2 text-xs text-left hover:bg-gmp-hover/10 transition-colors text-gmp-text-menu">
@@ -508,11 +508,14 @@
         var toVal = dateToEl && dateToEl.value ? dateToEl.value.trim() : '';
         if (initialDate && initialDate !== 'custom') {
             applyDomainPeriodSelection(initialDate);
-        } else {
-            if (customFrom && fromVal) customFrom.value = fromVal;
-            if (customTo && toVal) customTo.value = toVal;
+        } else if (fromVal && toVal) {
+            if (customFrom) customFrom.value = fromVal;
+            if (customTo) customTo.value = toVal;
             applyDomainPeriodSelection('custom', fromVal, toVal);
-            if (dateInput && !dateInput.value) dateInput.value = 'custom';
+            if (dateInput && (!dateInput.value || dateInput.value === 'custom')) dateInput.value = 'custom';
+        } else {
+            if (dateInput) dateInput.value = 'next_7_days';
+            applyDomainPeriodSelection('next_7_days');
         }
         document.querySelectorAll('.domain-period-option').forEach(function (btn) {
             btn.addEventListener('click', function () {
@@ -547,8 +550,8 @@
             if (customTo) customTo.value = '';
             if (dateFromEl) dateFromEl.value = '';
             if (dateToEl) dateToEl.value = '';
-            if (dateInput) dateInput.value = 'today';
-            applyDomainPeriodSelection('today');
+            if (dateInput) dateInput.value = 'next_7_days';
+            applyDomainPeriodSelection('next_7_days');
             var pageInput = document.getElementById('domain-page-input');
             if (pageInput) pageInput.value = '1';
             triggerDomainEventsTableRefresh();

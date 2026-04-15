@@ -103,6 +103,42 @@ def mapping_feed_id_key(val: Any) -> str:
         return s
 
 
+def mapping_related_feed_id_keys(val: Any) -> list[str]:
+    """
+    Keys to try when matching a feed row value to ENTITY_FEED_MAPPINGS.feed_id for categories/competitions.
+
+    Bet365 often sends league scope as ``COMP:10041282`` while the Entities UI may store the same id as
+    ``10041282`` (or the reverse). ``mapping_feed_id_key`` keeps those distinct; this helper lists both
+    so resolution matches either representation.
+    """
+    s = str(val).strip() if val is not None else ""
+    if not s:
+        return []
+    keys: list[str] = []
+
+    def _add(k: str) -> None:
+        k = (k or "").strip()
+        if k and k not in keys:
+            keys.append(k)
+
+    _add(mapping_feed_id_key(s))
+    if ":" in s:
+        prefix, _, rest = s.partition(":")
+        if prefix.strip().upper() == "COMP" and rest.strip():
+            try:
+                _add(mapping_feed_id_key(str(int(float(rest.strip())))))
+            except (ValueError, TypeError):
+                pass
+    else:
+        try:
+            num = str(int(float(s)))
+            if mapping_feed_id_key(s) == num:
+                _add(mapping_feed_id_key(f"COMP:{num}"))
+        except (ValueError, TypeError):
+            pass
+    return keys
+
+
 def nullable_fk_equal(a: Any, b: Any) -> bool:
     """True when both FK cells are empty or the same non-empty id (for optional category_id, etc.)."""
     return fid_str(a) == fid_str(b)
