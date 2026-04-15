@@ -1061,6 +1061,8 @@
         }
 
         const catVal = getCategoryNameForFilter() || null;
+        const compEl = document.getElementById('input-competition');
+        const compVal = (compEl && compEl.value) ? compEl.value.trim() : null;
         const categoryCountryEl = document.getElementById('category-country');
         const countryCode = (categoryCountryEl && categoryCountryEl.value) ? categoryCountryEl.value : '-';
         const participantTypeEl = document.getElementById('participant-type-select');
@@ -1076,6 +1078,7 @@
             name,
             sport: sportName,
             category: catVal,
+            competition: compVal,
             country: countryCode,
             participant_type_id: participantTypeId
         };

@@ -28,6 +28,7 @@ class CreateEntityRequest(BaseModel):
     feed_sport_id: Optional[str] = None
     sport: Optional[str] = None
     category: Optional[str] = None
+    competition: Optional[str] = None  # competition display name (teams: infer country from parent category)
     country: Optional[str] = None  # ISO country code or '-' for categories/competitions/teams
     baseid: Optional[str] = None
     participant_type_id: Optional[int] = None

@@ -4577,11 +4577,20 @@ def _fuzzy_score(a: str, b: str) -> int:
     return int(round(100 * difflib.SequenceMatcher(None, a, b).ratio()))
 
 
-def _suggest_domain_events(feed_event: dict) -> list[dict]:
+def _suggest_domain_events(
+    feed_event: dict,
+    *,
+    domain_sport_id: str | None = None,
+    domain_category_id: str | None = None,
+    domain_competition_id: str | None = None,
+) -> list[dict]:
     """
-    Find all matching domain events for this feed event (same match from another feed).
+    Find domain events that may be the same fixture (another feed / naming variants).
     Supports reverse home/away (feed home vs domain away, feed away vs domain home).
-    Returns list of { "event": dict, "score": int, "reversed_home_away": bool } sorted by score desc.
+
+    When sport / category / competition are already mapped on the feed row, candidates are restricted
+    to domain events in that scope so scores reflect teams (and kickoff), not fuzzy competition strings
+    across unrelated leagues.
     """
     if not DOMAIN_EVENTS:
         return []
@@ -4591,22 +4600,49 @@ def _suggest_domain_events(feed_event: dict) -> list[dict]:
     feed_start = (feed_event.get("start_time") or "").strip()
     if not feed_home and not feed_away:
         return []
+
+    pool: list[dict] = list(DOMAIN_EVENTS)
+    dsid = fid_str(domain_sport_id) if domain_sport_id not in (None, "") else ""
+    if dsid:
+        pool = [ev for ev in pool if entity_ids_equal(ev.get("sport_id"), dsid)]
+    dcat = fid_str(domain_category_id) if domain_category_id not in (None, "") else ""
+    if dcat:
+        pool = [ev for ev in pool if entity_ids_equal(ev.get("category_id"), dcat)]
+    dcomp = fid_str(domain_competition_id) if domain_competition_id not in (None, "") else ""
+    if dcomp:
+        pool = [ev for ev in pool if entity_ids_equal(ev.get("competition_id"), dcomp)]
+
+    scoped_comp = bool(dcomp)
+    scoped_cat_only = bool(dcat and not dcomp)
+
     candidates: list[dict] = []
-    for ev in DOMAIN_EVENTS:
+    for ev in pool:
         d_home = (ev.get("home") or "").strip()
         d_away = (ev.get("away") or "").strip()
         d_comp = (ev.get("competition") or "").strip()
         d_start = (ev.get("start_time") or "").strip()
-        s_comp = _fuzzy_score(feed_comp, d_comp) if feed_comp or d_comp else 100
-        s_start = 100 if feed_start and d_start and feed_start == d_start else (50 if feed_start and d_start else 100)
+        s_time = 100 if feed_start and d_start and feed_start == d_start else (50 if feed_start and d_start else 100)
         # Normal: feed_home↔domain_home, feed_away↔domain_away
         s_home_n = _fuzzy_score(feed_home, d_home) if feed_home and d_home else (100 if not feed_home and not d_home else 0)
         s_away_n = _fuzzy_score(feed_away, d_away) if feed_away and d_away else (100 if not feed_away and not d_away else 0)
-        score_n = int(round(0.4 * s_home_n + 0.4 * s_away_n + 0.15 * s_comp + 0.05 * s_start))
         # Reversed: feed_home↔domain_away, feed_away↔domain_home
         s_home_r = _fuzzy_score(feed_home, d_away) if feed_home and d_away else (100 if not feed_home and not d_away else 0)
         s_away_r = _fuzzy_score(feed_away, d_home) if feed_away and d_home else (100 if not feed_away and not d_home else 0)
-        score_r = int(round(0.4 * s_home_r + 0.4 * s_away_r + 0.15 * s_comp + 0.05 * s_start))
+
+        if scoped_comp:
+            # League already fixed by mapping — score only teams + kickoff (no cross-league comp fuzz).
+            score_n = int(round(0.46 * s_home_n + 0.46 * s_away_n + 0.08 * s_time))
+            score_r = int(round(0.46 * s_home_r + 0.46 * s_away_r + 0.08 * s_time))
+        elif scoped_cat_only:
+            s_comp = _fuzzy_score(feed_comp, d_comp) if feed_comp or d_comp else 100
+            score_n = int(round(0.38 * s_home_n + 0.38 * s_away_n + 0.19 * s_comp + 0.05 * s_time))
+            score_r = int(round(0.38 * s_home_r + 0.38 * s_away_r + 0.19 * s_comp + 0.05 * s_time))
+        else:
+            s_comp = _fuzzy_score(feed_comp, d_comp) if feed_comp or d_comp else 100
+            w_h, w_a, w_c, w_t = (0.40, 0.40, 0.15, 0.05)
+            score_n = int(round(w_h * s_home_n + w_a * s_away_n + w_c * s_comp + w_t * s_time))
+            score_r = int(round(w_h * s_home_r + w_a * s_away_r + w_c * s_comp + w_t * s_time))
+
         best_score = max(score_n, score_r)
         if best_score >= 50:
             candidates.append({
@@ -4680,6 +4716,60 @@ async def create_market_group(body: CreateMarketGroupRequest):
         return {"domain_id": existing["domain_id"], "code": existing["code"], "name": existing["name"], "created": False}
     domain_id = _save_market_group(code, name)
     return {"domain_id": domain_id, "code": code, "name": name, "created": True}
+
+def _resolve_team_country_for_create(body: CreateEntityRequest, sport_id: Optional[str]) -> str:
+    """
+    Use explicit country from the client when set.
+    Otherwise infer from domain category/competition already in scope (e.g. England category with GB
+    so teams created from the mapping modal inherit country even if the country dropdown stayed on None).
+    """
+    explicit = (body.country or "").strip() or COUNTRY_CODE_NONE
+    if explicit != COUNTRY_CODE_NONE:
+        return explicit
+    if not sport_id:
+        return COUNTRY_CODE_NONE
+    cat_nm = (body.category or "").strip()
+    if cat_nm:
+        cat_row = next(
+            (
+                c
+                for c in DOMAIN_ENTITIES.get("categories", [])
+                if entity_ids_equal(c.get("sport_id"), sport_id)
+                and (c.get("name") or "").strip().lower() == cat_nm.lower()
+            ),
+            None,
+        )
+        if cat_row:
+            cc = (cat_row.get("country") or "").strip() or COUNTRY_CODE_NONE
+            if cc != COUNTRY_CODE_NONE:
+                return cc
+    comp_nm = (body.competition or "").strip()
+    if comp_nm:
+        comp_row = next(
+            (
+                c
+                for c in DOMAIN_ENTITIES.get("competitions", [])
+                if entity_ids_equal(c.get("sport_id"), sport_id)
+                and (c.get("name") or "").strip().lower() == comp_nm.lower()
+            ),
+            None,
+        )
+        if comp_row:
+            cid = comp_row.get("category_id")
+            if cid:
+                cat_row2 = next(
+                    (c for c in DOMAIN_ENTITIES.get("categories", []) if entity_ids_equal(c.get("domain_id"), cid)),
+                    None,
+                )
+                if cat_row2:
+                    cc = (cat_row2.get("country") or "").strip() or COUNTRY_CODE_NONE
+                    if cc != COUNTRY_CODE_NONE:
+                        return cc
+            cc = (comp_row.get("country") or "").strip() or COUNTRY_CODE_NONE
+            if cc != COUNTRY_CODE_NONE:
+                return cc
+    return COUNTRY_CODE_NONE
+
 
 @app.post("/api/entities")
 async def create_entity(request: Request, body: CreateEntityRequest):
@@ -4802,7 +4892,10 @@ async def create_entity(request: Request, body: CreateEntityRequest):
         pass  # name only for sports; markets have code and sport_id set above
     elif body.entity_type in ("categories", "teams"):
         entity["sport_id"] = sport_id
-        entity["country"] = (body.country or "").strip() or COUNTRY_CODE_NONE
+        if body.entity_type == "teams":
+            entity["country"] = _resolve_team_country_for_create(body, sport_id)
+        else:
+            entity["country"] = (body.country or "").strip() or COUNTRY_CODE_NONE
         if body.entity_type == "teams":
             entity["underage_category_id"] = body.underage_category_id
             entity["participant_type_id"] = body.participant_type_id
@@ -7879,13 +7972,31 @@ def _render_mapping_modal(request: Request, event_id: str):
         if _sid not in (None, "") and str(_sid).strip():
             r_sport = _resolve_sport_alias(feed_pid, str(_sid).strip())
     domain_sport_id = r_sport["domain_id"] if r_sport else None
-    # Category and competition: resolve by feed ID and require same sport (e.g. Bwin category 38 = Argentina in Football only, not Basketball)
+    # Category / competition: align with feeder row resolution (raw_league_id, category IDs, COMP:… on category).
     r_category = None
-    if feed_pid and (event.get("category_id") not in (None, "")):
-        r_category = _resolve_entity("categories", str(event.get("category_id") or ""), feed_pid, domain_sport_id=domain_sport_id)
     r_competition = None
-    if feed_pid and (event.get("raw_league_id") not in (None, "")):
-        r_competition = _resolve_entity("competitions", str(event.get("raw_league_id") or ""), feed_pid, domain_sport_id=domain_sport_id)
+    if feed_pid and domain_sport_id:
+        lid = str(event.get("raw_league_id") or "").strip()
+        if lid:
+            c2 = _resolve_entity("competitions", lid, feed_pid, domain_sport_id=domain_sport_id)
+            if c2:
+                r_competition = c2
+        for src in (event.get("category_id"), event.get("category")):
+            t = str(src or "").strip()
+            if not t:
+                continue
+            cat_ent = _resolve_entity("categories", t, feed_pid, domain_sport_id=domain_sport_id)
+            if cat_ent:
+                r_category = cat_ent
+                break
+        if not r_competition:
+            for src in (event.get("category_id"), event.get("category")):
+                t = str(src or "").strip()
+                if t.upper().startswith("COMP:"):
+                    c2 = _resolve_entity("competitions", t, feed_pid, domain_sport_id=domain_sport_id)
+                    if c2:
+                        r_competition = c2
+                        break
     r_home = _resolve_entity("teams", str(event.get("raw_home_id") or event.get("raw_home_name") or ""), feed_pid) if feed_pid else None
     r_away = _resolve_entity("teams", str(event.get("raw_away_id") or event.get("raw_away_name") or ""), feed_pid) if feed_pid else None
 
@@ -7906,8 +8017,13 @@ def _render_mapping_modal(request: Request, event_id: str):
     }
     sports_by_id = {s["domain_id"]: s["name"] for s in DOMAIN_ENTITIES["sports"]}
 
-    # Fuzzy: suggest all matching domain events (same match from another feed; supports reversed home/away)
-    suggested_domain_events = _suggest_domain_events(event)
+    # Fuzzy: suggest domain events in mapped scope only; team-heavy scoring when competition is mapped.
+    suggested_domain_events = _suggest_domain_events(
+        event,
+        domain_sport_id=domain_sport_id,
+        domain_category_id=(r_category.get("domain_id") if r_category else None),
+        domain_competition_id=(r_competition.get("domain_id") if r_competition else None),
+    )
     best_suggestion = suggested_domain_events[0] if suggested_domain_events else None
     suggested_domain_event = best_suggestion["event"] if best_suggestion else None
     suggested_match_score = best_suggestion["score"] if best_suggestion else 0
