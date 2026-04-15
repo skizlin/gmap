@@ -1,18 +1,14 @@
-{# Modal: Event log for a feeder event — appeared, mapped, note_added, ignored, unignored #}
+{# Modal: Event log for a domain event (feed links, created from feed, etc.) #}
 <div class="p-6">
     <h3 class="text-lg font-semibold text-gmp-text-heading dark:text-white mb-1">Event Log</h3>
-    <p class="text-xs text-gmp-text-muted mb-4">{{ event_label | e }} <span class="text-gmp-text-faint">· Feed ID: {{ feed_valid_id | e }}</span></p>
+    <p class="text-xs text-gmp-text-muted mb-4">{{ event_label | e }} <span class="text-gmp-text-faint">· {{ domain_event_id | e }}</span></p>
 
     <div class="space-y-2 max-h-[60vh] overflow-y-auto">
         {% for entry in entries %}
         <div class="flex items-start gap-3 py-2 px-3 rounded-lg bg-gmp-surface/60 border border-gmp-border/50">
             <span class="flex-shrink-0 mt-0.5 w-2 h-2 rounded-full
-                {% if entry.action_type == 'appeared' %}bg-gmp-text-faint
-                {% elif entry.action_type == 'mapped' %}bg-success
-                {% elif entry.action_type == 'domain_created' %}bg-emerald-500
-                {% elif entry.action_type == 'note_added' %}bg-warning
-                {% elif entry.action_type == 'ignored' %}bg-surfaceHover
-                {% elif entry.action_type == 'unignored' %}bg-gmp-text-muted
+                {% if entry.action_type == 'created' %}bg-emerald-500
+                {% elif entry.action_type == 'feed_linked' %}bg-success
                 {% else %}bg-gmp-text-faint{% endif %}"></span>
             <div class="min-w-0 flex-1">
                 <span class="text-sm font-medium text-gmp-text capitalize">{{ entry.action_type | replace('_', ' ') }}</span>
@@ -23,7 +19,7 @@
             </div>
         </div>
         {% else %}
-        <p class="text-sm text-gmp-text-faint italic py-4">No log entries yet.</p>
+        <p class="text-sm text-gmp-text-faint italic py-4">No log entries yet. Mappings and creates from feeder flows will appear here.</p>
         {% endfor %}
     </div>
 

@@ -102,7 +102,8 @@
                 <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-action="release-co">Release CO</button>
                 <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-action="copy-event-id">Copy Event ID</button>
                 <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-action="view-bets">View Bets</button>
-                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-action="event-log">Event Log</button>
+                <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-action="event-log"
+                    hx-get="/event-navigator/event-log-modal/{{ ev.id }}" hx-target="#modal-content" hx-swap="innerHTML" onclick="openModal(); document.getElementById('domain-action-{{ ev.id }}').classList.add('hidden');">Event Log</button>
                 <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-action="dynamic-templates">Dynamic Templates</button>
                 <button type="button" class="domain-event-action w-full text-left px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 flex items-center gap-2" data-action="notes"
                     hx-get="/event-navigator/notes-modal/{{ ev.id }}" hx-target="#modal-content" hx-swap="innerHTML" onclick="openModal(); document.getElementById('domain-action-{{ ev.id }}').classList.add('hidden');">Notes</button>

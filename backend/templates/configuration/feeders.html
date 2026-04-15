@@ -103,6 +103,9 @@
                         <td class="px-3 py-2 font-medium text-gmp-text-heading sticky left-0 bg-gmp-tableRow z-10 align-middle">
                             <span class="inline-flex items-center gap-1.5 flex-wrap">
                                 <span>{{ row.label }}</span>
+                                {% if row.key in ('auto_create_category', 'auto_create_competitions', 'auto_create_teams') %}
+                                <span class="text-[10px] font-semibold uppercase tracking-wide text-danger bg-danger/10 border border-danger/30 px-1.5 py-0.5 rounded shrink-0">Not in MVP</span>
+                                {% endif %}
                                 {% if row.hint %}
                                 <span class="relative inline-flex shrink-0 group">
                                     <button type="button" class="cursor-help rounded p-0.5 text-gmp-text-faint hover:text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-primary bg-transparent border-0" aria-label="Help">
@@ -119,9 +122,13 @@
                         {% endfor %}
                         {% if can_feeder_update or can_feeder_audit %}
                         <td class="px-2 py-2 text-center align-middle">
+                            {% if row.key not in ('auto_create_category', 'auto_create_competitions', 'auto_create_teams') %}
                             <button type="button" class="feeder-row-kebab-btn inline-flex items-center justify-center w-8 h-8 rounded border border-gmp-border/60 bg-gmp-surface-raised text-gmp-text-muted hover:bg-gmp-hover/15 hover:text-gmp-text-heading focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" title="Actions" aria-label="Actions for {{ row.label|e }}" data-setting-key="{{ row.key|e }}" data-setting-label="{{ row.label|e }}">
                                 <i class="fa-solid fa-ellipsis-vertical text-sm" aria-hidden="true"></i>
                             </button>
+                            {% else %}
+                            <span class="text-gmp-text-faint text-[10px]" title="Editing this setting is not available in MVP">—</span>
+                            {% endif %}
                         </td>
                         {% endif %}
                     </tr>

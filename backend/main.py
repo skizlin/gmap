@@ -81,6 +81,7 @@ FEEDER_INCIDENTS_PATH = config.FEEDER_INCIDENTS_PATH
 FEEDER_EVENT_NOTES_PATH = config.FEEDER_EVENT_NOTES_PATH
 FEEDER_IGNORED_EVENTS_PATH = getattr(config, "FEEDER_IGNORED_EVENTS_PATH", None)
 FEEDER_EVENT_LOG_PATH = getattr(config, "FEEDER_EVENT_LOG_PATH", None)
+DOMAIN_EVENT_LOG_PATH = getattr(config, "DOMAIN_EVENT_LOG_PATH", None)
 NOTES_PATH = config.NOTES_PATH
 NOTES_PATH_LEGACY = getattr(config, "NOTES_PATH_LEGACY", None)  # optional one-time move from data/ to data/notes/
 EVENT_NAVIGATOR_NOTES_PATH = getattr(config, "EVENT_NAVIGATOR_NOTES_PATH", None)
@@ -4577,6 +4578,59 @@ def _fuzzy_score(a: str, b: str) -> int:
     return int(round(100 * difflib.SequenceMatcher(None, a, b).ratio()))
 
 
+def _domain_event_row_matches_domain_sport(ev: dict, sport_domain_id: str) -> bool:
+    """
+    True when a domain event row belongs to sport_domain_id.
+    Uses event.sport_id plus competition and category FKs so a mis-set event.sport_id cannot surface
+    e.g. a EuroLeague fixture under Football suggestions.
+    """
+    sid = fid_str(sport_domain_id)
+    if not sid:
+        return True
+    ev_sid = ev.get("sport_id")
+    if ev_sid is not None and str(ev_sid).strip() != "":
+        if not entity_ids_equal(ev_sid, sid):
+            return False
+    cid = ev.get("competition_id")
+    if cid is not None and str(cid).strip() != "":
+        comp = next((c for c in DOMAIN_ENTITIES.get("competitions", []) if entity_ids_equal(c.get("domain_id"), cid)), None)
+        if comp is not None:
+            cs = comp.get("sport_id")
+            if cs is not None and str(cs).strip() != "" and not entity_ids_equal(cs, sid):
+                return False
+    gid = ev.get("category_id")
+    if gid is not None and str(gid).strip() != "":
+        cat = next((c for c in DOMAIN_ENTITIES.get("categories", []) if entity_ids_equal(c.get("domain_id"), gid)), None)
+        if cat is not None:
+            gs = cat.get("sport_id")
+            if gs is not None and str(gs).strip() != "" and not entity_ids_equal(gs, sid):
+                return False
+    return True
+
+
+def _infer_domain_sport_id_from_mapped_entities(event: dict, feed_pid: int) -> str | None:
+    """When feed sport is not in mappings, derive domain sport from mapped category or competition (sport-agnostic resolve)."""
+    for src in (event.get("category_id"), event.get("category")):
+        t = str(src or "").strip()
+        if not t:
+            continue
+        cat_ent = _resolve_entity("categories", t, feed_pid, domain_sport_id=None)
+        if cat_ent and cat_ent.get("sport_id") is not None and str(cat_ent.get("sport_id")).strip():
+            return fid_str(cat_ent.get("sport_id"))
+    lid = str(event.get("raw_league_id") or "").strip()
+    if lid:
+        comp_ent = _resolve_entity("competitions", lid, feed_pid, domain_sport_id=None)
+        if comp_ent and comp_ent.get("sport_id") is not None and str(comp_ent.get("sport_id")).strip():
+            return fid_str(comp_ent.get("sport_id"))
+    for src in (event.get("category_id"), event.get("category")):
+        t = str(src or "").strip()
+        if t.upper().startswith("COMP:"):
+            comp_ent = _resolve_entity("competitions", t, feed_pid, domain_sport_id=None)
+            if comp_ent and comp_ent.get("sport_id") is not None and str(comp_ent.get("sport_id")).strip():
+                return fid_str(comp_ent.get("sport_id"))
+    return None
+
+
 def _suggest_domain_events(
     feed_event: dict,
     *,
@@ -4604,7 +4658,7 @@ def _suggest_domain_events(
     pool: list[dict] = list(DOMAIN_EVENTS)
     dsid = fid_str(domain_sport_id) if domain_sport_id not in (None, "") else ""
     if dsid:
-        pool = [ev for ev in pool if entity_ids_equal(ev.get("sport_id"), dsid)]
+        pool = [ev for ev in pool if _domain_event_row_matches_domain_sport(ev, dsid)]
     dcat = fid_str(domain_category_id) if domain_category_id not in (None, "") else ""
     if dcat:
         pool = [ev for ev in pool if entity_ids_equal(ev.get("category_id"), dcat)]
@@ -5630,7 +5684,13 @@ def _find_domain_event_for_auto_map(feeder_ev: dict, feed_pid: int, feed_provide
     return matches[0]
 
 
-def _apply_map_feed_row_to_existing_domain(feeder_ev: dict, domain_ev: dict, feed_provider_code: str) -> None:
+def _apply_map_feed_row_to_existing_domain(
+    feeder_ev: dict,
+    domain_ev: dict,
+    feed_provider_code: str,
+    *,
+    log_source: str = "auto_map",
+) -> None:
     """Persist map-to-existing (same side effects as /api/map-event without HTML)."""
     domain_id = str(domain_ev.get("id") or "").strip()
     vid = str(feeder_ev.get("valid_id") or "").strip()
@@ -5642,11 +5702,14 @@ def _apply_map_feed_row_to_existing_domain(feeder_ev: dict, domain_ev: dict, fee
         (m.get("feed_provider") or "").strip() == fp and str(m.get("feed_valid_id") or "").strip() == vid
         for m in existing
     )
+    mapping_new = False
     if not already:
         _save_event_mapping(domain_id, fp, vid)
+        mapping_new = True
     if config.BETSAPI_TOKEN and vid:
         asyncio.create_task(_fetch_and_save_event_details(fp, vid))
-    _append_feeder_event_log(fp, vid, "mapped", details=f"auto_map:{domain_id}")
+    if mapping_new:
+        _record_feed_domain_mapping_link(fp, vid, domain_id, source=log_source)
     feeder_ev["mapping_status"] = "MAPPED"
     feeder_ev["domain_id"] = domain_id
     _sync_entity_feed_mappings_from_feeder_domain(domain_ev, feeder_ev, fp)
@@ -5778,7 +5841,12 @@ def _create_and_map_domain_event_from_feed_row(feeder_ev: dict, feeder_provider_
     feeder_ev["mapping_status"] = "MAPPED"
     feeder_ev["domain_id"] = new_id
     _sync_entity_feed_mappings_from_feeder_domain(new_event, feeder_ev, feeder_provider_code)
-    _append_feeder_event_log(feeder_provider_code, str(feeder_ev.get("valid_id")), "mapped", details=f"auto_create:{new_id}")
+    _record_feed_domain_mapping_link(
+        feeder_provider_code,
+        str(feeder_ev.get("valid_id")),
+        new_id,
+        source="auto_create",
+    )
     _remove_valid_id_from_feed_dashboard_new(feeder_provider_code, str(feeder_ev.get("valid_id")))
     return new_id
 
@@ -5815,7 +5883,7 @@ def _run_auto_create_domain_events_for_feed(feed_provider_code: str) -> tuple[in
                 continue
             dup_ev = _find_domain_event_for_auto_map(e, feed_pid, code)
             if dup_ev is not None:
-                _apply_map_feed_row_to_existing_domain(e, dup_ev, code)
+                _apply_map_feed_row_to_existing_domain(e, dup_ev, code, log_source="auto_link")
                 linked += 1
                 progressed += 1
                 continue
@@ -5892,6 +5960,7 @@ async def create_domain_event(body: CreateDomainEventRequest):
     _save_domain_event(new_event)
     # Record the originating feed mapping in event_mappings.csv (join table)
     _save_event_mapping(new_id, body.feeder_provider, body.feeder_valid_id)
+    _record_feed_domain_mapping_link(body.feeder_provider, body.feeder_valid_id, new_id, source="manual_create")
 
     # Fetch event details in background (BetsAPI token from .env) so we have markets for mapping modal
     if config.BETSAPI_TOKEN and body.feeder_provider and body.feeder_valid_id:
@@ -5976,12 +6045,15 @@ async def map_event_to_domain(
         m["feed_provider"] == feeder_provider and m["feed_valid_id"] == feeder_valid_id
         for m in existing
     )
+    mapping_new = False
     if not already:
         _save_event_mapping(domain_id_selected, feeder_provider, feeder_valid_id)
+        mapping_new = True
     # Fetch event details in background (BetsAPI token from .env) so we have markets for mapping modal
     if config.BETSAPI_TOKEN and feeder_provider and feeder_valid_id:
         asyncio.create_task(_fetch_and_save_event_details(feeder_provider, feeder_valid_id))
-    _append_feeder_event_log(feeder_provider, feeder_valid_id, "mapped", details=domain_id_selected)
+    if mapping_new:
+        _record_feed_domain_mapping_link(feeder_provider, feeder_valid_id, domain_id_selected, source="manual_map")
 
     # Mark feeder event as MAPPED in memory
     feeder_ev = None
@@ -7096,7 +7168,7 @@ def _confirm_notification(notification_id: str) -> bool:
     return False
 
 
-# --- Feeder event log (appeared, mapped, note_added, ignored, unignored) ---
+# --- Feeder event log (appeared, mapped, domain_created, note_added, ignored, unignored) ---
 _FEEDER_EVENT_LOG_FIELDS = ["feed_provider", "feed_valid_id", "action_type", "details", "created_at"]
 
 
@@ -7112,7 +7184,7 @@ def _load_feeder_event_log() -> list[dict]:
 
 
 def _append_feeder_event_log(feed_provider: str, feed_valid_id: str, action_type: str, details: str | None = None) -> None:
-    """Append one log entry. action_type: appeared, mapped, note_added, ignored, unignored."""
+    """Append one log entry. action_type: appeared, mapped, domain_created, note_added, ignored, unignored."""
     if not FEEDER_EVENT_LOG_PATH:
         return
     feed_provider = (feed_provider or "").strip()
@@ -7132,6 +7204,74 @@ def _append_feeder_event_log(feed_provider: str, feed_valid_id: str, action_type
         if not file_exists:
             w.writeheader()
         w.writerow(row)
+
+
+# --- Domain event log (created, feed_linked) — mirrors feeder_event_log for map/create links ---
+_DOMAIN_EVENT_LOG_FIELDS = ["domain_event_id", "action_type", "details", "created_at"]
+_MAPPING_LOG_SOURCES_NEW_DOMAIN = frozenset({"manual_create", "auto_create"})
+
+
+def _append_domain_event_log(domain_event_id: str, action_type: str, details: str | None = None) -> None:
+    """Append one domain-side log row (e.g. feed_linked, created)."""
+    if not DOMAIN_EVENT_LOG_PATH:
+        return
+    deid = (domain_event_id or "").strip()
+    created = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    row = {
+        "domain_event_id": deid,
+        "action_type": (action_type or "").strip(),
+        "details": (details or "").strip(),
+        "created_at": created,
+    }
+    DOMAIN_EVENT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    file_exists = DOMAIN_EVENT_LOG_PATH.exists()
+    with open(DOMAIN_EVENT_LOG_PATH, "a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=_DOMAIN_EVENT_LOG_FIELDS)
+        if not file_exists:
+            w.writeheader()
+        w.writerow(row)
+
+
+def _load_domain_event_log() -> list[dict]:
+    if not DOMAIN_EVENT_LOG_PATH or not DOMAIN_EVENT_LOG_PATH.exists():
+        return []
+    out = []
+    with open(DOMAIN_EVENT_LOG_PATH, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            out.append({k: row.get(k, "") for k in _DOMAIN_EVENT_LOG_FIELDS})
+    return out
+
+
+def _get_domain_event_log_entries(domain_event_id: str) -> list[dict]:
+    """Log rows for this domain event id, newest first."""
+    did = (domain_event_id or "").strip()
+    rows = [r for r in _load_domain_event_log() if (r.get("domain_event_id") or "").strip() == did]
+    rows.sort(key=lambda r: (r.get("created_at") or ""), reverse=True)
+    return rows
+
+
+def _record_feed_domain_mapping_link(
+    feed_provider: str,
+    feed_valid_id: str,
+    domain_event_id: str,
+    *,
+    source: str,
+) -> None:
+    """Write feeder_event_log + domain_event_log for one new feed↔domain mapping or domain-created-from-feed."""
+    fp = (feed_provider or "").strip()
+    vid = str(feed_valid_id or "").strip()
+    deid = str(domain_event_id or "").strip()
+    src = (source or "").strip()
+    if not fp or not vid or not deid or not src:
+        return
+    detail_feed = f"{deid}|{src}"
+    detail_dom = f"{fp}:{vid}|{src}"
+    if src in _MAPPING_LOG_SOURCES_NEW_DOMAIN:
+        _append_feeder_event_log(fp, vid, "domain_created", details=detail_feed)
+        _append_domain_event_log(deid, "created", details=detail_dom)
+    else:
+        _append_feeder_event_log(fp, vid, "mapped", details=detail_feed)
+        _append_domain_event_log(deid, "feed_linked", details=detail_dom)
 
 
 def _get_event_log_entries(feed_provider: str, feed_valid_id: str) -> list[dict]:
@@ -7889,6 +8029,24 @@ async def event_navigator_notes_modal(request: Request, domain_event_id: str):
     })
 
 
+@app.get("/event-navigator/event-log-modal/{domain_event_id}", response_class=HTMLResponse)
+async def event_navigator_event_log_modal(request: Request, domain_event_id: str):
+    """Modal: domain event log (feed links, domain created from feed, etc.)."""
+    did = domain_event_id.strip()
+    entries = _get_domain_event_log_entries(did)
+    ev = next((e for e in DOMAIN_EVENTS if str(e.get("id")) == did), None)
+    event_label = ""
+    if ev:
+        h, a = (ev.get("home") or "").strip(), (ev.get("away") or "").strip()
+        event_label = f"{h} v {a}" if (h and a) else (h or ev.get("name") or did)
+    return templates.TemplateResponse(request, "event_navigator/modal_domain_event_log.html", {
+        "request": request,
+        "domain_event_id": did,
+        "event_label": event_label,
+        "entries": entries,
+    })
+
+
 @app.post("/api/event-navigator/notes")
 async def api_event_navigator_notes(
     domain_event_id: str = Form(...),
@@ -7965,13 +8123,19 @@ def _render_mapping_modal(request: Request, event_id: str):
     feed_pid = feed_obj["domain_id"] if feed_obj else None
 
     # Pre-resolve entities from entity_feed_mappings (prefer feed IDs then names so we find existing mappings)
-    # Sport: resolve by feed sport_id only (not by sport name)
+    # Sport: resolve by feed sport_id; if missing from mappings, infer from mapped category/competition sport_id.
     r_sport = None
+    domain_sport_id = None
     if feed_pid:
         _sid = event.get("sport_id")
         if _sid not in (None, "") and str(_sid).strip():
             r_sport = _resolve_sport_alias(feed_pid, str(_sid).strip())
-    domain_sport_id = r_sport["domain_id"] if r_sport else None
+        if r_sport:
+            domain_sport_id = r_sport.get("domain_id")
+        if not domain_sport_id:
+            domain_sport_id = _infer_domain_sport_id_from_mapped_entities(event, feed_pid)
+        if domain_sport_id and not r_sport:
+            r_sport = next((s for s in DOMAIN_ENTITIES.get("sports", []) if entity_ids_equal(s.get("domain_id"), domain_sport_id)), None)
     # Category / competition: align with feeder row resolution (raw_league_id, category IDs, COMP:… on category).
     r_category = None
     r_competition = None
@@ -8230,7 +8394,7 @@ async def modal_feeder_event_log(
     valid_id: str,
     feed_provider: str = "",
 ):
-    """Returns the HTML partial for the Feeder Event Log modal (all actions: appeared, mapped, note_added, ignored, unignored)."""
+    """Returns the HTML partial for the Feeder Event Log modal (appeared, mapped, domain_created, notes, ignored, etc.)."""
     feed_provider = (feed_provider or "").strip()
     entries = _get_event_log_entries(feed_provider, valid_id)
     event_label = _feeder_event_label(feed_provider, valid_id)
@@ -9997,6 +10161,12 @@ async def entities_view(
     Sports: sort by name (default asc); sort_sports=asc|desc toggles via Name column header.
     Markets: filter by sport when market_sport_id is set.
     """
+    # Reload from CSV so manual edits to sports / mappings (e.g. in git) show without restarting the app.
+    global DOMAIN_ENTITIES, ENTITY_FEED_MAPPINGS, SPORT_FEED_MAPPINGS
+    DOMAIN_ENTITIES = _load_entities()
+    ENTITY_FEED_MAPPINGS = _load_entity_feed_mappings()
+    SPORT_FEED_MAPPINGS = _load_sport_feed_mappings()
+
     sports_list = list(DOMAIN_ENTITIES["sports"])
     sort_asc = (sort_sports or "asc").strip().lower() != "desc"
     sports_list.sort(key=lambda e: (e.get("name") or "").strip().lower(), reverse=not sort_asc)
@@ -10495,6 +10665,8 @@ async def api_save_feeder_config_row(request: Request):
     setting_key = (body.get("setting_key") or "").strip()
     if setting_key not in _feeder_allowed_setting_keys():
         return JSONResponse({"detail": "unknown setting_key"}, status_code=400)
+    if setting_key in ("auto_create_category", "auto_create_competitions", "auto_create_teams"):
+        return JSONResponse({"detail": "This setting is not available in MVP."}, status_code=400)
     mode = _feeder_setting_ui_mode(setting_key)
     existing = _load_feeder_config()
     was_map = _feeder_config_snapshot_setting(existing, level, sid, cid, comp_id, setting_key)

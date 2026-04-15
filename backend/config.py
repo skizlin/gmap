@@ -137,6 +137,7 @@ FEEDER_IGNORED_EVENTS_PATH = DATA_DIR / "feeder_ignored_events.csv"  # feed_prov
 DATA_AUDIT_DIR = DATA_DIR / "audit"
 DATA_AUDIT_DIR.mkdir(exist_ok=True)
 FEEDER_EVENT_LOG_PATH = DATA_AUDIT_DIR / "feeder_event_log.csv"  # feed_provider, feed_valid_id, action_type, details, created_at
+DOMAIN_EVENT_LOG_PATH = DATA_AUDIT_DIR / "domain_event_log.csv"  # domain_event_id, action_type, details, created_at
 # Append-only: configuration changes by admins (feeder config, incidents, etc.).
 ADMIN_AUDIT_LOG_PATH = DATA_AUDIT_DIR / "admin_audit_log.csv"
 NOTES_PATH = DATA_NOTES_DIR / "platform_notes.csv"  # + created_by, updated_by, requires_confirmation
