@@ -9,7 +9,7 @@
         <span class="bg-gmp-surface-raised text-gmp-text-menu border border-gmp-border px-1.5 py-0.5 rounded">{{ event.feed_provider
             }}</span>
     </td>
-    <!-- Feed ID: same as category when not ignored (text-gmp-text-muted); darker (text-gmp-text-faint) when ignored -->
+    <!-- Feed ID: muted when not ignored; fainter when ignored -->
     <td class="px-3 py-1.5 font-mono {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-muted' }}">
         <span>{{ event.valid_id }}</span>
         {% if event.betradar_id %}
@@ -39,25 +39,28 @@
         —
         {% endif %}
     </td>
-    <!-- Category: native feed field only (e.g. Bwin region); no league-inferred text. "—" + faint when absent. Green when mapped. -->
-    {% set cat_display = event.category or (event.category_id | string) or '' %}
+    <!-- Competition: bwin shows [Category] League; other feeds league only. Filter uses league key. -->
+    {% set fp = (event.feed_provider or '')|lower %}
+    {% set cat_label = (event.category or (event.category_id|string if event.category_id is not none else '') or '') %}
     {% set cat_mapped = event.feed_category_mapped %}
-    <td class="px-3 py-1.5 {{ 'text-gmp-text-faint' if is_ignored else ('text-gmp-text-faint' if not cat_display else ('text-success' if cat_mapped else 'text-gmp-text-muted')) }}">
-        {% if cat_display %}
-        <button type="button" class="feeder-filter-shortcut text-left w-full hover:underline" data-feeder-filter="category" data-feeder-value="{{ cat_display | e }}">{{ event.category or event.category_id or '—' }}</button>
-        {% else %}
-        <span>—</span>
-        {% endif %}
-    </td>
-    <!-- Competition: darker when ignored; green when mapping resolves (id or league name fallback) -->
-    {% set comp_display = event.raw_league_name or (event.raw_league_id | string) or '' %}
+    {% set comp_display = event.raw_league_name or (event.raw_league_id|string if event.raw_league_id is not none else '') or '' %}
     {% set comp_mapped = event.feed_competition_mapped %}
-    <td class="px-3 py-1.5 max-w-[150px] truncate {{ 'text-gmp-text-faint' if is_ignored else ('text-success' if comp_mapped else 'text-gmp-text-menu') }}"
-        title="{{ event.raw_league_name or '—' }}">
+    {% set league_cell = (event.raw_league_name or (event.raw_league_id|string if event.raw_league_id is not none else '') or '') %}
+    {% set merged_ok = fp == 'bwin' and cat_label and league_cell %}
+    {% set merged_mapped = comp_mapped or (merged_ok and cat_mapped) %}
+    {% set comp_title = (('[' ~ cat_label ~ '] ' ~ league_cell) if merged_ok else (event.raw_league_name or '—')) %}
+    <td class="px-3 py-1.5 max-w-[220px] truncate {{ 'text-gmp-text-faint' if is_ignored else ('text-success' if merged_mapped else 'text-gmp-text-menu') }}"
+        title="{{ comp_title | e }}">
         {% if comp_display %}
-        <button type="button" class="feeder-filter-shortcut text-left w-full truncate hover:underline" data-feeder-filter="competition" data-feeder-value="{{ comp_display | e }}">{{ event.raw_league_name or event.raw_league_id or '—' }}</button>
+        <button type="button" class="feeder-filter-shortcut text-left w-full truncate hover:underline" data-feeder-filter="competition" data-feeder-value="{{ (event.feeder_competition_filter_token or comp_display) | e }}">
+            {%- if merged_ok -%}[{{ cat_label }}] {{ league_cell }}{%- else -%}{{ league_cell or '—' }}{%- endif -%}
+        </button>
+        {% else %}
+        {% if merged_ok %}
+        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if merged_mapped else 'text-gmp-text-menu') }}">[{{ cat_label }}]</span>
         {% else %}
         —
+        {% endif %}
         {% endif %}
     </td>
     <!-- Event (Home vs Away): darker when ignored -->
@@ -80,7 +83,7 @@
     </td>
     <!-- Status (time_status from feed: code → description; if feed does not return status, show —) -->
     <td class="px-3 py-1.5 {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-muted' }}">{{ event.time_status | time_status_description }}</td>
-    <!-- #MKT: same as category when not ignored (text-gmp-text-muted); darker when ignored -->
+    <!-- #MKT -->
     <td class="px-3 py-1.5 text-center font-mono {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-muted' }}">{{ event.markets_count if event.markets_count is not none else '—' }}</td>
     <!-- Notes: icon when event has a note -->
     {% set note_key = ((event.feed_provider or '') | string, (event.valid_id or '') | string) %}
@@ -139,6 +142,6 @@
 </tr>
 {% else %}
 <tr>
-    <td colspan="12" class="px-3 py-8 text-center text-gmp-text-faint">No events found for this feed.</td>
+    <td colspan="11" class="px-3 py-8 text-center text-gmp-text-faint">No events found for this feed.</td>
 </tr>
 {% endfor %}

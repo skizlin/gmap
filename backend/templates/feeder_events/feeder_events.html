@@ -67,8 +67,8 @@
         <div class="relative">
             <select id="feed-filter" name="feed_provider"                 hx-get="/feeder-events/table" hx-target="#feeder-events-body"
                 hx-swap="innerHTML" hx-trigger="change"
-                hx-include="#feed-filter,[name='date'],[name='date_from'],[name='date_to'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']"
-                onchange="document.getElementById('feeder-page-input').value = '1';"
+                hx-include="#feed-filter,[name='date'],[name='date_from'],[name='date_to'],[name='mapping_status_filter'],[name='sport'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']"
+                onchange="var fs=document.getElementById('feeder-sport-select'); if(fs) fs.value=''; document.getElementById('feeder-page-input').value = '1';"
                 class="bg-gmp-surface text-gmp-text-heading text-xs rounded border border-secondary/60 px-3 py-1.5 pr-7 appearance-none ring-1 ring-secondary/30">
                 {% for feed in feeds %}
                 <option value="{{ feed }}" {% if feed==selected_feed %}selected{% endif %}>{{ feed }}</option>
@@ -79,88 +79,21 @@
             </div>
         </div>
 
-        <!-- 3. Multi-Select Sport Filter -->
-        <div id="sport-hidden-inputs">
-            {% for sport in selected_sports %}
-            <input type="hidden" name="sports" value="{{ sport }}">
-            {% endfor %}
-        </div>
-        <div class="relative" id="sport-dropdown-wrap">
-            <button type="button" id="sport-trigger" onclick="toggleSportDropdown()"
-                class="flex items-center gap-2 bg-gmp-surface text-gmp-text-heading text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors">
-                <i class="fa-solid fa-futbol text-gmp-text-menu dark:text-gmp-text-muted text-[10px]"></i>
-                <span id="sport-label">
-                    {% if selected_sports | length == sports | length %}All Sports
-                    {% elif selected_sports | length == 0 %}No Sport
-                    {% elif selected_sports | length == 1 %}{{ selected_sports[0] }}
-                    {% else %}{{ selected_sports | length }} Sports
-                    {% endif %}
-                </span>
-                <i class="fa-solid fa-chevron-down text-gmp-text-menu dark:text-gmp-text-muted text-[10px] ml-auto"></i>
-            </button>
-            <div id="sport-panel"
-                class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl w-52 py-1">
-                <div class="flex items-center justify-between px-3 py-1.5 border-b border-gmp-border mb-1">
-                    <span class="text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold">Sport</span>
-                    <button type="button" id="sport-all-btn" onclick="selectAllSports()"
-                        class="text-[10px] text-secondary hover:text-info font-medium">Select All</button>
-                </div>
-                <div id="sport-checkboxes-container" hx-get="/feeder-events/sport-options"
-                    hx-trigger="change from:#feed-filter" hx-include="[name='feed_provider']" hx-swap="innerHTML">
-                    {% for sport in sports %}
-                    <label
-                        class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors">
-                        <input type="checkbox" value="{{ sport }}" {% if sport in selected_sports %}checked{% endif %}
-                            onchange="onSportChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
-                        <span class="text-xs text-gmp-text-menu">{{ sport }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
+        <!-- 3. Sport filter (single select: all sports or one) -->
+        <div class="relative inline-block">
+            <div id="feeder-sport-select-wrap"
+                hx-get="/feeder-events/sport-options"
+                hx-trigger="change from:#feed-filter"
+                hx-include="[name='feed_provider']"
+                hx-swap="innerHTML">
+                {% include "feeder_events/_sport_select.html" %}
+            </div>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-secondary">
+                <i class="fa-solid fa-chevron-down text-xs"></i>
             </div>
         </div>
 
-        <!-- 4. Category multi-select (only after sport) -->
-        <div id="feeder-category-hidden-inputs">
-            {% for cat in selected_categories %}
-            <input type="hidden" name="categories" value="{{ cat | e }}">
-            {% endfor %}
-        </div>
-        <div class="relative" id="feeder-category-dropdown-wrap">
-            <button type="button" id="feeder-category-trigger" onclick="toggleFeederCategoryDropdown()"
-                class="flex items-center gap-2 bg-gmp-surface text-gmp-text-heading text-xs rounded border border-gmp-border px-3 py-1.5 min-w-[130px] hover:border-gmp-border transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                {% if not selected_sports %}disabled{% endif %}
-                title="{% if not selected_sports %}Select sport first{% endif %}">
-                <i class="fa-solid fa-globe text-gmp-text-menu dark:text-gmp-text-muted text-[10px]"></i>
-                <span id="feeder-category-label">
-                    {% if not selected_categories %}All Categories
-                    {% elif selected_categories | length == 1 %}{{ selected_categories[0] }}
-                    {% else %}{{ selected_categories | length }} Categories
-                    {% endif %}
-                </span>
-                <i class="fa-solid fa-chevron-down text-gmp-text-menu dark:text-gmp-text-muted text-[10px] ml-auto"></i>
-            </button>
-            <div id="feeder-category-panel"
-                class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl w-52 py-1 max-h-[280px] overflow-y-auto">
-                <div id="feeder-category-checkboxes-container"
-                    hx-get="/feeder-events/category-options"
-                    hx-trigger="load, feederCategoriesRefresh from:body"
-                    hx-include="[name='feed_provider'],[name='sports'],[name='categories']"
-                    hx-swap="innerHTML">
-                    {% for cat in available_categories %}
-                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors">
-                        <input type="checkbox" value="{{ cat | e }}" {% if cat in selected_categories %}checked{% endif %}
-                            onchange="onFeederCategoryChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
-                        <span class="text-xs text-gmp-text-menu">{{ cat }}</span>
-                    </label>
-                    {% endfor %}
-                    {% if not available_categories %}
-                    <p class="text-[10px] text-gmp-text-faint italic px-3 py-2">Select sport first</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- 5. Competition multi-select (always available; options load when sport+category selected) -->
+        <!-- 4. Competition multi-select -->
         <div id="feeder-competition-hidden-inputs">
             {% for comp in selected_competitions %}
             <input type="hidden" name="competitions" value="{{ comp | e }}">
@@ -180,27 +113,27 @@
                 <i class="fa-solid fa-chevron-down text-gmp-text-menu dark:text-gmp-text-muted text-[10px] ml-auto"></i>
             </button>
             <div id="feeder-competition-panel"
-                class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl w-52 py-1 max-h-[280px] overflow-y-auto">
+                class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl min-w-[22rem] w-[min(28rem,calc(100vw-3rem))] max-w-[calc(100vw-2rem)] py-1 max-h-[70vh] overflow-y-auto overflow-x-hidden">
                 <div id="feeder-competition-checkboxes-container"
                     hx-get="/feeder-events/competition-options"
                     hx-trigger="load, feederCompetitionsRefresh from:body"
-                    hx-include="[name='feed_provider'],[name='sports'],[name='categories'],[name='competitions']"
+                    hx-include="[name='feed_provider'],[name='sport'],[name='competitions']"
                     hx-swap="innerHTML">
-                    {% for comp in available_competitions %}
-                    <label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors">
-                        <input type="checkbox" value="{{ comp | e }}" {% if comp in selected_competitions %}checked{% endif %}
-                            onchange="onFeederCompetitionChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
-                        <span class="text-xs text-gmp-text-menu">{{ comp }}</span>
+                    {% for opt in competition_filter_options %}
+                    <label class="flex items-start gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors w-full max-w-full">
+                        <input type="checkbox" value="{{ opt.value | e }}" {% if opt.value in selected_competitions %}checked{% endif %}
+                            onchange="onFeederCompetitionChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5 shrink-0 mt-0.5">
+                        <span class="text-xs text-gmp-text-menu leading-snug flex-1 min-w-0">{{ opt.label }}</span>
                     </label>
                     {% endfor %}
-                    {% if not available_competitions %}
-                    <p class="text-[10px] text-gmp-text-faint italic px-3 py-2">Select sport and category first</p>
+                    {% if not competition_filter_options %}
+                    <p class="text-[10px] text-gmp-text-faint italic px-3 py-2">No competitions</p>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- 6. Status multi-select (feed event status) -->
+        <!-- 5. Status multi-select (feed event status) -->
         <div id="feeder-status-hidden-inputs">
             {% for st in selected_statuses %}
             <input type="hidden" name="statuses" value="{{ st | e }}">
@@ -231,14 +164,14 @@
             </div>
         </div>
 
-        <!-- 7. Live match status (pre-match vs live) – icon toggle, default off = show all -->
+        <!-- 6. Live match status (pre-match vs live) – icon toggle, default off = show all -->
         <input type="hidden" id="live-only-input" name="live_only" value="{{ live_only | default('0') }}">
         <button type="button" id="live-only-btn" onclick="setLiveOnlyFilter(this)" title="Show all (deselected) or live only (selected)"
             class="feeder-filter-icon inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-gmp-border bg-gmp-surface transition-colors hover:border-gmp-border">
             <i id="live-only-icon" class="fa-solid fa-tower-broadcast text-sm {{ 'text-danger' if live_only == '1' else 'text-gmp-text-muted' }}" aria-hidden="true"></i>
         </button>
 
-        <!-- 8. Notes filter – icon toggle, default off = show all; on = only events with notes -->
+        <!-- 7. Notes filter – icon toggle, default off = show all; on = only events with notes -->
         <input type="hidden" id="notes-only-input" name="notes_only" value="{{ notes_only | default('0') }}">
         <button type="button" id="notes-only-btn" onclick="setNotesOnlyFilter(this)" title="Show all (deselected) or only with notes (selected)"
             class="feeder-filter-icon inline-flex items-center justify-center h-7 min-w-[1.75rem] rounded border border-gmp-border bg-gmp-surface transition-colors hover:border-gmp-border">
@@ -260,7 +193,7 @@
 
         <div class="border-l border-gmp-border h-6 mx-1"></div>
 
-        <!-- 7. Mapping status toggle -->
+        <!-- 8. Mapping status toggle -->
         <input type="hidden" id="mapping-status-input" name="mapping_status_filter" value="">
         <div class="flex bg-gmp-surface rounded p-0.5 border border-gmp-border" id="mapping-toggle">
             <button type="button" data-status="UNMAPPED" onclick="setMappingFilter(this)"
@@ -273,13 +206,13 @@
 
         <div class="border-l border-gmp-border h-6 mx-1"></div>
 
-        <!-- 8. Search -->
+        <!-- 9. Search -->
         <div class="flex items-center bg-gmp-surface rounded border border-gmp-border px-2.5 py-1.5 min-w-[200px]">
             <i class="fa-solid fa-search text-gmp-text-muted dark:text-gmp-text-faint mr-2 text-xs"></i>
-            <input type="text" id="search-input" name="q" placeholder="Sport, category, competition, event…"
+            <input type="text" id="search-input" name="q" placeholder="Sport, competition, event…"
                 hx-get="/feeder-events/table" hx-target="#feeder-events-body" hx-swap="innerHTML"
                 hx-trigger="input changed delay:350ms"
-                hx-include="[name='feed_provider'],[name='date'],[name='date_from'],[name='date_to'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='sort_start_time'],[name='page'],[name='per_page']"
+                hx-include="[name='feed_provider'],[name='date'],[name='date_from'],[name='date_to'],[name='mapping_status_filter'],[name='sport'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='sort_start_time'],[name='page'],[name='per_page']"
                 class="bg-transparent border-none text-xs text-gmp-text-heading placeholder-gmp-text-faint focus:ring-0 p-0 w-full">
         </div>
 
@@ -320,7 +253,6 @@
                             </button>
                         </th>
                         <th class="px-3 py-2 font-semibold">Sport</th>
-                        <th class="px-3 py-2 font-semibold">Category</th>
                         <th class="px-3 py-2 font-semibold">Competition</th>
                         <th class="px-3 py-2 font-semibold">Event</th>
                         <th class="px-3 py-2 font-semibold w-20">Status</th>
@@ -331,7 +263,7 @@
                 </thead>
                 <tbody id="feeder-events-body" class="divide-y divide-gmp-border-subtle text-xs dark:divide-gmp-border/40"
                     hx-get="/feeder-events/table" hx-trigger="reload" hx-swap="innerHTML"
-                    hx-include="#feed-filter,[name='date'],[name='date_from'],[name='date_to'],[name='mapping_status_filter'],[name='sports'],[name='categories'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']">
+                    hx-include="#feed-filter,[name='date'],[name='date_from'],[name='date_to'],[name='mapping_status_filter'],[name='sport'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']">
                     {% include 'feeder_events/_rows.html' %}
                 </tbody>
 
@@ -365,22 +297,37 @@
 
 {% block scripts %}
 <script>
-    // ── Sport multi-select ─────────────────────────────────────────
-    function getAllSports() {
-        return [...document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]')]
-            .map(cb => cb.value);
+    // ── Sport (single select: all sports or one) ───────────────────
+    function getFeederSportValue() {
+        const el = document.getElementById('feeder-sport-select');
+        return el ? String(el.value || '').trim() : '';
     }
 
-    function toggleSportDropdown() {
-        document.getElementById('sport-panel').classList.toggle('hidden');
+    var _FEEDER_COMP_TOK_SEP = '\u001f';
+    function feederCompetitionLabelFromToken(v) {
+        if (v === null || v === undefined) return '';
+        var s = String(v);
+        var i = s.indexOf(_FEEDER_COMP_TOK_SEP);
+        if (i < 0) return s;
+        return '[' + s.slice(0, i) + '] ' + s.slice(i + 1);
+    }
+
+    function triggerTableRefresh() {
+        htmx.trigger('#feeder-events-body', 'reload');
+    }
+
+    function onFeederSportSelectChange() {
+        var pageIn = document.getElementById('feeder-page-input');
+        if (pageIn) pageIn.value = '1';
+        clearFeederCompetitionFilters();
+        updateFeederCompetitionButtonState();
+        htmx.trigger(document.body, 'feederCompetitionsRefresh');
+        triggerTableRefresh();
+        updateFeederActiveFilterBadges();
     }
 
     // Close dropdowns when clicking outside
     document.addEventListener('click', function (e) {
-        const sportWrap = document.getElementById('sport-dropdown-wrap');
-        if (sportWrap && !sportWrap.contains(e.target)) document.getElementById('sport-panel').classList.add('hidden');
-        const catWrap = document.getElementById('feeder-category-dropdown-wrap');
-        if (catWrap && !catWrap.contains(e.target)) document.getElementById('feeder-category-panel').classList.add('hidden');
         const compWrap = document.getElementById('feeder-competition-dropdown-wrap');
         if (compWrap && !compWrap.contains(e.target)) document.getElementById('feeder-competition-panel').classList.add('hidden');
         const statusWrap = document.getElementById('feeder-status-dropdown-wrap');
@@ -498,87 +445,6 @@
         });
     });
 
-    function getCheckedSports() {
-        return [...document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]:checked')]
-            .map(cb => cb.value);
-    }
-
-    function updateHiddenInputs(selected) {
-        const container = document.getElementById('sport-hidden-inputs');
-        container.innerHTML = selected.map(s =>
-            `<input type="hidden" name="sports" value="${String(s).replace(/"/g, '&quot;')}">`
-        ).join('');
-    }
-
-    function updateLabel(selected) {
-        const total = getAllSports().length;
-        const label = document.getElementById('sport-label');
-        const allBtn = document.getElementById('sport-all-btn');
-        if (selected.length === 0) {
-            label.textContent = 'No Sport';
-        } else if (selected.length === total) {
-            label.textContent = 'All Sports';
-        } else if (selected.length === 1) {
-            label.textContent = selected[0];
-        } else {
-            label.textContent = selected.length + ' Sports';
-        }
-        allBtn.textContent = selected.length === total ? 'Deselect All' : 'Select All';
-    }
-
-    function triggerTableRefresh() {
-        htmx.trigger('#feeder-events-body', 'reload');
-    }
-
-    function onSportChange() {
-        const selected = getCheckedSports();
-        updateHiddenInputs(selected);
-        updateLabel(selected);
-        updateFeederCategoryButtonState();
-        updateFeederCompetitionButtonState();
-        triggerTableRefresh();
-    }
-
-    // ── Feeder Category multi-select ───────────────────────────────
-    function toggleFeederCategoryDropdown() {
-        document.getElementById('feeder-category-panel').classList.toggle('hidden');
-    }
-
-    function getCheckedFeederCategories() {
-        return [...document.querySelectorAll('#feeder-category-checkboxes-container input[type=checkbox]:checked')]
-            .map(cb => cb.value);
-    }
-
-    function updateFeederCategoryHiddenInputs(selected) {
-        const container = document.getElementById('feeder-category-hidden-inputs');
-        container.innerHTML = selected.map(c =>
-            `<input type="hidden" name="categories" value="${String(c).replace(/"/g, '&quot;')}">`
-        ).join('');
-    }
-
-    function updateFeederCategoryLabel(selected) {
-        const label = document.getElementById('feeder-category-label');
-        if (!label) return;
-        if (selected.length === 0) label.textContent = 'All Categories';
-        else if (selected.length === 1) label.textContent = selected[0];
-        else label.textContent = selected.length + ' Categories';
-    }
-
-    function onFeederCategoryChange() {
-        const selected = getCheckedFeederCategories();
-        updateFeederCategoryHiddenInputs(selected);
-        updateFeederCategoryLabel(selected);
-        updateFeederCompetitionButtonState();
-        triggerTableRefresh();
-        htmx.trigger(document.body, 'feederCompetitionsRefresh');
-    }
-
-    function updateFeederCategoryButtonState() {
-        const sports = getCheckedSports();
-        const btn = document.getElementById('feeder-category-trigger');
-        if (btn) btn.disabled = sports.length === 0;
-    }
-
     // ── Feeder Competition multi-select ───────────────────────────
     function toggleFeederCompetitionDropdown() {
         document.getElementById('feeder-competition-panel').classList.toggle('hidden');
@@ -600,7 +466,7 @@
         const label = document.getElementById('feeder-competition-label');
         if (!label) return;
         if (selected.length === 0) label.textContent = 'All Competitions';
-        else if (selected.length === 1) label.textContent = selected[0];
+        else if (selected.length === 1) label.textContent = feederCompetitionLabelFromToken(selected[0]);
         else label.textContent = selected.length + ' Competitions';
     }
 
@@ -652,49 +518,30 @@
         updateFeederActiveFilterBadges();
     }
 
-    function clearFeederCategoryAndCompetition() {
-        document.getElementById('feeder-category-hidden-inputs').innerHTML = '';
+    function clearFeederCompetitionFilters() {
         document.getElementById('feeder-competition-hidden-inputs').innerHTML = '';
-        const catLabel = document.getElementById('feeder-category-label');
-        if (catLabel) catLabel.textContent = 'All Categories';
         const compLabel = document.getElementById('feeder-competition-label');
         if (compLabel) compLabel.textContent = 'All Competitions';
-        document.querySelectorAll('#feeder-category-checkboxes-container input[type=checkbox]').forEach(cb => { cb.checked = false; });
         document.querySelectorAll('#feeder-competition-checkboxes-container input[type=checkbox]').forEach(cb => { cb.checked = false; });
     }
 
-    function selectAllSports() {
-        const allSports = getAllSports();
-        const checked = getCheckedSports().length === allSports.length;
-        document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]').forEach(cb => {
-            cb.checked = !checked;
-        });
-        onSportChange();
-    }
-
-    // When feed changes and sport checkboxes are refreshed by HTMX,
-    // reset hidden inputs + label to "all sports"; clear category/competition and refresh option panels.
+    // When feed changes, sport options are swapped; reset to all sports and refresh dependent filters.
     document.addEventListener('htmx:afterSettle', function (e) {
-        if (e.target && e.target.id === 'sport-checkboxes-container') {
-            document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]').forEach(cb => {
-                cb.checked = true;
-                cb.addEventListener('change', onSportChange);
-            });
-            const selected = getCheckedSports();
-            updateHiddenInputs(selected);
-            updateLabel(selected);
-            clearFeederCategoryAndCompetition();
-            htmx.trigger(document.body, 'feederCategoriesRefresh');
+        const sportSwapTgt = e.detail && e.detail.target ? e.detail.target : e.target;
+        if (sportSwapTgt && sportSwapTgt.id === 'feeder-sport-select-wrap') {
+            const sel = document.getElementById('feeder-sport-select');
+            if (sel) sel.value = '';
+            clearFeederCompetitionFilters();
             htmx.trigger(document.body, 'feederCompetitionsRefresh');
-            updateFeederCategoryButtonState();
             updateFeederCompetitionButtonState();
+            updateFeederActiveFilterBadges();
         }
         if (e.detail && e.detail.target && e.detail.target.id === 'feeder-events-body') {
             updateFeederActiveFilterBadges();
         }
     });
 
-    // ── Click-to-filter (click sport/category/competition in table) ──
+    // ── Click-to-filter (sport / competition in table) ──
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.feeder-filter-shortcut');
         if (!btn) return;
@@ -706,24 +553,11 @@
 
     function applyFeederFilterShortcut(type, value) {
         if (type === 'sport') {
-            updateHiddenInputs([value]);
-            updateLabel([value]);
-            document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]').forEach(cb => {
-                cb.checked = (cb.value === value);
-            });
-            clearFeederCategoryAndCompetition();
-            htmx.trigger(document.body, 'feederCategoriesRefresh');
-            htmx.trigger(document.body, 'feederCompetitionsRefresh');
-        } else if (type === 'category') {
-            updateFeederCategoryHiddenInputs([value]);
-            updateFeederCategoryLabel([value]);
-            document.querySelectorAll('#feeder-category-checkboxes-container input[type=checkbox]').forEach(cb => {
-                cb.checked = (cb.value === value);
-            });
-            document.getElementById('feeder-competition-hidden-inputs').innerHTML = '';
-            const compLabel = document.getElementById('feeder-competition-label');
-            if (compLabel) compLabel.textContent = 'All Competitions';
-            document.querySelectorAll('#feeder-competition-checkboxes-container input[type=checkbox]').forEach(cb => { cb.checked = false; });
+            const sel = document.getElementById('feeder-sport-select');
+            if (sel) sel.value = value;
+            var pageIn = document.getElementById('feeder-page-input');
+            if (pageIn) pageIn.value = '1';
+            clearFeederCompetitionFilters();
             htmx.trigger(document.body, 'feederCompetitionsRefresh');
         } else if (type === 'competition') {
             updateFeederCompetitionHiddenInputs([value]);
@@ -732,16 +566,12 @@
                 cb.checked = (cb.value === value);
             });
         }
-        updateFeederCategoryButtonState();
         updateFeederCompetitionButtonState();
         triggerTableRefresh();
         updateFeederActiveFilterBadges();
     }
 
     // ── Active filter badges (use hidden inputs so chips show when filter set by table click) ──
-    function getFeederCategoriesFromHiddenInputs() {
-        return [...document.querySelectorAll('#feeder-category-hidden-inputs input[name="categories"]')].map(i => i.value);
-    }
     function getFeederCompetitionsFromHiddenInputs() {
         return [...document.querySelectorAll('#feeder-competition-hidden-inputs input[name="competitions"]')].map(i => i.value);
     }
@@ -752,20 +582,14 @@
     function updateFeederActiveFilterBadges() {
         const container = document.getElementById('feeder-active-filters');
         if (!container) return;
-        const sports = getCheckedSports();
-        const allSports = getAllSports();
-        const categories = getFeederCategoriesFromHiddenInputs();
+        const oneSport = getFeederSportValue();
         const competitions = getFeederCompetitionsFromHiddenInputs();
         const statuses = getFeederStatusesFromHiddenInputs();
         const searchEl = document.getElementById('search-input');
         const q = searchEl ? searchEl.value.trim() : '';
         const badges = [];
-        // Chips only for multiselect dropdowns (and search); toggles (Outright, Mapping status) stay visible on the bar only
-        if (sports.length > 0 && sports.length < allSports.length) {
-            sports.forEach(s => badges.push({ type: 'sport', label: 'Sport: ' + s, value: s }));
-        }
-        categories.forEach(c => badges.push({ type: 'category', label: 'Category: ' + c, value: c }));
-        competitions.forEach(c => badges.push({ type: 'competition', label: 'Competition: ' + c, value: c }));
+        if (oneSport) badges.push({ type: 'sport', label: 'Sport: ' + oneSport, value: oneSport });
+        competitions.forEach(c => badges.push({ type: 'competition', label: 'Competition: ' + feederCompetitionLabelFromToken(c), value: c }));
         statuses.forEach(s => badges.push({ type: 'status', label: 'Status: ' + s, value: s }));
         if (q) badges.push({ type: 'search', label: 'Search: "' + q + '"', value: q });
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -791,12 +615,9 @@
     }
 
     function clearAllFeederFilters() {
-        const allSports = getAllSports();
-        updateHiddenInputs(allSports);
-        updateLabel(allSports);
-        document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]').forEach(cb => { cb.checked = true; });
-        clearFeederCategoryAndCompetition();
-        htmx.trigger(document.body, 'feederCategoriesRefresh');
+        const sel = document.getElementById('feeder-sport-select');
+        if (sel) sel.value = '';
+        clearFeederCompetitionFilters();
         htmx.trigger(document.body, 'feederCompetitionsRefresh');
         document.getElementById('feeder-status-hidden-inputs').innerHTML = '';
         document.getElementById('feeder-status-label').textContent = 'All Statuses';
@@ -824,7 +645,6 @@
         if (notesInput) notesInput.value = '0';
         var notesIcon = document.getElementById('notes-only-icon');
         if (notesIcon) { notesIcon.classList.add('text-gmp-text-muted'); notesIcon.classList.remove('text-warning'); }
-        updateFeederCategoryButtonState();
         updateFeederCompetitionButtonState();
         triggerTableRefresh();
         updateFeederActiveFilterBadges();
@@ -832,19 +652,9 @@
 
     function removeFeederFilterBadge(type, value) {
         if (type === 'sport') {
-            document.querySelectorAll('#sport-checkboxes-container input[type=checkbox]').forEach(cb => {
-                if (cb.value === value) cb.checked = false;
-            });
-            onSportChange();
-        } else if (type === 'category') {
-            document.querySelectorAll('#feeder-category-checkboxes-container input[type=checkbox]').forEach(cb => {
-                if (cb.value === value) cb.checked = false;
-            });
-            const remaining = getFeederCategoriesFromHiddenInputs().filter(v => v !== value);
-            updateFeederCategoryHiddenInputs(remaining);
-            updateFeederCategoryLabel(remaining);
+            const sel = document.getElementById('feeder-sport-select');
+            if (sel) sel.value = '';
             triggerTableRefresh();
-            htmx.trigger(document.body, 'feederCompetitionsRefresh');
         } else if (type === 'competition') {
             document.querySelectorAll('#feeder-competition-checkboxes-container input[type=checkbox]').forEach(cb => {
                 if (cb.value === value) cb.checked = false;
@@ -886,7 +696,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        updateFeederCategoryButtonState();
         updateFeederCompetitionButtonState();
         updateFeederActiveFilterBadges();
     });

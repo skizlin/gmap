@@ -1,10 +1,10 @@
-{% for comp in competitions %}
-<label class="flex items-center gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors">
-    <input type="checkbox" value="{{ comp | e }}" {% if comp in selected_competitions %}checked{% endif %}
-        onchange="onFeederCompetitionChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5">
-    <span class="text-xs text-gmp-text-menu">{{ comp }}</span>
+{% for opt in competition_filter_options %}
+<label class="flex items-start gap-2.5 px-3 py-1.5 hover:bg-gmp-hover/10 cursor-pointer transition-colors w-full max-w-full">
+    <input type="checkbox" value="{{ opt.value | e }}" {% if opt.value in selected_competitions %}checked{% endif %}
+        onchange="onFeederCompetitionChange()" class="accent-secondary rounded border-gmp-border w-3.5 h-3.5 shrink-0 mt-0.5">
+    <span class="text-xs text-gmp-text-menu leading-snug flex-1 min-w-0">{{ opt.label }}</span>
 </label>
 {% endfor %}
-{% if not competitions %}
-<p class="text-[10px] text-gmp-text-faint italic px-3 py-2">Select sport and category first</p>
+{% if not competition_filter_options %}
+<p class="text-[10px] text-gmp-text-faint italic px-3 py-2">No competitions</p>
 {% endif %}

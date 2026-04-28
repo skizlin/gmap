@@ -4568,6 +4568,7 @@ def _feeder_events_attach_row_mapping_flags(page_events: list[dict], selected_fe
         e["feed_competition_mapped"] = _feeder_event_feed_competition_mapped(e, selected_feed_pid)
         e["feed_home_team_mapped"] = _feeder_event_team_side_mapped(e, "home", selected_feed_pid)
         e["feed_away_team_mapped"] = _feeder_event_team_side_mapped(e, "away", selected_feed_pid)
+        e["feeder_competition_filter_token"] = _feeder_competition_filter_token_for_event(e)
 
 
 def _fuzzy_score(a: str, b: str) -> int:
@@ -6884,32 +6885,71 @@ def _feeder_competition_key(e: dict) -> str:
     return (e.get("raw_league_name") or str(e.get("raw_league_id") or "")).strip()
 
 
-def _feeder_categories(feed: str, sports: list[str] | None) -> list[str]:
-    """Unique category values from feeder events for the given feed and sports. Empty if no sports."""
+# Bwin competition filter tokens are "category\x1fcompetition" so region + league stay unique in the UI.
+_FEEDER_COMP_FILTER_SEP = "\x1f"
+
+
+def _feeder_competition_filter_token_for_event(e: dict) -> str:
+    """Value submitted for competition multiselect (composite for bwin when category exists)."""
+    feed_l = (e.get("feed_provider") or "").strip().lower()
+    comp = _feeder_competition_key(e)
+    if not comp:
+        return ""
+    if feed_l == "bwin":
+        cat = _feeder_category_key(e)
+        if cat:
+            return f"{cat}{_FEEDER_COMP_FILTER_SEP}{comp}"
+    return comp
+
+
+def _feeder_competition_filter_label_for_event(e: dict) -> str:
+    """Dropdown / chip label; bwin uses [Category] Competition when category exists."""
+    feed_l = (e.get("feed_provider") or "").strip().lower()
+    comp = _feeder_competition_key(e)
+    if not comp:
+        return "—"
+    if feed_l == "bwin":
+        cat = _feeder_category_key(e)
+        if cat:
+            return f"[{cat}] {comp}"
+    return comp
+
+
+def _feeder_competition_filter_options(feed: str, sports: list[str] | None) -> list[dict[str, str]]:
+    """Competition filter rows: {value, label}, sorted by category then competition (case-insensitive)."""
     if not sports:
         return []
+    feed_l = (feed or "").strip().lower()
     sport_set = set(sports)
-    return sorted({
-        _feeder_category_key(e)
-        for e in DUMMY_EVENTS
-        if e.get("feed_provider") == feed and e.get("sport") in sport_set and _feeder_category_key(e)
-    })
+    rows: list[tuple[tuple[str, str], str, str]] = []
+    seen: set[str] = set()
+    for e in DUMMY_EVENTS:
+        if (e.get("feed_provider") or "").strip().lower() != feed_l or e.get("sport") not in sport_set:
+            continue
+        tok = _feeder_competition_filter_token_for_event(e)
+        if not tok or tok in seen:
+            continue
+        seen.add(tok)
+        comp = _feeder_competition_key(e)
+        cat = (_feeder_category_key(e) if feed_l == "bwin" else "") or ""
+        lbl = _feeder_competition_filter_label_for_event(e)
+        rows.append(((cat.lower(), comp.lower()), tok, lbl))
+    rows.sort(key=lambda r: r[0])
+    return [{"value": r[1], "label": r[2]} for r in rows]
 
 
-def _feeder_competitions(feed: str, sports: list[str] | None, categories: list[str] | None) -> list[str]:
-    """Unique competition values from feeder events for given feed, sports, and categories."""
-    if not sports or not categories:
-        return []
-    sport_set = set(sports)
-    cat_set = set(categories)
-    return sorted({
-        _feeder_competition_key(e)
-        for e in DUMMY_EVENTS
-        if e.get("feed_provider") == feed
-        and e.get("sport") in sport_set
-        and _feeder_category_key(e) in cat_set
-        and _feeder_competition_key(e)
-    })
+def _feeder_event_matches_selected_competitions(e: dict, selected: list[str]) -> bool:
+    """True if event matches multiselect: composite tokens, or legacy plain league keys when none composite."""
+    if not selected:
+        return True
+    sel = {str(s).strip() for s in selected if str(s).strip()}
+    tok = _feeder_competition_filter_token_for_event(e)
+    if tok in sel:
+        return True
+    if any(_FEEDER_COMP_FILTER_SEP in s for s in sel):
+        return False
+    comp = _feeder_competition_key(e)
+    return bool(comp and comp in sel)
 
 
 # time_status: codes from feed_time_statuses.csv; display description. If feed does not return status, show "—".
@@ -7356,6 +7396,27 @@ def _ensure_appeared_batch(events: list[dict]) -> None:
         _append_feeder_event_log(p, v, "appeared")
 
 
+def _feeder_feed_sports_live(selected_feed: str) -> list[str]:
+    """Sport names offered for feeder-events filters for this feed (CSV + events + defaults)."""
+    sf = (selected_feed or KNOWN_FEEDS[0]).strip().lower()
+    events_for_feed = [e for e in DUMMY_EVENTS if (e.get("feed_provider") or "").strip().lower() == sf]
+    csv_sports = _get_sports_for_feed(sf, events_for_feed) or []
+    event_sports = sorted({e.get("sport") for e in events_for_feed if e.get("sport")})
+    feed_sports = sorted(set(csv_sports + event_sports)) if (csv_sports or event_sports) else SPORTS_BY_FEED.get(sf, KNOWN_SPORTS)
+    if not feed_sports:
+        feed_sports = SPORTS_BY_FEED.get(sf, KNOWN_SPORTS)
+    return feed_sports
+
+
+def _feeder_sport_scope(sport_param: str | None, feed_sports: list[str]) -> list[str]:
+    """Filter scope: one sport when valid; otherwise full list (all sports)."""
+    s = (sport_param or "").strip()
+    fs = list(feed_sports) if feed_sports else []
+    if not s or not fs or s not in set(fs):
+        return fs
+    return [s]
+
+
 @app.get("/feeder-events", response_class=HTMLResponse)
 async def feeder_events_view(
     request: Request,
@@ -7363,8 +7424,7 @@ async def feeder_events_view(
     date: str = None,
     date_from: str = None,
     date_to: str = None,
-    sports: List[str] = Query(default=None),
-    categories: List[str] = Query(default=None),
+    sport: str = None,
     competitions: List[str] = Query(default=None),
     statuses: List[str] = Query(default=None),
     live_only: str = "0",
@@ -7374,12 +7434,11 @@ async def feeder_events_view(
     _enrich_feed_events_sport_names()
     selected_feed = (feed_provider or KNOWN_FEEDS[0]).strip().lower()
     selected_feed_pid = next((f["domain_id"] for f in FEEDS if (f.get("code") or "").strip().lower() == selected_feed), None)
-    events_for_feed = [e for e in DUMMY_EVENTS if (e.get("feed_provider") or "").strip().lower() == selected_feed]
-    csv_sports = _get_sports_for_feed(selected_feed, events_for_feed) or []
-    event_sports = sorted({e.get("sport") for e in events_for_feed if e.get("sport")})
-    feed_sports_live = sorted(set(csv_sports + event_sports)) if (csv_sports or event_sports) else SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
-    selected_sports = sports if sports else feed_sports_live
-    selected_categories = categories or []
+    feed_sports_live = _feeder_feed_sports_live(selected_feed)
+    selected_sport = (sport or "").strip()
+    if selected_sport and selected_sport not in set(feed_sports_live):
+        selected_sport = ""
+    selected_sports = _feeder_sport_scope(selected_sport or None, feed_sports_live)
     selected_competitions = competitions or []
     selected_statuses = statuses or []
     live_only_active = (live_only or "").strip() in ("1", "true", "yes")
@@ -7389,10 +7448,8 @@ async def feeder_events_view(
         if (e.get("feed_provider") or "").strip().lower() == selected_feed
         and e.get("sport") in selected_sports
     ]
-    if selected_categories:
-        filtered = [e for e in filtered if _feeder_category_key(e) in selected_categories]
     if selected_competitions:
-        filtered = [e for e in filtered if _feeder_competition_key(e) in selected_competitions]
+        filtered = [e for e in filtered if _feeder_event_matches_selected_competitions(e, selected_competitions)]
     if selected_statuses:
         status_set = set(selected_statuses)
         filtered = [e for e in filtered if str(e.get("time_status") or "") in status_set]
@@ -7426,8 +7483,7 @@ async def feeder_events_view(
         r = _resolve_sport_alias(selected_feed_pid, e.get("sport_id")) if selected_feed_pid else None
         e["domain_sport_id"] = r["domain_id"] if r else None
     _feeder_events_attach_row_mapping_flags(page_events, selected_feed_pid)
-    available_categories = _feeder_categories(selected_feed, selected_sports)
-    available_competitions = _feeder_competitions(selected_feed, selected_sports, selected_categories if selected_categories else None)
+    competition_filter_options = _feeder_competition_filter_options(selected_feed, selected_sports)
     _mk = lambda etype: {(m["feed_provider_id"], mapping_feed_id_key(m.get("feed_id"))) for m in ENTITY_FEED_MAPPINGS if m["entity_type"] == etype}
     _mk_sport = lambda: {(m["feed_provider_id"], _normalize_sport_feed_id(m.get("feed_id"))) for m in ENTITY_FEED_MAPPINGS if m.get("entity_type") == "sports"}
     mapped_sport_feed_ids = _mk_sport()
@@ -7441,10 +7497,8 @@ async def feeder_events_view(
         "selected_feed": selected_feed,
         "selected_feed_pid": selected_feed_pid,
         "sports": feed_sports_live,
-        "selected_sports": selected_sports,
-        "available_categories": available_categories,
-        "selected_categories": selected_categories,
-        "available_competitions": available_competitions,
+        "selected_sport": selected_sport,
+        "competition_filter_options": competition_filter_options,
         "selected_competitions": selected_competitions,
         "available_statuses": FEEDER_TIME_STATUS_OPTIONS,
         "selected_statuses": selected_statuses,
@@ -7467,18 +7521,20 @@ async def feeder_events_view(
     })
 
 @app.get("/feeder-events/sport-options", response_class=HTMLResponse)
-async def feeder_events_sport_options(request: Request, feed_provider: str = None):
+async def feeder_events_sport_options(request: Request, feed_provider: str = None, sport: str = ""):
     """
-    HTMX Endpoint: Returns sport checkboxes (all checked) for the given feed.
-    Called when the feed filter changes so the sport list updates.
+    HTMX: single-select sport options for the current feed (All sports + one option per sport).
     """
     _enrich_feed_events_sport_names()
-    selected_feed = feed_provider or KNOWN_FEEDS[0]
-    events_for_feed = [e for e in DUMMY_EVENTS if e.get("feed_provider") == selected_feed]
-    feed_sports = _get_sports_for_feed(selected_feed, events_for_feed) or SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
-    return templates.TemplateResponse(request, "feeder_events/_sport_checkboxes.html", {
+    selected_feed = (feed_provider or KNOWN_FEEDS[0]).strip().lower()
+    feed_sports = _feeder_feed_sports_live(selected_feed)
+    sel = (sport or "").strip()
+    if sel and sel not in set(feed_sports):
+        sel = ""
+    return templates.TemplateResponse(request, "feeder_events/_sport_select.html", {
         "request": request,
-        "sports": feed_sports
+        "sports": feed_sports,
+        "selected_sport": sel,
     })
 
 FEEDER_EVENTS_PER_PAGE = 50
@@ -7495,8 +7551,7 @@ async def feeder_events_table(
     mapping_status_filter: str = "",
     outright_filter: str = "",
     q: str = "",
-    sports: List[str] = Query(default=None),
-    categories: List[str] = Query(default=None),
+    sport: str = None,
     competitions: List[str] = Query(default=None),
     statuses: List[str] = Query(default=None),
     live_only: str = "0",
@@ -7512,19 +7567,8 @@ async def feeder_events_table(
     _sync_feeder_events_mapping_status()
     _enrich_feed_events_sport_names()
     selected_feed = (feed_provider or KNOWN_FEEDS[0]).strip().lower()
-    events_for_feed = [e for e in DUMMY_EVENTS if (e.get("feed_provider") or "").strip().lower() == selected_feed]
-    csv_sports = _get_sports_for_feed(selected_feed, events_for_feed) or []
-    event_sports = sorted({e.get("sport") for e in events_for_feed if e.get("sport")})
-    feed_sports = sorted(set(csv_sports + event_sports)) if (csv_sports or event_sports) else SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
-    if not feed_sports:
-        feed_sports = SPORTS_BY_FEED.get(selected_feed, KNOWN_SPORTS)
-    requested_set = set(sports or [])
-    feed_set = set(feed_sports)
-    overlap = requested_set & feed_set
-    if not requested_set or (requested_set - feed_set):
-        active_sports = feed_sports
-    else:
-        active_sports = sorted(overlap) if overlap else feed_sports
+    feed_sports = _feeder_feed_sports_live(selected_feed)
+    active_sports = _feeder_sport_scope(sport, feed_sports)
     q_lower = q.strip().lower()
     notes_only_on = (notes_only or "").strip() in ("1", "true", "yes")
     has_notes_set = _feeder_notes_has_set() if notes_only_on else None
@@ -7535,9 +7579,7 @@ async def feeder_events_table(
             continue
         if e.get("sport") not in active_sports:
             continue
-        if categories and _feeder_category_key(e) not in categories:
-            continue
-        if competitions and _feeder_competition_key(e) not in competitions:
+        if competitions and not _feeder_event_matches_selected_competitions(e, competitions):
             continue
         if statuses and str(e.get("time_status") or "") not in statuses:
             continue
@@ -7620,39 +7662,22 @@ async def feeder_events_table(
     return response
 
 
-@app.get("/feeder-events/category-options", response_class=HTMLResponse)
-async def feeder_events_category_options(
-    request: Request,
-    feed_provider: str = None,
-    sports: List[str] = Query(default=None),
-    categories: List[str] = Query(default=None),
-):
-    """HTMX: Category checkboxes for feeder events filter. Only categories for the given feed and sports."""
-    feed = feed_provider or KNOWN_FEEDS[0]
-    cat_list = _feeder_categories(feed, sports) if sports else []
-    selected = categories or []
-    return templates.TemplateResponse(request, "feeder_events/_category_checkboxes.html", {
-        "request": request,
-        "categories": cat_list,
-        "selected_categories": selected,
-    })
-
-
 @app.get("/feeder-events/competition-options", response_class=HTMLResponse)
 async def feeder_events_competition_options(
     request: Request,
     feed_provider: str = None,
-    sports: List[str] = Query(default=None),
-    categories: List[str] = Query(default=None),
+    sport: str = "",
     competitions: List[str] = Query(default=None),
 ):
-    """HTMX: Competition checkboxes for feeder events filter. Only competitions for given feed, sports, and categories."""
-    feed = feed_provider or KNOWN_FEEDS[0]
-    comp_list = _feeder_competitions(feed, sports, categories) if (sports and categories) else []
+    """HTMX: Competition checkboxes for feeder events (sport scope; no separate category filter)."""
+    feed = (feed_provider or KNOWN_FEEDS[0]).strip().lower()
+    feed_sports = _feeder_feed_sports_live(feed)
+    sports_scope = _feeder_sport_scope(sport, feed_sports)
+    comp_opts = _feeder_competition_filter_options(feed, sports_scope) if sports_scope else []
     selected = competitions or []
     return templates.TemplateResponse(request, "feeder_events/_competition_checkboxes.html", {
         "request": request,
-        "competitions": comp_list,
+        "competition_filter_options": comp_opts,
         "selected_competitions": selected,
     })
 
