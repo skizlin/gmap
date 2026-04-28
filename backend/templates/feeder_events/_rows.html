@@ -42,22 +42,25 @@
     <!-- Competition: bwin shows [Category] League; other feeds league only. Filter uses league key. -->
     {% set fp = (event.feed_provider or '')|lower %}
     {% set cat_label = (event.category or (event.category_id|string if event.category_id is not none else '') or '') %}
-    {% set cat_mapped = event.feed_category_mapped %}
     {% set comp_display = event.raw_league_name or (event.raw_league_id|string if event.raw_league_id is not none else '') or '' %}
     {% set comp_mapped = event.feed_competition_mapped %}
     {% set league_cell = (event.raw_league_name or (event.raw_league_id|string if event.raw_league_id is not none else '') or '') %}
     {% set merged_ok = fp == 'bwin' and cat_label and league_cell %}
-    {% set merged_mapped = comp_mapped or (merged_ok and cat_mapped) %}
+    {# Competition column: green only when competition is mapped, not when category alone is mapped. #}
     {% set comp_title = (('[' ~ cat_label ~ '] ' ~ league_cell) if merged_ok else (event.raw_league_name or '—')) %}
-    <td class="px-3 py-1.5 max-w-[220px] truncate {{ 'text-gmp-text-faint' if is_ignored else ('text-success' if merged_mapped else 'text-gmp-text-menu') }}"
+    <td class="px-3 py-1.5 max-w-[220px] truncate {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-menu' }}"
         title="{{ comp_title | e }}">
         {% if comp_display %}
-        <button type="button" class="feeder-filter-shortcut text-left w-full truncate hover:underline" data-feeder-filter="competition" data-feeder-value="{{ (event.feeder_competition_filter_token or comp_display) | e }}">
-            {%- if merged_ok -%}[{{ cat_label }}] {{ league_cell }}{%- else -%}{{ league_cell or '—' }}{%- endif -%}
+        <button type="button" class="feeder-filter-shortcut text-left w-full truncate hover:underline {{ 'text-gmp-text-faint' if is_ignored else '' }}" data-feeder-filter="competition" data-feeder-value="{{ (event.feeder_competition_filter_token or comp_display) | e }}">
+            {%- if merged_ok -%}
+            <span class="{{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-muted dark:text-gmp-text-faint' }}">[{{ cat_label }}]</span><span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if comp_mapped else 'text-gmp-text-menu') }}"> {{ league_cell }}</span>
+            {%- else -%}
+            <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if comp_mapped else 'text-gmp-text-menu') }}">{{ league_cell or '—' }}</span>
+            {%- endif -%}
         </button>
         {% else %}
         {% if merged_ok %}
-        <span class="{{ 'text-gmp-text-faint' if is_ignored else ('text-success' if merged_mapped else 'text-gmp-text-menu') }}">[{{ cat_label }}]</span>
+        <span class="{{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-muted dark:text-gmp-text-faint' }}">[{{ cat_label }}]</span>
         {% else %}
         —
         {% endif %}

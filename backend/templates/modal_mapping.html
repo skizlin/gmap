@@ -406,8 +406,10 @@
                 <i class="fa-solid fa-magnifying-glass mr-1"></i> Find Existing Domain Event
             </span>
             <div class="relative flex-1 max-w-sm">
+                <input type="hidden" id="domain-search-sport-id" name="sport_id" value="{{ mapping_domain_sport_id }}">
                 <input type="text" id="domain-search" name="q" hx-get="/api/search-domain-events"
                     hx-trigger="input changed delay:350ms" hx-target="#search-results"
+                    hx-include="#domain-search-sport-id"
                     class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-3 py-1.5 pl-7 text-xs text-gmp-text-heading placeholder-gmp-text-faint focus:border-primary outline-none"
                     placeholder="Search domain events…" value="">
                 <i class="fa-solid fa-search absolute left-2.5 top-2 text-gmp-text-faint text-[10px]"></i>
@@ -455,8 +457,13 @@
             </div>
             {% endfor %}
             {% else %}
+            {% if event.is_outright %}
+            {% set fallback_q = (event.market_name or '')|trim %}
+            {% else %}
+            {% set fallback_q = ((event.raw_home_name or '') ~ ' ' ~ (event.raw_away_name or '') ~ ' ' ~ (event.raw_league_name or ''))|trim %}
+            {% endif %}
             <div hx-get="/api/search-domain-events" hx-trigger="load" hx-swap="innerHTML"
-                hx-vals='{"q": "{% if event.is_outright %}{{ event.market_name or '' }}{% else %}{{ event.raw_home_name or '' }}{% endif %}"}'
+                hx-vals='{{ {"q": fallback_q, "sport_id": mapping_domain_sport_id or ""} | tojson }}'
                 class="contents">
                 <span class="text-[10px] text-gmp-text-faint italic self-center">Searching…</span>
             </div>

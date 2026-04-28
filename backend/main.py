@@ -2452,6 +2452,17 @@ def _load_domain_events() -> list[dict]:
         for row in csv.DictReader(f):
             if "domain_id" not in row or not str(row.get("domain_id", "")).strip():
                 continue
+            # Older files: header omits sport_id/category_id/competition_id but rows append them.
+            # csv.DictReader puts overflow columns in row[None] as a list.
+            rest = row.pop(None, None)
+            tail: list[str] = []
+            if isinstance(rest, (list, tuple)):
+                tail = [str(x).strip() if x is not None else "" for x in rest]
+            while len(tail) < 3:
+                tail.append("")
+            sid = (row.get("sport_id") or "").strip() or tail[0]
+            cid = (row.get("category_id") or "").strip() or tail[1]
+            compid = (row.get("competition_id") or "").strip() or tail[2]
             rows.append({
                 "id":              row["domain_id"],
                 "sport":           row.get("sport", ""),
@@ -2462,9 +2473,9 @@ def _load_domain_events() -> list[dict]:
                 "away":            row.get("away", ""),
                 "away_id":         row.get("away_id", ""),
                 "start_time":      row.get("start_time", ""),
-                "sport_id":        row.get("sport_id", ""),
-                "category_id":     row.get("category_id", ""),
-                "competition_id":  row.get("competition_id", ""),
+                "sport_id":        sid,
+                "category_id":     cid,
+                "competition_id":  compid,
             })
         return rows
 
@@ -4571,14 +4582,145 @@ def _feeder_events_attach_row_mapping_flags(page_events: list[dict], selected_fe
         e["feeder_competition_filter_token"] = _feeder_competition_filter_token_for_event(e)
 
 
+def _acronym_word_initials_score(short: str, long_text: str) -> int:
+    """
+    When short looks like an acronym of long_text's words (e.g. psg vs Paris Saint-Germain),
+    return a high score; otherwise 0. Guards two-letter noise unless there are exactly two words.
+    """
+    if not short or not long_text:
+        return 0
+    short = short.strip().lower()
+    long_text = long_text.strip().lower()
+    if len(short) < 2 or len(long_text) < len(short) + 3:
+        return 0
+    words = re.findall(r"[a-z0-9]+", long_text)
+    if len(words) < 2:
+        return 0
+    initials = "".join(w[0] for w in words if w)
+    if not initials:
+        return 0
+    if initials == short:
+        if len(short) >= 3:
+            return 92
+        return 88 if len(words) == 2 else 0
+    return 0
+
+
 def _fuzzy_score(a: str, b: str) -> int:
     """Return similarity 0-100 between two strings (case-insensitive)."""
     if not a or not b:
         return 0
-    a, b = a.strip().lower(), b.strip().lower()
+    a0, b0 = a.strip(), b.strip()
+    a, b = a0.lower(), b0.lower()
     if a == b:
         return 100
-    return int(round(100 * difflib.SequenceMatcher(None, a, b).ratio()))
+    base = int(round(100 * difflib.SequenceMatcher(None, a, b).ratio()))
+    ac = 0
+    if len(a) <= len(b):
+        ac = max(ac, _acronym_word_initials_score(a, b0))
+    if len(b) <= len(a):
+        ac = max(ac, _acronym_word_initials_score(b, a0))
+    return min(100, max(base, ac))
+
+
+def _domain_event_start_minute_key(st: str | None) -> str:
+    """Normalize start_time for comparison (minute precision)."""
+    if not st or not isinstance(st, str):
+        return ""
+    s = st.strip()
+    if len(s) >= 16:
+        return s[:16]
+    return s
+
+
+def _domain_event_start_times_equivalent(a: str | None, b: str | None) -> bool:
+    if not a or not b:
+        return False
+    a, b = str(a).strip(), str(b).strip()
+    if a == b:
+        return True
+    return _domain_event_start_minute_key(a) == _domain_event_start_minute_key(b)
+
+
+def _domain_event_matches_competition_scope(ev: dict, dcomp: str, feed_comp: str) -> bool:
+    """
+    True when the domain event belongs to mapped competition dcomp: same competition_id,
+    or legacy rows with empty competition_id but competition text matching feed / canonical name.
+    """
+    if not dcomp:
+        return True
+    if entity_ids_equal(ev.get("competition_id"), dcomp):
+        return True
+    ev_cid = ev.get("competition_id")
+    if ev_cid is not None and str(ev_cid).strip() != "":
+        return False
+    d_comp = (ev.get("competition") or "").strip()
+    if not d_comp:
+        return False
+    comp_ent = next(
+        (c for c in DOMAIN_ENTITIES.get("competitions", []) if entity_ids_equal(c.get("domain_id"), dcomp)),
+        None,
+    )
+    canon = (comp_ent.get("name") or "").strip() if comp_ent else ""
+    for ref in (feed_comp, canon):
+        if ref and _fuzzy_score(ref, d_comp) >= 78:
+            return True
+    return False
+
+
+def _search_token_matches_field(t: str, field: str) -> bool:
+    """
+    True if token t appears as a whole token in field (not as a substring inside a longer word).
+    Prevents e.g. 'spor' matching 'Sporting' when searching for Turkish side 'Spor Toto'.
+    """
+    if not t or not field:
+        return False
+    if len(t) <= 1:
+        return False
+    try:
+        pat = r"(?<![a-z0-9])" + re.escape(t) + r"(?![a-z0-9])"
+        return re.search(pat, field, re.IGNORECASE) is not None
+    except re.error:
+        return t in field
+
+
+def _domain_event_matches_search_q(ev: dict, q_lower: str) -> bool:
+    """Match domain event against search query: substring, per-token word-boundary match, then fuzzy on names."""
+    if not q_lower:
+        return True
+    home = (ev.get("home") or "").lower()
+    away = (ev.get("away") or "").lower()
+    comp = (ev.get("competition") or "").lower()
+    evid = (ev.get("id") or "").lower()
+    blob = f"{home} {away} {comp}".strip()
+    if q_lower in home or q_lower in away or q_lower in comp or q_lower in evid or q_lower in blob:
+        return True
+    for tok in q_lower.split():
+        t = tok.strip().lower()
+        if len(t) < 2:
+            continue
+        if _search_token_matches_field(t, home) or _search_token_matches_field(t, away) or _search_token_matches_field(t, comp) or _search_token_matches_field(t, evid):
+            return True
+        for field in (home, away):
+            # Min length avoids short tokens (e.g. "spor") fuzzy-matching longer names ("Sporting").
+            if len(t) >= 4 and field and _fuzzy_score(t, field) >= 60:
+                return True
+    if blob and _fuzzy_score(q_lower, blob) >= 48:
+        return True
+    return False
+
+
+def _domain_event_sport_label_matches_canonical(row_sport: str, canonical_name: str) -> bool:
+    """Case-insensitive match for legacy domain_events.sport text vs entity name; Soccer ↔ Football."""
+    a = (row_sport or "").strip().lower()
+    b = (canonical_name or "").strip().lower()
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    if {a, b} <= {"soccer", "football"}:
+        return True
+    return False
 
 
 def _domain_event_row_matches_domain_sport(ev: dict, sport_domain_id: str) -> bool:
@@ -4586,6 +4728,10 @@ def _domain_event_row_matches_domain_sport(ev: dict, sport_domain_id: str) -> bo
     True when a domain event row belongs to sport_domain_id.
     Uses event.sport_id plus competition and category FKs so a mis-set event.sport_id cannot surface
     e.g. a EuroLeague fixture under Football suggestions.
+
+    Legacy domain_events.csv rows often omit sport_id; then the human-readable ``sport`` column is
+    compared to the canonical sport name for ``sport_domain_id`` so Volleyball fixtures are not
+    suggested when mapping Football (and vice versa).
     """
     sid = fid_str(sport_domain_id)
     if not sid:
@@ -4593,6 +4739,21 @@ def _domain_event_row_matches_domain_sport(ev: dict, sport_domain_id: str) -> bo
     ev_sid = ev.get("sport_id")
     if ev_sid is not None and str(ev_sid).strip() != "":
         if not entity_ids_equal(ev_sid, sid):
+            return False
+    else:
+        sport_ent = next(
+            (s for s in DOMAIN_ENTITIES.get("sports", []) if entity_ids_equal(s.get("domain_id"), sid)),
+            None,
+        )
+        canon = (sport_ent.get("name") or "").strip() if sport_ent else ""
+        row_sport = (ev.get("sport") or "").strip()
+        if canon:
+            if not _domain_event_sport_label_matches_canonical(row_sport, canon):
+                return False
+        else:
+            if row_sport:
+                return False
+        if not canon and not row_sport:
             return False
     cid = ev.get("competition_id")
     if cid is not None and str(cid).strip() != "":
@@ -4628,6 +4789,21 @@ def _infer_domain_sport_id_from_mapped_entities(event: dict, feed_pid: int) -> s
     return None
 
 
+def _domain_sport_id_from_feed_display_sport(display: str | None) -> tuple[str | None, dict | None]:
+    """
+    Map feeder UI sport label (from feed_sports / event row) to a domain sport when there is no
+    sport_feed_mappings row yet. Keeps domain-event suggestions inside the sport the user filtered on.
+    """
+    d = (display or "").strip()
+    if not d:
+        return None, None
+    for s in DOMAIN_ENTITIES.get("sports", []):
+        name = (s.get("name") or "").strip()
+        if name and _domain_event_sport_label_matches_canonical(d, name):
+            return fid_str(s.get("domain_id")), s
+    return None, None
+
+
 def _suggest_domain_events(
     feed_event: dict,
     *,
@@ -4661,7 +4837,7 @@ def _suggest_domain_events(
         pool = [ev for ev in pool if entity_ids_equal(ev.get("category_id"), dcat)]
     dcomp = fid_str(domain_competition_id) if domain_competition_id not in (None, "") else ""
     if dcomp:
-        pool = [ev for ev in pool if entity_ids_equal(ev.get("competition_id"), dcomp)]
+        pool = [ev for ev in pool if _domain_event_matches_competition_scope(ev, dcomp, feed_comp)]
 
     scoped_comp = bool(dcomp)
     scoped_cat_only = bool(dcat and not dcomp)
@@ -4672,7 +4848,12 @@ def _suggest_domain_events(
         d_away = (ev.get("away") or "").strip()
         d_comp = (ev.get("competition") or "").strip()
         d_start = (ev.get("start_time") or "").strip()
-        s_time = 100 if feed_start and d_start and feed_start == d_start else (50 if feed_start and d_start else 100)
+        if feed_start and d_start and _domain_event_start_times_equivalent(feed_start, d_start):
+            s_time = 100
+        elif feed_start and d_start:
+            s_time = 50
+        else:
+            s_time = 100
         # Normal: feed_home↔domain_home, feed_away↔domain_away
         s_home_n = _fuzzy_score(feed_home, d_home) if feed_home and d_home else (100 if not feed_home and not d_home else 0)
         s_away_n = _fuzzy_score(feed_away, d_away) if feed_away and d_away else (100 if not feed_away and not d_away else 0)
@@ -4695,7 +4876,9 @@ def _suggest_domain_events(
             score_r = int(round(w_h * s_home_r + w_a * s_away_r + w_c * s_comp + w_t * s_time))
 
         best_score = max(score_n, score_r)
-        if best_score >= 50:
+        # When league is already fixed, allow slightly weaker team-string matches (short names / acronyms).
+        min_score = 45 if scoped_comp else 50
+        if best_score >= min_score:
             candidates.append({
                 "event": ev,
                 "score": best_score,
@@ -6165,19 +6348,17 @@ async def map_event_to_domain(
     """)
 
 @app.get("/api/search-domain-events", response_class=HTMLResponse)
-async def search_domain_events(q: str = ""):
-    """Search DOMAIN_EVENTS by home/away/competition name for the mapping modal."""
+async def search_domain_events(q: str = "", sport_id: str = ""):
+    """Search DOMAIN_EVENTS by home/away/competition name for the mapping modal. Optional sport_id scopes to one domain sport."""
+    sid = fid_str(sport_id) if (sport_id or "").strip() else ""
+    pool = DOMAIN_EVENTS
+    if sid:
+        pool = [e for e in DOMAIN_EVENTS if _domain_event_row_matches_domain_sport(e, sid)]
     q_lower = q.strip().lower()
     if q_lower:
-        results = [
-            e for e in DOMAIN_EVENTS
-            if q_lower in (e.get("home") or "").lower()
-            or q_lower in (e.get("away") or "").lower()
-            or q_lower in (e.get("competition") or "").lower()
-            or q_lower in (e.get("id") or "").lower()
-        ]
+        results = [e for e in pool if _domain_event_matches_search_q(e, q_lower)]
     else:
-        results = DOMAIN_EVENTS[:]   # return all when query is empty
+        results = list(pool)
 
     if not results:
         return HTMLResponse(
@@ -8258,6 +8439,10 @@ def _render_mapping_modal(request: Request, event_id: str):
     # Look up the feed's domain_id
     feed_obj = next((f for f in FEEDS if f["code"].lower() == (event.get("feed_provider") or "").lower()), None)
     feed_pid = feed_obj["domain_id"] if feed_obj else None
+    # Ensure feed sport label matches feed_sports.csv (modal is a separate GET from the feeder list).
+    fp_lc = (event.get("feed_provider") or "").strip().lower()
+    if fp_lc:
+        event["sport"] = _get_feed_sport_name(fp_lc, event.get("sport_id"), event.get("sport"))
 
     # Pre-resolve entities from entity_feed_mappings (prefer feed IDs then names so we find existing mappings)
     # Sport: resolve by feed sport_id; if missing from mappings, infer from mapped category/competition sport_id.
@@ -8271,6 +8456,12 @@ def _render_mapping_modal(request: Request, event_id: str):
             domain_sport_id = r_sport.get("domain_id")
         if not domain_sport_id:
             domain_sport_id = _infer_domain_sport_id_from_mapped_entities(event, feed_pid)
+        if not domain_sport_id and feed_pid:
+            ds_disp, s_disp = _domain_sport_id_from_feed_display_sport(event.get("sport"))
+            if ds_disp:
+                domain_sport_id = ds_disp
+                if not r_sport:
+                    r_sport = s_disp
         if domain_sport_id and not r_sport:
             r_sport = next((s for s in DOMAIN_ENTITIES.get("sports", []) if entity_ids_equal(s.get("domain_id"), domain_sport_id)), None)
     # Category / competition: league id + native category cell (e.g. Bwin region); unified feeds have no category field.
@@ -8462,6 +8653,7 @@ def _render_mapping_modal(request: Request, event_id: str):
         "suggested_underage_competition_id": suggested_underage_competition_id,
         "suggested_underage_home_id": suggested_underage_home_id,
         "suggested_underage_away_id": suggested_underage_away_id,
+        "mapping_domain_sport_id": domain_sport_id or "",
     })
 
 
@@ -10606,9 +10798,12 @@ async def feeders_view(
     Filters: Sport, Category, Competition (cascading). Main grid: Auto create Category / Competitions / Teams / Events,
     Auto map Events, etc. per feed. When sport selected: Feeder Incidents Configuration section at bottom.
     """
-    sports = DOMAIN_ENTITIES["sports"]
-    categories = DOMAIN_ENTITIES["categories"]
-    competitions = DOMAIN_ENTITIES["competitions"]
+    def _entity_sort_key(e: dict) -> tuple[str, str]:
+        return ((e.get("name") or "").strip().lower(), str(e.get("domain_id") or ""))
+
+    sports = sorted(DOMAIN_ENTITIES["sports"], key=_entity_sort_key)
+    categories = sorted(DOMAIN_ENTITIES["categories"], key=_entity_sort_key)
+    competitions = sorted(DOMAIN_ENTITIES["competitions"], key=_entity_sort_key)
     sports_by_id = {s["domain_id"]: s["name"] for s in sports}
     categories_by_id = {c["domain_id"]: c["name"] for c in categories}
     competitions_by_id = {c["domain_id"]: c["name"] for c in competitions}
