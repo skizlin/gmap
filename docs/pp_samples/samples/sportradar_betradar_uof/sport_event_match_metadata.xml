@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Sportradar Betradar Unified Odds Feed (UOF) — static event / fixture identity.
+     Structure follows public <sport_event> element documentation (schedules, fixture-related REST/XML).
+     Same synthetic match id as odds_change_live_football.xml for cross-reference.
+     https://docs.sportradar.com/uof/api-and-structure/api/elements/less-than-sport_event-greater-than -->
+<sport_event
+    id="sr:match:28475632"
+    scheduled="2026-04-28T19:30:00+00:00"
+    start_time_tbd="false"
+    liveodds="bookable"
+    status="live"
+    next_live_time="2026-04-28T19:30:00+00:00">
+  <tournament_round betradar_id="88421"/>
+  <tournament id="sr:tournament:29481" name="Sample National League">
+    <sport id="sr:sport:1" name="Soccer"/>
+    <category id="sr:category:31" name="England" country_code="ENG"/>
+  </tournament>
+  <competitors>
+    <competitor
+        qualifier="home"
+        id="sr:competitor:11098441"
+        name="North City FC"
+        abbreviation="NCF"
+        country="England"
+        country_code="ENG"
+        gender="male">
+      <reference_ids>
+        <reference_id name="betradar" value="11098441"/>
+      </reference_ids>
+    </competitor>
+    <competitor
+        qualifier="away"
+        id="sr:competitor:11098442"
+        name="Riverside Athletic"
+        abbreviation="RVA"
+        short_name="Riverside"
+        country="England"
+        country_code="ENG"
+        gender="male">
+      <reference_ids>
+        <reference_id name="betradar" value="11098442"/>
+      </reference_ids>
+    </competitor>
+  </competitors>
+</sport_event>

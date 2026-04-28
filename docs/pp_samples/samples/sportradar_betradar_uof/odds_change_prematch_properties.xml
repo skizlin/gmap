@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- UOF odds_change — prematch with odds_generation_properties (no market lines). -->
+<odds_change product="3" event_id="sr:match:28475632" timestamp="1735123000000">
+  <sport_event_status status="0" match_status="0"/>
+  <odds_generation_properties expected_totals="2.52327" expected_supremacy="-0.443045"/>
+  <odds/>
+</odds_change>

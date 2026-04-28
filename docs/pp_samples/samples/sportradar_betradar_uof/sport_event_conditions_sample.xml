@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- UOF sport_event_conditions — venue, referee, and related context (delivered via Fixture / conditions endpoints for supported sports).
+     Patterns from public UOF documentation; IDs synthetic; aligns with sr:match:28475632.
+     https://docs.sportradar.com/uof/api-and-structure/api/elements/less-than-sport_event_conditions-greater-than -->
+<sport_event_conditions>
+  <venue
+      id="sr:venue:88421"
+      name="Sample Arena"
+      capacity="52303"
+      city_name="Manchester"
+      country_name="England"
+      country_code="ENG"
+      state=""
+      map_coordinates="53.4831,-2.2004"/>
+  <referee id="sr:referee:66102" name="Sample A., Chris" nationality="England"/>
+</sport_event_conditions>

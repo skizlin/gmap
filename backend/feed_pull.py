@@ -17,6 +17,8 @@ from typing import Callable, Optional
 
 import httpx
 
+from backend.mock_data import _bwin_outright_detection
+
 # Per-feed locks so parallel pulls for the same feed serialize merge/save only (fetch stays parallel).
 _feed_locks: dict[str, asyncio.Lock] = {}
 
@@ -128,6 +130,9 @@ def load_stored_feed_events(feed_code: str) -> list[dict]:
 
 def save_stored_feed_events(feed_code: str, events: list[dict]) -> None:
     """Save events to feed_data/{feed_code}.json."""
+    from backend.mock_data import _clear_synthetic_feed_categories
+
+    _clear_synthetic_feed_categories(events)
     path = _get_feed_data_path(feed_code)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -150,7 +155,6 @@ def _normalize_unified_item(item: dict, sport_id: str, sport_name: str, feed_pro
     away = item.get("away") or {}
     league = item.get("league") or {}
     league_id = league.get("id")
-    comp_category_id = ("COMP:" + str(league_id)) if league_id is not None and str(league_id).strip() else None
     home_id = home.get("id") if isinstance(home, dict) else None
     away_id = away.get("id") if isinstance(away, dict) else None
 
@@ -175,8 +179,8 @@ def _normalize_unified_item(item: dict, sport_id: str, sport_name: str, feed_pro
         "raw_away_id": None if is_outright else (str(away_id) if away_id is not None else None),
         "raw_league_name": league.get("name") if isinstance(league, dict) else None,
         "raw_league_id": str(league_id) if league_id is not None else None,
-        "category": comp_category_id,
-        "category_id": comp_category_id,
+        "category": "",
+        "category_id": None,
         "start_time": start_time,
         "time_status": (str(item.get("time_status")).strip() if item.get("time_status") is not None else ""),
         "sport": sport_name,
@@ -388,45 +392,7 @@ def _normalize_bwin_item(item: dict, sport_name_override: str | None = None) -> 
     """
     raw_id = item.get("Id") or item.get("id")
     valid_id = str(raw_id) if raw_id is not None else ""
-    # Bwin: outright from (1) IsOutright, (2) event-level category/templateCategory "Outrights",
-    # or (3) any Market having category/templateCategory "Outrights" (see bwincategoryoutrights.json)
-    is_outright = item.get("IsOutright", False)
-    if not is_outright:
-        cat = (item.get("category") or item.get("Category") or "").strip()
-        if not cat:
-            tc = item.get("templateCategory") or {}
-            cat = (tc.get("category") or tc.get("Category") or "").strip()
-        is_outright = cat.lower() == "outrights"
-    if not is_outright:
-        for m in item.get("Markets") or []:
-            mc = (m.get("category") or m.get("Category") or "").strip().lower()
-            if mc == "outrights":
-                is_outright = True
-                break
-            mtc = m.get("templateCategory") or {}
-            mtc_cat = (mtc.get("category") or mtc.get("Category") or "").strip().lower()
-            if mtc_cat == "outrights":
-                is_outright = True
-                break
-            if any((str(x) or "").strip().lower() == "outrights" for x in (mtc.get("dynamicCategories") or [])):
-                is_outright = True
-                break
-    market_name = None
-    is_mainbook = False
-    if is_outright:
-        for market in item.get("Markets") or []:
-            if market.get("IsMainbook") or market.get("isMain"):
-                name_obj = market.get("name") or market.get("Name")
-                if isinstance(name_obj, dict) and "value" in name_obj:
-                    market_name = name_obj.get("value")
-                else:
-                    market_name = name_obj
-                is_mainbook = True
-                break
-        if not market_name and (item.get("Markets") or []):
-            m = item["Markets"][0]
-            name_obj = m.get("name") or m.get("Name")
-            market_name = name_obj.get("value") if isinstance(name_obj, dict) else name_obj
+    is_outright, market_name, is_mainbook = _bwin_outright_detection(item)
     dt_str = item.get("Date")
     if dt_str:
         try:
@@ -482,7 +448,9 @@ def _normalize_bwin_item(item: dict, sport_name_override: str | None = None) -> 
         "updated_at": updated_at,
         "mapping_status": "UNMAPPED",
         "status": (item.get("status") or "Open").strip() or "Open",
-        "markets_count": item.get("markets_count") if item.get("markets_count") is not None else (len(item.get("Markets") or [])),
+        "markets_count": item.get("markets_count")
+        if item.get("markets_count") is not None
+        else (len(item.get("Markets") or []) + len(item.get("optionMarkets") or [])),
     }
 
 

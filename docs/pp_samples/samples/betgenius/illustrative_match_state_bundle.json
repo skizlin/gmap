@@ -1,0 +1,88 @@
+{
+  "_note": "Illustrative bundle: live/trading messages may join fixture ids with master data. Geography and gender do NOT appear on Odds Feed Ingestion SourceMarkets bodies — use Fixtures API v2 (and linked entities) for locality (country/region), timezone, venue, genderType, and competition.youth. See also fixtures_api_v2_documented_fields.json.",
+  "messageType": "MatchStateUpdate",
+  "sequence": 1849201,
+  "issuedAtUtc": "2026-04-28T19:42:03.112Z",
+  "fixture": {
+    "id": 9913192,
+    "sourceFixtureId": "GENIUS-FIX-883421",
+    "name": "Manchester North FC v London Riverside United",
+    "startDate": "2026-04-28T19:30:00Z",
+    "eventStatusType": "Inprogress",
+    "eventType": "Match",
+    "sport": { "id": 10, "name": "Football", "ref": "/sports/10" },
+    "season": { "id": 108200, "name": "2025/2026", "ref": "/seasons/108200" },
+    "competition": {
+      "id": 4421,
+      "name": "Sample Domestic League",
+      "ref": "/competitions/4421",
+      "genderType": "Male",
+      "youth": false,
+      "locality": {
+        "id": 826,
+        "name": "England",
+        "ref": "/localities/826"
+      },
+      "timezone": { "id": 57, "name": "Europe/London", "ref": "/timezones/57" }
+    },
+    "locality": {
+      "id": 826,
+      "name": "England",
+      "ref": "/localities/826"
+    },
+    "timezone": { "id": 57, "name": "Europe/London", "ref": "/timezones/57" },
+    "venue": {
+      "id": 12001,
+      "name": "Sample Arena",
+      "ref": "/venues/12001"
+    },
+    "genderType": "Male",
+    "homeCompetitor": {
+      "id": 88001,
+      "name": "Manchester North FC",
+      "competitorType": "Team",
+      "ref": "/competitors/Teams/88001"
+    },
+    "competitors": [
+      {
+        "id": 88001,
+        "name": "Manchester North FC",
+        "competitorType": "Team",
+        "ref": "/competitors/Teams/88001"
+      },
+      {
+        "id": 88002,
+        "name": "London Riverside United",
+        "competitorType": "Team",
+        "ref": "/competitors/Teams/88002"
+      }
+    ],
+    "phase": "InPlay",
+    "clock": { "period": "FirstHalf", "minute": 23, "seconds": 14, "isRunning": true }
+  },
+  "scoreboard": {
+    "home": { "goals": 1, "redCards": 0, "yellowCards": 1 },
+    "away": { "goals": 0, "redCards": 0, "yellowCards": 0 }
+  },
+  "statistics": [
+    { "type": "Corners", "home": 4, "away": 2 },
+    { "type": "ShotsOnTarget", "home": 5, "away": 3 },
+    { "type": "PossessionPercent", "home": 58, "away": 42 }
+  ],
+  "incidents": [
+    {
+      "id": "inc-991",
+      "type": "Goal",
+      "minute": 18,
+      "team": "Home",
+      "player": "Sample Player 9"
+    },
+    {
+      "id": "inc-992",
+      "type": "YellowCard",
+      "minute": 21,
+      "team": "Home",
+      "player": "Sample Player 4"
+    }
+  ]
+}

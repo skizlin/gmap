@@ -1,0 +1,24 @@
+{
+  "sourceFixtureId": "GENIUS-FIX-883421",
+  "name": "Spread",
+  "isHandicap": true,
+  "isSuspended": false,
+  "selections": [
+    {
+      "id": "spr-home-1",
+      "name": "Manchester North FC",
+      "isSuspended": false,
+      "handicap": -0.5,
+      "price": { "decimal": 1.91, "american": -110 },
+      "range": { "min": 1, "max": 2500 }
+    },
+    {
+      "id": "spr-away-1",
+      "name": "London Riverside United",
+      "isSuspended": false,
+      "handicap": 0.5,
+      "price": { "decimal": 1.91, "american": -110 },
+      "range": { "min": 1, "max": 2500 }
+    }
+  ]
+}

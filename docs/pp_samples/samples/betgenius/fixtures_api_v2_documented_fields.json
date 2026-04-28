@@ -1,0 +1,44 @@
+{
+  "_documentation": "Field names and nesting follow Genius Sports public Fixtures API v2 / entity descriptions (Confluence). Values are synthetic.",
+  "_where_to_find": {
+    "country_or_region": "Locality — attached to Competition and Fixture (and used for competitor nationality in other contexts). Filter localities e.g. /v2/localities?filter=code:ESP. Locality types include Country, FirstOrderAdministrativeRegion, ConstituentCountry, World, NonGeographic, etc.",
+    "gender": "genderType on Fixture; Competition also defines genderType for which competitors may participate. Ingestion examples may use gender on proposed Competition.",
+    "youth_competition": "youth (boolean) on Competition entity — indicates a youth competition (not a specific age band like U-21).",
+    "under21_or_age_band": "Public Competition docs emphasize genderType, youth, and naming rules (e.g. 'Women' postfix). Explicit U-21 / U-19 may appear in competition name or sport-specific metadataProperties — verify with your Genius integration contact."
+  },
+  "example_fixture_like_public_docs": {
+    "isDeleted": false,
+    "startDate": "2023-01-17T01:15:00Z",
+    "name": "Tampa Bay Buccaneers v Dallas Cowboys",
+    "season": { "id": 108075, "name": "2022/2023 NFL", "ref": "/seasons/108075" },
+    "eventStatusType": "Finished",
+    "locality": { "id": 140, "name": "United States of America", "ref": "/localities/140" },
+    "timezone": { "id": 34, "name": "US/Eastern", "ref": "/timezones/34" },
+    "venue": { "id": 257, "name": "Raymond James Stadium", "ref": "/venues/257" },
+    "sport": { "id": 17, "name": "American Football", "ref": "/sports/17" },
+    "competition": { "id": 296, "name": "NFL", "ref": "/competitions/296" },
+    "round": { "id": 984676, "name": "Wild Card", "ref": "/rounds/984676" },
+    "genderType": "Male",
+    "homeCompetitor": {
+      "id": 92305,
+      "name": "Tampa Bay Buccaneers",
+      "competitorType": "Team",
+      "ref": "/competitors/Teams/92305"
+    },
+    "competitors": [],
+    "eventType": "Match",
+    "id": 9913192
+  },
+  "example_competition_entity_fields": {
+    "id": 296,
+    "name": "NFL",
+    "sport": { "id": 17, "name": "American Football", "ref": "/sports/17" },
+    "locality": { "id": 140, "name": "United States of America", "ref": "/localities/140" },
+    "timezone": { "id": 34, "name": "US/Eastern", "ref": "/timezones/34" },
+    "genderType": "Male",
+    "youth": false,
+    "shortName": "NFL",
+    "longName": "National Football League",
+    "metadataProperties": []
+  }
+}

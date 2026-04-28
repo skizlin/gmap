@@ -1,0 +1,111 @@
+{
+  "data": [
+    {
+      "id": "BCE4E01B8D3D",
+      "game_id": "60486-35183-2024-08-29-17",
+      "start_date": "2024-08-30T00:10:00Z",
+      "home_competitors": [
+        {
+          "id": "4F11A5896C24",
+          "name": "Houston Astros",
+          "abbreviation": "HOU",
+          "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/hou.png"
+        }
+      ],
+      "away_competitors": [
+        {
+          "id": "E970E2EDDCAE",
+          "name": "Kansas City Royals",
+          "abbreviation": "KAN",
+          "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/kc.png"
+        }
+      ],
+      "home_team_display": "Houston Astros",
+      "away_team_display": "Kansas City Royals",
+      "status": "unplayed",
+      "is_live": false,
+      "sport": { "id": "baseball", "name": "Baseball" },
+      "league": { "id": "mlb", "name": "MLB" },
+      "tournament": null,
+      "venue_neutral": false,
+      "odds": [
+        {
+          "id": "60486-35183-2024-08-29-17:BetMGM:moneyline:houston_astros",
+          "sportsbook": "BetMGM",
+          "market": "Moneyline",
+          "name": "Houston Astros",
+          "is_main": true,
+          "selection": "Houston Astros",
+          "normalized_selection": "houston_astros",
+          "market_id": "moneyline",
+          "selection_line": null,
+          "player_id": null,
+          "team_id": "4F11A5896C24",
+          "price": -156,
+          "timestamp": 1724865905.59815,
+          "grouping_key": "default",
+          "points": null,
+          "deep_link": null,
+          "limits": { "max": 500 }
+        },
+        {
+          "id": "60486-35183-2024-08-29-17:BetMGM:moneyline:kansas_city_royals",
+          "sportsbook": "BetMGM",
+          "market": "Moneyline",
+          "name": "Kansas City Royals",
+          "is_main": true,
+          "selection": "Kansas City Royals",
+          "normalized_selection": "kansas_city_royals",
+          "market_id": "moneyline",
+          "selection_line": null,
+          "player_id": null,
+          "team_id": "E970E2EDDCAE",
+          "price": 132,
+          "timestamp": 1724865905.59815,
+          "grouping_key": "default",
+          "points": null,
+          "deep_link": null,
+          "limits": { "max": 500 }
+        },
+        {
+          "id": "60486-35183-2024-08-29-17:BetMGM:run_line:houston_astros_-1_5",
+          "sportsbook": "BetMGM",
+          "market": "Run Line",
+          "name": "Houston Astros -1.5",
+          "is_main": true,
+          "selection": "Houston Astros",
+          "normalized_selection": "houston_astros",
+          "market_id": "run_line",
+          "selection_line": null,
+          "player_id": null,
+          "team_id": "4F11A5896C24",
+          "price": 140,
+          "timestamp": 1724865905.59815,
+          "grouping_key": "default:-1.5",
+          "points": -1.5,
+          "deep_link": null,
+          "limits": { "max": 500 }
+        },
+        {
+          "id": "60486-35183-2024-08-29-17:BetMGM:total_runs:over_8",
+          "sportsbook": "BetMGM",
+          "market": "Total Runs",
+          "name": "Over 8",
+          "is_main": true,
+          "selection": "Over",
+          "normalized_selection": "over",
+          "market_id": "total_runs",
+          "selection_line": "over",
+          "player_id": null,
+          "team_id": null,
+          "price": -110,
+          "timestamp": 1724865905.59815,
+          "grouping_key": "default:8.0",
+          "points": 8,
+          "deep_link": null,
+          "limits": { "max": 500 }
+        }
+      ]
+    }
+  ]
+}

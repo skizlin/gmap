@@ -468,7 +468,7 @@
     <div class="shrink-0 px-5 py-3 border-t border-gmp-border-subtle flex justify-end gap-3 bg-gmp-surface">
         <button onclick="closeModal()"
             class="px-4 py-1.5 text-sm font-medium text-gmp-text-muted hover:text-gmp-text-heading">Cancel</button>
-        <button id="btn-create-and-map" onclick="submitCreateNew()" disabled title="Resolve Competition and Teams first"
+        <button type="button" id="btn-create-and-map" onclick="submitCreateNew()" disabled title="Resolve Competition and Teams first"
             class="px-5 py-1.5 text-sm font-medium bg-secondary hover:bg-infoHover text-white rounded shadow-lg shadow-secondary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
             <i class="fa-solid fa-plus mr-1.5"></i> Create &amp; Map
         </button>
@@ -1134,41 +1134,64 @@
     }
 
     async function submitCreateNew() {
-        // Sync editable inputs to hidden fields before collecting
-        const catHidden = document.querySelector('input[name="new_category"]');
-        const inputCat = document.getElementById('input-category');
-        if (catHidden && inputCat) catHidden.value = (inputCat.value || '').trim();
+        if (window.__createMapBusy) return;
+        const btn = document.getElementById('btn-create-and-map');
+        if (!btn || btn.disabled) return;
+        const btnHtml = btn.innerHTML;
+        window.__createMapBusy = true;
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-wait');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Creating…';
 
-        const g = n => document.querySelector(`[name="${n}"]`)?.value ?? '';
-        const form = {
-            feeder_provider: g('feeder_provider'),
-            feeder_valid_id: g('feeder_valid_id'),
-            sport: g('domain_sport_name'),
-            category: (inputCat?.value || catHidden?.value || g('new_category') || '').trim(),
-            competition: g('new_competition'),
-            home: g('new_home'),
-            home_id: g('new_home_id') || undefined,
-            away: g('new_away'),
-            away_id: g('new_away_id') || undefined,
-            start_time: g('new_start_time'),
-        };
-        const res = await fetch('/api/domain-events', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(form)
-        });
-        const html = await res.text();
-        if (!res.ok) {
-            const safeHtml = html.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-            document.getElementById('modal-content').innerHTML = `
-                <div class="p-6 text-center text-danger">
-                    <i class="fa-solid fa-circle-xmark text-2xl mb-2"></i>
-                    <p class="text-sm">Request failed (${res.status})</p>
-                    <pre class="mt-2 text-left text-xs overflow-auto max-h-32 bg-gmp-surface p-2 rounded">${safeHtml}</pre>
-                </div>
-            `;
-        } else {
-            document.getElementById('modal-content').innerHTML = html;
+        try {
+            // Sync editable inputs to hidden fields before collecting
+            const catHidden = document.querySelector('input[name="new_category"]');
+            const inputCat = document.getElementById('input-category');
+            if (catHidden && inputCat) catHidden.value = (inputCat.value || '').trim();
+
+            const g = n => document.querySelector(`[name="${n}"]`)?.value ?? '';
+            const form = {
+                feeder_provider: g('feeder_provider'),
+                feeder_valid_id: g('feeder_valid_id'),
+                sport: g('domain_sport_name'),
+                category: (inputCat?.value || catHidden?.value || g('new_category') || '').trim(),
+                competition: g('new_competition'),
+                home: g('new_home'),
+                home_id: g('new_home_id') || undefined,
+                away: g('new_away'),
+                away_id: g('new_away_id') || undefined,
+                start_time: g('new_start_time'),
+            };
+            const res = await fetch('/api/domain-events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form)
+            });
+            const html = await res.text();
+            if (!res.ok) {
+                const safeHtml = html.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                document.getElementById('modal-content').innerHTML = `
+                    <div class="p-6 text-center text-danger">
+                        <i class="fa-solid fa-circle-xmark text-2xl mb-2"></i>
+                        <p class="text-sm">Request failed (${res.status})</p>
+                        <pre class="mt-2 text-left text-xs overflow-auto max-h-32 bg-gmp-surface p-2 rounded">${safeHtml}</pre>
+                    </div>
+                `;
+                btn.disabled = false;
+                btn.classList.remove('opacity-70', 'cursor-wait');
+                btn.innerHTML = btnHtml;
+                if (window.validateReadyToMap) window.validateReadyToMap();
+            } else {
+                document.getElementById('modal-content').innerHTML = html;
+            }
+        } catch (err) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-70', 'cursor-wait');
+            btn.innerHTML = btnHtml;
+            if (window.validateReadyToMap) window.validateReadyToMap();
+            console.error(err);
+        } finally {
+            window.__createMapBusy = false;
         }
     }
 </script>

@@ -1,0 +1,47 @@
+{
+  "_note": "Illustrative only. Sporting Risk supplies model-driven player props, interval/micro markets, and engagement payloads via customer-specific APIs. This file models representative structures.",
+  "feedVersion": "illustrative-1",
+  "eventId": "srisk:fb:8844221",
+  "sport": "football",
+  "competition": "Sample Premier Division",
+  "kickoffUtc": "2026-04-28T19:30:00Z",
+  "matchClock": { "period": "FIRST_HALF", "elapsedSeconds": 1394, "running": true },
+  "score": { "home": 1, "away": 0 },
+  "derivedState": {
+    "expectedGoalsRemaining": 1.62,
+    "modelVersion": "sr-mdl-demo-2026.04"
+  },
+  "playerProps": [
+    {
+      "marketKey": "PLAYER_SHOTS_ON_TARGET",
+      "playerId": "srisk:pl:8821",
+      "playerName": "Sample Winger A",
+      "line": 1.5,
+      "prices": { "over": 1.87, "under": 1.95 },
+      "suspension": false
+    },
+    {
+      "marketKey": "PLAYER_TO_SCORE_ANYTIME",
+      "playerId": "srisk:pl:8822",
+      "playerName": "Sample Striker B",
+      "prices": { "yes": 2.65, "no": 1.48 },
+      "suspension": false
+    }
+  ],
+  "intervalMarkets": [
+    {
+      "window": { "startMinute": 10, "endMinute": 20 },
+      "marketKey": "TEN_MIN_TOTAL_GOALS",
+      "line": 0.5,
+      "prices": { "over": 1.72, "under": 2.08 },
+      "suspension": false
+    }
+  ],
+  "betPrompt": {
+    "promptId": "bp-991221",
+    "template": "PLAYER_TO_HAVE_1_PLUS_SOT_NEXT_10_MINS",
+    "headline": "Sample prompt headline",
+    "suggestedSelections": ["srisk:sel:8821:sot_o15"],
+    "expiresAtUtc": "2026-04-28T19:45:00Z"
+  }
+}

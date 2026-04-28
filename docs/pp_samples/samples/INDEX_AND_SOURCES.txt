@@ -1,0 +1,82 @@
+Sample feed payloads — index and sources
+==========================================
+
+Purpose
+-------
+These files are for integration testing, onboarding demos, and schema exploration.
+They are NOT live production dumps.
+
+Classification
+--------------
+- "Vendor-documented": Structure and field names taken from public vendor docs or
+  official examples (values may still be synthetic).
+- "Illustrative": Vendor does not publish a full public wire format; composite
+  JSON models the *kinds* of data they advertise (props, racing, etc.).
+
+Sources (public)
+----------------
+- Sportradar / Betradar Unified Odds Feed (UOF): AMQP/XML message reference
+  https://docs.sportradar.com/uof/data-and-features/messages/event/odds-change
+  https://docs.sportradar.com/uof/data-and-features/messages/event/bet-stop
+- Sportradar UOF sport_event / fixture static XML elements
+  https://docs.sportradar.com/uof/api-and-structure/api/elements/less-than-sport_event-greater-than
+  https://docs.sportradar.com/uof/api-and-structure/api/elements/less-than-sport_event_conditions-greater-than
+- BetGenius / Genius Sports Odds Feed Ingestion API (customer push shape)
+  https://geniussports.atlassian.net/wiki/spaces/BID/pages/5554635019/Odds+Feed+Ingestion+API
+- Genius Sports Fixtures API v2 (locality, genderType, competition youth, etc.)
+  https://geniussports.atlassian.net/wiki/spaces/BID/pages/5570035737/Fixtures+API+V2
+  https://geniussports.atlassian.net/wiki/spaces/BID/pages/4447470130/Competition
+- DATA.BET (Databet) trading feed integration v2 (snapshot + log)
+  https://docs.data.bet/trading/feed-integration-v2
+- Optic Odds REST + SSE guides
+  https://developer.opticodds.com/docs/odds-api-getting-started-guide
+  https://opticodds.readme.io/docs/sse-streaming
+- Sporting Solutions: Unified Data API (product overview; wire format is
+  partner documentation / SDK — samples marked illustrative where needed).
+- Sporting Risk, RAS (Racing and Sports): product marketing pages describe
+  capabilities; exact JSON/XML schemas are contract-specific — samples are
+  illustrative composites.
+
+Files by provider
+-----------------
+sportradar_betradar_uof/
+  odds_change_live_football.xml
+  bet_stop.xml
+  odds_change_prematch_properties.xml
+  sport_event_match_metadata.xml
+  sport_event_conditions_sample.xml
+  sport_event_volleyball_official_doc_example.xml
+
+betgenius/
+  source_market_1x2.json
+  source_market_spread.json
+  source_market_asian_handicap_resulted.json
+  illustrative_match_state_bundle.json
+  fixtures_api_v2_documented_fields.json
+
+sporting_solutions/
+  illustrative_unified_data_stream_update.json
+
+sporting_risk/
+  illustrative_props_and_interval_pricing.json
+
+databet/
+  sport_event_snapshot.json
+  sport_event_snapshot_league_domestic.json
+  sport_event_snapshot_esports_counter_strike.json
+  log_stream_samples.ndjson
+  log_stream_esports_samples.ndjson
+  fixture_metadata_public_docs.txt
+
+ras_racing_and_sports/
+  illustrative_meeting_race_and_oddsline.json
+
+optic_odds/
+  fixtures_odds_rest_response.json
+  sse_stream_envelopes.json
+
+Note on Sportradar UOF
+----------------------
+Live match statistics beyond clock/scores may be delivered via companion
+products (e.g. scout/stat feeds) depending on your contract. Core UOF AMQP
+messages are XML; samples follow public message examples.

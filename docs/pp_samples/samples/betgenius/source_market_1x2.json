@@ -1,0 +1,36 @@
+{
+  "sourceFixtureId": "GENIUS-FIX-883421",
+  "name": "1x2",
+  "isHandicap": false,
+  "isSuspended": false,
+  "selections": [
+    {
+      "id": "sel-home-001",
+      "name": "Manchester North FC",
+      "isSuspended": false,
+      "handicap": null,
+      "price": {
+        "decimal": 2.05,
+        "fractional": { "numerator": 21, "denominator": 20 },
+        "american": 105
+      },
+      "range": { "min": 1, "max": 5000 }
+    },
+    {
+      "id": "sel-draw-002",
+      "name": "Draw",
+      "isSuspended": false,
+      "handicap": null,
+      "price": { "decimal": 3.45 },
+      "range": { "min": 1, "max": 5000 }
+    },
+    {
+      "id": "sel-away-003",
+      "name": "London Riverside United",
+      "isSuspended": false,
+      "handicap": null,
+      "price": { "decimal": 3.6 },
+      "range": { "min": 1, "max": 5000 }
+    }
+  ]
+}

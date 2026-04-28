@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- UOF bet_stop — rapid suspend signal; cause often follows in odds_change. -->
+<bet_stop timestamp="1735123460123" product="3" event_id="sr:match:28475632" groups="all"/>

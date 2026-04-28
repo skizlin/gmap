@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- Copied verbatim from Sportradar UOF documentation — Example XML Response Snippet for <sport_event>.
+     Includes competitor age_group="U20" on away team.
+     Source: https://docs.sportradar.com/uof/api-and-structure/api/elements/less-than-sport_event-greater-than -->
+<sport_event liveodds="bookable" status="ended" next_live_time="2024-03-03T16:00:00+00:00" id="sr:match:43901686" scheduled="2024-03-02T11:00:00+00:00" start_time_tbd="false">
+  <tournament_round betradar_id="52058"/>
+  <tournament id="sr:simple_tournament:52058" name="A2, Women">
+    <sport id="sr:sport:23" name="Volleyball"/>
+    <category id="sr:category:179" name="Greece" country_code="GRC"/>
+  </tournament>
+  <competitors>
+    <competitor qualifier="home" id="sr:competitor:426097" name="Opath Perseas" abbreviation="OPA" country="Greece" country_code="GRC" gender="female">
+      <reference_ids>
+        <reference_id name="betradar" value="21222085"/>
+      </reference_ids>
+    </competitor>
+    <competitor qualifier="away" id="sr:competitor:684473" name="Pas Giannina" abbreviation="PAS" short_name="Giannina" country="Greece" country_code="GRC" age_group="U20" gender="female">
+      <reference_ids>
+        <reference_id name="betradar" value="19949125"/>
+      </reference_ids>
+    </competitor>
+  </competitors>
+</sport_event>

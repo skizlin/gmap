@@ -18,110 +18,88 @@ except Exception:
 # We'll use this list to store all loaded events
 LOADED_EVENTS = []
 
-# Multi-word country name prefixes that appear in bet365 league names
-_MULTI_WORD_PREFIXES = {
-    "Bosnia Herzegovina", "Bosnia-Herzegovina",
-    "Czech Republic",
-    "El Salvador",
-    "Hong Kong",
-    "Ivory Coast",
-    "New Zealand",
-    "North Macedonia",
-    "Papua New Guinea",
-    "Saudi Arabia",
-    "Sierra Leone",
-    "South Africa",
-    "South Korea",
-    "Trinidad Tobago",
-    "Trinidad And Tobago",
-    "United Arab Emirates",
-}
+def _clear_synthetic_feed_categories(events: list) -> None:
+    """Strip legacy COMP:<league_id> values from category fields; unified feeds have no native category."""
+    for e in events:
+        for key in ("category", "category_id"):
+            v = e.get(key)
+            if v is None or v == "":
+                continue
+            s = str(v).strip()
+            if s.upper().startswith("COMP:"):
+                e[key] = None if key == "category_id" else ""
 
-# International organisations / regions → display name
-_ORG_PREFIXES = {
-    "UEFA": "UEFA",
-    "FIFA": "FIFA",
-    "CONMEBOL": "CONMEBOL",
-    "CONCACAF": "CONCACAF",
-    "CAF": "CAF",
-    "AFC": "AFC",
-    "Europe": "Europe",
-    "International": "International",
-    "World": "World",
-}
 
-def extract_category_from_league_name(league_name: str) -> str | None:
+def _bwin_market_container_is_outright(m: dict) -> bool:
+    """Bwin prematch: outright indicators on a market or optionMarket object."""
+    mc = (m.get("category") or m.get("Category") or "").strip().lower()
+    if mc == "outrights":
+        return True
+    mtc = m.get("templateCategory") or {}
+    mtc_cat = (mtc.get("category") or mtc.get("Category") or "").strip().lower()
+    if mtc_cat == "outrights":
+        return True
+    if any((str(x) or "").strip().lower() == "outrights" for x in (mtc.get("dynamicCategories") or [])):
+        return True
+    return False
+
+
+def _bwin_outright_detection(item: dict) -> tuple[bool, str | None, bool]:
     """
-    Parse the category (country or organisation) from a bet365 league name.
-    League names follow the pattern: '<Country/Org> <Competition Name>'
-    e.g. 'Germany Bundesliga' → 'Germany'
-         'UEFA Champions League Women' → 'UEFA'
-         'Europe Friendlies' → 'Europe'
-         'Ivory Coast Premier Division' → 'Ivory Coast'
-    The competition name itself is left untouched.
+    Detect Bwin outright fixture + optional display market name (League Winner, etc.).
+    Some payloads put outrights only under optionMarkets with Markets=[].
     """
-    if not league_name:
-        return None
+    is_outright = bool(item.get("IsOutright", False))
+    if not is_outright:
+        cat = (item.get("category") or item.get("Category") or "").strip()
+        if not cat:
+            tc = item.get("templateCategory") or {}
+            cat = (tc.get("category") or tc.get("Category") or "").strip()
+        is_outright = cat.lower() == "outrights"
+    if not is_outright:
+        for m in item.get("Markets") or []:
+            if _bwin_market_container_is_outright(m):
+                is_outright = True
+                break
+    if not is_outright:
+        for m in item.get("optionMarkets") or []:
+            if _bwin_market_container_is_outright(m):
+                is_outright = True
+                break
 
-    # Skip known acronym-only league names that have no country prefix
-    # e.g. 'MLB (Major League Baseball)', 'NBA (PLAYOFF)', '3x3 Asia Cup'
-    _no_country_prefixes = {"MLB", "NBA", "NFL", "NHL", "MLS", "3x3"}
-    first_word = league_name.split()[0].rstrip("(")
-    if first_word in _no_country_prefixes:
-        return None
+    market_name: str | None = None
+    is_mainbook = False
+    if not is_outright:
+        return False, None, False
 
-    # Check multi-word prefixes first (longest match wins)
-    for prefix in sorted(_MULTI_WORD_PREFIXES, key=len, reverse=True):
-        if league_name.startswith(prefix + " ") or league_name == prefix:
-            return prefix
+    def _name_from_market(market: dict) -> str | None:
+        name_obj = market.get("name") or market.get("Name")
+        if isinstance(name_obj, dict):
+            return (name_obj.get("value") or name_obj.get("Value") or "").strip() or None
+        if name_obj is not None:
+            s = str(name_obj).strip()
+            return s or None
+        return market.get("Name") if isinstance(market.get("Name"), str) else None
 
-    # Check single-word organisation prefixes
-    if first_word in _ORG_PREFIXES:
-        return _ORG_PREFIXES[first_word]
+    for market in item.get("Markets", []) or []:
+        if market.get("IsMainbook") or market.get("isMain"):
+            market_name = _name_from_market(market) or market.get("Name")
+            is_mainbook = True
+            break
+    if not market_name and item.get("Markets"):
+        m0 = item["Markets"][0]
+        market_name = _name_from_market(m0) or m0.get("Name")
+    if not market_name:
+        for market in item.get("optionMarkets", []) or []:
+            if market.get("isMain") or market.get("IsMain"):
+                market_name = _name_from_market(market)
+                is_mainbook = True
+                break
+    if not market_name and item.get("optionMarkets"):
+        m0 = item["optionMarkets"][0]
+        market_name = _name_from_market(m0)
+    return True, market_name, is_mainbook
 
-    # Assume first word is a country name if it looks like a proper noun
-    _generic_skip = {"La", "Le", "Die", "Der", "El", "Cup", "League", "Super", "Premier"}
-    if first_word[0].isupper() and first_word not in _generic_skip:
-        return first_word
-
-    return None
-
-
-def extract_category_1xbet(league_name: str) -> str | None:
-    """
-    Parse the category from a 1xbet league name.
-    1xbet uses dot-separated format: '<Country>. <Competition>'
-    e.g. 'Belarus. Reserve League' → 'Belarus'
-         'Czech Republic. Youth League' → 'Czech Republic'
-         'Australia. QBL. Women' → 'Australia'
-    Some 1xbet leagues lack dots — fall back to the space-prefix extractor.
-    """
-    if not league_name:
-        return None
-
-    if "." in league_name:
-        first_part = league_name.split(".")[0].strip()
-        if not first_part:
-            return None
-
-        # Check for known multi-word countries in 1xbet
-        for prefix in sorted(_MULTI_WORD_PREFIXES, key=len, reverse=True):
-            if first_part == prefix:
-                return prefix
-
-        # Check org prefixes
-        first_word = first_part.split()[0]
-        if first_word in _ORG_PREFIXES:
-            return _ORG_PREFIXES[first_word]
-
-        # Return the whole first segment (works for "Belarus", "Czech Republic", etc.)
-        if first_part[0].isupper():
-            return first_part
-
-        return None
-    else:
-        # No dot: fall back to space-prefix extractor (same as bet365)
-        return extract_category_from_league_name(league_name)
 
 def parse_bwin(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
@@ -129,41 +107,7 @@ def parse_bwin(file_path):
     
     events = []
     for item in data.get("results", []):
-        # Bwin: outright from IsOutright, event-level category/templateCategory, or any Market category "Outrights"
-        is_outright = item.get("IsOutright", False)
-        if not is_outright:
-            cat = (item.get("category") or item.get("Category") or "").strip()
-            if not cat:
-                tc = item.get("templateCategory") or {}
-                cat = (tc.get("category") or tc.get("Category") or "").strip()
-            is_outright = cat.lower() == "outrights"
-        if not is_outright:
-            for m in item.get("Markets") or []:
-                mc = (m.get("category") or m.get("Category") or "").strip().lower()
-                if mc == "outrights":
-                    is_outright = True
-                    break
-                mtc = m.get("templateCategory") or {}
-                mtc_cat = (mtc.get("category") or mtc.get("Category") or "").strip().lower()
-                if mtc_cat == "outrights":
-                    is_outright = True
-                    break
-                if any((str(x) or "").strip().lower() == "outrights" for x in (mtc.get("dynamicCategories") or [])):
-                    is_outright = True
-                    break
-        market_name = None
-        is_mainbook = False
-        
-        # If outright, search for the mainbook market
-        if is_outright:
-            for market in item.get("Markets", []):
-                if market.get("IsMainbook"):
-                    market_name = market.get("Name")
-                    is_mainbook = True
-                    break
-            # Fallback if no mainbook found
-            if not market_name and item.get("Markets"):
-                market_name = item["Markets"][0].get("Name")
+        is_outright, market_name, is_mainbook = _bwin_outright_detection(item)
         
         # Parse Date (bwin ISO 8601: "2017-03-17T10:00:00Z")
         dt_str = item.get("Date")
@@ -238,7 +182,6 @@ def parse_unified(file_path, provider):
         away = item.get("away") if item.get("away") is not None else {}
         league = item.get("league") or {}
         league_id = league.get("id")
-        comp_category_id = ("COMP:" + str(league_id)) if league_id is not None and str(league_id).strip() else None
         sport_id = item.get("sport_id")
 
         # Bet365: outright when away is null (Horse Racing, Greyhounds, etc.); extra.n = Race #
@@ -262,8 +205,8 @@ def parse_unified(file_path, provider):
             "raw_away_id": None if is_outright else (str(away["id"]) if isinstance(away, dict) and away.get("id") is not None else None),
             "raw_league_name": league.get("name") if isinstance(league, dict) else None,
             "raw_league_id": str(league_id) if league_id is not None else None,
-            "category": comp_category_id,
-            "category_id": comp_category_id,
+            "category": "",
+            "category_id": None,
             "start_time": start_time,
             "time_status": item.get("time_status", "0"),
             "sport": None,
@@ -300,7 +243,6 @@ def parse_b365racing(file_path):
 
         league = item.get("league", {}) or {}
         league_id = league.get("id")
-        comp_category_id = ("COMP:" + str(league_id)) if league_id is not None and str(league_id).strip() else None
 
         home = item.get("home") or {}
         if isinstance(home, dict):
@@ -327,8 +269,8 @@ def parse_b365racing(file_path):
             "raw_away_id": None,
             "raw_league_name": league.get("name"),
             "raw_league_id": str(league_id) if league_id is not None else None,
-            "category": comp_category_id,
-            "category_id": comp_category_id,
+            "category": "",
+            "category_id": None,
             "start_time": start_time,
             "time_status": item.get("time_status", "0"),
             "sport": "Horse Racing",
@@ -419,4 +361,5 @@ def load_all_mock_data():
         if (MOCK_DIR / "1xbet.json").exists():
             all_events.extend(parse_unified(MOCK_DIR / "1xbet.json", "1xbet"))
 
+    _clear_synthetic_feed_categories(all_events)
     return all_events

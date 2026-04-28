@@ -1,0 +1,45 @@
+Context for unified sports data / bridge platform work
+========================================================
+
+Business situation
+------------------
+We operate a sportsbook that already consumes multiple third-party feeds (not one
+normalized API). Feed providers in scope include Sportradar/Betradar UOF, Genius
+Sports (BetGenius), Sporting Solutions, Sporting Risk, DATA.BET (Databet),
+Racing and Sports (RAS), Optic Odds, and related integrations.
+
+Technical debt
+--------------
+Today we do NOT have a single canonical domain model across those feeds. Each
+integration has its own IDs, message shapes (XML vs JSON), and naming (markets,
+competitors, competitions). That forces bespoke glue code and makes cross-feed
+logic (risk, settlement, UX) harder.
+
+Initiative
+----------
+We are building a NEW platform whose purpose is to BRIDGE this fragmentation:
+ingest provider-native payloads, map them into OUR unified entities (sport,
+competition, event/fixture, team/player, market, selection, odds, incidents,
+scores/stats where applicable), and expose one consistent internal contract to
+the sportsbook and downstream systems.
+
+Goal for automation
+-------------------
+Maximize automation of mapping and reconciliation: deterministic transforms where
+possible, ML or rules-based matching only where identifiers differ, minimal manual
+curation for edge cases. Priority is high reuse of the SAME semantic fields
+(hierarchy, geography, gender/youth where available, lifecycle/status) across
+providers so one normalization pipeline can scale.
+
+Reference material in this repo
+-------------------------------
+Under `samples/` there are illustrative and vendor-documented payload examples per
+provider (XML/JSON/NDJSON). Use them to understand field-level heterogeneity and
+design the unified schema + mapping specs—not as production dumps.
+
+Success criteria (directional)
+------------------------------
+- One internal event/fixture ID linked to provider alternate IDs.
+- Comparable markets/outcomes aligned across feeds where products overlap.
+- Clear handling when a provider lacks structured metadata (infer vs nullable).
+- Versioned mapping rules and automated tests fed by fixture samples.

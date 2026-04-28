@@ -497,6 +497,14 @@ def _parse_start_time(s: str | None) -> datetime | None:
     return None
 
 
+def _canonical_start_minute(s: str | None) -> str | None:
+    """Normalize start_time to 'YYYY-MM-DD HH:MM' for cross-feed comparison, or None if unparseable."""
+    dt = _parse_start_time(s)
+    if dt is None:
+        return None
+    return dt.strftime("%Y-%m-%d %H:%M")
+
+
 def _rbac_last_login_display_and_stale(last_login_raw: str | None) -> tuple[str, bool]:
     """Admin Last login: show stored date/time until 8+ full days ago, then 'N days'; stale (15+ days) for red styling."""
     s = (last_login_raw or "").strip()
@@ -4469,7 +4477,7 @@ def _resolve_entity(etype: str, feed_id: str, feed_provider_id: int, domain_spor
 
 
 def _feeder_event_feed_category_mapped(e: dict, feed_provider_id: int | None) -> bool:
-    """True when this feed row's category resolves to a domain category that has a mapping for this provider."""
+    """True when this feed row's native category (e.g. Bwin region) resolves to a mapped domain category."""
     if not feed_provider_id:
         return False
     r = _resolve_sport_alias(feed_provider_id, e.get("sport_id"))
@@ -4479,13 +4487,12 @@ def _feeder_event_feed_category_mapped(e: dict, feed_provider_id: int | None) ->
     id_candidates: list[str] = []
     for src in (e.get("category_id"), e.get("category")):
         t = str(src or "").strip()
+        if t and t.upper().startswith("COMP:"):
+            continue
         if t and t not in id_candidates:
             id_candidates.append(t)
     for s in id_candidates:
         if _resolve_entity("categories", s, feed_provider_id, domain_sport_id=dsid) is not None:
-            return True
-        # Bet365-style feed rows use COMP:<league_id> as the "category" cell; mapping may live on competitions.
-        if s.upper().startswith("COMP:") and _resolve_entity("competitions", s, feed_provider_id, domain_sport_id=dsid) is not None:
             return True
     name = (e.get("category") or "").strip()
     if not name:
@@ -4521,11 +4528,6 @@ def _feeder_event_feed_competition_mapped(e: dict, feed_provider_id: int | None)
     raw_lid = e.get("raw_league_id")
     if raw_lid is not None and str(raw_lid).strip() != "":
         if _resolve_entity("competitions", str(raw_lid).strip(), feed_provider_id, domain_sport_id=dsid) is not None:
-            return True
-    # League id sometimes only appears as COMP:<id> on the category cell (Bet365).
-    for src in (e.get("category_id"), e.get("category")):
-        cell = str(src or "").strip()
-        if cell.upper().startswith("COMP:") and _resolve_entity("competitions", cell, feed_provider_id, domain_sport_id=dsid) is not None:
             return True
     name = (e.get("raw_league_name") or "").strip()
     if not name:
@@ -4622,12 +4624,6 @@ def _infer_domain_sport_id_from_mapped_entities(event: dict, feed_pid: int) -> s
         comp_ent = _resolve_entity("competitions", lid, feed_pid, domain_sport_id=None)
         if comp_ent and comp_ent.get("sport_id") is not None and str(comp_ent.get("sport_id")).strip():
             return fid_str(comp_ent.get("sport_id"))
-    for src in (event.get("category_id"), event.get("category")):
-        t = str(src or "").strip()
-        if t.upper().startswith("COMP:"):
-            comp_ent = _resolve_entity("competitions", t, feed_pid, domain_sport_id=None)
-            if comp_ent and comp_ent.get("sport_id") is not None and str(comp_ent.get("sport_id")).strip():
-                return fid_str(comp_ent.get("sport_id"))
     return None
 
 
@@ -5373,13 +5369,13 @@ def _feeder_domain_scope_ids_for_config(feeder_ev: dict, feed_pid: int) -> tuple
     cid = None
     comp_id = None
     cat_cell = (feeder_ev.get("category") or "").strip()
-    # Bet365: category is often COMP:<league_id> — resolve straight to domain competition (and its category).
-    if dsid and cat_cell.upper().startswith("COMP:"):
-        comp_res = _resolve_entity("competitions", cat_cell, feed_pid, domain_sport_id=dsid)
+    raw_lid = str(feeder_ev.get("raw_league_id") or "").strip()
+    if dsid and raw_lid:
+        comp_res = _resolve_entity("competitions", raw_lid, feed_pid, domain_sport_id=dsid)
         if isinstance(comp_res, dict) and comp_res.get("domain_id") is not None:
             comp_id = comp_res["domain_id"]
             cid = comp_res.get("category_id")
-    elif dsid and cat_cell:
+    if dsid and cat_cell and not cat_cell.upper().startswith("COMP:"):
         cat_ent = next(
             (
                 c
@@ -5469,7 +5465,7 @@ def _competition_labels_match_auto_map(feed_norm: str, domain_norm: str) -> bool
 
 
 def _feed_domain_category_aligned_for_auto_map(feed_cat: str, dcat: str) -> bool:
-    """Domain category is usually a country; Bet365 uses COMP:…; 1xbet often uses 'Country. Competition' in category."""
+    """Align optional feed category label with domain event category when both are present; if feed has no category, pass."""
     fc = (feed_cat or "").strip().casefold()
     dc = (dcat or "").strip().casefold()
     if not fc or not dc:
@@ -5783,12 +5779,10 @@ def _resolve_domain_team_ids_for_feed_row(feeder_ev: dict, feed_pid: int) -> tup
 
 
 def _feeder_event_fully_entity_mapped_for_auto(feeder_ev: dict, feed_pid: int) -> bool:
-    """Sport, category, competition and both teams resolve to mapped domain entities for this feed."""
+    """Sport, competition and both teams resolve to mapped domain entities for this feed (feed category optional)."""
     if feeder_ev.get("is_outright"):
         return False
     if _resolve_sport_alias(feed_pid, feeder_ev.get("sport_id")) is None and _resolve_sport_alias(feed_pid, feeder_ev.get("sport") or "") is None:
-        return False
-    if not _feeder_event_feed_category_mapped(feeder_ev, feed_pid):
         return False
     if not _feeder_event_feed_competition_mapped(feeder_ev, feed_pid):
         return False
@@ -5927,8 +5921,18 @@ async def create_domain_event(body: CreateDomainEventRequest):
             </div>
         """)
 
-    # Sequential domain event id (E-*), distinct from category ids (G-*)
-    new_id = next_event_domain_id(DOMAIN_EVENTS)
+    vid_s = str(body.feeder_valid_id or "").strip()
+    for m in _load_event_mappings():
+        if (m.get("feed_provider") or "").strip().lower() == fp_lc and str(m.get("feed_valid_id") or "").strip() == vid_s:
+            prev_eid = str(m.get("domain_event_id") or "").strip()
+            return HTMLResponse(f"""
+            <div class="p-6 text-center text-amber-300 text-sm max-w-md mx-auto">
+                <i class="fa-solid fa-link mr-2"></i>
+                This feed row is already linked to domain event
+                <span class="font-mono text-white">{prev_eid}</span>.
+                Close the modal and open that event, or remove the mapping first if you meant to remap.
+            </div>
+            """)
 
     sid_csv, cat_csv, comp_csv = "", "", ""
     if feeder_ev is not None and feed_pid is not None:
@@ -5939,6 +5943,39 @@ async def create_domain_event(body: CreateDomainEventRequest):
     elif (body.sport or "").strip():
         r0 = _resolve_domain_sport_id_from_domain_event_sport_display(body.sport)
         sid_csv = str(r0).strip() if r0 not in (None, "") else ""
+
+    dup_ev = _find_duplicate_domain_event_snapshot(
+        sport_id=sid_csv,
+        category_id=cat_csv,
+        competition_id=comp_csv,
+        home_id=hid,
+        away_id=aid,
+        start_time=body.start_time,
+    )
+    if dup_ev:
+        deid = str(dup_ev.get("id") or "").strip()
+        return HTMLResponse(f"""
+            <div class="p-6 text-center text-amber-300 text-sm max-w-md mx-auto">
+                <i class="fa-solid fa-clone mr-2"></i>
+                A domain event with the same sport, scope, teams and start time already exists:
+                <span class="font-mono text-white">{deid}</span>.
+                Use <strong>Confirm Mapping</strong> to link this feed row to that event instead of creating a duplicate.
+            </div>
+            """)
+
+    for m in _load_event_mappings():
+        if (m.get("feed_provider") or "").strip().lower() == fp_lc and str(m.get("feed_valid_id") or "").strip() == vid_s:
+            prev_eid = str(m.get("domain_event_id") or "").strip()
+            return HTMLResponse(f"""
+            <div class="p-6 text-center text-amber-300 text-sm max-w-md mx-auto">
+                <i class="fa-solid fa-link mr-2"></i>
+                This feed row was just linked to
+                <span class="font-mono text-white">{prev_eid}</span> (another request may have completed first).
+            </div>
+            """)
+
+    # Sequential domain event id (E-*), distinct from category ids (G-*)
+    new_id = next_event_domain_id(DOMAIN_EVENTS)
 
     # Build the in-memory event dict (empty string for missing IDs so CSV and lookups work)
     new_event = {
@@ -6039,12 +6076,28 @@ async def map_event_to_domain(
             </div>
         """)
 
-    # Check not already mapped
+    # Check not already mapped (same feed row cannot point at two domain events)
+    fp_lc_map = (feeder_provider or "").strip().lower()
+    vid_map = str(feeder_valid_id or "").strip()
     existing = _load_event_mappings()
-    already = any(
-        m["feed_provider"] == feeder_provider and m["feed_valid_id"] == feeder_valid_id
-        for m in existing
+    prev_eid = next(
+        (
+            str(m.get("domain_event_id") or "").strip()
+            for m in existing
+            if (m.get("feed_provider") or "").strip().lower() == fp_lc_map and str(m.get("feed_valid_id") or "").strip() == vid_map
+        ),
+        "",
     )
+    already = bool(prev_eid)
+    if already and prev_eid and prev_eid != str(domain_id_selected).strip():
+        return HTMLResponse(f"""
+            <div class="p-6 text-center text-amber-300 text-sm max-w-md mx-auto">
+                <i class="fa-solid fa-link mr-2"></i>
+                This feed row is already linked to
+                <span class="font-mono text-white">{prev_eid}</span>.
+                Remove that mapping first if you want to link it here instead.
+            </div>
+        """)
     mapping_new = False
     if not already:
         _save_event_mapping(domain_id_selected, feeder_provider, feeder_valid_id)
@@ -7637,26 +7690,52 @@ def _domain_events_competitions(sports: list[str] | None, categories: list[str] 
 
 
 def _domain_event_start_time_mismatch(domain_event_id: str, mappings: list[dict], feed_events: list[dict] | None = None) -> bool:
-    """True if mapped feed events have more than one distinct start time (easy to notice discrepancy).
-    Uses feed_events if provided (e.g. fresh load from JSON so edits are picked up without restart)."""
-    if len(mappings) < 2:
-        return False
+    """True only when ≥2 distinct mapped feed rows (by feed+valid_id) resolve to different kickoff minutes.
+
+    Duplicate mapping rows for the same feed occurrence are ignored. If a mapping row has no matching
+    feed event in memory (stale id), that row falls back to the domain event's golden start_time so it
+    does not falsely create a second clock reading.
+    """
     source = feed_events if feed_events is not None else DUMMY_EVENTS
-    seen: set[str] = set()
+    domain_ev = next((e for e in DOMAIN_EVENTS if str(e.get("id")) == str(domain_event_id)), None)
+    domain_key = _canonical_start_minute((domain_ev or {}).get("start_time")) if domain_ev else None
+
+    uniq: list[dict] = []
+    seen_pair: set[tuple[str, str]] = set()
     for m in mappings:
+        fp = (m.get("feed_provider") or "").strip().lower()
+        vid = str(m.get("feed_valid_id") or "").strip()
+        if not fp or not vid:
+            continue
+        pair = (fp, vid)
+        if pair in seen_pair:
+            continue
+        seen_pair.add(pair)
+        uniq.append(m)
+    if len(uniq) < 2:
+        return False
+
+    minute_keys: set[str] = set()
+    for m in uniq:
         feed_provider = (m.get("feed_provider") or "").strip()
-        feed_valid_id = (m.get("feed_valid_id") or "").strip()
+        feed_valid_id = str(m.get("feed_valid_id") or "").strip()
         feed_ev = next(
-            (e for e in source if (e.get("feed_provider") or "").strip() == feed_provider and str(e.get("valid_id") or "").strip() == feed_valid_id),
+            (
+                e
+                for e in source
+                if (e.get("feed_provider") or "").strip().lower() == feed_provider.lower()
+                and str(e.get("valid_id") or "").strip() == feed_valid_id
+            ),
             None,
         )
-        if not feed_ev:
+        st = (feed_ev.get("start_time") or "").strip() if feed_ev else ""
+        ck = _canonical_start_minute(st) if st else None
+        if ck is None and domain_key:
+            ck = domain_key
+        if ck is None:
             continue
-        st = (feed_ev.get("start_time") or "").strip()
-        dt = _parse_start_time(st) if st else None
-        key = dt.isoformat() if dt else "__none__"
-        seen.add(key)
-    return len(seen) > 1
+        minute_keys.add(ck)
+    return len(minute_keys) > 1
 
 
 def _domain_event_feed_start_times(mappings: list[dict], feed_events: list[dict] | None = None) -> list[dict]:
@@ -7677,6 +7756,39 @@ def _domain_event_feed_start_times(mappings: list[dict], feed_events: list[dict]
         st = (feed_ev.get("start_time") or "").strip()
         out.append({"feed": feed_label, "start_time": _format_start_time(st) or "—"})
     return out
+
+
+def _find_duplicate_domain_event_snapshot(
+    *,
+    sport_id: str,
+    category_id: str,
+    competition_id: str,
+    home_id: str,
+    away_id: str,
+    start_time: str | None,
+) -> dict | None:
+    """Return an existing domain event if it matches the same fixture snapshot (ids + kickoff minute)."""
+    sk = _canonical_start_minute(start_time)
+    for ev in DOMAIN_EVENTS:
+        if sk:
+            evk = _canonical_start_minute(ev.get("start_time"))
+            if not evk or evk != sk:
+                continue
+        else:
+            if (start_time or "").strip() != (ev.get("start_time") or "").strip():
+                continue
+        if sport_id and not entity_ids_equal(ev.get("sport_id"), sport_id):
+            continue
+        if category_id and not entity_ids_equal(ev.get("category_id"), category_id):
+            continue
+        if competition_id and not entity_ids_equal(ev.get("competition_id"), competition_id):
+            continue
+        if home_id and not entity_ids_equal(ev.get("home_id"), home_id):
+            continue
+        if away_id and not entity_ids_equal(ev.get("away_id"), away_id):
+            continue
+        return ev
+    return None
 
 
 def _filter_domain_events(
@@ -8136,7 +8248,7 @@ def _render_mapping_modal(request: Request, event_id: str):
             domain_sport_id = _infer_domain_sport_id_from_mapped_entities(event, feed_pid)
         if domain_sport_id and not r_sport:
             r_sport = next((s for s in DOMAIN_ENTITIES.get("sports", []) if entity_ids_equal(s.get("domain_id"), domain_sport_id)), None)
-    # Category / competition: align with feeder row resolution (raw_league_id, category IDs, COMP:… on category).
+    # Category / competition: league id + native category cell (e.g. Bwin region); unified feeds have no category field.
     r_category = None
     r_competition = None
     if feed_pid and domain_sport_id:
@@ -8147,20 +8259,12 @@ def _render_mapping_modal(request: Request, event_id: str):
                 r_competition = c2
         for src in (event.get("category_id"), event.get("category")):
             t = str(src or "").strip()
-            if not t:
+            if not t or t.upper().startswith("COMP:"):
                 continue
             cat_ent = _resolve_entity("categories", t, feed_pid, domain_sport_id=domain_sport_id)
             if cat_ent:
                 r_category = cat_ent
                 break
-        if not r_competition:
-            for src in (event.get("category_id"), event.get("category")):
-                t = str(src or "").strip()
-                if t.upper().startswith("COMP:"):
-                    c2 = _resolve_entity("competitions", t, feed_pid, domain_sport_id=domain_sport_id)
-                    if c2:
-                        r_competition = c2
-                        break
     r_home = _resolve_entity("teams", str(event.get("raw_home_id") or event.get("raw_home_name") or ""), feed_pid) if feed_pid else None
     r_away = _resolve_entity("teams", str(event.get("raw_away_id") or event.get("raw_away_name") or ""), feed_pid) if feed_pid else None
 
@@ -8199,9 +8303,8 @@ def _render_mapping_modal(request: Request, event_id: str):
     sport_id_for_suggest = r_sport["domain_id"] if r_sport else (suggested_sports[0]["domain_id"] if suggested_sports else None)
     category_id_for_suggest = None
 
-    # Category: always derive from feed first. Feed "Barbados" → suggest Barbados.
-    # Only use a domain category when match is strong (≥55%); otherwise use feed value with Create.
-    cat_candidates = _suggest_entity_by_name("categories", event.get("category") or event.get("raw_league_name") or "", sport_id_for_suggest)
+    # Category: only when the feed exposes a native category field (e.g. Bwin region); do not infer from league name.
+    cat_candidates = _suggest_entity_by_name("categories", (event.get("category") or "").strip(), sport_id_for_suggest)
     raw_cat = (event.get("category") or "").strip()
     best_cat = cat_candidates[0] if cat_candidates else None
     suggested_category = best_cat if (best_cat and (best_cat.get("match_pct") or 0) >= 55) else ({"name": raw_cat, "match_pct": 0} if raw_cat else None)
@@ -10290,13 +10393,13 @@ FEEDER_SYSTEM_ACTIONS = [
     (
         "auto_create_events",
         "Auto create Events",
-        "Only when sport, category, competition and teams already exist in the domain; runtime will not create events without those prerequisites.",
+        "Only when sport, competition and teams are mappable in the domain; a feed-level category field is not required (e.g. Bet365/Betfair/1xBet have no region in the list row).",
         "priority",
     ),
     (
         "auto_map_events",
         "Auto map Events",
-        "When enabled for this feed and scope, after pulls or when you map/create from Feeder Events, unmapped rows with all entities mapped are linked to an existing domain event if exactly one fixture matches (sport id; competition name exact, suffix e.g. England Premier League vs Premier League, or strong fuzzy; Bet365 COMP:… category vs domain country label ignored; teams; start time to the minute; home/away swap allowed). Competition-level scope resolves from COMP:… on the feed row. Each feed can be Yes independently.",
+        "When enabled for this feed and scope, unmapped rows with sport, competition and both teams mapped to the domain are linked to an existing domain event if exactly one fixture matches (competition by feed league id or name, teams, start time; home/away swap allowed). Feeds with a native category/region (e.g. Bwin) may still use it for filters but it is optional for matching.",
         "multiselect",
     ),
 ]

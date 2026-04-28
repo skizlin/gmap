@@ -1,0 +1,114 @@
+{
+  "_comment": "Synthetic esports (Counter-Strike) snapshot; sport_id and game_state shapes align with public DATA.BET log examples for esports_counter_strike.",
+  "sport_event_id": "cf35569f-3cd1-4d0e-adcf-1744fa312093",
+  "sport_id": "esports_counter_strike",
+  "version": "23EsportsCSSample001",
+  "timestamp_ns": 1730365540000000000,
+  "event_type": "sport_event_snapshot",
+  "payload": {
+    "fixture": {
+      "type": 0,
+      "status": 1,
+      "streams": [],
+      "sport_id": "esports_counter_strike",
+      "template": "{$competitor1} vs {$competitor2}",
+      "tournament": {
+        "id": "betting:esports:blast-premier-spring-2026",
+        "name": "Counter-Strike 2. Blast Premier. Spring Groups 2026"
+      },
+      "venue": {
+        "country_code": "DK"
+      },
+      "competitors": [
+        {
+          "id": "gt:96510",
+          "name": "Team Aurora (sample)",
+          "side": "home",
+          "type": 2,
+          "template_position": 1
+        },
+        {
+          "id": "gt:38810",
+          "name": "Storm Esports (sample)",
+          "side": "away",
+          "type": 2,
+          "template_position": 2
+        }
+      ],
+      "live_coverage": true,
+      "start_time_ns": 1730365200000000000,
+      "updated_at_ns": 1730365540000000000
+    },
+    "markets": [
+      {
+        "id": "20",
+        "status": 0,
+        "odds": [
+          {
+            "id": "1",
+            "value": "1.72",
+            "probability": "0.55",
+            "is_active": true,
+            "template": "{$competitor1}",
+            "status": 0,
+            "cash_out_available": false
+          },
+          {
+            "id": "3",
+            "value": "2.10",
+            "probability": "0.45",
+            "is_active": true,
+            "template": "{$competitor2}",
+            "status": 0,
+            "cash_out_available": false
+          }
+        ],
+        "type_id": 20,
+        "specifiers": ""
+      }
+    ],
+    "bet_stop": false,
+    "game_state": {
+      "bo": 3,
+      "map": "{\"1\":\"de_vertigo\"}",
+      "time": "61000",
+      "round": 1,
+      "side_away": "ct",
+      "side_home": "t",
+      "game_state": "map",
+      "match_format": "r13_o3",
+      "state_number": 1,
+      "timer_running": true
+    },
+    "competitors_score": [
+      {
+        "scores": [
+          { "id": "map:1", "type": "map", "number": 1, "points": "1" },
+          { "id": "total", "type": "total", "number": 0, "points": "0" }
+        ],
+        "competitor_id": "gt:96510",
+        "side": "home"
+      },
+      {
+        "scores": [
+          { "id": "map:1", "type": "map", "number": 1, "points": "0" },
+          { "id": "total", "type": "total", "number": 0, "points": "0" }
+        ],
+        "competitor_id": "gt:38810",
+        "side": "away"
+      }
+    ],
+    "extensions": {
+      "app.data.bet/widget": {
+        "types": [
+          "pitch_tracker",
+          "stream",
+          "scoreboard",
+          "h2h_statistics",
+          "games_statistics",
+          "teams_statistics"
+        ]
+      }
+    }
+  }
+}

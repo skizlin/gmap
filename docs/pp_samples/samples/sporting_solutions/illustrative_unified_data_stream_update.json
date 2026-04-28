@@ -1,0 +1,69 @@
+{
+  "_note": "Illustrative Unified Data API–style push document. Sporting Solutions exposes the Unified Data API to partners; exact JSON is defined in partner integration packs / SDK. Real feeds typically bind each event to a competition/league/season; names and nesting below are synthetic.",
+  "schemaHint": "sportingsolutions.unified_data_api.v1.stream",
+  "publishedAt": "2026-04-28T19:42:01.445Z",
+  "sequence": 992881,
+  "feature": "Soccer",
+  "competition": {
+    "id": "ss:comp:dom-1-2025",
+    "name": "Sample National League",
+    "shortName": "SNL",
+    "type": "League",
+    "season": { "id": "ss:season:2025-26", "name": "2025/26" },
+    "region": { "code": "GB-ENG", "name": "England" }
+  },
+  "tournament": null,
+  "round": { "id": "ss:round:md12", "name": "Matchday 12", "index": 12 },
+  "resource": {
+    "id": "ss:evt:uoe-448821",
+    "name": "North City vs Riverside Athletic",
+    "scheduledStart": "2026-04-28T19:30:00Z",
+    "status": "Live",
+    "tags": ["InPlay", "MainMarkets"],
+    "competitionId": "ss:comp:dom-1-2025",
+    "competitionName": "Sample National League",
+    "seasonId": "ss:season:2025-26"
+  },
+  "eventClock": { "period": "H1", "minute": 23, "second": 14, "running": true },
+  "score": { "home": 1, "away": 0 },
+  "statistics": [
+    { "code": "CORNERS", "home": 4, "away": 2 },
+    { "code": "SHOTS_ON_TARGET", "home": 5, "away": 3 }
+  ],
+  "incidents": [
+    {
+      "type": "GOAL",
+      "side": "HOME",
+      "minute": 18,
+      "relatedSelectionKeys": ["ss:sel:1x2:home"]
+    }
+  ],
+  "marketGroups": [
+    {
+      "groupId": "MAIN",
+      "markets": [
+        {
+          "marketId": "ss:mkt:1x2",
+          "name": "Match Odds",
+          "handicap": null,
+          "status": "Open",
+          "selections": [
+            { "selectionId": "ss:sel:1x2:home", "name": "North City", "price": 2.12, "status": "Open" },
+            { "selectionId": "ss:sel:1x2:draw", "name": "Draw", "price": 3.35, "status": "Open" },
+            { "selectionId": "ss:sel:1x2:away", "name": "Riverside Athletic", "price": 3.5, "status": "Open" }
+          ]
+        },
+        {
+          "marketId": "ss:mkt:ou25",
+          "name": "Over/Under 2.5 Goals",
+          "line": 2.5,
+          "status": "Open",
+          "selections": [
+            { "selectionId": "ss:sel:ou25:over", "name": "Over", "price": 1.9, "status": "Open" },
+            { "selectionId": "ss:sel:ou25:under", "name": "Under", "price": 1.92, "status": "Open" }
+          ]
+        }
+      ]
+    }
+  ]
+}

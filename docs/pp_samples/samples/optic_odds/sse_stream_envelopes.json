@@ -1,0 +1,98 @@
+{
+  "_note": "Optic Odds delivers SSE (text/event-stream). This file collects JSON payloads that appear after `data:` for common event types. Structure from public Optic Odds streaming documentation.",
+  "examples": [
+    {
+      "sse": { "event": "connected", "retry": 5000, "data": "ok go" }
+    },
+    {
+      "sse": { "event": "ping", "retry": 5000, "data": "2024-08-28T18:57:49Z" }
+    },
+    {
+      "sse": { "event": "odds", "id": "1730079534820-2", "retry": 5000 },
+      "parsedData": {
+        "data": [
+          {
+            "id": "28265-17233-24-44:betmgm:1st_half_moneyline:philadelphia_eagles",
+            "fixture_id": "A69FA4D64518",
+            "game_id": "28265-17233-24-44",
+            "sport": "football",
+            "league": "NFL",
+            "sportsbook": "BetMGM",
+            "market": "1st Half Moneyline",
+            "name": "Philadelphia Eagles",
+            "selection": "Philadelphia Eagles",
+            "selection_line": "",
+            "is_main": true,
+            "is_live": false,
+            "price": -230,
+            "points": null,
+            "timestamp": 1730079534.7125728,
+            "player_id": "",
+            "team_id": "EDCC2866B795",
+            "grouping_key": "default",
+            "limits": { "max_stake": 1000 },
+            "deep_link": {
+              "desktop": "https://www.betmgm.com/example",
+              "ios": "https://www.betmgm.com/example",
+              "android": "https://www.betmgm.com/example"
+            }
+          }
+        ],
+        "entry_id": "1730079534820-2",
+        "type": "odds"
+      }
+    },
+    {
+      "sse": { "event": "fixture-status", "id": "1724871720243-0" },
+      "parsedData": {
+        "data": {
+          "fixture_id": "FB0D30DCDD6C",
+          "game_id": "88067-26534-2024-35",
+          "sport": "tennis",
+          "league": "ATP",
+          "old_start_date": "2024-08-28T20:20:00+00:00",
+          "new_start_date": "2024-08-28T20:30:00+00:00",
+          "old_status": null,
+          "new_status": null,
+          "fixture": {
+            "id": "FB0D30DCDD6C",
+            "home_team_display": "Miomir Kecmanovic",
+            "away_team_display": "Lorenzo Musetti",
+            "start_date": "2024-08-28T20:30:00+00:00"
+          },
+          "timestamp": 1724871720.2406485
+        },
+        "entry_id": "1724871720243-0"
+      }
+    },
+    {
+      "sse": { "event": "fixture-results", "id": "1722523617827-0" },
+      "parsedData": {
+        "data": {
+          "fixture_id": "B176303C982E",
+          "is_live": true,
+          "score": {
+            "sport": "basketball",
+            "league": "NBA",
+            "home_team": "Sample Home",
+            "away_team": "Sample Away",
+            "home_score": 102,
+            "away_score": 98,
+            "period": "Q4",
+            "clock": "02:14"
+          },
+          "player_results": [
+            {
+              "player_id": "SAMPLE-PLAYER-ID",
+              "player_name": "Sample Player",
+              "stat": "Points",
+              "value": 28,
+              "team_id": "SAMPLE-TEAM-ID"
+            }
+          ]
+        },
+        "entry_id": "1722523617827-0"
+      }
+    }
+  ]
+}

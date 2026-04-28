@@ -1,0 +1,23 @@
+{
+  "sourceFixtureId": "GENIUS-FIX-883421",
+  "name": "Asian Handicap 0.25",
+  "isHandicap": true,
+  "isSuspended": false,
+  "selections": [
+    {
+      "id": "ah-home-025",
+      "name": "Manchester North FC +0.25",
+      "isSuspended": false,
+      "resultStatus": "Partial",
+      "additionalResultData": { "percentageWin": 50.0, "percentagePush": 50.0 },
+      "price": { "decimal": 1.95 }
+    },
+    {
+      "id": "ah-away-025",
+      "name": "London Riverside United -0.25",
+      "isSuspended": false,
+      "resultStatus": "Loser",
+      "price": { "decimal": 1.95 }
+    }
+  ]
+}

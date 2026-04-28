@@ -39,14 +39,14 @@
         —
         {% endif %}
     </td>
-    <!-- Category: darker when ignored; green when entity_feed_mappings resolves (see _feeder_events_attach_row_mapping_flags) -->
+    <!-- Category: native feed field only (e.g. Bwin region); no league-inferred text. "—" + faint when absent. Green when mapped. -->
     {% set cat_display = event.category or (event.category_id | string) or '' %}
     {% set cat_mapped = event.feed_category_mapped %}
-    <td class="px-3 py-1.5 {{ 'text-gmp-text-faint' if is_ignored else ('text-success' if cat_mapped else 'text-gmp-text-muted') }}">
+    <td class="px-3 py-1.5 {{ 'text-gmp-text-faint' if is_ignored else ('text-gmp-text-faint' if not cat_display else ('text-success' if cat_mapped else 'text-gmp-text-muted')) }}">
         {% if cat_display %}
         <button type="button" class="feeder-filter-shortcut text-left w-full hover:underline" data-feeder-filter="category" data-feeder-value="{{ cat_display | e }}">{{ event.category or event.category_id or '—' }}</button>
         {% else %}
-        <span class="text-gmp-text-faint">—</span>
+        <span>—</span>
         {% endif %}
     </td>
     <!-- Competition: darker when ignored; green when mapping resolves (id or league name fallback) -->

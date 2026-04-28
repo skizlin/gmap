@@ -1,0 +1,82 @@
+{
+  "_note": "Illustrative composite for Racing and Sports (RAS) style products (OddsLine / racing stack). Public wire schema is contract-specific; this models meeting → race → runners → fixed odds + incidents.",
+  "messageType": "RacebookUpdate",
+  "publishedAtUtc": "2026-04-28T09:15:22Z",
+  "meeting": {
+    "meetingId": "ras:mtg:AU-20260428-RAND",
+    "country": "AU",
+    "courseName": "Randwick (Sample)",
+    "timezone": "Australia/Sydney"
+  },
+  "race": {
+    "raceId": "ras:race:AU-20260428-RAND-R07",
+    "number": 7,
+    "name": "Sample Handicap (1400m)",
+    "distanceMeters": 1400,
+    "going": "Good4",
+    "startTimeUtc": "2026-04-28T05:20:00Z",
+    "status": "AtThePost"
+  },
+  "runners": [
+    {
+      "runnerId": "ras:run:882001",
+      "clothNumber": 1,
+      "barrier": 3,
+      "name": "Northern Flash",
+      "jockey": "J. Sample",
+      "trainer": "T. Sample",
+      "weightKg": 57.5,
+      "isScratched": false,
+      "lastOddsDecimal": { "win": 4.2, "place": 1.75 }
+    },
+    {
+      "runnerId": "ras:run:882002",
+      "clothNumber": 2,
+      "barrier": 8,
+      "name": "Harbour Lane",
+      "jockey": "A. Demo",
+      "trainer": "B. Demo",
+      "weightKg": 56.0,
+      "isScratched": false,
+      "lastOddsDecimal": { "win": 8.5, "place": 2.6 }
+    },
+    {
+      "runnerId": "ras:run:882003",
+      "clothNumber": 3,
+      "barrier": 1,
+      "name": "Withdrawn Example",
+      "jockey": "",
+      "trainer": "",
+      "weightKg": null,
+      "isScratched": true,
+      "scratchingReason": "Veterinary",
+      "lastOddsDecimal": null
+    }
+  ],
+  "markets": [
+    {
+      "marketType": "WIN",
+      "status": "Open",
+      "selections": [
+        { "runnerId": "ras:run:882001", "decimal": 4.2, "suspended": false },
+        { "runnerId": "ras:run:882002", "decimal": 8.5, "suspended": false }
+      ]
+    },
+    {
+      "marketType": "EXACTA",
+      "status": "Open",
+      "legSize": 2,
+      "sampleDividendEstimate": { "1-2": 42.0 }
+    }
+  ],
+  "raceIncidents": [
+    { "type": "LateScratching", "runnerId": "ras:run:882003", "atUtc": "2026-04-28T09:02:11Z" },
+    { "type": "OddsFluctuation", "runnerId": "ras:run:882001", "from": 4.6, "to": 4.2, "atUtc": "2026-04-28T09:10:03Z" }
+  ],
+  "formAndStats": {
+    "sectional200m": [
+      { "runnerId": "ras:run:882001", "splitSeconds": 12.8 },
+      { "runnerId": "ras:run:882002", "splitSeconds": 13.1 }
+    ]
+  }
+}

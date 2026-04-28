@@ -1,0 +1,15 @@
+DATA.BET trading feed — fixture geography / demographics (public integration doc)
+==================================================================================
+
+What appears in published snapshot examples (feed integration v2):
+- fixture.tournament — id + name only. Competition context (including league vs cup)
+  is carried here; naming may encode youth tiers (e.g. "U21 ..." in the official doc example).
+- fixture.venue — at least country_code (e.g. GB, BR) when present.
+
+What we did NOT find in the public snapshot/fixture JSON examples:
+- Dedicated fields named gender, age_group, amateur/professional, or ISO region codes
+  separate from venue/tournament naming.
+
+Practical implication: if you need structured gender or age classification, confirm with
+your DATA.BET integration contact whether your product tier adds extension fields,
+metadata APIs, or whether you derive tier from tournament naming and sport rules.
