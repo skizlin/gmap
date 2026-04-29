@@ -2,7 +2,7 @@
 API request/response models (Pydantic). Used by FastAPI routes in main.py.
 """
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union
 
 
 class CreateDomainEventRequest(BaseModel):
@@ -113,7 +113,8 @@ class CreateMarketGroupRequest(BaseModel):
 
 class MarketTypeMappingItem(BaseModel):
     feed_provider_id: int
-    id: Optional[int] = None
+    # Bwin/Bet365/1xbet use numeric ids; IMLog uses string template ids (e.g. IMLOG_CORRECT_SET_SCORE).
+    id: Optional[Union[int, str]] = None
     name: Optional[str] = None
     feed_market_id: Optional[str] = None
     feed_market_name: Optional[str] = None

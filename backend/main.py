@@ -34,6 +34,8 @@ DATA_COUNTRIES_DIR = config.DATA_COUNTRIES_DIR
 
 # Feed pull module uses this for stored feed data (e.g. bet365 from API)
 from backend import feed_pull
+from backend import alerts_csv
+
 feed_pull.FEED_DATA_DIR = FEED_DATA_DIR
 DATA_MARKETS_DIR = config.DATA_MARKETS_DIR
 COUNTRY_CODE_NONE = config.COUNTRY_CODE_NONE
@@ -143,6 +145,7 @@ def _ensure_rbac_data_structure() -> None:
         logging.getLogger("uvicorn.error").warning(
             "GMP_SUPERADMIN_PIN is empty — users with is_superadmin cannot sign in until you set it in .env."
         )
+    alerts_csv.ensure_initialized()
 
 
 def _migrate_rbac_users_is_superadmin_if_needed() -> None:
@@ -2289,6 +2292,17 @@ def _save_entity(etype: str, entity: dict) -> None:
         writer.writerow(entity)
 
 
+def _ensure_imlog_feed_row() -> None:
+    """Ensure feeds.csv lists IMLog (synthetic Bwin-shaped feed) so market mappings and Feed Odds can use it."""
+    global FEEDS
+    if any((f.get("code") or "").strip().lower() == "imlog" for f in FEEDS):
+        return
+    next_id = max((f["domain_id"] for f in FEEDS), default=0) + 1
+    row = {"domain_id": next_id, "code": "imlog", "name": "IMLog"}
+    _save_entity("feeds", row)
+    FEEDS.append({"domain_id": int(next_id), "code": "imlog", "name": "IMLog"})
+
+
 def _update_entity_name(
     etype: str,
     domain_id: str,
@@ -2859,6 +2873,7 @@ def _save_event_mapping(domain_event_id: str, feed_provider: str, feed_valid_id:
         writer.writerow(row)
 
 FEEDS: list[dict] = _load_feeds()
+_ensure_imlog_feed_row()
 _migrate_entity_feed_mappings_if_needed()
 _migrate_sport_aliases_to_entity_feed_mappings()
 _migrate_entity_created_updated_if_needed()
@@ -3162,7 +3177,7 @@ def _load_feed_markets_from_event_details(
     Does not fall back to "all cached events" (that previously leaked other sports into the mapper).
     """
     feed_lower = (feed_code or "").strip().lower()
-    if feed_lower not in ("bwin", "bet365", "1xbet"):
+    if feed_lower not in ("bwin", "bet365", "1xbet", "imlog"):
         return []
     details_dir = config.FEED_EVENT_DETAILS_DIR / feed_lower
     if not details_dir.exists():
@@ -3227,6 +3242,7 @@ def _load_feed_markets_from_event_details(
         return _with_sport_dedupe(_parse_bet365_feed_markets)
     if feed_lower == "1xbet":
         return _with_sport_dedupe(_parse_1xbet_feed_markets)
+    # bwin + imlog (Bwin-shaped JSON, string templateId for IMLog markets)
     return _with_sport_dedupe(_parse_bwin_feed_markets, feed_sport_id, True)
 
 
@@ -3243,6 +3259,16 @@ def _load_feed_markets_for_sport(
     from_stored = _load_feed_markets_from_event_details(feed_code, feed_sport_id, domain_sport_id)
     if from_stored:
         return from_stored
+    # IMLog: synthetic feed — if no JSON matches SportId vs sport_feed_mappings.feed_id, still offer fixed ids
+    # (avoids empty mapper when files used fallback SportId 18 before mapping existed).
+    if feed_lower == "imlog":
+        from backend.internal_pricing.imlog_sync import imlog_markets_for_configuration_mapper
+
+        static_list = [dict(m) for m in imlog_markets_for_configuration_mapper()]
+        sport_display = _get_feed_sport_name(feed_lower, feed_sport_id)
+        for m in static_list:
+            m.setdefault("sport_name", sport_display)
+        return static_list
 
     sport_slug = _get_sport_slug(domain_sport_id) if domain_sport_id is not None else ""
     paths_to_try: list[Path] = []
@@ -3301,14 +3327,16 @@ def _parse_bwin_feed_markets(
             try:
                 mid = int(template_id)
             except (TypeError, ValueError):
-                continue
+                mid = str(template_id).strip()
+                if not mid:
+                    continue
             if mid in by_key:
                 continue
             name = (item.get("name") or {}).get("value") or ""
             if not name:
                 name = (tc.get("name") or {}).get("value") or ""
             name = (name or "").strip() or ("(id " + str(mid) + ")")
-            by_key[mid] = {"id": mid, "name": name, "is_prematch": is_prematch, "line": None}
+            by_key[mid] = {"id": mid, "name": name, "is_prematch": is_prematch, "line": None}  # id: int (Bwin) or str (IMLog)
     return list(by_key.values())
 
 
@@ -4276,6 +4304,7 @@ def _get_feed_odds_for_event_market(
     domain_market_id: str | int,
     line: str | None = None,
     all_lines: bool = True,
+    exclude_feed_codes: frozenset[str] | None = None,
 ) -> list[dict]:
     """Return list of rows from cached event details and market type mappings.
 
@@ -4283,8 +4312,19 @@ def _get_feed_odds_for_event_market(
 
     With ``all_lines`` true (default), multi-line feeds return one row per offered line (paired Over/Under or
     handicap sides). With ``all_lines`` false, ``line`` selects a single line like the legacy UI behavior.
+
+    ``exclude_feed_codes``: lowercase feed codes to skip (e.g. ``frozenset({"imlog"})`` when building IMLog from other feeds).
     """
-    event_mappings = [m for m in _load_event_mappings() if (m.get("domain_event_id") or "").strip() == str(domain_event_id).strip()]
+    eid_key = str(domain_event_id).strip()
+    event_mappings = [m for m in _load_event_mappings() if (m.get("domain_event_id") or "").strip() == eid_key]
+    # IMLog JSON is always written as feed_event_details/imlog/{domain_event_id}.json. If that file exists but
+    # event_mappings has no imlog row yet, still include imlog so Feed Odds works once market_type_mappings exist.
+    if not any((m.get("feed_provider") or "").strip().lower() == "imlog" for m in event_mappings):
+        imlog_feed = next((f for f in FEEDS if (f.get("code") or "").strip().lower() == "imlog"), None)
+        if imlog_feed and (config.FEED_EVENT_DETAILS_DIR / "imlog" / f"{eid_key}.json").exists():
+            event_mappings = list(event_mappings) + [
+                {"domain_event_id": eid_key, "feed_provider": "imlog", "feed_valid_id": eid_key},
+            ]
     dmid = fid_str(domain_market_id)
     mt_mappings = [m for m in _load_market_type_mappings() if fid_str(m.get("domain_market_id")) == dmid]
     feed_by_id = {f["domain_id"]: f for f in FEEDS}
@@ -4292,6 +4332,8 @@ def _get_feed_odds_for_event_market(
     result: list[dict] = []
     for em in event_mappings:
         feed_provider_str = (em.get("feed_provider") or "").strip().lower()
+        if exclude_feed_codes and feed_provider_str in exclude_feed_codes:
+            continue
         feed_valid_id = (em.get("feed_valid_id") or "").strip()
         if not feed_valid_id:
             continue
@@ -4378,7 +4420,7 @@ def _get_feed_odds_for_event_market(
                 "is_main_line": False,
             })
 
-        if feed_provider_str == "bwin":
+        if feed_provider_str in ("bwin", "imlog"):
             if all_lines:
                 multi = _extract_bwin_all_line_rows(payload, feed_market_id)
                 if multi:
@@ -7639,6 +7681,9 @@ async def feeder_events_view(
     has_notes = _feeder_notes_has_set()
     if notes_only_active:
         filtered = [e for e in filtered if ((e.get("feed_provider") or "").strip(), (e.get("valid_id") or "").strip()) in has_notes]
+    mapping_status_q = (request.query_params.get("mapping_status_filter") or "").strip()
+    if mapping_status_q:
+        filtered = [e for e in filtered if (e.get("mapping_status") or "") == mapping_status_q]
     date_filter = (date or "").strip() or "next_7_days"
     date_range = _date_range_from_param(date_filter, date_from, date_to)
     if date_range is not None:
@@ -7699,6 +7744,7 @@ async def feeder_events_view(
         "selected_date": date_filter,
         "date_from": (date_from or "").strip() or "",
         "date_to": (date_to or "").strip() or "",
+        "feeder_mapping_status_filter": mapping_status_q,
     })
 
 @app.get("/feeder-events/sport-options", response_class=HTMLResponse)
@@ -8299,6 +8345,32 @@ def _event_sport_id(ev: dict) -> int | None:
     return None
 
 
+def _feed_sport_id_from_sport_feed_mappings(domain_sport_id: Any, feed_code: str) -> Any | None:
+    """``feed_id`` from sport_feed_mappings for (domain sport, feed) — used as ``SportId`` on IMLog JSON so market discovery matches."""
+    fc = (feed_code or "").strip().lower()
+    feed_obj = next((f for f in FEEDS if (f.get("code") or "").strip().lower() == fc), None)
+    if not feed_obj or domain_sport_id is None:
+        return None
+    pid = feed_obj["domain_id"]
+    row = next(
+        (
+            m
+            for m in SPORT_FEED_MAPPINGS
+            if entity_ids_equal(m.get("domain_id"), domain_sport_id) and m.get("feed_provider_id") == pid
+        ),
+        None,
+    )
+    if not row:
+        return None
+    fid = row.get("feed_id")
+    if fid is None or str(fid).strip() == "":
+        return None
+    try:
+        return int(str(fid).strip())
+    except (TypeError, ValueError):
+        return str(fid).strip()
+
+
 @app.get("/event-navigator/event_details/{domain_id}", response_class=HTMLResponse)
 async def event_navigator_event_details(request: Request, domain_id: str):
     """Event details page for a single domain event. Opens in new tab from Event column."""
@@ -8744,6 +8816,89 @@ async def api_confirm_notification(notification_id: str):
     return {"ok": ok}
 
 
+@app.get("/alerts", response_class=HTMLResponse)
+async def alerts_history_page(
+    request: Request,
+    status: str | None = None,
+    alert_type: str | None = None,
+    feed: str | None = None,
+    page: int = 1,
+    per_page: int = 50,
+):
+    """Operational alerts queue (CSV-backed); filters are query params for dashboard deep links."""
+    rows, total = alerts_csv.list_alerts_filtered(
+        status=status,
+        alert_type_code=alert_type,
+        feed_code=feed,
+        page=page,
+        per_page=per_page,
+    )
+    open_n = alerts_csv.count_open()
+    return templates.TemplateResponse(
+        request,
+        "alerts/history.html",
+        {
+            "request": request,
+            "section": "alerts",
+            "alerts": rows,
+            "alerts_total": total,
+            "alerts_page": max(1, page),
+            "alerts_per_page": max(1, min(per_page, 200)),
+            "filter_status": (status or "").strip(),
+            "filter_alert_type": (alert_type or "").strip(),
+            "filter_feed": (feed or "").strip(),
+            "alerts_open_count": open_n,
+            "alert_types": alerts_csv.load_types(),
+        },
+    )
+
+
+@app.get("/api/alerts/open-count")
+async def api_alerts_open_count():
+    return {"open_count": alerts_csv.count_open()}
+
+
+@app.get("/api/alerts")
+async def api_alerts_list(
+    status: str | None = None,
+    alert_type: str | None = None,
+    feed: str | None = None,
+    page: int = 1,
+    per_page: int = 50,
+):
+    rows, total = alerts_csv.list_alerts_filtered(
+        status=status,
+        alert_type_code=alert_type,
+        feed_code=feed,
+        page=page,
+        per_page=per_page,
+    )
+    return {
+        "items": rows,
+        "total": total,
+        "page": max(1, page),
+        "per_page": max(1, min(per_page, 200)),
+    }
+
+
+@app.post("/api/alerts/{alert_id}/ack")
+async def api_alerts_ack(alert_id: str):
+    ok = alerts_csv.transition_alert(alert_id, "ack")
+    return {"ok": ok}
+
+
+@app.post("/api/alerts/{alert_id}/hide")
+async def api_alerts_hide(alert_id: str):
+    ok = alerts_csv.transition_alert(alert_id, "hide")
+    return {"ok": ok}
+
+
+@app.post("/api/alerts/{alert_id}/resolve")
+async def api_alerts_resolve(alert_id: str):
+    ok = alerts_csv.transition_alert(alert_id, "resolve")
+    return {"ok": ok}
+
+
 @app.post("/api/feeder-events/set-ignored")
 async def api_feeder_events_set_ignored(
     feed_provider: str = Form(...),
@@ -8839,6 +8994,131 @@ async def api_event_details_feed_odds(
     """Return feed odds for the selected market from each mapped feed (from cached event details)."""
     rows = _get_feed_odds_for_event_market(domain_event_id, domain_market_id, line, all_lines=all_lines)
     return {"feed_odds": rows}
+
+
+@app.get("/api/event-details/internal-model")
+async def api_event_details_internal_model(
+    domain_event_id: str = Query(..., description="Domain event id (e.g. E-1)"),
+    domain_market_id: str = Query(..., description="Domain market id (e.g. M-12)"),
+    market_name: str = Query("", description="Selected market display name (used to detect Correct Set Score)"),
+    line: str | None = Query(None, description="Optional line filter (same as feed odds); strip ★ when matching"),
+):
+    """Volleyball + Correct Set Score: de-vig feed odds per feed, average true odds/probs; persist under data/internal_feed/."""
+    from backend.internal_pricing.sports.volleyball.correct_set_score import (
+        compute_correct_set_score_internal,
+        is_correct_set_score_market,
+        is_volleyball_sport,
+    )
+    from backend.internal_pricing.storage import save_snapshot
+
+    eid = str(domain_event_id).strip()
+    ev = next((e for e in DOMAIN_EVENTS if (e.get("id") or "").strip() == eid), None)
+    if not ev:
+        return JSONResponse({"supported": False, "message": "Domain event not found"}, status_code=404)
+    sport_name = (ev.get("sport") or "").strip()
+    if not is_volleyball_sport(sport_name):
+        return {"supported": False, "message": "Internal model here is only implemented for Volleyball."}
+    if not is_correct_set_score_market(market_name):
+        return {"supported": False, "message": "Select Correct Set Score to see the internal model."}
+
+    dmid = fid_str(domain_market_id)
+    market = next((m for m in (DOMAIN_ENTITIES.get("markets") or []) if fid_str(m.get("domain_id")) == dmid), None)
+    if not market:
+        return {"supported": False, "message": "Market not found."}
+    sid = _event_sport_id(ev)
+    labels, _otype = _get_outcome_labels_for_market(market, sid)
+    if not labels:
+        return {
+            "supported": True,
+            "sport": sport_name,
+            "market_model": "correct_set_score",
+            "column_labels": [],
+            "averaged": [],
+            "per_feed": [],
+            "feeds_used": 0,
+            "message": "This market has no fixed outcome template; internal model needs outcome labels.",
+        }
+
+    line_clean = (line or "").strip() or None
+    use_all_lines = line_clean is None
+    rows = _get_feed_odds_for_event_market(
+        eid, domain_market_id, line_clean, all_lines=use_all_lines, exclude_feed_codes=frozenset({"imlog"})
+    )
+    comp = compute_correct_set_score_internal(rows, line_clean, labels)
+    averaged = comp.get("averaged_outcomes") or []
+    feeds_used = int(comp.get("feeds_used") or 0)
+    margin_pct = round(sum(float(x.get("true_prob") or 0) for x in averaged) * 100.0, 1) if averaged else None
+    odds_margin_pct = None
+    if averaged:
+        odds_margin_pct = round(sum(1.0 / float(x["true_odds"]) for x in averaged) * 100.0, 1)
+
+    save_payload = {
+        "domain_event_id": eid,
+        "domain_market_id": dmid,
+        "line": line_clean,
+        "market_name": (market_name or "").strip(),
+        "sport": sport_name,
+        "supported": True,
+        "market_model": "correct_set_score",
+        "feeds_used": feeds_used,
+        "per_feed": comp.get("per_feed") or [],
+        "averaged_outcomes": averaged,
+        "true_prob_sum_pct": margin_pct,
+        "true_odds_margin_pct": odds_margin_pct,
+    }
+    try:
+        save_snapshot(config.INTERNAL_FEED_DATA_DIR, eid, dmid, save_payload)
+    except OSError:
+        pass
+
+    if averaged:
+        try:
+            from backend.internal_pricing.imlog_sync import imlog_event_file_path, sync_imlog_event_json
+
+            def _feed_odds_no_imlog(eid_: str, mid_: str | int, ln_: str | None, aln_: bool) -> list[dict]:
+                return _get_feed_odds_for_event_market(
+                    eid_, mid_, ln_, aln_, exclude_feed_codes=frozenset({"imlog"})
+                )
+
+            sync_imlog_event_json(
+                domain_event_id=eid,
+                domain_event=ev,
+                markets_bucket=DOMAIN_ENTITIES.get("markets") or [],
+                get_feed_odds_fn=_feed_odds_no_imlog,
+                get_outcome_labels_fn=_get_outcome_labels_for_market,
+                entity_ids_equal_fn=entity_ids_equal,
+                sport_id=sid,
+                out_path=imlog_event_file_path(config.FEED_EVENT_DETAILS_DIR, eid),
+                declared_feed_sport_id=_feed_sport_id_from_sport_feed_mappings(sid, "imlog"),
+            )
+        except Exception:
+            logging.getLogger(__name__).exception("IMLog event JSON sync failed for %s", eid)
+
+    if not averaged:
+        return {
+            "supported": True,
+            "sport": sport_name,
+            "market_model": "correct_set_score",
+            "column_labels": labels,
+            "averaged": [],
+            "per_feed": comp.get("per_feed") or [],
+            "feeds_used": feeds_used,
+            "true_prob_sum_pct": margin_pct,
+            "true_odds_margin_pct": None,
+            "message": "No complete feed odds to average (each feed needs all template outcomes with valid prices).",
+        }
+
+    return {
+        "supported": True,
+        "sport": sport_name,
+        "market_model": "correct_set_score",
+        "column_labels": labels,
+        "averaged": averaged,
+        "per_feed": comp.get("per_feed") or [],
+        "feeds_used": feeds_used,
+        "true_prob_sum_pct": margin_pct,
+        "true_odds_margin_pct": odds_margin_pct,
+    }
 
 
 @app.get("/api/market-type-mappings/all-mapped")
@@ -9268,6 +9548,8 @@ _RBAC_PATH_GATE: list[tuple[str, frozenset[str]]] = sorted(
         ("/compliance", frozenset({"menu.configuration.compliance.view"})),
         ("/pull-feeds", frozenset({"menu.dashboard.view"})),
         ("/api/dashboard-feed-stats", frozenset({"menu.dashboard.view"})),
+        ("/api/alerts", frozenset({"menu.alerts.view"})),
+        ("/alerts", frozenset({"menu.alerts.view"})),
     ],
     key=lambda x: len(x[0]),
     reverse=True,
@@ -9494,6 +9776,17 @@ def _rbac_enforce_api_permissions(request: Request) -> None:
         _rbac_require_permission_code(request, "menu.dashboard.view")
         return
 
+    # --- Alerts (CSV-backed queue) ---
+    if re.fullmatch(r"/api/alerts/open-count", path) and method == "GET":
+        _rbac_require_permission_code(request, "menu.alerts.view")
+        return
+    if re.fullmatch(r"/api/alerts", path) and method == "GET":
+        _rbac_require_permission_code(request, "menu.alerts.view")
+        return
+    if re.fullmatch(r"/api/alerts/[^/]+/(ack|hide|resolve)", path) and method == "POST":
+        _rbac_require_permission_code(request, "menu.alerts.view")
+        return
+
     # --- Pull feeds (dashboard / feeder tooling) ---
     if re.fullmatch(r"/api/pull-feed", path) and method == "POST":
         _rbac_require_permission_code(request, "config.feeders.update")
@@ -9525,6 +9818,9 @@ def _rbac_enforce_api_permissions(request: Request) -> None:
         _rbac_require_permission_code(request, "betting.feeder_events.view")
         return
     if re.fullmatch(r"/api/event-details/feed-odds", path) and method == "GET":
+        _rbac_require_permission_code(request, "betting.feeder_events.view")
+        return
+    if re.fullmatch(r"/api/event-details/internal-model", path) and method == "GET":
         _rbac_require_permission_code(request, "betting.feeder_events.view")
         return
 

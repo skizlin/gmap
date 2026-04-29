@@ -1,0 +1,141 @@
+{% extends "layout.html" %}
+
+{% block page_heading %}Alerts{% endblock %}
+
+{% block title %}Alerts{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-full space-y-4">
+    <div class="flex flex-wrap items-center gap-2 text-gmp-text-faint text-sm">
+        <a href="/" class="text-primary hover:text-success">Dashboard</a>
+        <i class="fa-solid fa-chevron-right text-[10px]"></i>
+        <span class="text-gmp-text-muted">Alerts</span>
+        <span class="text-gmp-text-muted">·</span>
+        <span class="text-gmp-text-muted">Open (NEW): <strong class="text-warning">{{ alerts_open_count }}</strong></span>
+    </div>
+
+    <div class="glass-panel rounded-lg p-5 space-y-4">
+        <div class="flex flex-wrap items-end gap-3">
+            <form method="get" action="/alerts" class="flex flex-wrap items-end gap-3 flex-1 min-w-0">
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Status</label>
+                    <select name="status"
+                        class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-w-[9rem]">
+                        <option value="" {% if not filter_status %}selected{% endif %}>All</option>
+                        <option value="NEW" {% if filter_status|upper == 'NEW' %}selected{% endif %}>New</option>
+                        <option value="ACKED" {% if filter_status|upper == 'ACKED' %}selected{% endif %}>Acked</option>
+                        <option value="HIDDEN" {% if filter_status|upper == 'HIDDEN' %}selected{% endif %}>Hidden</option>
+                        <option value="RESOLVED" {% if filter_status|upper == 'RESOLVED' %}selected{% endif %}>Resolved</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Type</label>
+                    <select name="alert_type"
+                        class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary min-w-[10rem]">
+                        <option value="" {% if not filter_alert_type %}selected{% endif %}>All</option>
+                        {% for t in alert_types %}
+                        {% if (t.active or '1') == '1' %}
+                        <option value="{{ t.code }}" {% if filter_alert_type|upper == t.code|upper %}selected{% endif %}>{{ t.code }} — {{ t.name }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Feed</label>
+                    <input type="text" name="feed" value="{{ filter_feed | e }}" placeholder="e.g. bet365"
+                        class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary w-36 placeholder-gmp-text-faint">
+                </div>
+                <input type="hidden" name="page" value="1">
+                <input type="hidden" name="per_page" value="{{ alerts_per_page }}">
+                <button type="submit"
+                    class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 transition-colors">
+                    Apply
+                </button>
+                <a href="/alerts"
+                    class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm text-gmp-text-muted hover:text-gmp-text-heading border border-gmp-border/60 hover:bg-gmp-hover/10 transition-colors">Clear</a>
+            </form>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-gmp-border/60">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="bg-gmp-surface-raised/80 text-left text-gmp-text-faint text-[10px] uppercase tracking-wider border-b border-gmp-border/60">
+                        <th class="px-3 py-2 font-semibold">Created</th>
+                        <th class="px-3 py-2 font-semibold">Type</th>
+                        <th class="px-3 py-2 font-semibold">Severity</th>
+                        <th class="px-3 py-2 font-semibold">Status</th>
+                        <th class="px-3 py-2 font-semibold">Feed</th>
+                        <th class="px-3 py-2 font-semibold">Message</th>
+                        <th class="px-3 py-2 font-semibold w-[1%] whitespace-nowrap">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gmp-border/40">
+                    {% for a in alerts %}
+                    <tr class="hover:bg-gmp-hover/10 align-top">
+                        <td class="px-3 py-2 text-gmp-text-muted tabular-nums whitespace-nowrap">{{ a.created_at or '—' }}</td>
+                        <td class="px-3 py-2 text-gmp-text-heading font-medium">{{ a.alert_type_code | e }}</td>
+                        <td class="px-3 py-2 tabular-nums">{{ a.severity | e }}</td>
+                        <td class="px-3 py-2">{{ a.status | e }}</td>
+                        <td class="px-3 py-2 text-gmp-text-muted">{{ a.feed_code | e }}</td>
+                        <td class="px-3 py-2 text-gmp-text-heading max-w-md">{{ a.message | e }}</td>
+                        <td class="px-3 py-2 whitespace-nowrap">
+                            {% set fp = (a.feed_code or '')|lower %}
+                            {% set vid = (a.valid_id or '')|e %}
+                            {% if a.alert_type_code|upper == 'UEVT' and fp and vid %}
+                            <a href="/feeder-events?feed_provider={{ fp|urlencode }}&mapping_status_filter=UNMAPPED"
+                                class="text-blue-700 dark:text-sky-400 font-medium hover:underline mr-2">Feeder</a>
+                            {% endif %}
+                            {% if a.status|upper == 'NEW' %}
+                            <button type="button" class="text-primary hover:underline text-xs mr-1 alert-act" data-id="{{ a.id | e }}" data-act="ack">Ack</button>
+                            <button type="button" class="text-gmp-text-muted hover:underline text-xs mr-1 alert-act" data-id="{{ a.id | e }}" data-act="hide">Hide</button>
+                            {% endif %}
+                            <button type="button" class="text-success hover:underline text-xs alert-act" data-id="{{ a.id | e }}" data-act="resolve">Resolve</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="px-3 py-8 text-center text-gmp-text-muted">No alerts yet. Emitters will append rows here (CSV).</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if alerts_total > alerts_per_page %}
+        <div class="flex flex-wrap items-center justify-between gap-2 text-sm text-gmp-text-muted">
+            <span>Showing {{ (alerts_page - 1) * alerts_per_page + 1 }}–{{ [alerts_page * alerts_per_page, alerts_total] | min }} of {{ alerts_total }}</span>
+            <div class="flex items-center gap-2">
+                {% if alerts_page > 1 %}
+                <a class="px-3 py-1 rounded border border-gmp-border hover:bg-gmp-hover/10 text-gmp-text-heading"
+                    href="/alerts?status={{ filter_status|urlencode }}&alert_type={{ filter_alert_type|urlencode }}&feed={{ filter_feed|urlencode }}&per_page={{ alerts_per_page }}&page={{ alerts_page - 1 }}">Previous</a>
+                {% endif %}
+                {% if alerts_page * alerts_per_page < alerts_total %}
+                <a class="px-3 py-1 rounded border border-gmp-border hover:bg-gmp-hover/10 text-gmp-text-heading"
+                    href="/alerts?status={{ filter_status|urlencode }}&alert_type={{ filter_alert_type|urlencode }}&feed={{ filter_feed|urlencode }}&per_page={{ alerts_per_page }}&page={{ alerts_page + 1 }}">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% elif alerts_total %}
+        <p class="text-xs text-gmp-text-faint">{{ alerts_total }} row{% if alerts_total != 1 %}s{% endif %}</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+(function () {
+    document.querySelectorAll('.alert-act').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-id');
+            var act = btn.getAttribute('data-act');
+            if (!id || !act) return;
+            fetch('/api/alerts/' + encodeURIComponent(id) + '/' + act, { method: 'POST', credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (j) {
+                    if (j && j.ok) window.location.reload();
+                })
+                .catch(function () {});
+        });
+    });
+})();
+</script>
+{% endblock %}

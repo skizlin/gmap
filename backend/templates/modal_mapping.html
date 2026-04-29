@@ -87,8 +87,8 @@
                     sport_feed_id }}</span>
             </div>
             <div
-                class="w-[130px] shrink-0 flex items-center justify-center text-[10px] uppercase tracking-wider text-gmp-text-muted font-semibold bg-gmp-surface border-x border-gmp-border-subtle">
-                Sport</div>
+                class="w-[130px] shrink-0 flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-gmp-text-muted font-semibold bg-gmp-surface border-x border-gmp-border-subtle">
+                <i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i><span>Sport</span></div>
             <div class="flex-1 min-w-0 flex items-center gap-2 px-5 py-3 bg-gmp-surface-inset/20">
                 {% if resolved.sport %}
                 <input type="hidden" id="domain_sport_id_hidden" name="domain_sport_id" value="{{ resolved.sport.domain_id }}">

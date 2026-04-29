@@ -183,8 +183,8 @@
                 {% if rbac_can_any(request, 'menu.alerts.view') %}
                 <!-- Alerts (no dropdown) -->
                 <div class="nav-item relative flex items-center">
-                    <a href="#"
-                        class="flex items-center h-full px-4 text-sm text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10 transition-colors">
+                    <a href="/alerts"
+                        class="flex items-center h-full px-4 text-sm transition-colors {% if section == 'alerts' %}text-primary{% else %}text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10{% endif %}">
                         Alerts
                     </a>
                 </div>
@@ -353,7 +353,7 @@
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-gmp-hover/10">Bets/PTLs</a>
                 {% endif %}
                 {% if rbac_can_any(request, 'menu.alerts.view') %}
-                <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-gmp-hover/10">Alerts</a>
+                <a href="/alerts" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 {% if section == 'alerts' %}text-primary bg-gmp-hover/10{% else %}text-gmp-text hover:bg-gmp-hover/10{% endif %}">Alerts</a>
                 {% endif %}
                 {% if rbac_can_any(request, 'menu.reports.view') %}
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-gmp-hover/10">Reports</a>
@@ -434,13 +434,13 @@
 
         <!-- Page header: title row only (override page_header with empty to hide entirely, e.g. Event details) -->
         {% block page_header %}
-        <div class="bg-[rgb(var(--gmp-surface-base)/0.6)] border-b border-gmp-border-subtle px-6 py-3 flex-shrink-0">
-            <h1 class="text-lg font-bold text-gmp-text-heading">{% block page_heading %}Page{% endblock %}</h1>
+        <div class="bg-[rgb(var(--gmp-surface-base)/0.6)] border-b border-gmp-border-subtle px-6 py-2 flex-shrink-0">
+            <h1 class="text-lg font-bold text-gmp-text-heading leading-snug">{% block page_heading %}Page{% endblock %}</h1>
         </div>
         {% endblock %}
 
         <!-- Scrollable Content -->
-        <div class="flex-1 overflow-auto p-6">
+        <div class="flex-1 overflow-auto px-6 pt-3 pb-6">
             {% block content %}{% endblock %}
         </div>
     </main>

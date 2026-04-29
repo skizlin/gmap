@@ -52,6 +52,7 @@ except (TypeError, ValueError):
 FEED_JSON_DIR = PROJECT_ROOT / "designs" / "feed_json_examples"
 FEED_DATA_DIR = DATA_DIR / "feed_data"  # Pulled feed events (e.g. bet365 from API); used instead of feed_json_examples when present
 FEED_EVENT_DETAILS_DIR = DATA_DIR / "feed_event_details"  # Cached event-details API responses (per feed + feed_valid_id)
+INTERNAL_FEED_DATA_DIR = DATA_DIR / "internal_feed"  # Persisted internal pricing snapshots (per domain event + market)
 DATA_COUNTRIES_DIR = DATA_DIR / "countries"
 DATA_MARKETS_DIR = DATA_DIR / "markets"
 
@@ -59,6 +60,7 @@ DATA_MARKETS_DIR = DATA_DIR / "markets"
 DATA_DIR.mkdir(exist_ok=True)
 FEED_DATA_DIR.mkdir(exist_ok=True)
 FEED_EVENT_DETAILS_DIR.mkdir(exist_ok=True)
+INTERNAL_FEED_DATA_DIR.mkdir(exist_ok=True)
 DATA_COUNTRIES_DIR.mkdir(exist_ok=True)
 DATA_MARKETS_DIR.mkdir(exist_ok=True)
 
@@ -144,6 +146,26 @@ NOTES_PATH = DATA_NOTES_DIR / "platform_notes.csv"  # + created_by, updated_by, 
 NOTES_PATH_LEGACY = DATA_DIR / "platform_notes.csv"  # one-time move from here to NOTES_PATH if present
 EVENT_NAVIGATOR_NOTES_PATH = DATA_NOTES_DIR / "event_navigator_notes.csv"  # domain_event_id, note_text, updated_at (Event Navigator screen only)
 NOTIFICATIONS_PATH = DATA_NOTES_DIR / "platform_notifications.csv"  # notification_id, note_id, message_snippet, created_at, confirmed
+# Operational alerts queue (unmapped entities, etc.): per-environment CSVs, same lifecycle folder as notifications.
+ALERT_TYPES_PATH = DATA_NOTES_DIR / "alert_types.csv"
+ALERTS_PATH = DATA_NOTES_DIR / "alerts.csv"
+ALERT_TYPES_FIELDS = ["code", "name", "abbrev", "active", "severity_policy_json"]
+ALERTS_FIELDS = [
+    "id",
+    "alert_type_code",
+    "status",
+    "severity",
+    "message",
+    "feed_code",
+    "entity_kind",
+    "valid_id",
+    "domain_id",
+    "created_at",
+    "updated_at",
+    "acked_at",
+    "resolved_at",
+    "meta_json",
+]
 MARGIN_TEMPLATES_PATH = DATA_DIR / "margin_templates.csv"
 MARGIN_TEMPLATE_COMPETITIONS_PATH = DATA_DIR / "margin_template_competitions.csv"
 

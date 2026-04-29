@@ -5,7 +5,7 @@
 {% block title %}Event Details — {{ event.id }}{% endblock %}
 
 {% block content %}
-<div class="flex flex-col h-full space-y-4">
+<div class="flex flex-col h-full space-y-4" data-event-sport="{{ event.sport | e }}">
     <!-- Event header (matches reference: name, badge, metadata, actions, time/stats) -->
     <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg p-4 flex flex-col gap-3">
         <div class="flex flex-wrap items-start justify-between gap-4">
@@ -161,6 +161,28 @@
                             </tr>
                         </thead>
                         <tbody id="feed-odds-tbody" class="text-gmp-text-menu"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="internal-model-card" class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg p-4 flex-shrink-0 overflow-x-auto">
+                <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-3">Internal Model<span id="internal-model-market-name" class="font-normal normal-case text-gmp-text-muted ml-1"></span></h2>
+                <p id="internal-model-empty" class="text-xs text-gmp-text-faint italic">Select a market from the center to load the internal model.</p>
+                <div id="internal-model-content" class="hidden">
+                    <p id="internal-model-meta" class="text-[10px] text-gmp-text-faint mb-2"></p>
+                    <table class="gmp-data-table w-full text-left text-[11px] border-collapse">
+                        <thead>
+                            <tr class="text-gmp-text-menu border-b border-gmp-border dark:text-gmp-text-muted">
+                                <th class="py-1.5 pr-2 font-medium text-gmp-text-menu">Row</th>
+                                <th id="internal-model-col-L" class="py-1.5 px-2 font-medium internal-col-L">L</th>
+                                <th id="internal-model-col-1" class="py-1.5 px-2 font-medium">S1</th>
+                                <th id="internal-model-col-2" class="py-1.5 px-2 font-medium">S2</th>
+                                <th id="internal-model-col-3" class="py-1.5 px-2 font-medium">S3</th>
+                                <th id="internal-model-col-4" class="py-1.5 px-2 font-medium internal-col-4">S4</th>
+                                <th id="internal-model-col-5" class="py-1.5 px-2 font-medium internal-col-5">S5</th>
+                                <th id="internal-model-col-6" class="py-1.5 px-2 font-medium internal-col-6">S6</th>
+                            </tr>
+                        </thead>
+                        <tbody id="internal-model-tbody" class="text-gmp-text-menu"></tbody>
                     </table>
                 </div>
             </div>
@@ -433,8 +455,124 @@
         return (inv * 100).toFixed(1) + ' %';
     }
 
+    async function updateInternalModel(marketId, marketName, outcomeCount, hasLine, outcomeLabels, selectedLine) {
+        var emptyEl = document.getElementById('internal-model-empty');
+        var contentEl = document.getElementById('internal-model-content');
+        var tbody = document.getElementById('internal-model-tbody');
+        var metaEl = document.getElementById('internal-model-meta');
+        var titleSuffix = document.getElementById('internal-model-market-name');
+        if (!emptyEl || !contentEl || !tbody) return;
+        if (!marketId) {
+            emptyEl.textContent = 'Select a market from the center to load the internal model.';
+            emptyEl.classList.remove('hidden');
+            contentEl.classList.add('hidden');
+            if (titleSuffix) titleSuffix.textContent = '';
+            if (metaEl) metaEl.textContent = '';
+            return;
+        }
+        if (titleSuffix) titleSuffix.textContent = marketName ? ' · ' + marketName : '';
+        emptyEl.classList.remove('hidden');
+        contentEl.classList.add('hidden');
+        emptyEl.textContent = 'Loading internal model…';
+        if (metaEl) metaEl.textContent = '';
+        var outCount = Math.max(1, parseInt(outcomeCount, 10) || 3);
+        var labels = Array.isArray(outcomeLabels) ? outcomeLabels : [];
+        try {
+            var q = '/api/event-details/internal-model?domain_event_id=' + encodeURIComponent(domainEventId) +
+                '&domain_market_id=' + encodeURIComponent(marketId) +
+                '&market_name=' + encodeURIComponent(marketName || '');
+            var lineQ = (selectedLine || '').trim();
+            if (lineQ) q += '&line=' + encodeURIComponent(lineQ);
+            var res = await fetch(q);
+            var data = await res.json();
+            if (!data.supported) {
+                emptyEl.textContent = data.message || 'Internal model is not available for this selection.';
+                return;
+            }
+            if (!data.averaged || data.averaged.length === 0) {
+                emptyEl.textContent = data.message || 'No averaged true prices yet.';
+                return;
+            }
+            var colLabels = (data.column_labels && data.column_labels.length) ? data.column_labels : labels;
+            outCount = Math.max(outCount, colLabels.length, data.averaged.length);
+            var byName = {};
+            (data.averaged || []).forEach(function (row) {
+                if (row && row.name) byName[row.name] = row;
+            });
+            function cellForLabel(lbl) {
+                var r = byName[lbl];
+                if (!r) return '—';
+                return r;
+            }
+            function fmtOdds(lbl) {
+                var r = cellForLabel(lbl);
+                if (r === '—') return '—';
+                var v = parseFloat(r.true_odds);
+                return isNaN(v) ? '—' : v.toFixed(2);
+            }
+            function fmtProb(lbl) {
+                var r = cellForLabel(lbl);
+                if (r === '—') return '—';
+                var v = parseFloat(r.true_prob);
+                return isNaN(v) ? '—' : v.toFixed(4);
+            }
+            var showL = !!hasLine;
+            var lineCell = '—';
+            var feedsUsed = (data.feeds_used != null) ? data.feeds_used : '—';
+            if (metaEl) {
+                metaEl.textContent = 'Volleyball · Correct Set Score · log de-vig per feed, then average across feeds · Feeds used: ' + feedsUsed;
+            }
+            var rowOdds = '<tr class="border-b border-gmp-border/50">' +
+                '<td class="py-1.5 pr-2 font-medium text-gmp-text-heading">Odds</td>' +
+                '<td class="py-1.5 px-2 font-mono text-gmp-text-muted internal-model-L">' + escapeHtml(lineCell) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-secondary">' + escapeHtml(fmtOdds(colLabels[0])) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-secondary">' + escapeHtml(fmtOdds(colLabels[1])) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-secondary internal-im-s3">' + escapeHtml(fmtOdds(colLabels[2])) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-secondary internal-im-s4">' + escapeHtml(fmtOdds(colLabels[3])) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-secondary internal-im-s5">' + escapeHtml(fmtOdds(colLabels[4])) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-secondary internal-im-s6">' + escapeHtml(fmtOdds(colLabels[5])) + '</td></tr>';
+            var rowProb = '<tr class="border-b border-gmp-border/50">' +
+                '<td class="py-1.5 pr-2 font-medium text-gmp-text-heading">Probs</td>' +
+                '<td class="py-1.5 px-2 font-mono text-gmp-text-muted internal-model-L">' + escapeHtml(lineCell) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-emerald-300/90">' + escapeHtml(fmtProb(colLabels[0])) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-emerald-300/90">' + escapeHtml(fmtProb(colLabels[1])) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-emerald-300/90 internal-im-s3">' + escapeHtml(fmtProb(colLabels[2])) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-emerald-300/90 internal-im-s4">' + escapeHtml(fmtProb(colLabels[3])) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-emerald-300/90 internal-im-s5">' + escapeHtml(fmtProb(colLabels[4])) + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-emerald-300/90 internal-im-s6">' + escapeHtml(fmtProb(colLabels[5])) + '</td></tr>';
+            tbody.innerHTML = rowOdds + rowProb;
+            emptyEl.classList.add('hidden');
+            contentEl.classList.remove('hidden');
+            var icL = document.getElementById('internal-model-col-L');
+            var ic1 = document.getElementById('internal-model-col-1');
+            var ic2 = document.getElementById('internal-model-col-2');
+            var ic3 = document.getElementById('internal-model-col-3');
+            var ic4 = document.getElementById('internal-model-col-4');
+            var ic5 = document.getElementById('internal-model-col-5');
+            var ic6 = document.getElementById('internal-model-col-6');
+            if (icL) icL.style.display = showL ? '' : 'none';
+            if (ic1) ic1.textContent = (colLabels[0] !== undefined && colLabels[0] !== '') ? colLabels[0] : 'S1';
+            if (ic2) ic2.textContent = (colLabels[1] !== undefined && colLabels[1] !== '') ? colLabels[1] : 'S2';
+            if (ic3) { ic3.style.display = outCount >= 3 ? '' : 'none'; ic3.textContent = (colLabels[2] !== undefined && colLabels[2] !== '') ? colLabels[2] : 'S3'; }
+            if (ic4) { ic4.style.display = outCount >= 4 ? '' : 'none'; ic4.textContent = (colLabels[3] !== undefined && colLabels[3] !== '') ? colLabels[3] : 'S4'; }
+            if (ic5) { ic5.style.display = outCount >= 5 ? '' : 'none'; ic5.textContent = (colLabels[4] !== undefined && colLabels[4] !== '') ? colLabels[4] : 'S5'; }
+            if (ic6) { ic6.style.display = outCount >= 6 ? '' : 'none'; ic6.textContent = (colLabels[5] !== undefined && colLabels[5] !== '') ? colLabels[5] : 'S6'; }
+            contentEl.querySelectorAll('.internal-model-L').forEach(function (el) { el.style.display = showL ? '' : 'none'; });
+            contentEl.querySelectorAll('.internal-im-s3').forEach(function (el) { el.style.display = outCount >= 3 ? '' : 'none'; });
+            contentEl.querySelectorAll('.internal-im-s4').forEach(function (el) { el.style.display = outCount >= 4 ? '' : 'none'; });
+            contentEl.querySelectorAll('.internal-im-s5').forEach(function (el) { el.style.display = outCount >= 5 ? '' : 'none'; });
+            contentEl.querySelectorAll('.internal-im-s6').forEach(function (el) { el.style.display = outCount >= 6 ? '' : 'none'; });
+        } catch (err) {
+            emptyEl.textContent = 'Could not load internal model.';
+        }
+    }
+
     async function updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, selectedLine) {
-        if (!feedOddsEmpty || !feedOddsContent || !feedOddsTbody || !marketId) return;
+        if (!feedOddsEmpty || !feedOddsContent || !feedOddsTbody) return;
+        if (!marketId) {
+            await updateInternalModel('', '', 3, false, [], '');
+            return;
+        }
         var feedOddsTitleEl = document.getElementById('feed-odds-market-name');
         if (feedOddsTitleEl) feedOddsTitleEl.textContent = marketName ? ' · ' + marketName : '';
         feedOddsContent.classList.add('hidden');
@@ -444,11 +582,15 @@
         try {
             var url = '/api/event-details/feed-odds?domain_event_id=' + encodeURIComponent(domainEventId) + '&domain_market_id=' + encodeURIComponent(marketId) + '&all_lines=1';
             var res = await fetch(url);
-            if (!res.ok) return;
+            if (!res.ok) {
+                await updateInternalModel(marketId, marketName, outCount, hasLine, labels, selectedLine || '');
+                return;
+            }
             var data = await res.json();
             var rows = data.feed_odds || [];
             if (rows.length === 0) {
                 feedOddsEmpty.textContent = 'No feed odds for this market.';
+                await updateInternalModel(marketId, marketName, outCount, hasLine, labels, selectedLine || '');
                 return;
             }
             feedOddsEmpty.classList.add('hidden');
@@ -501,8 +643,10 @@
             feedOddsContent.querySelectorAll('.feed-odds-s4').forEach(function (el) { el.style.display = outCount >= 4 ? '' : 'none'; });
             feedOddsContent.querySelectorAll('.feed-odds-s5').forEach(function (el) { el.style.display = outCount >= 5 ? '' : 'none'; });
             feedOddsContent.querySelectorAll('.feed-odds-s6').forEach(function (el) { el.style.display = outCount >= 6 ? '' : 'none'; });
+            await updateInternalModel(marketId, marketName, outCount, showL, labels, selectedLine || '');
         } catch (e) {
             feedOddsEmpty.textContent = 'Could not load feed odds.';
+            await updateInternalModel(marketId, marketName, outCount, hasLine, labels, selectedLine || '');
         }
     }
 

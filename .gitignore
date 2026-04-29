@@ -45,6 +45,9 @@ backend/data/feed_data/*.json
 # Cached event-details API responses (fetched when domain event is created or mapped; token from .env)
 backend/data/feed_event_details/
 
+# Internal pricing snapshots (per environment; computed from domain event + feed odds)
+backend/data/internal_feed/
+
 # Last-pull timestamps (per-environment)
 backend/data/feed_last_pull.csv
 
@@ -77,6 +80,8 @@ backend/data/teams.csv
 backend/data/translations.csv
 # Per-environment notes / country overrides (local vs server)
 backend/data/notes/platform_notes.csv
+backend/data/notes/alert_types.csv
+backend/data/notes/alerts.csv
 backend/data/countries/countries.json
 
 # Internal / disposable planning docs (not tracked)
