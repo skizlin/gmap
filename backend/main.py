@@ -749,6 +749,9 @@ import uuid, csv, json
 import difflib
 
 from backend.domain_ids import (
+    ENTITY_PREFIX,
+    format_prefixed,
+    is_prefixed_entity,
     next_entity_domain_id,
     next_event_domain_id,
     entity_ids_equal,
@@ -1038,30 +1041,57 @@ def _feeder_config_snapshot_setting(
 
 # Margin config: templates are per (brand_id, sport_id). Global = brand_id empty.
 # Uncategorized template is always present per scope. See docs/MARGIN_CONFIG_SPEC.md.
+# Competitions per template are derived from margin_template_competitions.csv, not stored here.
 _MARGIN_TEMPLATE_FIELDS = [
     "id", "name", "short_name", "pm_margin", "ip_margin",
-    "cashout", "betbuilder", "bet_delay", "risk_class_id", "leagues_count", "markets_count", "is_default",
+    "cashout", "betbuilder", "bet_delay", "risk_class_id", "is_default",
     "brand_id", "sport_id",
 ]
 
 
-def _load_margin_templates(brand_id=None, sport_id=None) -> list[dict]:
-    """
-    Load margin_templates.csv, optionally filtered by (brand_id, sport_id).
-    When scope is given, only templates for that scope are returned, and an Uncategorized
-    template is ensured to exist for that scope (created and persisted if missing).
-    Enriches with risk_class from RISK_CLASSES.
-    """
-    default_one = {
-        "id": 1, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "",
-        "cashout": "", "betbuilder": "", "bet_delay": "", "risk_class_id": None,
-        "leagues_count": 0, "markets_count": 0, "is_default": True,
-        "brand_id": "", "sport_id": "",
-    }
+def _margin_scope_sport_key(sport_domain_id: Any) -> str:
+    """Normalize sport id to ``S-{{n}}`` so margin CSV scope matches ``_event_sport_id`` (int or prefixed)."""
+    if sport_domain_id is None:
+        return ""
+    s = str(sport_domain_id).strip()
+    if not s:
+        return ""
+    m = re.match(r"^[sS]-(\d+)$", s)
+    if m:
+        return format_prefixed(ENTITY_PREFIX["sports"], int(m.group(1)))
+    if is_prefixed_entity(s, "sports"):
+        return s
+    try:
+        n = int(float(s))
+    except (TypeError, ValueError):
+        return s
+    return format_prefixed(ENTITY_PREFIX["sports"], n)
+
+
+def _margin_scope_competition_key(comp_domain_id: Any) -> str:
+    """Normalize competition id to ``C-{{n}}`` for margin_template_competitions lookups."""
+    if comp_domain_id is None:
+        return ""
+    s = str(comp_domain_id).strip()
+    if not s:
+        return ""
+    m = re.match(r"^[cC]-(\d+)$", s)
+    if m:
+        return format_prefixed(ENTITY_PREFIX["competitions"], int(m.group(1)))
+    if is_prefixed_entity(s, "competitions"):
+        return s
+    try:
+        n = int(float(s))
+    except (TypeError, ValueError):
+        return s
+    return format_prefixed(ENTITY_PREFIX["competitions"], n)
+
+
+def _read_margin_templates_csv_rows() -> list[dict]:
+    """Read every row from margin_templates.csv (no scope filter, no auto-create). Ignores legacy count columns."""
+    rows: list[dict] = []
     if not MARGIN_TEMPLATES_PATH.exists():
-        default_one["is_default"] = 1
-        return [_enrich_margin_template_risk_class(default_one)]
-    rows = []
+        return rows
     with open(MARGIN_TEMPLATES_PATH, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for r in reader:
@@ -1075,39 +1105,85 @@ def _load_margin_templates(brand_id=None, sport_id=None) -> list[dict]:
                 r["risk_class_id"] = int(rc) if rc else None
             except (TypeError, ValueError):
                 r["risk_class_id"] = None
-            for k in ("leagues_count", "markets_count"):
-                try:
-                    r[k] = int(r.get(k) or 0)
-                except (TypeError, ValueError):
-                    r[k] = 0
             r["is_default"] = (r.get("is_default") or "").strip() in ("1", "true", "yes")
-            # Backward compat: missing columns => Global / any sport
             r["brand_id"] = (r.get("brand_id") or "").strip()
             r["sport_id"] = (r.get("sport_id") or "").strip()
+            r.pop("leagues_count", None)
+            r.pop("markets_count", None)
             rows.append(_enrich_margin_template_risk_class(r))
+    return rows
+
+
+def _load_margin_templates(
+    brand_id=None,
+    sport_id=None,
+    *,
+    for_event_global_pricing: bool = False,
+) -> list[dict]:
+    """
+    Load margin_templates.csv, optionally filtered by (brand_id, sport_id).
+
+    **Configuration** (default ``for_event_global_pricing=False``): strict ``brand_id`` × sport,
+    used by Margin UI and assignment APIs. "Global level" means ``brand_id`` empty only.
+
+    **Event Details — Global pricing** (``for_event_global_pricing=True``): same sport filter, but
+    **any** ``brand_id`` row for that sport is included so ``margin_template_competitions`` template
+    ids (often saved under numeric partner brands) resolve. Not used for the Margin configuration table.
+    """
+    default_one = {
+        "id": 1, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "",
+        "cashout": "", "betbuilder": "", "bet_delay": "", "risk_class_id": None,
+        "is_default": True,
+        "brand_id": "", "sport_id": "",
+    }
+    if not MARGIN_TEMPLATES_PATH.exists():
+        default_one["is_default"] = 1
+        return [_enrich_margin_template_risk_class(default_one)]
+    rows = _read_margin_templates_csv_rows()
     if not rows:
         return [_enrich_margin_template_risk_class(default_one)]
 
     # Filter by scope when (brand_id, sport_id) provided
     b_key = str(brand_id).strip() if brand_id is not None else ""
-    s_key = str(sport_id).strip() if sport_id is not None else ""
+    s_key = _margin_scope_sport_key(sport_id)
     if b_key != "" or s_key != "":
-        def _matches_scope(t: dict) -> bool:
+        def _matches_scope(t: dict, *, strict_sport: bool) -> bool:
             rb, rs = (t.get("brand_id") or "").strip(), (t.get("sport_id") or "").strip()
-            brand_ok = rb == b_key
-            # Legacy: empty sport_id at Global matches any sport
-            sport_ok = rs == s_key or (rs == "" and b_key == "")
+            if for_event_global_pricing and s_key:
+                brand_ok = True
+            else:
+                brand_ok = rb == b_key
+            rs_norm = _margin_scope_sport_key(rs) if rs else ""
+            if strict_sport and s_key:
+                # Sport-specific margin scope: ignore legacy rows with empty sport_id so we do not
+                # merge Global "Uncategorized" (109) into every sport's template set.
+                sport_ok = rs_norm == s_key
+            else:
+                # Legacy: empty sport_id at Global matches any sport (when no per-sport rows exist).
+                sport_ok = rs_norm == s_key or (rs == "" and b_key == "")
             return brand_ok and sport_ok
 
-        filtered = [t for t in rows if _matches_scope(t)]
+        filtered = [t for t in rows if _matches_scope(t, strict_sport=bool(s_key))]
+        # Do not widen to legacy empty-sport rows when Global+sport already meant "this sport only";
+        # that re-introduces id 1 Uncategorized (109). Legacy widen only for an explicit brand scope.
+        if not filtered and s_key and b_key != "":
+            filtered = [t for t in rows if _matches_scope(t, strict_sport=False)]
         # Ensure Uncategorized exists for this scope (spec: always present per brand × sport)
         uncat = next((t for t in filtered if (t.get("name") or "").strip().lower() == "uncategorized"), None)
         if not uncat:
+            # Re-read disk so a concurrent PATCH cannot be overwritten by this full-file save.
+            rows = _read_margin_templates_csv_rows()
+            filtered = [t for t in rows if _matches_scope(t, strict_sport=bool(s_key))]
+            if not filtered and s_key and b_key != "":
+                filtered = [t for t in rows if _matches_scope(t, strict_sport=False)]
+            uncat = next((t for t in filtered if (t.get("name") or "").strip().lower() == "uncategorized"), None)
+            if uncat:
+                return filtered
             next_id = max((r.get("id") or 0 for r in rows), default=0) + 1
             new_uncat = {
                 "id": next_id, "name": "Uncategorized", "short_name": "", "pm_margin": "", "ip_margin": "",
                 "cashout": "", "betbuilder": "", "bet_delay": "", "risk_class_id": None,
-                "leagues_count": 0, "markets_count": 0, "is_default": True,
+                "is_default": True,
                 "brand_id": b_key, "sport_id": s_key,
             }
             rows.append(_enrich_margin_template_risk_class(new_uncat))
@@ -1129,7 +1205,7 @@ def _enrich_margin_template_risk_class(t: dict) -> dict:
 
 
 def _save_margin_templates(rows: list[dict]) -> None:
-    """Overwrite margin_templates.csv (includes brand_id, sport_id for per brand×sport scoping)."""
+    """Overwrite margin_templates.csv. Competition counts live in margin_template_competitions, not in this file."""
     with open(MARGIN_TEMPLATES_PATH, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=_MARGIN_TEMPLATE_FIELDS)
         w.writeheader()
@@ -1144,8 +1220,6 @@ def _save_margin_templates(rows: list[dict]) -> None:
                 "betbuilder": (r.get("betbuilder") or "").strip(),
                 "bet_delay": (r.get("bet_delay") or "").strip(),
                 "risk_class_id": r.get("risk_class_id") if r.get("risk_class_id") is not None else "",
-                "leagues_count": r.get("leagues_count") if r.get("leagues_count") is not None else 0,
-                "markets_count": r.get("markets_count") if r.get("markets_count") is not None else 0,
                 "is_default": "1" if r.get("is_default") else "0",
                 "brand_id": (r.get("brand_id") or "").strip(),
                 "sport_id": (r.get("sport_id") or "").strip(),
@@ -1179,20 +1253,73 @@ def _save_margin_template_competitions(rows: list[dict]) -> None:
 
 
 def _assign_competition_to_margin_template(competition_id: str, template_id: int = 1) -> None:
-    """Assign a domain competition to a margin template (default Uncategorized). Idempotent. Use the scope's Uncategorized template_id when assigning new competitions per (brand, sport)."""
+    """Assign a domain competition to a margin template (default Uncategorized). Replaces any prior rows for that competition."""
     rows = _load_margin_template_competitions()
-    if any(r.get("template_id") == template_id and r.get("competition_id") == competition_id for r in rows):
-        return
-    rows.append({"template_id": template_id, "competition_id": competition_id})
+    ck = _margin_scope_competition_key(competition_id) or str(competition_id).strip()
+    rows = [r for r in rows if _margin_scope_competition_key(r.get("competition_id")) != ck]
+    rows.append({"template_id": template_id, "competition_id": ck})
     _save_margin_template_competitions(rows)
 
 
 def _margin_templates_for_brand_sport(brand_id_str: str, sport_domain_id: Any) -> list[dict]:
+    """Strict (brand × sport) template list for Margin configuration and APIs. Not for Event Global pricing."""
     s_key = fid_str(sport_domain_id) if sport_domain_id is not None else ""
-    return _load_margin_templates(brand_id=str(brand_id_str).strip(), sport_id=s_key)
+    return _load_margin_templates(
+        brand_id=str(brand_id_str).strip(),
+        sport_id=s_key,
+        for_event_global_pricing=False,
+    )
 
 
-def _pick_margin_template_for_event_scope(templates: list[dict], competition_domain_id: Any | None) -> dict | None:
+def _margin_assignment_pick_template_id(
+    competition_domain_id: Any,
+    scope_template_ids: set[int],
+    *,
+    catalog_by_id: dict[int, dict] | None = None,
+) -> int | None:
+    """
+    Choose ``template_id`` for this competition when ``margin_template_competitions`` has multiple rows
+    for the same league (CSV order is not authoritative).
+
+    Prefer assignments whose template is in ``scope_template_ids`` (current brand×sport or Global
+    pricing list). If several match, prefer **Global** margin row (empty ``brand_id``) then **higher**
+    template id so e.g. Global Volleyball Tier 1 wins over an older partner-scoped row for the same name.
+    """
+    cid = _margin_scope_competition_key(competition_domain_id)
+    if not cid or not scope_template_ids:
+        return None
+    tids_in_scope: list[int] = []
+    for r in _load_margin_template_competitions():
+        if _margin_scope_competition_key(r.get("competition_id")) != cid:
+            continue
+        try:
+            tid = int(r.get("template_id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if tid in scope_template_ids:
+            tids_in_scope.append(tid)
+    if not tids_in_scope:
+        return None
+    uniq = list(dict.fromkeys(tids_in_scope))
+    cat = catalog_by_id
+    if cat is None:
+        cat = {t["id"]: t for t in _load_margin_templates() if t.get("id") is not None}
+
+    def _rank(tid: int) -> tuple:
+        t = cat.get(tid)
+        if not t:
+            return (2, 0)
+        non_global = 1 if (t.get("brand_id") or "").strip() else 0
+        return (non_global, -tid)
+
+    return sorted(uniq, key=_rank)[0]
+
+
+def _pick_margin_template_for_event_scope(
+    templates: list[dict],
+    competition_domain_id: Any | None,
+    scope_sport_key: str = "",
+) -> dict | None:
     """
     Pick the margin template for this competition within ``templates`` (already scoped to brand × sport).
 
@@ -1205,20 +1332,41 @@ def _pick_margin_template_for_event_scope(templates: list[dict], competition_dom
     if not templates:
         return None
 
+    sk = (scope_sport_key or "").strip()
+
     def _fallback_uncat() -> dict | None:
-        u = next((t for t in templates if (t.get("name") or "").strip().lower() == "uncategorized"), None)
-        return u or templates[0]
+        cands = [t for t in templates if (t.get("name") or "").strip().lower() == "uncategorized"]
+        if sk:
+            sk_c = [t for t in cands if _margin_scope_sport_key(t.get("sport_id")) == sk]
+            if sk_c:
+                cands = sk_c
+        if not cands:
+            return templates[0] if templates else None
+        cands.sort(key=lambda t: ((t.get("brand_id") or "").strip() != "", t.get("id") or 0))
+        return cands[0]
 
     assigned_tid: int | None = None
     if competition_domain_id is not None:
-        cid = fid_str(competition_domain_id)
+        cid = _margin_scope_competition_key(competition_domain_id)
         if cid:
-            row = next((r for r in _load_margin_template_competitions() if fid_str(r.get("competition_id")) == cid), None)
-            if row is not None:
-                try:
-                    assigned_tid = int(row.get("template_id"))
-                except (TypeError, ValueError):
-                    assigned_tid = None
+            scope_ids = {t.get("id") for t in templates if t.get("id") is not None}
+            picked = _margin_assignment_pick_template_id(cid, scope_ids)
+            if picked is not None:
+                assigned_tid = picked
+            else:
+                row = next(
+                    (
+                        r
+                        for r in _load_margin_template_competitions()
+                        if _margin_scope_competition_key(r.get("competition_id")) == cid
+                    ),
+                    None,
+                )
+                if row is not None:
+                    try:
+                        assigned_tid = int(row.get("template_id"))
+                    except (TypeError, ValueError):
+                        assigned_tid = None
 
     if assigned_tid is not None:
         by_id = next((t for t in templates if t.get("id") == assigned_tid), None)
@@ -1228,26 +1376,82 @@ def _pick_margin_template_for_event_scope(templates: list[dict], competition_dom
         if ref:
             ref_name = (ref.get("name") or "").strip()
             if ref_name:
-                by_name = next(
-                    (t for t in templates if (t.get("name") or "").strip().lower() == ref_name.lower()),
-                    None,
-                )
-                if by_name:
-                    return by_name
+                lo = ref_name.lower()
+                name_cands = [
+                    t
+                    for t in templates
+                    if (t.get("name") or "").strip().lower() == lo and (not sk or _margin_scope_sport_key(t.get("sport_id")) == sk)
+                ]
+                if name_cands:
+                    ref_brand = (ref.get("brand_id") or "").strip()
+                    if ref_brand:
+                        same_brand = [t for t in name_cands if (t.get("brand_id") or "").strip() == ref_brand]
+                        if same_brand:
+                            name_cands = same_brand
+                    name_cands.sort(key=lambda t: t.get("id") or 0)
+                    return name_cands[0]
 
     return _fallback_uncat()
 
 
-def _prematch_pm_pct_single_brand_key(ev: dict, brand_key: str) -> tuple[float | None, str | None]:
-    """Resolve PM %% from margin templates for ``brand_key`` ('' = Global) × event sport + competition."""
-    sport_id = _event_sport_id(ev)
+def _competition_label_matches_event(ev_label: str, entity_label: str) -> bool:
+    """
+    True when event competition text matches entity name.
+
+    ``domain_events`` often stores a short label (e.g. ``Bundesliga``) while competitions.csv
+    uses disambiguation (e.g. ``Bundesliga (Germany)``). Strict equality would miss margin
+    assignments for that league.
+    """
+    a = (ev_label or "").strip()
+    b = (entity_label or "").strip()
+    if not a or not b:
+        return False
+    if a.casefold() == b.casefold():
+        return True
+    af, bf = a.casefold(), b.casefold()
+    if bf.startswith(af + " (") or bf.startswith(af + "("):
+        return True
+    if af.startswith(bf + " (") or af.startswith(bf + "("):
+        return True
+    return False
+
+
+def _event_competition_domain_id(ev: dict) -> str | None:
+    """Domain competition id for margin assignment; uses CSV ``competition_id`` or resolves from names."""
+    raw = ev.get("competition_id")
+    if raw is not None and str(raw).strip() != "":
+        k = _margin_scope_competition_key(raw)
+        return k if k else None
+    sport_name = (ev.get("sport") or "").strip()
+    comp_name = (ev.get("competition") or "").strip()
+    if not comp_name:
+        return None
+    sport_id = None
+    for s in DOMAIN_ENTITIES.get("sports", []):
+        if (s.get("name") or "").strip() == sport_name:
+            sport_id = s.get("domain_id")
+            break
     if sport_id is None:
-        return None, None
-    comp_id = ev.get("competition_id")
-    tpls = _margin_templates_for_brand_sport(brand_key, sport_id)
-    if not tpls:
-        return None, None
-    t = _pick_margin_template_for_event_scope(tpls, comp_id)
+        return None
+    matches = [
+        c
+        for c in DOMAIN_ENTITIES.get("competitions", [])
+        if entity_ids_equal(c.get("sport_id"), sport_id)
+        and _competition_label_matches_event(comp_name, (c.get("name") or "").strip())
+    ]
+    if not matches:
+        return None
+    exact = next((c for c in matches if (c.get("name") or "").strip() == comp_name), None)
+    pick = exact if exact is not None else matches[0]
+    cid = pick.get("domain_id")
+    if cid is None:
+        return None
+    k = _margin_scope_competition_key(cid)
+    return k if k else None
+
+
+def _pm_pct_from_margin_template_row(t: dict | None) -> tuple[float | None, str | None]:
+    """Numeric PM%% and display name from one margin template row, or (None, None) if unset/invalid."""
     if not t:
         return None, None
     raw = (t.get("pm_margin") or "").strip().replace(",", ".")
@@ -1259,6 +1463,37 @@ def _prematch_pm_pct_single_brand_key(ev: dict, brand_key: str) -> tuple[float |
         return None, None
 
 
+def _prematch_pm_pct_single_brand_key(ev: dict, brand_key: str) -> tuple[float | None, str | None]:
+    """Resolve PM %% from margin templates for ``brand_key`` ('' = Global) × event sport + competition."""
+    sport_id = _event_sport_id(ev)
+    if sport_id is None:
+        return None, None
+    comp_id = _event_competition_domain_id(ev)
+    bks = str(brand_key).strip() if brand_key is not None else ""
+    if bks == "":
+        tpls = _load_margin_templates(None, sport_id, for_event_global_pricing=True)
+    else:
+        tpls = _load_margin_templates(bks, sport_id, for_event_global_pricing=False)
+    if not tpls:
+        return None, None
+    scope_sk = _margin_scope_sport_key(sport_id)
+    t = _pick_margin_template_for_event_scope(tpls, comp_id, scope_sport_key=scope_sk)
+    pm, name = _pm_pct_from_margin_template_row(t)
+    if pm is not None:
+        return pm, name
+    # Same logical template can exist on multiple rows (e.g. partner id on assignment vs Global row
+    # with PM%% filled). Prefer Global (empty brand_id) then stable id order.
+    tnm = ((t or {}).get("name") or "").strip().lower()
+    if tnm:
+        alts = [x for x in tpls if (x.get("name") or "").strip().lower() == tnm]
+        alts.sort(key=lambda x: (1 if (x.get("brand_id") or "").strip() else 0, x.get("id") or 0))
+        for alt in alts:
+            pm, name = _pm_pct_from_margin_template_row(alt)
+            if pm is not None:
+                return pm, name
+    return None, None
+
+
 def _prematch_pm_pct_and_template_name(brand_id_int: int, ev: dict) -> tuple[float | None, str | None]:
     """Resolve PM margin %% and template display name for a brand on this event (prematch)."""
     for brand_key in (str(int(brand_id_int)), ""):
@@ -1268,10 +1503,61 @@ def _prematch_pm_pct_and_template_name(brand_id_int: int, ev: dict) -> tuple[flo
     return None, None
 
 
+def _margin_templates_by_sport_for_event_navigator(
+    page_events: list,
+    brand_key: str | int | None,
+) -> dict[int, list]:
+    """One `_load_margin_templates` call per distinct sport on the page (same scope rules as prematch PM%)."""
+    sids = {sid for sid in (_event_sport_id(e) for e in page_events) if sid is not None}
+    out: dict[int, list] = {}
+    bks = str(brand_key).strip() if brand_key is not None else ""
+    for sid in sids:
+        if bks == "":
+            out[sid] = _load_margin_templates(None, sid, for_event_global_pricing=True)
+        else:
+            out[sid] = _load_margin_templates(bks, sid, for_event_global_pricing=False)
+    return out
+
+
+def _event_risk_class_from_margin_template(
+    ev: dict,
+    brand_key: str | int | None,
+    tpl_by_sport: dict[int, list],
+) -> dict | None:
+    """Event Navigator CLASS: same resolved margin template as prematch for this brand (letter from that row)."""
+    sport_id = _event_sport_id(ev)
+    if sport_id is None:
+        return None
+    tpls = tpl_by_sport.get(sport_id) or []
+    comp_id = _event_competition_domain_id(ev)
+    scope_sk = _margin_scope_sport_key(sport_id)
+    t = _pick_margin_template_for_event_scope(tpls, comp_id, scope_sport_key=scope_sk)
+    if not t:
+        return None
+    rc = t.get("risk_class")
+    return rc if rc else None
+
+
 def _prematch_pm_pct_for_pricing_scope(ev: dict, pricing_brand_id: int | None) -> tuple[float | None, str | None]:
-    """Event overview / single-brand pricing: ``None`` = Global templates only; else brand then Global fallback."""
+    """Event overview / single-brand pricing: ``None`` = Global scope first; else that brand then Global."""
     if pricing_brand_id is None:
-        return _prematch_pm_pct_single_brand_key(ev, "")
+        pm, name = _prematch_pm_pct_single_brand_key(ev, "")
+        if pm is not None:
+            return pm, name
+        # Global merge can resolve to a partner row with blank PM%% while a strict partner scope has
+        # Tier margins — same situation Brand Overview rows already exploit via per-brand keys.
+        for br in _load_brands():
+            bid = br.get("id")
+            if bid is None:
+                continue
+            try:
+                bk = str(int(bid))
+            except (TypeError, ValueError):
+                continue
+            pm, name = _prematch_pm_pct_single_brand_key(ev, bk)
+            if pm is not None:
+                return pm, name
+        return None, None
     pm, name = _prematch_pm_pct_single_brand_key(ev, str(int(pricing_brand_id)))
     if pm is not None:
         return pm, name
@@ -1352,66 +1638,6 @@ def _imlog_true_prices_for_event_market(
     im_used = bool(true_prices and any(x is not None and x > 0 for x in true_prices))
     n_sel = sum(1 for x in true_prices if x is not None and x > 0)
     return true_prices, im_used, n_sel
-
-
-def _competition_sport_to_risk_class_map(brand_id: str | int | None = None) -> dict[tuple[int, str], dict]:
-    """
-    Build (competition_id, template_sport_id) -> risk_class from margin_template_competitions and margin_templates.
-    template_sport_id is the template's sport_id (scope); use '' for global. Used by Event Navigator to show bet class per event.
-    Filters templates by brand_id: None or empty string = Global (brand_id == "").
-    """
-    # Normalize brand_id: "Global" or None -> empty string (Global), else keep as-is
-    if brand_id is None or (isinstance(brand_id, str) and brand_id.strip().lower() in ("", "global")):
-        brand_filter = ""
-    else:
-        brand_filter = str(brand_id).strip()
-    
-    # Load all templates, then filter by brand
-    all_templates = _load_margin_templates()
-    templates = [t for t in all_templates if (t.get("brand_id") or "").strip() == brand_filter]
-    by_id = {t["id"]: t for t in templates if t.get("id")}
-    tcs = _load_margin_template_competitions()
-    out: dict[tuple[str, str], dict] = {}
-    for r in tcs:
-        tid = r.get("template_id")
-        cid = fid_str(r.get("competition_id"))
-        if not tid or not cid:
-            continue
-        t = by_id.get(tid)
-        if not t:
-            continue
-        sport_key = (t.get("sport_id") or "").strip()
-        rc = t.get("risk_class")
-        if rc:
-            out[(cid, sport_key)] = rc
-    return out
-
-
-def _event_risk_class(ev: dict, comp_sport_to_rc: dict[tuple[str, str], dict]) -> dict | None:
-    """
-    Resolve event's competition + sport to a margin template risk_class (bet class) for Event Navigator.
-    ev must have 'sport' and 'competition' (names). Uses DOMAIN_ENTITIES to resolve to ids, then comp_sport_to_rc.
-    """
-    sport_name = (ev.get("sport") or "").strip()
-    comp_name = (ev.get("competition") or "").strip()
-    if not comp_name:
-        return None
-    sport_id = None
-    for s in DOMAIN_ENTITIES.get("sports", []):
-        if (s.get("name") or "").strip() == sport_name:
-            sport_id = s.get("domain_id")
-            break
-    comp_id = None
-    for c in DOMAIN_ENTITIES.get("competitions", []):
-        if (c.get("name") or "").strip() == comp_name and c.get("sport_id") == sport_id:
-            comp_id = c.get("domain_id")
-            break
-    if comp_id is None:
-        return None
-    sport_key = fid_str(sport_id)
-    comp_key = fid_str(comp_id)
-    rc = comp_sport_to_rc.get((comp_key, sport_key)) or comp_sport_to_rc.get((comp_key, ""))
-    return rc
 
 
 def _load_market_templates() -> list[dict]:
@@ -8349,9 +8575,9 @@ async def event_navigator_view(
     page = max(1, min(page, total_pages))
     start_idx = (page - 1) * per_page
     page_events = filtered[start_idx : start_idx + per_page]
-    comp_sport_to_rc = _competition_sport_to_risk_class_map(selected_brand_id)
+    tpl_by_sport = _margin_templates_by_sport_for_event_navigator(page_events, selected_brand_id)
     for e in page_events:
-        e["risk_class"] = _event_risk_class(e, comp_sport_to_rc)
+        e["risk_class"] = _event_risk_class_from_margin_template(e, selected_brand_id, tpl_by_sport)
     return templates.TemplateResponse(request, "event_navigator/event_navigator.html", {
         "request": request,
         "section": "domain",
@@ -8468,9 +8694,9 @@ async def event_navigator_table(
     page = max(1, min(page, total_pages))
     start_idx = (page - 1) * per_page
     page_events = filtered[start_idx : start_idx + per_page]
-    comp_sport_to_rc = _competition_sport_to_risk_class_map(selected_brand_id)
+    tpl_by_sport = _margin_templates_by_sport_for_event_navigator(page_events, selected_brand_id)
     for e in page_events:
-        e["risk_class"] = _event_risk_class(e, comp_sport_to_rc)
+        e["risk_class"] = _event_risk_class_from_margin_template(e, selected_brand_id, tpl_by_sport)
     response = templates.TemplateResponse(request, "event_navigator/_rows.html", {
         "request": request,
         "domain_events": page_events,
@@ -10799,8 +11025,6 @@ async def create_margin_template(body: CreateMarginTemplateRequest):
         "cashout": (body.cashout or "").strip(),
         "betbuilder": (body.betbuilder or "").strip(),
         "bet_delay": (body.bet_delay or "").strip(),
-        "leagues_count": 0,
-        "markets_count": 0,
         "is_default": False,
         "brand_id": b_key,
         "sport_id": s_key,
@@ -10814,7 +11038,10 @@ async def create_margin_template(body: CreateMarginTemplateRequest):
 async def update_margin_template(template_id: int, body: UpdateMarginTemplateRequest):
     """Update a margin template (name, short_name, pm_margin, ip_margin, cashout, betbuilder, bet_delay)."""
     from fastapi import HTTPException
-    rows = _load_margin_templates()
+    # Fresh disk read so saves are not based on a stale list (e.g. vs. auto-create Uncategorized).
+    rows = _read_margin_templates_csv_rows()
+    if not rows:
+        rows = _load_margin_templates()
     template = next((r for r in rows if r.get("id") == template_id), None)
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
@@ -10922,8 +11149,6 @@ async def margin_templates_copy_from(body: CopyFromBrandRequest):
                 "betbuilder": s.get("betbuilder") or "",
                 "bet_delay": s.get("bet_delay") or "",
                 "risk_class_id": s.get("risk_class_id"),
-                "leagues_count": 0,
-                "markets_count": 0,
                 "is_default": s.get("is_default") if name.lower() == "uncategorized" else False,
                 "brand_id": target_brand_key,
                 "sport_id": sport_key,
@@ -10996,45 +11221,53 @@ async def margin_template_competitions(
         for c in competitions
         if c.get("domain_id") is not None and entity_ids_equal(c.get("sport_id"), sport_key)
     ] if sport_key else []
-    tcs = _load_margin_template_competitions()
+    scope_ids_set = set(scope_template_ids)
+    catalog_by_id = {t["id"]: t for t in _load_margin_templates() if t.get("id") is not None}
     comp_to_template: dict[str, int] = {}
-    for r in tcs:
-        tid, cid = r.get("template_id"), r.get("competition_id")
-        if tid in scope_template_ids and cid is not None:
-            comp_to_template[cid] = tid
+    for c in sport_competitions:
+        ck = _margin_scope_competition_key(c.get("competition_id"))
+        if not ck:
+            continue
+        picked = _margin_assignment_pick_template_id(ck, scope_ids_set, catalog_by_id=catalog_by_id)
+        if picked is not None:
+            comp_to_template[ck] = picked
+
+    def _tpl_for_comp(c: dict) -> int | None:
+        return comp_to_template.get(_margin_scope_competition_key(c.get("competition_id")))
+
     is_uncategorized = (template_name_by_id.get(template_id) or "").strip().lower() == "uncategorized"
     if is_uncategorized:
         # Default bucket: in_template = explicitly in Uncategorized or not in any scope template
         in_template = [
             {"competition_id": c["competition_id"], "name": c["name"], "category_name": c.get("category_name", "—")}
             for c in sport_competitions
-            if comp_to_template.get(c["competition_id"]) == template_id or comp_to_template.get(c["competition_id"]) is None
+            if _tpl_for_comp(c) == template_id or _tpl_for_comp(c) is None
         ]
         not_in_template = [
             {
                 "competition_id": c["competition_id"],
                 "name": c["name"],
                 "category_name": c.get("category_name", "—"),
-                "current_template_name": template_name_by_id.get(comp_to_template.get(c["competition_id"]), "—"),
+                "current_template_name": template_name_by_id.get(_tpl_for_comp(c), "—"),
             }
             for c in sport_competitions
-            if comp_to_template.get(c["competition_id"]) is not None and comp_to_template.get(c["competition_id"]) != template_id
+            if _tpl_for_comp(c) is not None and _tpl_for_comp(c) != template_id
         ]
     else:
         in_template = [
             {"competition_id": c["competition_id"], "name": c["name"], "category_name": c.get("category_name", "—")}
             for c in sport_competitions
-            if comp_to_template.get(c["competition_id"]) == template_id
+            if _tpl_for_comp(c) == template_id
         ]
         not_in_template = [
             {
                 "competition_id": c["competition_id"],
                 "name": c["name"],
                 "category_name": c.get("category_name", "—"),
-                "current_template_name": template_name_by_id.get(comp_to_template.get(c["competition_id"]), "—"),
+                "current_template_name": template_name_by_id.get(_tpl_for_comp(c), "—"),
             }
             for c in sport_competitions
-            if comp_to_template.get(c["competition_id"]) != template_id
+            if _tpl_for_comp(c) != template_id
         ]
     other_templates = [{"id": t["id"], "name": (t.get("name") or "").strip() or "—"} for t in scope_templates if t.get("id") != template_id]
     return {
@@ -11050,7 +11283,7 @@ async def margin_template_competitions(
 async def assign_competition_to_template(body: AssignCompetitionToTemplateRequest):
     """
     Move a competition into a margin template (within current scope).
-    Removes the competition from any other template in the same scope, then adds to the given template.
+    Removes every existing row for that competition (any template / scope), then adds the new assignment.
     """
     from fastapi import HTTPException
     scope_templates = _load_margin_templates(body.brand_id, body.sport_id)
@@ -11062,8 +11295,11 @@ async def assign_competition_to_template(body: AssignCompetitionToTemplateReques
     if not comp or (body.sport_id is not None and not entity_ids_equal(comp.get("sport_id"), body.sport_id)):
         raise HTTPException(status_code=400, detail="Competition not found or not in selected sport")
     rows = _load_margin_template_competitions()
-    rows = [r for r in rows if not (r.get("competition_id") == body.competition_id and r.get("template_id") in scope_template_ids)]
-    rows.append({"template_id": body.template_id, "competition_id": body.competition_id})
+    cid_key = _margin_scope_competition_key(body.competition_id)
+    cid_store = cid_key if cid_key else str(body.competition_id).strip()
+    # One domain competition → one template row; remove stale assignments from other scopes.
+    rows = [r for r in rows if _margin_scope_competition_key(r.get("competition_id")) != cid_store]
+    rows.append({"template_id": body.template_id, "competition_id": cid_store})
     _save_margin_template_competitions(rows)
     return {"ok": True, "template_id": body.template_id, "competition_id": body.competition_id}
 
@@ -11860,27 +12096,24 @@ async def margin_view(
         if c.get("domain_id") is not None and entity_ids_equal(c.get("sport_id"), selected_sport_id)
     } if selected_sport_id else set()
     scope_template_ids = [t["id"] for t in margin_templates if t.get("id") is not None]
+    scope_ids_set = set(scope_template_ids)
+    catalog_by_id = {t["id"]: t for t in _load_margin_templates() if t.get("id") is not None}
+    comp_keys_norm = {_margin_scope_competition_key(cid) for cid in competition_ids_for_sport if cid}
     comp_to_scope_template: dict[str, int] = {}
-    for r in template_competitions:
-        tid, cid = r.get("template_id"), r.get("competition_id")
-        if tid in scope_template_ids and cid is not None:
-            comp_to_scope_template[cid] = tid
+    for ck in comp_keys_norm:
+        picked = _margin_assignment_pick_template_id(ck, scope_ids_set, catalog_by_id=catalog_by_id)
+        if picked is not None:
+            comp_to_scope_template[ck] = picked
     uncategorized_ids = {t["id"] for t in margin_templates if (t.get("name") or "").strip().lower() == "uncategorized"}
     for t in margin_templates:
         tid = t.get("id")
-        explicit = sum(
-            1 for r in template_competitions
-            if r.get("template_id") == tid and r.get("competition_id") in competition_ids_for_sport
-        )
         if tid in uncategorized_ids:
-            # Default bucket: add competitions of this sport not in any template of this scope
-            unassigned = sum(
-                1 for cid in competition_ids_for_sport
-                if comp_to_scope_template.get(cid) is None
-            )
-            t["leagues_count"] = explicit + unassigned
+            unassigned = sum(1 for ck in comp_keys_norm if comp_to_scope_template.get(ck) is None)
+            assigned_here = sum(1 for ck in comp_keys_norm if comp_to_scope_template.get(ck) == tid)
+            t["leagues_count"] = assigned_here + unassigned
         else:
-            t["leagues_count"] = explicit
+            t["leagues_count"] = sum(1 for ck in comp_keys_norm if comp_to_scope_template.get(ck) == tid)
+        t["markets_count"] = 0
     market_templates = _load_market_templates()
     market_period_types = _load_market_period_types()
     market_score_types = _load_market_score_types()
