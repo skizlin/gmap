@@ -5,7 +5,7 @@
 {% block title %}Event Navigator{% endblock %}
 
 {% block content %}
-<div class="flex flex-col h-full space-y-3">
+<div class="flex flex-col h-full space-y-2">
 
     <!-- TOP BAR FILTER -->
     <div
@@ -85,7 +85,7 @@
             <div id="domain-sport-panel"
                 class="hidden absolute top-full left-0 mt-1 z-[200] bg-gmp-surface border border-gmp-border rounded-lg shadow-2xl w-52 py-1">
                 <div class="flex items-center justify-between px-3 py-1.5 border-b border-gmp-border mb-1">
-                    <span class="text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold">Sport</span>
+                    <span class="text-[10px] uppercase tracking-wider text-gmp-text-faint font-semibold inline-flex items-center gap-1.5"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport</span>
                     <button type="button" id="domain-sport-all-btn" onclick="selectAllDomainSports()"
                         class="text-[10px] text-secondary hover:text-info font-medium">Select All</button>
                 </div>
@@ -316,7 +316,7 @@
     </div>
 
     <!-- Active filter badges (click X to remove) -->
-    <div id="domain-active-filters" class="flex flex-wrap items-center gap-2 min-h-[28px]">
+    <div id="domain-active-filters" class="flex flex-wrap items-center gap-1.5 min-h-[22px]">
         <!-- Filled by JS: updateActiveFilterBadges() -->
     </div>
 
@@ -331,8 +331,8 @@
                         <th class="px-3 py-2 font-semibold w-10 align-middle">
                             <input type="checkbox" class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary" aria-label="Bulk select all" id="domain-events-bulk-select">
                         </th>
-                        <th class="px-3 py-2 font-semibold">Id</th>
-                        <th class="px-3 py-2 font-semibold">
+                        <th class="px-3 py-2 font-semibold whitespace-nowrap min-w-[9rem]">Id</th>
+                        <th class="px-3 py-2 font-semibold whitespace-nowrap min-w-[11rem]">
                             <button type="button" id="domain-sort-start-time-btn" class="inline-flex items-center gap-1 text-left hover:text-gmp-text-heading transition-colors" title="Sort by start time (click to toggle)">
                                 Start Time
                                 <span id="domain-sort-start-time-icon" class="text-gmp-text-faint">
@@ -348,7 +348,7 @@
                         <th class="px-3 py-2 font-semibold">Category</th>
                         <th class="px-3 py-2 font-semibold">Competition</th>
                         <th class="px-3 py-2 font-semibold">Event</th>
-                        <th class="px-3 py-2 font-semibold w-20">Status</th>
+                        <th class="px-3 py-2 font-semibold min-w-[9rem] w-36 whitespace-nowrap">Status</th>
                         <th class="px-3 py-2 font-semibold w-14">Class</th>
                         <th class="px-3 py-2 font-semibold w-12">CO</th>
                         <th class="px-3 py-2 font-semibold w-12">T/O</th>
@@ -858,16 +858,17 @@
         statuses.forEach(s => badges.push({ type: 'status', label: 'Status: ' + s, value: s }));
         if (q.trim()) badges.push({ type: 'search', label: 'Search: "' + q.trim() + '"', value: q.trim() });
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const chip = 'inline-flex items-center gap-0.5 pl-2 pr-1 py-px rounded-full text-[11px] font-medium leading-tight bg-rose-100/95 text-rose-900 border border-rose-300/90 dark:bg-rose-950/50 dark:text-rose-100 dark:border-rose-500/35';
         let html = badges.map(b =>
-            `<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-gmp-surface-raised/80 border border-gmp-border text-gmp-text">
-                ${esc(b.label)}
-                <button type="button" class="remove-filter-badge hover:bg-surfaceHover rounded p-0.5 transition-colors" data-filter-type="${esc(b.type)}" data-filter-value="${esc(b.value)}" aria-label="Remove filter">
-                    <i class="fa-solid fa-times text-[10px]"></i>
+            `<span class="${chip}">
+                <span class="truncate max-w-[min(28rem,calc(100vw-6rem))]">${esc(b.label)}</span>
+                <button type="button" class="remove-filter-badge shrink-0 rounded-sm p-px leading-none text-rose-800/80 hover:bg-rose-900/10 dark:text-rose-200/90 dark:hover:bg-rose-100/10 transition-colors" data-filter-type="${esc(b.type)}" data-filter-value="${esc(b.value)}" aria-label="Remove filter">
+                    <i class="fa-solid fa-times text-[9px]"></i>
                 </button>
             </span>`
         ).join('');
         if (badges.length > 0) {
-            html += `<button type="button" id="domain-clear-all-filters" class="text-xs text-gmp-text-muted hover:text-primary transition-colors ml-1">Clear all</button>`;
+            html += `<button type="button" id="domain-clear-all-filters" class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px ml-0.5 border border-transparent transition-colors">Clear all</button>`;
         }
         container.innerHTML = html;
         container.querySelectorAll('.remove-filter-badge').forEach(btn => {

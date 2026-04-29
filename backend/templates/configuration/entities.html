@@ -20,7 +20,7 @@
 {% set default_entity_tab = dtab.v %}
 
 {% block content %}
-<div class="flex flex-col h-full space-y-3">
+<div class="flex flex-col h-full space-y-2">
 
     <!-- Quick-add form (hidden by default) -->
     <div id="new-entity-form"
@@ -38,7 +38,7 @@
 
         <!-- Sport parent: shown for categories, competitions, teams -->
         <div id="nef-sport-wrap" class="hidden">
-            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Sport <span
+            <label class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport <span
                     class="text-danger">*</span></label>
             <select id="nef-sport" onchange="onNefSportChange()"
                 class="bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
@@ -127,13 +127,13 @@
     {% set panels = ['sports', 'categories', 'competitions', 'teams', 'markets'] %}
     {% for key in panels %}
     {% if not ((key == 'sports' and not sport_tab_ok) or (key == 'categories' and not category_tab_ok) or (key == 'competitions' and not competition_tab_ok) or (key == 'teams' and not team_tab_ok) or (key == 'markets' and not markets_tab_ok)) %}
-    <div id="panel-{{ key }}" class="{% if key != default_entity_tab %}hidden {% endif %}flex flex-col flex-1 space-y-3 min-h-0">
+    <div id="panel-{{ key }}" class="{% if key != default_entity_tab %}hidden {% endif %}flex flex-col flex-1 space-y-2 min-h-0">
 
         {% if key == 'markets' %}
         {# ─── Market Types (QNX design from PDF) ─── #}
         <!-- Top filters and actions -->
         <div class="flex flex-wrap items-center gap-3 bg-cardbg/80 border border-gmp-border/50 rounded-lg p-3">
-            <label class="text-[10px] uppercase tracking-wider text-gmp-text-faint self-center">Sport</label>
+            <label class="text-[10px] uppercase tracking-wider text-gmp-text-faint self-center inline-flex items-center gap-1.5"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport</label>
             <select id="mt-sport" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none" title="Select a sport to view its market types" onchange="mtSportChange()">
                 <option value="">— Select sport —</option>
                 {% for s in entities.sports %}
@@ -148,7 +148,7 @@
                 <input type="checkbox" id="mt-active-only" class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary/30">
                 Active only
             </label>
-            <button type="button" onclick="mtClearFilters()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover" title="Clear">× Clear</button>
+            <button type="button" onclick="mtClearFilters()" class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px border border-transparent transition-colors" title="Clear">× Clear</button>
             <button type="button" onclick="mtSort()" class="text-gmp-text-muted hover:text-gmp-text-heading text-xs px-3 py-1.5 rounded border border-gmp-border hover:border-gmp-border">Sort Market Types</button>
             {% if rbac_can_any(request, 'entity.markets.create') %}
             <button type="button" onclick="mtToggleCreateForm()" class="ml-auto bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded flex items-center gap-1.5">
@@ -163,7 +163,7 @@
             <p class="text-[11px] text-gmp-text-muted">Markets are per sport. Select the sport first.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Sport <span class="text-warning">(required)</span></label>
+                    <label class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport <span class="text-warning">(required)</span></label>
                     <select id="mt-form-sport" required class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                         <option value="">— select sport —</option>
                         {% for s in entities.sports %}
@@ -320,12 +320,13 @@
         </div>
 
         <!-- Market Types table (QNX columns) -->
-        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
+        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg flex-1 overflow-hidden flex flex-col min-h-0">
+            <div class="overflow-x-auto flex-1 min-h-0">
             <table class="gmp-data-table w-full text-left border-collapse text-xs whitespace-nowrap">
                 <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-3 py-2 font-semibold">ID</th>
-                        <th class="px-3 py-2 font-semibold">Sport</th>
+                        <th class="px-3 py-2 font-semibold"><span class="inline-flex items-center gap-1.5"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport</span></th>
                         <th class="px-3 py-2 font-semibold">Name</th>
                         <th class="px-3 py-2 font-semibold">Abb.</th>
                         <th class="px-3 py-2 font-semibold">Market Type</th>
@@ -389,6 +390,16 @@
                     {% endif %}
                 </tbody>
             </table>
+            </div>
+            <div id="entity-events-pager-markets"
+                class="gmp-table-chrome px-4 py-2 border-t border-gmp-border flex justify-between items-center text-xs text-gmp-text-muted flex-shrink-0 dark:border-gmp-border-subtle dark:text-gmp-text-faint"
+                data-total="0" data-page="1" data-per-page="50" data-total-pages="1">
+                <span id="entity-pager-summary-markets">—</span>
+                <div class="flex space-x-2">
+                    <button type="button" id="entity-pager-prev-markets" class="px-3 py-1 bg-gmp-surface-raised rounded hover:bg-gmp-surface-popover text-gmp-text border border-gmp-border disabled:opacity-50 disabled:cursor-not-allowed" disabled>Previous</button>
+                    <button type="button" id="entity-pager-next-markets" class="px-3 py-1 bg-gmp-surface-raised rounded hover:bg-gmp-surface-popover text-gmp-text border border-gmp-border disabled:opacity-50 disabled:cursor-not-allowed" disabled>Next</button>
+                </div>
+            </div>
         </div>
 
         {% else %}
@@ -406,7 +417,7 @@
                 <option value="{{ s.domain_id }}">{{ s.name }}</option>
                 {% endfor %}
             </select>
-            <button type="button" onclick="clearCategoriesFilters()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-2 py-1 rounded hover:bg-gmp-surface-popover" title="Clear filters">Clear</button>
+            <button type="button" onclick="clearCategoriesFilters()" class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px border border-transparent transition-colors" title="Clear filters">Clear</button>
             {% endif %}
             {% if key == 'teams' %}
             <select id="filter-teams-sport" class="filter-teams bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
@@ -432,7 +443,7 @@
                 <option value="{{ u.id }}">{{ u.name }}</option>
                 {% endfor %}
             </select>
-            <button type="button" onclick="clearTeamsFilters()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-2 py-1 rounded hover:bg-gmp-surface-popover" title="Clear filters">Clear</button>
+            <button type="button" onclick="clearTeamsFilters()" class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px border border-transparent transition-colors" title="Clear filters">Clear</button>
             {% endif %}
             {% if key == 'competitions' %}
             <select id="filter-competitions-sport" class="filter-competitions bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
@@ -452,9 +463,8 @@
                 <option value="{{ u.id }}">{{ u.name }}</option>
                 {% endfor %}
             </select>
-            <button type="button" onclick="clearCompetitionsFilters()" class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-2 py-1 rounded hover:bg-gmp-surface-popover" title="Clear filters">Clear</button>
+            <button type="button" onclick="clearCompetitionsFilters()" class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px border border-transparent transition-colors" title="Clear filters">Clear</button>
             {% endif %}
-            <span id="count-{{ key }}" class="text-xs text-gmp-text-faint">Showing all {{ key }}</span>
             {% if key == 'categories' and rbac_can_any(request, 'entity.category.create') %}
             <button type="button" onclick="openNewEntityForm('categories')" class="ml-auto bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
                 <i class="fa-solid fa-plus"></i> New Category
@@ -471,7 +481,8 @@
         </div>
 
         <!-- Table -->
-        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg overflow-auto flex-1 min-h-0">
+        <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg flex-1 overflow-hidden flex flex-col min-h-0">
+            <div class="overflow-x-auto flex-1 min-h-0">
             <table class="gmp-data-table w-full text-left border-collapse">
                 <thead>
                     <tr
@@ -493,7 +504,7 @@
                         </th>
                         {% if key in ('sports', 'categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">Base ID</th>{% endif %}
                         {% if key in ('categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">
-                            Sport</th>{% endif %}
+                            <span class="inline-flex items-center gap-1.5"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport</span></th>{% endif %}
                         {% if key == 'competitions' %}<th class="px-4 py-2.5 font-semibold">Category</th>{% endif %}
                         {% if key == 'teams' %}<th class="px-4 py-2.5 font-semibold">Type</th>{% endif %}
                         {% if key in ('teams', 'competitions') %}<th class="px-4 py-2.5 font-semibold">Amateur</th><th class="px-4 py-2.5 font-semibold">Age category</th>{% endif %}
@@ -611,6 +622,16 @@
                     {% endif %}
                 </tbody>
             </table>
+            </div>
+            <div id="entity-events-pager-{{ key }}"
+                class="gmp-table-chrome px-4 py-2 border-t border-gmp-border flex justify-between items-center text-xs text-gmp-text-muted flex-shrink-0 dark:border-gmp-border-subtle dark:text-gmp-text-faint"
+                data-total="0" data-page="1" data-per-page="50" data-total-pages="1">
+                <span id="entity-pager-summary-{{ key }}">—</span>
+                <div class="flex space-x-2">
+                    <button type="button" id="entity-pager-prev-{{ key }}" class="px-3 py-1 bg-gmp-surface-raised rounded hover:bg-gmp-surface-popover text-gmp-text border border-gmp-border disabled:opacity-50 disabled:cursor-not-allowed" disabled>Previous</button>
+                    <button type="button" id="entity-pager-next-{{ key }}" class="px-3 py-1 bg-gmp-surface-raised rounded hover:bg-gmp-surface-popover text-gmp-text border border-gmp-border disabled:opacity-50 disabled:cursor-not-allowed" disabled>Next</button>
+                </div>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -826,6 +847,85 @@
         {% if team_tab_ok %}'teams',{% endif %}
         {% if markets_tab_ok %}'markets',{% endif %}
     ];
+    var ENTITY_PER_PAGE = 50;
+    window._entityPage = { sports: 1, categories: 1, competitions: 1, teams: 1, markets: 1 };
+    function entityPagerLabel(panel) {
+        if (panel === 'sports') return 'sports';
+        if (panel === 'categories') return 'categories';
+        if (panel === 'competitions') return 'competitions';
+        if (panel === 'teams') return 'teams';
+        if (panel === 'markets') return 'market types';
+        return panel;
+    }
+    function entityApplyPaging(panel) {
+        const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
+        const pagerEl = document.getElementById('entity-events-pager-' + panel);
+        const summaryEl = document.getElementById('entity-pager-summary-' + panel);
+        const prevBtn = document.getElementById('entity-pager-prev-' + panel);
+        const nextBtn = document.getElementById('entity-pager-next-' + panel);
+        if (!tbody || !pagerEl) return;
+        if (panel === 'markets') {
+            const sportVal = ((document.getElementById('mt-sport') || {}).value || '').trim();
+            const noSportRow = document.getElementById('mt-no-sport-row');
+            if (!sportVal) {
+                tbody.querySelectorAll('.entity-row').forEach(function (tr) {
+                    if (!tr.classList.contains('entity-empty-row') && !tr.classList.contains('mt-select-sport-placeholder')) tr.style.display = 'none';
+                });
+                if (summaryEl) summaryEl.textContent = 'Select a sport to view market types.';
+                if (prevBtn) prevBtn.disabled = true;
+                if (nextBtn) nextBtn.disabled = true;
+                pagerEl.setAttribute('data-total', '0');
+                pagerEl.setAttribute('data-page', '1');
+                pagerEl.setAttribute('data-per-page', String(ENTITY_PER_PAGE));
+                pagerEl.setAttribute('data-total-pages', '1');
+                return;
+            }
+        }
+        const dataRows = Array.from(tbody.querySelectorAll('.entity-row')).filter(function (tr) {
+            return !tr.classList.contains('entity-empty-row') && !tr.classList.contains('mt-select-sport-placeholder');
+        });
+        const matched = dataRows.filter(function (tr) { return tr.getAttribute('data-entity-filter-match') === '1'; });
+        const total = matched.length;
+        let page = window._entityPage[panel] || 1;
+        const totalPages = Math.max(1, Math.ceil(total / ENTITY_PER_PAGE) || 1);
+        if (page > totalPages) { page = totalPages; window._entityPage[panel] = page; }
+        if (page < 1) { page = 1; window._entityPage[panel] = 1; }
+        const startIdx = (page - 1) * ENTITY_PER_PAGE;
+        const endIdx = Math.min(startIdx + ENTITY_PER_PAGE, total);
+        matched.forEach(function (tr, i) {
+            tr.style.display = (i >= startIdx && i < endIdx) ? '' : 'none';
+        });
+        dataRows.forEach(function (tr) {
+            if (tr.getAttribute('data-entity-filter-match') !== '1') tr.style.display = 'none';
+        });
+        const emptyRow = tbody.querySelector('.entity-empty-row');
+        if (emptyRow) {
+            const hasDbData = dataRows.length > 0;
+            emptyRow.style.display = (!hasDbData && total === 0) ? '' : 'none';
+        }
+        if (summaryEl) {
+            if (total === 0) summaryEl.textContent = 'Showing 0 of 0 ' + entityPagerLabel(panel);
+            else summaryEl.textContent = 'Showing ' + (startIdx + 1) + '–' + endIdx + ' of ' + total + ' ' + entityPagerLabel(panel);
+        }
+        pagerEl.setAttribute('data-total', String(total));
+        pagerEl.setAttribute('data-page', String(page));
+        pagerEl.setAttribute('data-per-page', String(ENTITY_PER_PAGE));
+        pagerEl.setAttribute('data-total-pages', String(totalPages));
+        if (prevBtn) prevBtn.disabled = page <= 1;
+        if (nextBtn) nextBtn.disabled = page >= totalPages;
+    }
+    function entityGoPage(panel, delta) {
+        window._entityPage[panel] = (window._entityPage[panel] || 1) + delta;
+        entityApplyPaging(panel);
+    }
+    function entityWirePagerButtons() {
+        ['sports', 'categories', 'competitions', 'teams', 'markets'].forEach(function (panel) {
+            var p = document.getElementById('entity-pager-prev-' + panel);
+            var n = document.getElementById('entity-pager-next-' + panel);
+            if (p) p.addEventListener('click', function () { entityGoPage(panel, -1); });
+            if (n) n.addEventListener('click', function () { entityGoPage(panel, 1); });
+        });
+    }
     function userCanCreateEntityType(tabKey) {
         if (tabKey === 'sports') return false;
         var c = window.__rbacEntityCreate;
@@ -870,6 +970,7 @@
         if (key === 'sports' && form) form.classList.add('hidden');
         const sel = document.getElementById('nef-type');
         if (sel) sel.value = (key === 'sports') ? 'categories' : key;
+        if (key === 'sports' && typeof applySportsFilters === 'function') applySportsFilters();
         if (key === 'categories' && typeof applyCategoriesFilters === 'function') applyCategoriesFilters();
         if (key === 'teams' && typeof applyTeamsFilters === 'function') applyTeamsFilters();
         if (key === 'competitions' && typeof applyCompetitionsFilters === 'function') applyCompetitionsFilters();
@@ -893,6 +994,7 @@
     }
     window.addEventListener('hashchange', applyEntityTabFromHash);
     document.addEventListener('DOMContentLoaded', function () {
+        if (typeof entityWirePagerButtons === 'function') entityWirePagerButtons();
         if (!ENTITY_TAB_KEYS.length) return;
         if (!window.location.hash) window.location.hash = DEFAULT_ENTITY_TAB;
         applyEntityTabFromHash();
@@ -1355,7 +1457,7 @@
                 if (data.created) reloadPreservingTab();
                 else reloadPreservingTab();
             } else {
-                alert(data.detail || 'Error saving market type.');
+                alert(formatApiDetail(data.detail) || 'Error saving market type.');
             }
         } catch (e) {
             alert('Error saving market type.');
@@ -1384,11 +1486,26 @@
                 closeMarketGroupModal();
                 reloadPreservingTab();
             } else {
-                alert(data.detail || 'Error creating market group.');
+                alert(formatApiDetail(data.detail) || 'Error creating market group.');
             }
         } catch (e) {
             alert('Error creating market group.');
         }
+    }
+
+    /** FastAPI often returns ``detail`` as a string, or as an array of objects (422) — avoid ``alert([object Object])``. */
+    function formatApiDetail(detail) {
+        if (detail == null || detail === '') return '';
+        if (typeof detail === 'string') return detail;
+        if (Array.isArray(detail)) {
+            return detail.map(function (x) {
+                if (typeof x === 'string') return x;
+                if (x && typeof x === 'object') return String(x.msg || x.message || JSON.stringify(x));
+                return String(x);
+            }).join('; ');
+        }
+        if (typeof detail === 'object') return JSON.stringify(detail);
+        return String(detail);
     }
 
     // Market Mapper modal
@@ -1472,7 +1589,7 @@
                 reloadPreservingTab();
             } else {
                 const err = await res.json().catch(function () { return {}; });
-                alert(err.detail || 'Failed to save mappings.');
+                alert(formatApiDetail(err.detail) || 'Failed to save mappings.');
             }
         } catch (e) {
             alert('Failed to save mappings.');
@@ -1592,7 +1709,26 @@
         if (!el) return;
         console.log('Activate/Deactivate:', el.checked ? 'active' : 'inactive');
     }
+    function applySportsFilters() {
+        const panel = 'sports';
+        window._entityPage[panel] = 1;
+        const searchInput = document.getElementById('search-sports');
+        const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
+        const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
+        if (!tbody) return;
+        tbody.querySelectorAll('.entity-row').forEach(function (tr) {
+            if (tr.classList.contains('entity-empty-row')) {
+                tr.setAttribute('data-entity-filter-match', '0');
+                return;
+            }
+            const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
+            const show = !query || searchText.indexOf(query) !== -1;
+            tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
+        });
+        entityApplyPaging(panel);
+    }
     function mtApplyFilters() {
+        window._entityPage.markets = 1;
         const sportVal = (document.getElementById('mt-sport')?.value || '').trim();
         const nameQuery = (document.getElementById('mt-name')?.value || '').trim().toLowerCase();
         const tbody = document.querySelector('.entity-tbody[data-panel="markets"]');
@@ -1602,21 +1738,28 @@
         tbody.querySelectorAll('.entity-row, .entity-empty-row').forEach(function (tr) {
             if (tr.classList.contains('mt-select-sport-placeholder')) return;
             if (tr.classList.contains('entity-empty-row')) {
+                tr.setAttribute('data-entity-filter-match', '0');
                 tr.style.display = sportVal ? '' : 'none';
                 return;
             }
+            if (!sportVal) {
+                tr.setAttribute('data-entity-filter-match', '0');
+                return;
+            }
             const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
-            const matchSport = sportVal && rowSportId === sportVal;
+            const matchSport = rowSportId === sportVal;
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
             const matchName = !nameQuery || searchText.indexOf(nameQuery) !== -1;
-            tr.style.display = (matchSport && matchName) ? '' : 'none';
+            tr.setAttribute('data-entity-filter-match', (matchSport && matchName) ? '1' : '0');
         });
+        entityApplyPaging('markets');
     }
     document.getElementById('mt-sport')?.addEventListener('change', mtApplyFilters);
     document.getElementById('mt-name')?.addEventListener('input', mtApplyFilters);
 
     function applyTeamsFilters() {
         const panel = 'teams';
+        window._entityPage[panel] = 1;
         const searchInput = document.getElementById('search-teams');
         const sportSel = document.getElementById('filter-teams-sport');
         const typeSel = document.getElementById('filter-teams-participant-type');
@@ -1630,15 +1773,11 @@
         const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
         if (!tbody) return;
         const rows = tbody.querySelectorAll('.entity-row');
-        let visible = 0;
-        let total = 0;
-        const hasFilter = query || sportVal || typeVal || amateurVal || ageCatVal;
         rows.forEach(function (tr) {
             if (tr.classList.contains('entity-empty-row')) {
-                tr.style.display = hasFilter ? 'none' : '';
+                tr.setAttribute('data-entity-filter-match', '0');
                 return;
             }
-            total++;
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
             const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
             const rowTypeId = (tr.getAttribute('data-participant-type-id') || '').trim();
@@ -1650,13 +1789,9 @@
             const matchAmateur = !amateurVal || rowAmateur === amateurVal;
             const matchAgeCat = !ageCatVal || rowAgeCatId === ageCatVal;
             const show = matchSearch && matchSport && matchType && matchAmateur && matchAgeCat;
-            tr.style.display = show ? '' : 'none';
-            if (show) visible++;
+            tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
         });
-        const countEl = document.getElementById('count-teams');
-        if (countEl) {
-            countEl.textContent = hasFilter ? 'Showing ' + visible + ' of ' + total + ' teams' : 'Showing all teams';
-        }
+        entityApplyPaging(panel);
     }
 
     function clearTeamsFilters() {
@@ -1669,6 +1804,7 @@
 
     function applyCategoriesFilters() {
         const panel = 'categories';
+        window._entityPage[panel] = 1;
         const searchInput = document.getElementById('search-categories');
         const sportSel = document.getElementById('filter-categories-sport');
         const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
@@ -1676,27 +1812,19 @@
         const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
         if (!tbody) return;
         const rows = tbody.querySelectorAll('.entity-row');
-        let visible = 0;
-        let total = 0;
-        const hasFilter = query || sportVal;
         rows.forEach(function (tr) {
             if (tr.classList.contains('entity-empty-row')) {
-                tr.style.display = hasFilter ? 'none' : '';
+                tr.setAttribute('data-entity-filter-match', '0');
                 return;
             }
-            total++;
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
             const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
             const matchSearch = !query || searchText.indexOf(query) !== -1;
             const matchSport = !sportVal || rowSportId === sportVal;
             const show = matchSearch && matchSport;
-            tr.style.display = show ? '' : 'none';
-            if (show) visible++;
+            tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
         });
-        const countEl = document.getElementById('count-categories');
-        if (countEl) {
-            countEl.textContent = hasFilter ? 'Showing ' + visible + ' of ' + total + ' categories' : 'Showing all categories';
-        }
+        entityApplyPaging(panel);
     }
 
     function clearCategoriesFilters() {
@@ -1709,6 +1837,7 @@
 
     function applyCompetitionsFilters() {
         const panel = 'competitions';
+        window._entityPage[panel] = 1;
         const searchInput = document.getElementById('search-competitions');
         const sportSel = document.getElementById('filter-competitions-sport');
         const amateurSel = document.getElementById('filter-competitions-amateur');
@@ -1720,15 +1849,11 @@
         const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
         if (!tbody) return;
         const rows = tbody.querySelectorAll('.entity-row');
-        let visible = 0;
-        let total = 0;
-        const hasFilter = query || sportVal || amateurVal || ageCatVal;
         rows.forEach(function (tr) {
             if (tr.classList.contains('entity-empty-row')) {
-                tr.style.display = hasFilter ? 'none' : '';
+                tr.setAttribute('data-entity-filter-match', '0');
                 return;
             }
-            total++;
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
             const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
             const rowAmateur = (tr.getAttribute('data-is-amateur') || '').trim();
@@ -1738,13 +1863,9 @@
             const matchAmateur = !amateurVal || rowAmateur === amateurVal;
             const matchAgeCat = !ageCatVal || rowAgeCatId === ageCatVal;
             const show = matchSearch && matchSport && matchAmateur && matchAgeCat;
-            tr.style.display = show ? '' : 'none';
-            if (show) visible++;
+            tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
         });
-        const countEl = document.getElementById('count-competitions');
-        if (countEl) {
-            countEl.textContent = hasFilter ? 'Showing ' + visible + ' of ' + total + ' competitions' : 'Showing all competitions';
-        }
+        entityApplyPaging(panel);
     }
 
     function clearCompetitionsFilters() {
@@ -1783,25 +1904,10 @@
                 applyCompetitionsFilters();
                 return;
             }
-            const query = (this.value || '').trim().toLowerCase();
-            const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
-            if (!tbody) return;
-            const rows = tbody.querySelectorAll('.entity-row');
-            let visible = 0;
-            let total = 0;
-            rows.forEach(function (tr) {
-                if (tr.classList.contains('entity-empty-row')) {
-                    tr.style.display = query ? 'none' : '';
-                    return;
-                }
-                total++;
-                const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
-                const show = !query || searchText.indexOf(query) !== -1;
-                tr.style.display = show ? '' : 'none';
-                if (show) visible++;
-            });
-            const countEl = document.getElementById('count-' + panel);
-            if (countEl) countEl.textContent = query ? 'Showing ' + visible + ' of ' + total : 'Showing all ' + panel;
+            if (panel === 'sports') {
+                applySportsFilters();
+                return;
+            }
         });
     });
 </script>

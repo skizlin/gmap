@@ -1,6 +1,6 @@
 <select id="feeder-sport-select" name="sport" title="Filter by sport (one at a time, or all)"
     onchange="onFeederSportSelectChange()"
-    class="bg-gmp-surface text-gmp-text-heading text-xs rounded border border-gmp-border px-3 py-1.5 pr-7 appearance-none ring-1 ring-gmp-border/30 min-w-[140px] max-w-[220px] focus:border-primary outline-none">
+    class="bg-gmp-surface text-gmp-text-heading text-xs rounded border border-gmp-border pl-8 pr-7 py-1.5 appearance-none ring-1 ring-gmp-border/30 min-w-[140px] max-w-[220px] focus:border-primary outline-none">
     <option value="">All sports</option>
     {% for s in sports %}
     <option value="{{ s | e }}" {% if s == selected_sport %}selected{% endif %}>{{ s }}</option>

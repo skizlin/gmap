@@ -10,7 +10,7 @@
             }}</span>
     </td>
     <!-- Feed ID: muted when not ignored; fainter when ignored -->
-    <td class="px-3 py-1.5 font-mono {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-muted' }}">
+    <td class="px-3 py-1.5 {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-muted' }}">
         <span>{{ event.valid_id }}</span>
         {% if event.betradar_id %}
         <span title="BetRadar ID: {{ event.betradar_id }}"
@@ -20,7 +20,7 @@
     <!-- ID / Status: green domain ID if mapped (and not ignored); grey "Ignored" if ignored; red "Unmapped" otherwise -->
     {% set sport_key = (event.sport_id | normalize_sport_feed_id or (event.sport or '') | lower) %}
     {% set sport_mapped = sport_key and selected_feed_pid is not none and (selected_feed_pid, sport_key) in mapped_sport_feed_ids %}
-    <td class="px-3 py-1.5 font-mono {{ 'text-gmp-text-faint' if is_ignored else '' }}">
+    <td class="px-3 py-1.5 {{ 'text-gmp-text-faint' if is_ignored else '' }}">
         {% if event.mapping_status == 'IGNORED' %}
         <span class="inline-flex px-1.5 py-0.5 rounded font-medium text-[11px] bg-gmp-text-faint/10 border border-gmp-border/20">Ignored</span>
         {% elif event.domain_id and event.domain_id != '0' %}
@@ -30,7 +30,7 @@
         {% endif %}
     </td>
     <!-- Start Time: darker when ignored -->
-    <td class="px-3 py-1.5 whitespace-nowrap font-mono {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-menu' }}">{{ event.start_time }}</td>
+    <td class="px-3 py-1.5 whitespace-nowrap {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-menu' }}">{{ event.start_time }}</td>
     <!-- Sport: darker when ignored -->
     <td class="px-3 py-1.5 {{ 'text-gmp-text-faint' if is_ignored else ('text-success' if sport_mapped else 'text-gmp-text-menu') }}">
         {% if event.sport %}
@@ -85,7 +85,7 @@
         {% endif %}
     </td>
     <!-- Status (time_status from feed: code → description; if feed does not return status, show —) -->
-    <td class="px-3 py-1.5 {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-muted' }}">{{ event.time_status | time_status_description }}</td>
+    <td class="px-3 py-1.5 whitespace-nowrap min-w-[9rem] {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-muted' }}">{{ event.time_status | time_status_description }}</td>
     <!-- #MKT -->
     <td class="px-3 py-1.5 text-center font-mono {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-muted' }}">{{ event.markets_count if event.markets_count is not none else '—' }}</td>
     <!-- Notes: icon when event has a note -->

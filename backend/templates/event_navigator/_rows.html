@@ -3,15 +3,19 @@
     <td class="px-3 py-2 align-middle">
         <input type="checkbox" class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary" aria-label="Select row {{ loop.index }}">
     </td>
-    <td class="px-3 py-2 font-mono text-secondary text-xs">{{ ev.id }}</td>
-    <td class="px-3 py-2 align-middle">
-        <span class="domain-start-time-hover group relative inline-block cursor-help font-mono text-xs {% if ev.start_time_mismatch %}text-danger{% else %}text-gmp-text-menu{% endif %}">
-            {{ ev.start_time | format_start_time or '—' }}
+    <td class="px-3 py-2 whitespace-nowrap min-w-[9rem] tabular-nums">
+        <a href="/event-navigator/event_details/{{ ev.id }}" target="_blank" rel="noopener noreferrer"
+            class="font-bold text-blue-700 hover:text-blue-600 hover:underline dark:text-sky-400 dark:hover:text-sky-300 transition-colors"
+            title="Open event {{ ev.id }}">{{ ev.id }}</a>
+    </td>
+    <td class="px-3 py-2 align-middle whitespace-nowrap min-w-[11rem]">
+        <span class="domain-start-time-hover group relative inline-block cursor-help">
+            <span class="{% if ev.start_time_mismatch %}text-danger{% else %}text-gmp-text-menu{% endif %}">{{ ev.start_time | format_start_time or '—' }}</span>
             {% if ev.feed_start_times %}
             <span class="pointer-events-none absolute left-0 bottom-full z-50 mb-1 hidden w-48 rounded border border-gmp-border bg-gmp-surface-raised px-2.5 py-2 text-left text-xs text-gmp-text shadow-xl group-hover:block">
                 <span class="text-gmp-text-muted block border-b border-gmp-border pb-1 mb-1 font-medium">Start time by feed</span>
                 {% for ft in ev.feed_start_times %}
-                <span class="block">{{ ft.feed }}: <span class="font-mono text-gmp-text-heading dark:text-white">{{ ft.start_time }}</span></span>
+                <span class="block">{{ ft.feed }}: <span class="text-gmp-text-heading dark:text-white">{{ ft.start_time }}</span></span>
                 {% endfor %}
             </span>
             {% endif %}
@@ -53,7 +57,7 @@
             {% if ev.home or ev.away %}{{ ev.home or '—' }} v {{ ev.away or '—' }}{% else %}—{% endif %}
         </a>
     </td>
-    <td class="px-3 py-2 text-gmp-text-muted text-xs">Not Started</td>
+    <td class="px-3 py-2 text-gmp-text-muted whitespace-nowrap min-w-[9rem]">Not Started</td>
     <td class="px-3 py-2">
         {% if ev.risk_class %}
         <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-semibold text-white {{ ev.risk_class.circle_color }}" title="{{ ev.risk_class.name }}">{{ ev.risk_class.letter }}</span>

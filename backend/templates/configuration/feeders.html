@@ -5,7 +5,7 @@
 {% block title %}Feeder Configuration{% endblock %}
 
 {% block content %}
-<div class="flex flex-col space-y-4 pb-6">
+<div class="flex flex-col space-y-2 pb-6">
 
     <!-- Tabs (hash-based: #config, #feed_sports for direct links) -->
     <div class="flex border-b border-gmp-border gap-0" role="tablist">
@@ -23,11 +23,11 @@
     </div>
 
     <!-- Panel: Configuration (feeder settings + incidents) -->
-    <div id="feeder-panel-config" class="feeder-panel flex flex-col space-y-4">
+    <div id="feeder-panel-config" class="feeder-panel flex flex-col space-y-2">
     <!-- Filters -->
     <form method="get" action="/feeders" id="feeder-filters-form" class="flex flex-wrap items-end gap-3 bg-cardbg/80 border border-gmp-border/50 rounded-lg p-4">
         <div>
-            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Sport</label>
+            <label class="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport</label>
             <select name="sport_id" id="feeder-filter-sport" onchange="feederSportChange()"
                 class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none min-w-[160px]">
                 <option value="">— select —</option>
@@ -64,7 +64,7 @@
             </select>
         </div>
         <button type="button" onclick="document.getElementById('feeder-filter-sport').value=''; document.getElementById('feeder-filter-category').value=''; document.getElementById('feeder-filter-competition').value=''; document.getElementById('feeder-filter-category').disabled=false; document.getElementById('feeder-filter-competition').disabled=false; document.getElementById('feeder-filters-form').submit();"
-            class="text-gmp-text-faint hover:text-gmp-text-heading text-xs px-2 py-1.5 rounded hover:bg-gmp-surface-popover" title="Clear filters">Clear</button>
+            class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px border border-transparent transition-colors" title="Clear filters">Clear</button>
     </form>
 
     {% if not selected_sport_id %}
@@ -245,7 +245,7 @@
     <!-- /feeder-panel-config -->
 
     <!-- Panel: Feed Sports (feed_sports.csv) -->
-    <div id="feeder-panel-feed_sports" class="feeder-panel hidden flex flex-col space-y-4">
+    <div id="feeder-panel-feed_sports" class="feeder-panel hidden flex flex-col space-y-2">
         <p class="text-xs text-gmp-text-faint">Per-feed sport IDs and display names. Used in Feeder Events and mapping. Add rows so events with different <code class="text-gmp-text-muted">sport_id</code> show the correct name.</p>
         <div class="flex flex-wrap items-end gap-3 bg-cardbg/80 border border-gmp-border/50 rounded-lg p-3">
             <div>

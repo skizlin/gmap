@@ -37,6 +37,8 @@ FILES=(
   backend/data/sport_feed_mappings.csv
   backend/data/teams.csv
   backend/data/translations.csv
+  backend/data/notes/alert_types.csv
+  backend/data/notes/alerts.csv
 )
 
 for f in "${FILES[@]}"; do

@@ -5,7 +5,7 @@
 {% block title %}Feeder Events{% endblock %}
 
 {% block content %}
-<div class="flex flex-col h-full space-y-3">
+<div class="flex flex-col h-full space-y-2">
 
     <!-- TOP BAR FILTER -->
     <div
@@ -65,11 +65,15 @@
 
         <!-- 2. Feed filter -->
         <div class="relative">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-gmp-text-menu dark:text-gmp-text-muted z-[1]"
+                aria-hidden="true">
+                <i class="fa-solid fa-satellite-dish text-[10px]"></i>
+            </div>
             <select id="feed-filter" name="feed_provider"                 hx-get="/feeder-events/table" hx-target="#feeder-events-body"
                 hx-swap="innerHTML" hx-trigger="change"
                 hx-include="#feed-filter,[name='date'],[name='date_from'],[name='date_to'],[name='mapping_status_filter'],[name='sport'],[name='competitions'],[name='statuses'],[name='live_only'],[name='notes_only'],[name='outright_filter'],[name='q'],[name='sort_start_time'],[name='page'],[name='per_page']"
                 onchange="var fs=document.getElementById('feeder-sport-select'); if(fs) fs.value=''; document.getElementById('feeder-page-input').value = '1';"
-                class="bg-gmp-surface text-gmp-text-heading text-xs rounded border border-secondary/60 px-3 py-1.5 pr-7 appearance-none ring-1 ring-secondary/30">
+                class="bg-gmp-surface text-gmp-text-heading text-xs rounded border border-secondary/60 pl-8 pr-7 py-1.5 appearance-none ring-1 ring-secondary/30">
                 {% for feed in feeds %}
                 <option value="{{ feed }}" {% if feed==selected_feed %}selected{% endif %}>{{ feed }}</option>
                 {% endfor %}
@@ -81,6 +85,10 @@
 
         <!-- 3. Sport filter (single select: all sports or one) -->
         <div class="relative inline-block">
+            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-gmp-text-muted z-[1]"
+                aria-hidden="true">
+                <i class="fa-solid fa-futbol text-[10px]"></i>
+            </div>
             <div id="feeder-sport-select-wrap"
                 hx-get="/feeder-events/sport-options"
                 hx-trigger="change from:#feed-filter"
@@ -194,7 +202,7 @@
         <div class="border-l border-gmp-border h-6 mx-1"></div>
 
         <!-- 8. Mapping status toggle -->
-        <input type="hidden" id="mapping-status-input" name="mapping_status_filter" value="">
+        <input type="hidden" id="mapping-status-input" name="mapping_status_filter" value="{{ feeder_mapping_status_filter | default('', true) }}">
         <div class="flex bg-gmp-surface rounded p-0.5 border border-gmp-border" id="mapping-toggle">
             <button type="button" data-status="UNMAPPED" onclick="setMappingFilter(this)"
                 class="px-3 py-1 rounded text-xs font-medium bg-secondary text-white shadow">Unmapped</button>
@@ -223,7 +231,7 @@
     </div>
 
     <!-- Active filter badges -->
-    <div id="feeder-active-filters" class="flex flex-wrap items-center gap-2 min-h-[28px]"></div>
+    <div id="feeder-active-filters" class="flex flex-wrap items-center gap-1.5 min-h-[22px]"></div>
 
     <!-- MAIN TABLE -->
     <div
@@ -255,7 +263,7 @@
                         <th class="px-3 py-2 font-semibold">Sport</th>
                         <th class="px-3 py-2 font-semibold">Competition</th>
                         <th class="px-3 py-2 font-semibold">Event</th>
-                        <th class="px-3 py-2 font-semibold w-20">Status</th>
+                        <th class="px-3 py-2 font-semibold min-w-[9rem] w-36 whitespace-nowrap">Status</th>
                         <th class="px-3 py-2 font-semibold w-14 text-center">#MKT</th>
                         <th class="px-3 py-2 font-semibold w-12 text-center">Notes</th>
                         <th class="px-3 py-2 font-semibold text-right w-14">Action</th>
@@ -593,16 +601,17 @@
         statuses.forEach(s => badges.push({ type: 'status', label: 'Status: ' + s, value: s }));
         if (q) badges.push({ type: 'search', label: 'Search: "' + q + '"', value: q });
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const chip = 'inline-flex items-center gap-0.5 pl-2 pr-1 py-px rounded-full text-[11px] font-medium leading-tight bg-rose-100/95 text-rose-900 border border-rose-300/90 dark:bg-rose-950/50 dark:text-rose-100 dark:border-rose-500/35';
         let html = badges.map(b =>
-            `<span class="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-gmp-surface-raised/80 border border-gmp-border text-gmp-text">
-                ${esc(b.label)}
-                <button type="button" class="remove-feeder-filter-badge hover:bg-surfaceHover rounded p-0.5 transition-colors" data-filter-type="${esc(b.type)}" data-filter-value="${esc(b.value)}" aria-label="Remove filter">
-                    <i class="fa-solid fa-times text-[10px]"></i>
+            `<span class="${chip}">
+                <span class="truncate max-w-[min(28rem,calc(100vw-6rem))]">${esc(b.label)}</span>
+                <button type="button" class="remove-feeder-filter-badge shrink-0 rounded-sm p-px leading-none text-rose-800/80 hover:bg-rose-900/10 dark:text-rose-200/90 dark:hover:bg-rose-100/10 transition-colors" data-filter-type="${esc(b.type)}" data-filter-value="${esc(b.value)}" aria-label="Remove filter">
+                    <i class="fa-solid fa-times text-[9px]"></i>
                 </button>
             </span>`
         ).join('');
         if (badges.length > 0) {
-            html += `<button type="button" id="feeder-clear-all-filters" class="text-xs text-gmp-text-muted hover:text-primary transition-colors ml-1">Clear all</button>`;
+            html += `<button type="button" id="feeder-clear-all-filters" class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px ml-0.5 border border-transparent transition-colors">Clear all</button>`;
         }
         container.innerHTML = html;
         container.querySelectorAll('.remove-feeder-filter-badge').forEach(btn => {
@@ -698,6 +707,22 @@
     document.addEventListener('DOMContentLoaded', function () {
         updateFeederCompetitionButtonState();
         updateFeederActiveFilterBadges();
+        (function syncInitialMappingToggle() {
+            var inp = document.getElementById('mapping-status-input');
+            if (!inp) return;
+            var v = inp.value;
+            if (v === null || v === undefined) return;
+            var btn = Array.from(document.querySelectorAll('#mapping-toggle button')).find(function (b) {
+                return (b.getAttribute('data-status') || '') === v;
+            });
+            if (!btn) return;
+            document.querySelectorAll('#mapping-toggle button').forEach(function (b) {
+                b.classList.remove('bg-secondary', 'text-white', 'shadow');
+                b.classList.add('text-gmp-text-muted', 'hover:text-gmp-text-heading');
+            });
+            btn.classList.add('bg-secondary', 'text-white', 'shadow');
+            btn.classList.remove('text-gmp-text-muted', 'hover:text-gmp-text-heading');
+        })();
     });
 
     // ── Outright filter ────────────────────────────────────────────

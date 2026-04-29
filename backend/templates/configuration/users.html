@@ -55,7 +55,7 @@
 {% block title %}Admin Management{% endblock %}
 
 {% block content %}
-<div class="flex flex-col h-full space-y-3">
+<div class="flex flex-col h-full space-y-2">
 
     <!-- Main tabs: Admin | Roles & Permissions (hash-based so switching always works) -->
     <div class="flex border-b border-gmp-border shrink-0 flex-nowrap" role="tablist">
@@ -69,7 +69,7 @@
 
     <!-- Main panel: Admin (user list + add form only) -->
     <div id="main-panel-admin" class="flex flex-col flex-1 min-h-0 overflow-auto">
-    <div class="flex flex-col h-full space-y-3 flex-1 min-h-0">
+    <div class="flex flex-col h-full space-y-2 flex-1 min-h-0">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <form method="get" action="/users" id="admin-filters-form" class="flex flex-wrap items-center gap-3">
                 <input type="hidden" name="status" id="admin-filter-status-input" value="{{ filter_status | default('active') }}">
