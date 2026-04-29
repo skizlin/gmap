@@ -1187,6 +1187,173 @@ def _assign_competition_to_margin_template(competition_id: str, template_id: int
     _save_margin_template_competitions(rows)
 
 
+def _margin_templates_for_brand_sport(brand_id_str: str, sport_domain_id: Any) -> list[dict]:
+    s_key = fid_str(sport_domain_id) if sport_domain_id is not None else ""
+    return _load_margin_templates(brand_id=str(brand_id_str).strip(), sport_id=s_key)
+
+
+def _pick_margin_template_for_event_scope(templates: list[dict], competition_domain_id: Any | None) -> dict | None:
+    """
+    Pick the margin template for this competition within ``templates`` (already scoped to brand × sport).
+
+    ``margin_template_competitions`` stores ``template_id`` from whichever scope the trader used in
+    Configuration → Margin (e.g. Global). Template **numeric ids are not shared** across scopes, so
+    the same row often does not match ``templates`` for another brand. When the assigned id is
+    missing from this list, resolve the assigned template by **name** from the full catalog and pick
+    the same-named template in this scope (e.g. Global assignment "Tier 1" → each brand's "Tier 1").
+    """
+    if not templates:
+        return None
+
+    def _fallback_uncat() -> dict | None:
+        u = next((t for t in templates if (t.get("name") or "").strip().lower() == "uncategorized"), None)
+        return u or templates[0]
+
+    assigned_tid: int | None = None
+    if competition_domain_id is not None:
+        cid = fid_str(competition_domain_id)
+        if cid:
+            row = next((r for r in _load_margin_template_competitions() if fid_str(r.get("competition_id")) == cid), None)
+            if row is not None:
+                try:
+                    assigned_tid = int(row.get("template_id"))
+                except (TypeError, ValueError):
+                    assigned_tid = None
+
+    if assigned_tid is not None:
+        by_id = next((t for t in templates if t.get("id") == assigned_tid), None)
+        if by_id:
+            return by_id
+        ref = next((t for t in _load_margin_templates() if t.get("id") == assigned_tid), None)
+        if ref:
+            ref_name = (ref.get("name") or "").strip()
+            if ref_name:
+                by_name = next(
+                    (t for t in templates if (t.get("name") or "").strip().lower() == ref_name.lower()),
+                    None,
+                )
+                if by_name:
+                    return by_name
+
+    return _fallback_uncat()
+
+
+def _prematch_pm_pct_single_brand_key(ev: dict, brand_key: str) -> tuple[float | None, str | None]:
+    """Resolve PM %% from margin templates for ``brand_key`` ('' = Global) × event sport + competition."""
+    sport_id = _event_sport_id(ev)
+    if sport_id is None:
+        return None, None
+    comp_id = ev.get("competition_id")
+    tpls = _margin_templates_for_brand_sport(brand_key, sport_id)
+    if not tpls:
+        return None, None
+    t = _pick_margin_template_for_event_scope(tpls, comp_id)
+    if not t:
+        return None, None
+    raw = (t.get("pm_margin") or "").strip().replace(",", ".")
+    if raw == "":
+        return None, None
+    try:
+        return float(raw), (t.get("name") or "").strip() or "—"
+    except ValueError:
+        return None, None
+
+
+def _prematch_pm_pct_and_template_name(brand_id_int: int, ev: dict) -> tuple[float | None, str | None]:
+    """Resolve PM margin %% and template display name for a brand on this event (prematch)."""
+    for brand_key in (str(int(brand_id_int)), ""):
+        pm, name = _prematch_pm_pct_single_brand_key(ev, brand_key)
+        if pm is not None:
+            return pm, name
+    return None, None
+
+
+def _prematch_pm_pct_for_pricing_scope(ev: dict, pricing_brand_id: int | None) -> tuple[float | None, str | None]:
+    """Event overview / single-brand pricing: ``None`` = Global templates only; else brand then Global fallback."""
+    if pricing_brand_id is None:
+        return _prematch_pm_pct_single_brand_key(ev, "")
+    pm, name = _prematch_pm_pct_single_brand_key(ev, str(int(pricing_brand_id)))
+    if pm is not None:
+        return pm, name
+    return _prematch_pm_pct_single_brand_key(ev, "")
+
+
+def _pick_feed_odds_row_for_line(feed_rows: list[dict], line_q: str | None) -> dict | None:
+    """When multiple lines exist for one feed, pick the row matching ``line_q`` (★ stripped), else first."""
+    if not feed_rows:
+        return None
+    if line_q and len(feed_rows) > 1:
+
+        def _strip_star(s: str) -> str:
+            return (s or "").replace("★", "").strip()
+
+        lq = _strip_star(line_q)
+        for cand in feed_rows:
+            if _strip_star(str(cand.get("line") or "")) == lq:
+                return cand
+        return feed_rows[0]
+    return feed_rows[0]
+
+
+def _decimal_odds_from_feed_row(row: dict | None) -> list[float | None]:
+    if not row:
+        return []
+    out: list[float | None] = []
+    for o in row.get("outcomes") or []:
+        try:
+            out.append(float(str(o.get("price") or "").replace(",", ".")))
+        except (TypeError, ValueError):
+            out.append(None)
+    return out
+
+
+def _imlog_true_prices_for_event_market(
+    domain_event_id: str,
+    domain_market_id: str,
+    line: str | None,
+) -> tuple[list[float | None], bool, int]:
+    """
+    Basis for Brand Overview / markets overview (center column).
+
+    When **Pricing Feed** order is configured (global All Sports), walk feeds in that order;
+    use the first feed with a full set of positive outcome decimals, **log de-vig** to fair
+    odds, then callers apply **log2** margining from margin templates.
+
+    When no pricing order is configured, legacy behavior: **IMLog** decimals are used as the
+    basis for log2 (no de-vig), same as before.
+    """
+    from backend.internal_pricing.transforms.log_function import true_odds_and_probs_from_decimal_odds
+
+    eid = str(domain_event_id).strip()
+    line_q = (line or "").strip() or None
+    all_ln = line_q is None
+    rows = _get_feed_odds_for_event_market(eid, domain_market_id, line_q, all_lines=all_ln)
+    order_ids = _feeder_config_pricing_feed_order_ids()
+
+    if order_ids:
+        for fid in order_ids:
+            fr = [r for r in rows if r.get("feed_provider_id") == fid]
+            row = _pick_feed_odds_row_for_line(fr, line_q)
+            decs = _decimal_odds_from_feed_row(row)
+            if not decs or any(x is None or x <= 0 for x in decs):
+                continue
+            to = true_odds_and_probs_from_decimal_odds([float(x) for x in decs])
+            if not to:
+                continue
+            true_odds, _probs = to
+            tp: list[float | None] = [float(x) for x in true_odds]
+            n_sel = len(tp)
+            return tp, True, n_sel
+        return [], False, 0
+
+    im_rows = [r for r in rows if (r.get("feed_name") or "").strip().lower() == "imlog"]
+    im_row = _pick_feed_odds_row_for_line(im_rows, line_q)
+    true_prices = _decimal_odds_from_feed_row(im_row)
+    im_used = bool(true_prices and any(x is not None and x > 0 for x in true_prices))
+    n_sel = sum(1 for x in true_prices if x is not None and x > 0)
+    return true_prices, im_used, n_sel
+
+
 def _competition_sport_to_risk_class_map(brand_id: str | int | None = None) -> dict[tuple[int, str], dict]:
     """
     Build (competition_id, template_sport_id) -> risk_class from margin_template_competitions and margin_templates.
@@ -4308,7 +4475,7 @@ def _get_feed_odds_for_event_market(
 ) -> list[dict]:
     """Return list of rows from cached event details and market type mappings.
 
-    Each row: ``feed_name``, ``feed_market_id``, ``outcomes``, ``line``, ``is_main_line`` (e.g. 1xbet CE==1).
+    Each row: ``feed_provider_id``, ``feed_name``, ``feed_market_id``, ``outcomes``, ``line``, ``is_main_line`` (e.g. 1xbet CE==1).
 
     With ``all_lines`` true (default), multi-line feeds return one row per offered line (paired Over/Under or
     handicap sides). With ``all_lines`` false, ``line`` selects a single line like the legacy UI behavior.
@@ -4345,6 +4512,7 @@ def _get_feed_odds_for_event_market(
         mt = next((m for m in mt_mappings if m.get("feed_provider_id") == feed_provider_id), None)
         if not mt:
             result.append({
+                "feed_provider_id": feed_provider_id,
                 "feed_name": feed_name,
                 "feed_market_id": "",
                 "outcomes": [],
@@ -4362,6 +4530,7 @@ def _get_feed_odds_for_event_market(
         path = config.FEED_EVENT_DETAILS_DIR / feed_provider_str / f"{feed_valid_id}.json"
         if not path.exists():
             result.append({
+                "feed_provider_id": feed_provider_id,
                 "feed_name": feed_name,
                 "feed_market_id": feed_market_id,
                 "outcomes": [],
@@ -4374,6 +4543,7 @@ def _get_feed_odds_for_event_market(
                 data = json.load(f)
         except (json.JSONDecodeError, OSError):
             result.append({
+                "feed_provider_id": feed_provider_id,
                 "feed_name": feed_name,
                 "feed_market_id": feed_market_id,
                 "outcomes": [],
@@ -4389,6 +4559,7 @@ def _get_feed_odds_for_event_market(
             outcomes = bwin_data.get("outcomes") or []
             row_line = (bwin_data.get("line") or "").strip() or "—"
             result.append({
+                "feed_provider_id": feed_provider_id,
                 "feed_name": feed_name,
                 "feed_market_id": feed_market_id,
                 "outcomes": outcomes,
@@ -4401,6 +4572,7 @@ def _get_feed_odds_for_event_market(
             outcomes = b365.get("outcomes") or []
             row_line = (b365.get("line") or "").strip() or "—"
             result.append({
+                "feed_provider_id": feed_provider_id,
                 "feed_name": feed_name,
                 "feed_market_id": feed_market_id,
                 "outcomes": outcomes,
@@ -4413,6 +4585,7 @@ def _get_feed_odds_for_event_market(
             outcomes = ox.get("outcomes") or []
             row_line = (ox.get("line") or "").strip() or "—"
             result.append({
+                "feed_provider_id": feed_provider_id,
                 "feed_name": feed_name,
                 "feed_market_id": feed_market_id,
                 "outcomes": outcomes,
@@ -4426,6 +4599,7 @@ def _get_feed_odds_for_event_market(
                 if multi:
                     for mr in multi:
                         result.append({
+                            "feed_provider_id": feed_provider_id,
                             "feed_name": feed_name,
                             "feed_market_id": feed_market_id,
                             "outcomes": mr.get("outcomes") or [],
@@ -4442,6 +4616,7 @@ def _get_feed_odds_for_event_market(
                 if multi:
                     for mr in multi:
                         result.append({
+                            "feed_provider_id": feed_provider_id,
                             "feed_name": feed_name,
                             "feed_market_id": feed_market_id,
                             "outcomes": mr.get("outcomes") or [],
@@ -4458,6 +4633,7 @@ def _get_feed_odds_for_event_market(
                 if multi:
                     for mr in multi:
                         result.append({
+                            "feed_provider_id": feed_provider_id,
                             "feed_name": feed_name,
                             "feed_market_id": feed_market_id,
                             "outcomes": mr.get("outcomes") or [],
@@ -4470,6 +4646,7 @@ def _get_feed_odds_for_event_market(
                 _append_single_1xbet()
         else:
             result.append({
+                "feed_provider_id": feed_provider_id,
                 "feed_name": feed_name,
                 "feed_market_id": feed_market_id,
                 "outcomes": [],
@@ -8996,6 +9173,126 @@ async def api_event_details_feed_odds(
     return {"feed_odds": rows}
 
 
+@app.get("/api/event-details/brand-overview-margined")
+async def api_event_details_brand_overview_margined(
+    domain_event_id: str = Query(..., description="Domain event id (e.g. E-1)"),
+    domain_market_id: str = Query(..., description="Domain market type id (e.g. M-3)"),
+    line: str | None = Query(None, description="Same line filter as feed odds when the market has lines"),
+):
+    """
+    Brand Overview: source fair odds (Pricing Feed order + log de-vig when configured, else IMLog basis)
+    → per-brand margined decimals using PM%% from Margin templates and log2 (``internal_pricing.transforms.log2_function``).
+
+    ``input_pm_margin_pct`` is the **configured** prematch margin from the template (used for log2 pricing).
+    The event-details UI shows **M** as the implied book %% from the displayed margined odds (same formula as Feed Odds).
+    """
+    from backend.internal_pricing.transforms.log2_function import true_odds_to_margined_odds_log2
+
+    eid = str(domain_event_id).strip()
+    ev = next((e for e in DOMAIN_EVENTS if (e.get("id") or "").strip() == eid), None)
+    if not ev:
+        return JSONResponse({"ok": False, "message": "Domain event not found"}, status_code=404)
+    line_q = (line or "").strip() or None
+    true_prices, im_used, n_sel = _imlog_true_prices_for_event_market(eid, domain_market_id, line_q)
+
+    brands = _load_brands()
+    out: list[dict] = []
+    for br in brands:
+        bid = int(br["id"])
+        pm, tname = _prematch_pm_pct_and_template_name(bid, ev)
+        if not im_used or pm is None:
+            out.append({
+                "id": bid,
+                "name": (br.get("name") or "").strip(),
+                "input_pm_margin_pct": pm,
+                "template_name": tname,
+                "outcomes": [None] * len(true_prices) if true_prices else [],
+            })
+            continue
+        margined: list[float | None] = []
+        for tp in true_prices:
+            if tp is None or tp <= 0:
+                margined.append(None)
+            else:
+                mo = true_odds_to_margined_odds_log2(tp, pm, n_outcomes=(n_sel if n_sel > 0 else None))
+                margined.append(mo)
+        out.append({
+            "id": bid,
+            "name": (br.get("name") or "").strip(),
+            "input_pm_margin_pct": pm,
+            "template_name": tname,
+            "outcomes": margined,
+        })
+    return {
+        "conversion": "log2",
+        "imlog_used": im_used,
+        "pricing_feed_used": im_used,
+        "brands": out,
+    }
+
+
+@app.get("/api/event-details/overview-margined-prices")
+async def api_event_details_overview_margined_prices(
+    domain_event_id: str = Query(..., description="Domain event id (e.g. E-1)"),
+    domain_market_id: str = Query(..., description="Domain market type id (e.g. M-3)"),
+    line: str | None = Query(None, description="Same line filter as feed odds when the market has lines"),
+    pricing_brand_id: str | None = Query(
+        None,
+        description="Empty / omitted / 'global' = Global margin scope; else numeric brand id",
+    ),
+):
+    """
+    Markets overview (center column): fair odds from Pricing Feed order (log de-vig) when configured,
+    else legacy IMLog basis → margined decimals for one brand scope (Global or a specific brand), same log2 as Brand Overview.
+    """
+    from backend.internal_pricing.transforms.log2_function import true_odds_to_margined_odds_log2
+
+    eid = str(domain_event_id).strip()
+    ev = next((e for e in DOMAIN_EVENTS if (e.get("id") or "").strip() == eid), None)
+    if not ev:
+        return JSONResponse({"ok": False, "message": "Domain event not found"}, status_code=404)
+    raw = (pricing_brand_id or "").strip()
+    if raw == "" or raw.lower() == "global":
+        pb: int | None = None
+    else:
+        try:
+            pb = int(raw)
+        except (TypeError, ValueError):
+            pb = None
+    line_q = (line or "").strip() or None
+    true_prices, im_used, n_sel = _imlog_true_prices_for_event_market(eid, domain_market_id, line_q)
+    pm, tname = _prematch_pm_pct_for_pricing_scope(ev, pb)
+    if not im_used or pm is None:
+        empty = [None] * len(true_prices) if true_prices else []
+        return {
+            "ok": True,
+            "conversion": "log2",
+            "imlog_used": im_used,
+            "pricing_feed_used": im_used,
+            "input_pm_margin_pct": pm,
+            "template_name": tname,
+            "true_prices": true_prices,
+            "outcomes": empty,
+        }
+    margined: list[float | None] = []
+    for tp in true_prices:
+        if tp is None or tp <= 0:
+            margined.append(None)
+        else:
+            mo = true_odds_to_margined_odds_log2(tp, pm, n_outcomes=(n_sel if n_sel > 0 else None))
+            margined.append(mo)
+    return {
+        "ok": True,
+        "conversion": "log2",
+        "imlog_used": im_used,
+        "pricing_feed_used": im_used,
+        "input_pm_margin_pct": pm,
+        "template_name": tname,
+        "true_prices": true_prices,
+        "outcomes": margined,
+    }
+
+
 @app.get("/api/event-details/internal-model")
 async def api_event_details_internal_model(
     domain_event_id: str = Query(..., description="Domain event id (e.g. E-1)"),
@@ -9818,6 +10115,12 @@ def _rbac_enforce_api_permissions(request: Request) -> None:
         _rbac_require_permission_code(request, "betting.feeder_events.view")
         return
     if re.fullmatch(r"/api/event-details/feed-odds", path) and method == "GET":
+        _rbac_require_permission_code(request, "betting.feeder_events.view")
+        return
+    if re.fullmatch(r"/api/event-details/brand-overview-margined", path) and method == "GET":
+        _rbac_require_permission_code(request, "betting.feeder_events.view")
+        return
+    if re.fullmatch(r"/api/event-details/overview-margined-prices", path) and method == "GET":
         _rbac_require_permission_code(request, "betting.feeder_events.view")
         return
     if re.fullmatch(r"/api/event-details/internal-model", path) and method == "GET":
@@ -10898,7 +11201,7 @@ async def api_add_feed_sport(
 
 
 # Feeder Configuration: (setting_key, label, optional_hint, ui_mode).
-# ui_mode: exclusive = at most one Yes; multiselect = any subset Yes; priority = ordered preferences, only first gets Yes.
+# ui_mode: exclusive = at most one Yes; multiselect = any subset Yes; priority = ordered list (see per-key save rules).
 FEEDER_SYSTEM_ACTIONS = [
     ("auto_create_category", "Auto create Category", None, "exclusive"),
     ("auto_create_competitions", "Auto create Competitions", None, "exclusive"),
@@ -10914,6 +11217,12 @@ FEEDER_SYSTEM_ACTIONS = [
         "Auto map Events",
         "When enabled for this feed and scope, unmapped rows with sport, competition and both teams mapped to the domain are linked to an existing domain event if exactly one fixture matches (competition by feed league id or name, teams, start time; home/away swap allowed). Feeds with a native category/region (e.g. Bwin) may still use it for filters but it is optional for matching.",
         "multiselect",
+    ),
+    (
+        "pricing_feed",
+        "Pricing Feed",
+        "Global (All Sports) only for now. Event-level choice of which feed supplies prices: top of the ordered list is primary; Add builds fallback order for later use. If the primary feed has no odds for a market, the system does not fall back to the next feed for that market (per-market fallback is out of scope). Per-brand pricing selection will come later.",
+        "priority",
     ),
 ]
 
@@ -10933,6 +11242,48 @@ def _feeder_config_yes_no_value(raw: str | None) -> str:
     """Normalize stored feeder config toggle to exactly 'Yes' or 'No' (default No)."""
     v = (raw or "").strip().casefold()
     return "Yes" if v == "yes" else "No"
+
+
+def _feeder_config_grid_display(setting_key: str, raw: str | None) -> str:
+    """Table cell text for feeder configuration grid (Yes/No). ``pricing_feed`` stores rank 1..n per feed column."""
+    if (setting_key or "").strip() == "pricing_feed":
+        s = (raw or "").strip().lower()
+        if s in ("yes", "1"):
+            return "1"
+        if s.isdigit():
+            n = int(s)
+            if n >= 2:
+                return str(n)
+        return "—"
+    return _feeder_config_yes_no_value(raw)
+
+
+def _feeder_config_pricing_feed_order_ids() -> list[int]:
+    """Global ``pricing_feed`` rows: feed ids ordered by stored rank (1 = primary). Excludes rank 0 / missing."""
+    rows = _load_feeder_config()
+    scored: list[tuple[int, int]] = []
+    for r in rows:
+        if (r.get("level") or "").strip() != "all_sports":
+            continue
+        if r.get("sport_id") is not None or r.get("category_id") is not None or r.get("competition_id") is not None:
+            continue
+        if (r.get("setting_key") or "").strip() != "pricing_feed":
+            continue
+        fid = r.get("feed_provider_id")
+        if fid is None:
+            continue
+        try:
+            rk = int(str(r.get("value") or "0").strip() or "0")
+        except (TypeError, ValueError):
+            rk = 0
+        if rk < 1:
+            continue
+        try:
+            scored.append((int(fid), rk))
+        except (TypeError, ValueError):
+            continue
+    scored.sort(key=lambda x: x[1])
+    return [fid for fid, _ in scored]
 
 
 def _feeder_scope_id(raw: Any) -> str | int | None:
@@ -11116,20 +11467,27 @@ async def feeders_view(
     )
 
     config_lookup = {}
+    feeder_config_raw: dict[tuple[Any, str], str] = {}
     for r in feeder_config_rows:
         rsid, rcid, rcomp = r.get("sport_id"), r.get("category_id"), r.get("competition_id")
         if level == "all_sports" and rsid is None and rcid is None and rcomp is None:
             fid, key = r.get("feed_provider_id"), r.get("setting_key")
             if fid is not None and key:
-                config_lookup[(fid, key)] = _feeder_config_yes_no_value(r.get("value"))
+                raw_v = (r.get("value") or "").strip()
+                feeder_config_raw[(fid, key)] = raw_v
+                config_lookup[(fid, key)] = _feeder_config_grid_display(key, r.get("value"))
         elif level == "sport" and sid_key is not None and entity_ids_equal(rsid, sid_key) and rcid is None and rcomp is None:
             fid, key = r.get("feed_provider_id"), r.get("setting_key")
             if fid is not None and key:
-                config_lookup[(fid, key)] = _feeder_config_yes_no_value(r.get("value"))
+                raw_v = (r.get("value") or "").strip()
+                feeder_config_raw[(fid, key)] = raw_v
+                config_lookup[(fid, key)] = _feeder_config_grid_display(key, r.get("value"))
         elif level == "category" and sid_key is not None and cid_key is not None and entity_ids_equal(rsid, sid_key) and entity_ids_equal(rcid, cid_key) and rcomp is None:
             fid, key = r.get("feed_provider_id"), r.get("setting_key")
             if fid is not None and key:
-                config_lookup[(fid, key)] = _feeder_config_yes_no_value(r.get("value"))
+                raw_v = (r.get("value") or "").strip()
+                feeder_config_raw[(fid, key)] = raw_v
+                config_lookup[(fid, key)] = _feeder_config_grid_display(key, r.get("value"))
         elif (
             level == "competition"
             and sid_key is not None
@@ -11141,7 +11499,9 @@ async def feeders_view(
         ):
             fid, key = r.get("feed_provider_id"), r.get("setting_key")
             if fid is not None and key:
-                config_lookup[(fid, key)] = _feeder_config_yes_no_value(r.get("value"))
+                raw_v = (r.get("value") or "").strip()
+                feeder_config_raw[(fid, key)] = raw_v
+                config_lookup[(fid, key)] = _feeder_config_grid_display(key, r.get("value"))
 
     incident_lookup = {}
     # Feeder Incidents only shown for specific sport (not All Sports)
@@ -11166,6 +11526,7 @@ async def feeders_view(
         "categories_by_id": categories_by_id,
         "competitions_by_id": competitions_by_id,
         "feeder_config_lookup": config_lookup,
+        "feeder_config_raw": feeder_config_raw,
         "feeder_incident_lookup": incident_lookup,
         "feeder_settings": [
             {"key": k, "label": lbl, "hint": (h or ""), "ui_mode": m}
@@ -11227,6 +11588,9 @@ async def api_save_feeder_config(request: Request):
             return entity_ids_equal(rsid, sid) and entity_ids_equal(rcid, cid) and rcomp is None
         return entity_ids_equal(rsid, sid) and entity_ids_equal(rcid, cid) and entity_ids_equal(rcomp, comp_id)
     kept = [r for r in existing if not match_row(r)]
+    for s in settings or []:
+        if (s.get("setting_key") or "").strip() == "pricing_feed" and not is_all_sports:
+            return JSONResponse({"detail": "Pricing Feed is only configurable at All Sports (global) scope."}, status_code=400)
     new_rows = []
     for s in settings:
         fid = s.get("feed_provider_id")
@@ -11286,6 +11650,8 @@ async def api_save_feeder_config_row(request: Request):
         return JSONResponse({"detail": "unknown setting_key"}, status_code=400)
     if setting_key in ("auto_create_category", "auto_create_competitions", "auto_create_teams"):
         return JSONResponse({"detail": "This setting is not available in MVP."}, status_code=400)
+    if setting_key == "pricing_feed" and not is_all_sports:
+        return JSONResponse({"detail": "Pricing Feed is only configurable at All Sports (global) scope."}, status_code=400)
     mode = _feeder_setting_ui_mode(setting_key)
     existing = _load_feeder_config()
     was_map = _feeder_config_snapshot_setting(existing, level, sid, cid, comp_id, setting_key)
@@ -11303,7 +11669,12 @@ async def api_save_feeder_config_row(request: Request):
         for fid in order_ids:
             if fid not in allowed_ids:
                 return JSONResponse({"detail": "unknown feed_provider_id in ordered_feed_ids"}, status_code=400)
-        if order_ids:
+        if setting_key == "pricing_feed":
+            by_fid = {fid: "0" for fid in allowed_ids}
+            for pos, fid in enumerate(order_ids, start=1):
+                if fid in by_fid:
+                    by_fid[fid] = str(pos)
+        elif order_ids:
             by_fid[order_ids[0]] = "Yes"
     else:
         values = body.get("values") or []

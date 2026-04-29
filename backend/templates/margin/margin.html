@@ -83,8 +83,8 @@
                         </td>
                         <td class="px-3 py-2 font-medium text-gmp-text-heading">{{ t.name }}</td>
                         <td class="px-2 py-2">{{ t.short_name or '—' }}</td>
-                        <td class="px-2 py-2 text-gmp-text-muted">{{ t.pm_margin or '—' }}</td>
-                        <td class="px-2 py-2 text-gmp-text-muted">{{ t.ip_margin or '—' }}</td>
+                        <td class="px-2 py-2 font-mono italic text-purple-400">{% if t.pm_margin %}{{ t.pm_margin|string|replace('%', '') }}{% else %}—{% endif %}</td>
+                        <td class="px-2 py-2 font-mono italic text-purple-400">{% if t.ip_margin %}{{ t.ip_margin|string|replace('%', '') }}{% else %}—{% endif %}</td>
                         <td class="px-2 py-2 text-gmp-text-muted">{{ t.cashout or '—' }}</td>
                         <td class="px-2 py-2 text-gmp-text-muted">{{ t.betbuilder or '—' }}</td>
                         <td class="px-2 py-2">
@@ -170,8 +170,8 @@
                         <th class="px-1.5 py-2 font-semibold border-r border-gmp-border">In Play</th>
                         <th class="px-1.5 py-2 font-semibold">CO Formula</th>
                         <th class="px-1.5 py-2 font-semibold">AddMFactor</th>
-                        <th class="px-1.5 py-2 font-semibold">Stk CO %</th>
-                        <th class="px-1.5 py-2 font-semibold border-r border-gmp-border">PM CO%</th>
+                        <th class="px-1.5 py-2 font-semibold">Stk CO</th>
+                        <th class="px-1.5 py-2 font-semibold border-r border-gmp-border">PM CO</th>
                         <th class="px-1.5 py-2 font-semibold">Track Margin</th>
                         <th class="px-1.5 py-2 font-semibold">Threshold</th>
                         <th class="px-1.5 py-2 font-semibold border-r border-gmp-border">Target Margin</th>
@@ -227,8 +227,8 @@
                         </td>
                         <td class="px-1.5 py-2 text-gmp-text-muted">—</td>
                         <td class="px-1.5 py-2 text-gmp-text-muted">—</td>
-                        <td class="px-1.5 py-2 text-gmp-text-muted">{% if template_prematch_dyn %}{{ template_prematch_dyn }}{% else %}—{% endif %}</td>
-                        <td class="px-1.5 py-2 text-gmp-text-muted border-r border-gmp-border">{% if template_inplay_dyn %}{{ template_inplay_dyn }}{% else %}—{% endif %}</td>
+                        <td class="px-1.5 py-2 font-mono italic text-purple-400">{% if template_prematch_dyn %}{{ template_prematch_dyn|string|replace('%', '') }}{% else %}—{% endif %}</td>
+                        <td class="px-1.5 py-2 font-mono italic text-purple-400 border-r border-gmp-border">{% if template_inplay_dyn %}{{ template_inplay_dyn|string|replace('%', '') }}{% else %}—{% endif %}</td>
                         <td class="px-1.5 py-2 text-gmp-text-muted">—</td>
                         <td class="px-1.5 py-2 text-gmp-text-muted">—</td>
                         <td class="px-1.5 py-2 text-gmp-text-muted">—</td>
@@ -328,11 +328,11 @@
                 </div>
                 <div>
                     <label for="edit-template-pm-margin" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">PM Margin</label>
-                    <input type="text" id="edit-template-pm-margin" name="pm_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="—">
+                    <input type="text" id="edit-template-pm-margin" name="pm_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm italic text-purple-400 focus:border-primary outline-none" placeholder="—">
                 </div>
                 <div>
                     <label for="edit-template-ip-margin" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">IP Margin</label>
-                    <input type="text" id="edit-template-ip-margin" name="ip_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="—">
+                    <input type="text" id="edit-template-ip-margin" name="ip_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm italic text-purple-400 focus:border-primary outline-none" placeholder="—">
                 </div>
                 <div>
                     <label for="edit-template-cashout" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Cashout</label>
@@ -480,11 +480,11 @@
                 </div>
                 <div>
                     <label for="add-template-pm-margin" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">PM Margin</label>
-                    <input type="text" id="add-template-pm-margin" name="pm_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="—">
+                    <input type="text" id="add-template-pm-margin" name="pm_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm italic text-purple-400 focus:border-primary outline-none" placeholder="—">
                 </div>
                 <div>
                     <label for="add-template-ip-margin" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">IP Margin</label>
-                    <input type="text" id="add-template-ip-margin" name="ip_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading focus:border-primary outline-none" placeholder="—">
+                    <input type="text" id="add-template-ip-margin" name="ip_margin" class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm italic text-purple-400 focus:border-primary outline-none" placeholder="—">
                 </div>
                 <div>
                     <label for="add-template-cashout" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Cashout</label>
@@ -524,6 +524,10 @@
 
 <script>
 (function () {
+    function stripMarginPct(s) {
+        return String(s == null ? '' : s).replace(/%/g, '').trim();
+    }
+
     // Move dropdowns to body so no overflow-hidden ancestor can clip them
     var dropdownContainer = document.getElementById('margin-template-dropdowns');
     if (dropdownContainer && document.body) {
@@ -585,8 +589,8 @@
                 document.getElementById('edit-template-id').value = editTemplateBtn.getAttribute('data-template-id') || '';
                 document.getElementById('edit-template-name').value = editTemplateBtn.getAttribute('data-template-name') || '';
                 document.getElementById('edit-template-short-name').value = editTemplateBtn.getAttribute('data-short-name') || '';
-                document.getElementById('edit-template-pm-margin').value = editTemplateBtn.getAttribute('data-pm-margin') || '';
-                document.getElementById('edit-template-ip-margin').value = editTemplateBtn.getAttribute('data-ip-margin') || '';
+                document.getElementById('edit-template-pm-margin').value = stripMarginPct(editTemplateBtn.getAttribute('data-pm-margin'));
+                document.getElementById('edit-template-ip-margin').value = stripMarginPct(editTemplateBtn.getAttribute('data-ip-margin'));
                 document.getElementById('edit-template-cashout').value = editTemplateBtn.getAttribute('data-cashout') || '';
                 document.getElementById('edit-template-betbuilder').value = editTemplateBtn.getAttribute('data-betbuilder') || '';
                 document.getElementById('edit-template-bet-delay').value = editTemplateBtn.getAttribute('data-bet-delay') || '';

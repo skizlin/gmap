@@ -83,7 +83,7 @@
             </button>
             {% endif %}
         </div>
-        <p class="text-[11px] text-gmp-text-faint px-4 py-2 border-b border-gmp-border/50">Values are stored per scope (All Sports, sport, category, or competition). <strong class="text-gmp-text-heading">Auto map Events</strong> and <strong class="text-gmp-text-heading">Auto create Events</strong> are applied after feed pulls and when you map or create from Feeder Events (per feed where set to Yes). Open <strong class="text-gmp-text-heading">Actions</strong> (<strong class="text-gmp-text-heading">⋮</strong>) on a row and choose <strong class="text-gmp-text-heading">Edit</strong> to change that setting only. New feeds appear as <strong>No</strong> until you configure them; exclusive rows keep at most one <strong>Yes</strong>.</p>
+        <p class="text-[11px] text-gmp-text-faint px-4 py-2 border-b border-gmp-border/50">Values are stored per scope (All Sports, sport, category, or competition). <strong class="text-gmp-text-heading">Auto map Events</strong> and <strong class="text-gmp-text-heading">Auto create Events</strong> are applied after feed pulls and when you map or create from Feeder Events (per feed where set to Yes). <strong class="text-gmp-text-heading">Pricing Feed</strong> is global only (select <strong class="text-gmp-text-heading">All Sports</strong>): each feed column shows priority <strong class="text-gmp-text-heading">1</strong>, <strong class="text-gmp-text-heading">2</strong>, … or <strong class="text-gmp-text-heading">—</strong>; Event Details overview odds follow that order (log de-vig, then margin). Per-market fallback to the next feed is not applied yet. Open <strong class="text-gmp-text-heading">Actions</strong> (<strong class="text-gmp-text-heading">⋮</strong>) on a row and choose <strong class="text-gmp-text-heading">Edit</strong> to change that setting only. For yes/no settings, new feeds appear as <strong>No</strong> until you configure them; exclusive rows keep at most one <strong>Yes</strong>.</p>
         <div id="feeder-config-table-scroll" class="overflow-x-auto">
             <table class="gmp-data-table w-full text-left border-collapse text-xs">
                 <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border dark:text-gmp-text-muted">
@@ -99,6 +99,7 @@
                 </thead>
                 <tbody class="text-gmp-text-menu">
                     {% for row in feeder_settings %}
+                    {% if row.key != 'pricing_feed' or selected_sport_id == 'all' %}
                     <tr class="feeder-cfg-row border-b border-gmp-border/40 hover:bg-gmp-hover/5" data-setting="{{ row.key }}" data-ui-mode="{{ row.ui_mode }}">
                         <td class="px-3 py-2 font-medium text-gmp-text-heading sticky left-0 bg-gmp-tableRow z-10 align-middle">
                             <span class="inline-flex items-center gap-1.5 flex-wrap">
@@ -118,7 +119,8 @@
                         </td>
                         {% for feed in feeds %}
                         {% set v = feeder_config_lookup.get((feed.domain_id, row.key), 'No') %}
-                        <td class="fc-cell px-2 py-2 text-center text-[11px] font-mono text-gmp-text-menu" data-fid="{{ feed.domain_id }}">{{ v }}</td>
+                        {% set raw_val = feeder_config_raw.get((feed.domain_id, row.key), '') %}
+                        <td class="fc-cell px-2 py-2 text-center text-[11px] font-mono text-gmp-text-menu" data-fid="{{ feed.domain_id }}" data-raw-value="{{ raw_val }}">{{ v }}</td>
                         {% endfor %}
                         {% if can_feeder_update or can_feeder_audit %}
                         <td class="px-2 py-2 text-center align-middle">
@@ -132,6 +134,7 @@
                         </td>
                         {% endif %}
                     </tr>
+                    {% endif %}
                     {% endfor %}
                 </tbody>
             </table>
@@ -389,6 +392,25 @@ function feederSportChange() {
         return order;
     }
 
+    /** ``pricing_feed`` cells store numeric rank in data-raw-value (1 = primary). */
+    function readPricingFeedOrderFromRow(tr) {
+        var arr = [];
+        tr.querySelectorAll('.fc-cell[data-fid]').forEach(function (td) {
+            var fid = td.getAttribute('data-fid');
+            var raw = (td.getAttribute('data-raw-value') || '').trim();
+            var txt = (td.textContent || '').trim();
+            if (!raw && txt === 'Yes') raw = '1';
+            if (!raw && /^\d+$/.test(txt)) raw = txt;
+            var low = raw.toLowerCase();
+            var rank = 0;
+            if (low === 'yes' || raw === '1') rank = 1;
+            else if (/^\d+$/.test(raw)) rank = parseInt(raw, 10);
+            if (rank >= 1) arr.push({ fid: fid, rank: rank });
+        });
+        arr.sort(function (a, b) { return a.rank - b.rank; });
+        return arr.map(function (x) { return x.fid; });
+    }
+
     function bindPrioLi(li) {
         li.querySelector('.fc-prio-up').addEventListener('click', function () {
             var prev = li.previousElementSibling;
@@ -513,12 +535,21 @@ function feederSportChange() {
         if (modalCurrentMode === 'priority') {
             var hint = document.createElement('p');
             hint.className = 'text-xs text-gmp-text-faint mb-3';
-            hint.textContent = 'Top feed wins: only the first in the list is saved as Yes; others are No. Use Add to build fallback order.';
+            hint.textContent = modalCurrentKey === 'pricing_feed'
+                ? 'Priority is saved as ranks 1, 2, … in the table (1 = first source). Use Add, Up, Down, and Remove. Feeds not listed stay at — (unused).'
+                : 'Top feed wins: only the first in the list is saved as Yes; others are No. Use Add to build fallback order.';
             body.appendChild(hint);
+            if (modalCurrentKey === 'pricing_feed') {
+                var h2 = document.createElement('p');
+                h2.className = 'text-xs text-gmp-text-faint mb-3';
+                h2.textContent = 'Pricing Feed is global (All Sports) only. Event overview uses this order: first feed with a full price set wins; odds are de-vigged (log) then margined (log2). Missing lines do not fall through to the next feed yet.';
+                body.appendChild(h2);
+            }
             var ol = document.createElement('ol');
             ol.id = 'fc-prio-list';
             ol.className = 'list-decimal list-inside space-y-1 text-gmp-text mb-3 pl-1';
-            buildPriorityOrderFromMap(map).forEach(function (fid) {
+            var prioIds = (modalCurrentKey === 'pricing_feed') ? readPricingFeedOrderFromRow(tr) : buildPriorityOrderFromMap(map);
+            prioIds.forEach(function (fid) {
                 var f = feedById(fid);
                 if (!f) return;
                 var li = document.createElement('li');
@@ -773,20 +804,37 @@ function feederSportChange() {
                 st.textContent = 'Saved.';
                 st.className = 'text-xs text-success';
                 var map2 = {};
-                if (modalCurrentMode === 'priority' && part.ordered_feed_ids && part.ordered_feed_ids.length) {
+                if (modalCurrentMode === 'priority') {
+                    if (modalCurrentKey === 'pricing_feed') {
+                        var ord = part.ordered_feed_ids || [];
+                        modalCurrentTr.querySelectorAll('.fc-cell[data-fid]').forEach(function (td) {
+                            var fidStr = td.getAttribute('data-fid');
+                            var fidNum = parseInt(fidStr, 10);
+                            var ix = -1;
+                            for (var j = 0; j < ord.length; j++) {
+                                if (Number(ord[j]) === fidNum || String(ord[j]) === fidStr) { ix = j; break; }
+                            }
+                            var rank = ix >= 0 ? ix + 1 : 0;
+                            td.setAttribute('data-raw-value', rank === 0 ? '0' : String(rank));
+                            td.textContent = rank === 0 ? '—' : String(rank);
+                        });
+                    } else if (part.ordered_feed_ids && part.ordered_feed_ids.length) {
                     var win = part.ordered_feed_ids[0];
                     FEEDS_LIST.forEach(function (f) {
                         map2[String(f.domain_id)] = (Number(f.domain_id) === Number(win)) ? 'Yes' : 'No';
                     });
+                    }
                 } else if (part.values) {
                     part.values.forEach(function (v) {
                         map2[String(v.feed_provider_id)] = v.value === 'Yes' ? 'Yes' : 'No';
                     });
                 }
-                modalCurrentTr.querySelectorAll('.fc-cell[data-fid]').forEach(function (td) {
-                    var fid = td.getAttribute('data-fid');
-                    td.textContent = map2[fid] || 'No';
-                });
+                if (!(modalCurrentMode === 'priority' && modalCurrentKey === 'pricing_feed')) {
+                    modalCurrentTr.querySelectorAll('.fc-cell[data-fid]').forEach(function (td) {
+                        var fid = td.getAttribute('data-fid');
+                        td.textContent = map2[fid] || 'No';
+                    });
+                }
                 setTimeout(closeFeederRowModal, 400);
             } else {
                 st.textContent = (data && data.detail) ? data.detail : 'Failed';

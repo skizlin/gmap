@@ -31,17 +31,28 @@
                 <div class="text-gmp-text-faint">[Live] Bets: — Turnover: — P/L: —</div>
             </div>
         </div>
-        <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-gmp-border/50">
-            <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(S) Suspend</button>
-            <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(D) Display</button>
-            <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(L) Limits</button>
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-gmp-border/50">
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(S) Suspend</button>
+                <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(D) Display</button>
+                <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(L) Limits</button>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <label for="event-details-pricing-brand" class="text-xs text-gmp-text-muted whitespace-nowrap">Pricing brand</label>
+                <select id="event-details-pricing-brand" class="bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1.5 text-xs text-gmp-text-menu min-w-[11rem]" aria-label="Pricing brand for overview prices">
+                    <option value="" selected>Global</option>
+                    {% for b in brands %}
+                    <option value="{{ b.id }}">{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
     </div>
 
-    <!-- Three-panel layout: Markets (left) | Markets Overview (center) | Incidents & Feeds (right) -->
-    <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-0">
-        <!-- Left: Markets + Resulted Markets (narrower to give more space to center) -->
-        <div class="lg:col-span-2 flex flex-col gap-4 overflow-auto">
+    <!-- Three-panel layout: left | center | right. Right ~20% wider vs 2:7:3 (here 2:6.4:3.6). -->
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,6.4fr)_minmax(0,3.6fr)] gap-4 min-h-0">
+        <!-- Left: Markets + Resulted Markets -->
+        <div class="flex flex-col gap-4 overflow-auto min-w-0">
             <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg p-4 flex-shrink-0">
                 <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-3">Markets</h2>
                 {% if markets_by_group %}
@@ -75,8 +86,8 @@
             </div>
         </div>
 
-        <!-- Center: Markets Overview (one market per row, 3-Way style table; more space) -->
-        <div class="lg:col-span-7 flex flex-col min-h-0">
+        <!-- Center: Markets Overview -->
+        <div class="flex flex-col min-h-0 min-w-0">
             <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg p-4 flex-1 flex flex-col min-h-0">
                 <div class="flex flex-wrap items-center gap-2 mb-3">
                     <select class="bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-xs text-gmp-text-menu">
@@ -96,8 +107,8 @@
             </div>
         </div>
 
-        <!-- Right: Incidents & Feeds (narrower to give more space to center) -->
-        <div class="lg:col-span-3 flex flex-col gap-4 overflow-auto">
+        <!-- Right: Incidents, Brand Overview, Feed Odds, etc. -->
+        <div class="flex flex-col gap-4 overflow-auto min-w-0">
             <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg p-4 flex-shrink-0">
                 <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-3">Incidents Overview</h2>
                 <p class="text-xs text-gmp-text-faint italic">No match statuses available.</p>
@@ -117,7 +128,7 @@
                                 <th id="brand-overview-col-4" class="py-1.5 px-2 font-medium brand-col-4">S4</th>
                                 <th id="brand-overview-col-5" class="py-1.5 px-2 font-medium brand-col-5">S5</th>
                                 <th id="brand-overview-col-6" class="py-1.5 px-2 font-medium brand-col-6">S6</th>
-                                <th class="py-1.5 px-2 font-medium">M</th>
+                                <th class="py-1.5 px-2 font-medium" title="Implied book overround from displayed prices (sum of 1/odds, shown on a 100 scale), same as Feed Odds">M</th>
                                 <th class="py-1.5 px-2 font-medium">Liab.</th>
                             </tr>
                         </thead>
@@ -132,7 +143,7 @@
                                 <td class="py-1.5 px-2 font-mono text-warning/90 brand-odds-4">—</td>
                                 <td class="py-1.5 px-2 font-mono text-warning/90 brand-odds-5">—</td>
                                 <td class="py-1.5 px-2 font-mono text-warning/90 brand-odds-6">—</td>
-                                <td class="py-1.5 px-2 font-mono text-gmp-text-muted brand-margin">—</td>
+                                <td class="py-1.5 px-2 font-mono italic text-purple-400 brand-margin">—</td>
                                 <td class="py-1.5 px-2 font-mono text-gmp-text-muted brand-liab">—</td>
                             </tr>
                             {% else %}
@@ -295,14 +306,14 @@
             var statusClass = 'bg-success/20 text-success';
             lineData.forEach(function (line, idx) {
                 var rowVis = idx === 0 ? '' : ' hidden';
-                table += '<tr class="market-line-row border-b border-gmp-border/40 text-gmp-text-menu' + rowVis + '" data-line-index="' + idx + '">' +
-                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selA) + '</td><td class="py-1.5 px-2 font-mono text-warning/90">' + line.a[1] + '</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint">' + line.a[2] + '</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.a[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
-                table += '<tr class="market-line-row border-b border-gmp-border/40 text-gmp-text-menu' + rowVis + '" data-line-index="' + idx + '">' +
-                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selB) + '</td><td class="py-1.5 px-2 font-mono text-warning/90">' + line.b[1] + '</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint">' + line.b[2] + '</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.b[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
+                table += '<tr class="market-line-row market-overview-outcome-row border-b border-gmp-border/40 text-gmp-text-menu' + rowVis + '" data-line-index="' + idx + '" data-side="0">' +
+                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selA) + '</td><td class="py-1.5 px-2 font-mono text-warning/90 market-overview-price">—</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint market-overview-original">—</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.a[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
+                table += '<tr class="market-line-row market-overview-outcome-row border-b border-gmp-border/40 text-gmp-text-menu' + rowVis + '" data-line-index="' + idx + '" data-side="1">' +
+                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selB) + '</td><td class="py-1.5 px-2 font-mono text-warning/90 market-overview-price">—</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint market-overview-original">—</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.b[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
             });
             table += '</tbody></table></div>';
             var footer = '<div class="gmp-table-chrome px-3 py-2 border-t border-gmp-border flex flex-wrap items-center gap-2">' +
-                '<span class="text-[10px] text-gmp-text-faint">Margin</span><input type="text" value="108 %" class="w-16 bg-gmp-surface-raised border border-gmp-border rounded px-1.5 py-0.5 text-[11px] font-mono text-gmp-text-menu">' +
+                '<span class="text-[10px] text-gmp-text-faint">Margin</span><input type="text" readonly value="" placeholder="—" class="market-overview-pm-input w-16 bg-gmp-surface-raised border border-gmp-border rounded px-1.5 py-0.5 text-[11px] font-mono italic text-purple-400">' +
                 '<div class="flex gap-1 ml-2"><button type="button" class="px-2 py-0.5 rounded text-[10px] bg-primaryHover/80 text-white hover:bg-primaryHover">T/O Price</button><button type="button" class="px-2 py-0.5 rounded text-[10px] bg-warning/80 text-white hover:bg-warning">T/O Trade</button><button type="button" class="px-2 py-0.5 rounded text-[10px] bg-gmp-surface-raised text-gmp-text-menu hover:bg-surfaceHover">Release</button></div></div>';
             return header + lineMenu + table + footer + '</div>';
         }
@@ -327,16 +338,13 @@
         var outcomeLabels = info.outcomeLabels || [];
         for (var i = 0; i < outcomeCount; i++) {
             var name = (outcomeLabels[i] !== undefined && outcomeLabels[i] !== '') ? outcomeLabels[i] : ('Selection ' + (i + 1));
-            var price = '—';
             var status = 'ACTIVE';
             var sc = statusClass;
-            if (i === 0) { price = '1.01'; status = 'SUSPENDED'; sc = 'bg-gmp-text-faint/30 text-gmp-text-menu'; }
-            else if (i === 1) price = '16.00';
-            else if (i === 2) price = '34.00';
-            table += '<tr class="border-b border-gmp-border/40 text-gmp-text-menu">' +
+            if (i === 0) { status = 'SUSPENDED'; sc = 'bg-gmp-text-faint/30 text-gmp-text-menu'; }
+            table += '<tr class="border-b border-gmp-border/40 text-gmp-text-menu market-overview-outcome-row" data-outcome-index="' + i + '">' +
                 '<td class="py-1.5 px-2 font-medium">' + escapeHtml(name) + '</td>' +
-                '<td class="py-1.5 px-2 font-mono text-warning/90">' + price + '</td>' +
-                '<td class="py-1.5 px-2 font-mono text-gmp-text-faint">' + (price !== '—' ? price : '—') + '</td>' +
+                '<td class="py-1.5 px-2 font-mono text-warning/90 market-overview-price">—</td>' +
+                '<td class="py-1.5 px-2 font-mono text-gmp-text-faint market-overview-original">—</td>' +
                 '<td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + sc + '">' + status + '</span></td>' +
                 '<td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td>' +
                 '<td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td>' +
@@ -344,7 +352,7 @@
         }
         table += '</tbody></table></div>';
         var footer = '<div class="px-3 py-2 border-t border-gmp-border/50 flex flex-wrap items-center gap-2 bg-gmp-surface/30">' +
-            '<span class="text-[10px] text-gmp-text-faint">Margin</span><input type="text" value="108 %" class="w-16 bg-gmp-surface-raised border border-gmp-border rounded px-1.5 py-0.5 text-[11px] font-mono text-gmp-text-menu">' +
+            '<span class="text-[10px] text-gmp-text-faint">Margin</span><input type="text" readonly value="" placeholder="—" class="market-overview-pm-input w-16 bg-gmp-surface-raised border border-gmp-border rounded px-1.5 py-0.5 text-[11px] font-mono italic text-purple-400">' +
             '<span class="text-[10px] text-gmp-text-faint ml-2">Bet Start</span><input type="text" placeholder="—" class="w-24 bg-gmp-surface-raised border border-gmp-border rounded px-1.5 py-0.5 text-[11px] text-gmp-text-muted">' +
             '<div class="flex gap-1 ml-2">' +
             '<button type="button" class="px-2 py-0.5 rounded text-[10px] bg-primaryHover/80 text-white hover:bg-primaryHover">T/O Price</button>' +
@@ -370,6 +378,101 @@
             if (!info) return '';
             return marketCardHtml(info);
         }).join('');
+        void refreshOverviewPrices();
+    }
+
+    function getPricingBrandParam() {
+        var el = document.getElementById('event-details-pricing-brand');
+        if (!el) return '';
+        return (el.value || '').trim();
+    }
+
+    function fmtOverviewPrice(v) {
+        if (v == null || v === '') return '—';
+        var n = typeof v === 'number' ? v : parseFloat(v);
+        if (isNaN(n) || n <= 0) return '—';
+        return n.toFixed(2);
+    }
+
+    function setMarginInputFromData(card, data) {
+        var inp = card.querySelector('.market-overview-pm-input');
+        if (!inp || data == null || data.input_pm_margin_pct == null || isNaN(Number(data.input_pm_margin_pct))) return;
+        inp.value = Number(data.input_pm_margin_pct).toFixed(1);
+    }
+
+    function applyOverviewDataToSimpleCard(card, data) {
+        var trueP = data.true_prices || [];
+        var out = data.outcomes || [];
+        var rows = card.querySelectorAll('.market-overview-outcome-row:not(.market-line-row)');
+        rows.forEach(function (row, i) {
+            var pc = row.querySelector('.market-overview-price');
+            var oc = row.querySelector('.market-overview-original');
+            if (pc) pc.textContent = fmtOverviewPrice(out[i]);
+            if (oc) oc.textContent = fmtOverviewPrice(trueP[i] != null ? trueP[i] : out[i]);
+        });
+        setMarginInputFromData(card, data);
+    }
+
+    function applyOverviewDataToLineRows(card, lineIndex, data) {
+        var trueP = data.true_prices || [];
+        var out = data.outcomes || [];
+        var rows = card.querySelectorAll('.market-line-row[data-line-index="' + lineIndex + '"]');
+        var arr = Array.from(rows);
+        for (var i = 0; i < arr.length; i++) {
+            var pc = arr[i].querySelector('.market-overview-price');
+            var oc = arr[i].querySelector('.market-overview-original');
+            if (pc) pc.textContent = fmtOverviewPrice(out[i]);
+            if (oc) oc.textContent = fmtOverviewPrice(trueP[i] != null ? trueP[i] : out[i]);
+        }
+    }
+
+    async function fetchOverviewMargined(marketId, lineVal, pricingBrandId) {
+        var qs = '/api/event-details/overview-margined-prices?domain_event_id=' + encodeURIComponent(domainEventId)
+            + '&domain_market_id=' + encodeURIComponent(marketId);
+        var ln = (lineVal || '').trim();
+        if (ln) qs += '&line=' + encodeURIComponent(ln);
+        qs += '&pricing_brand_id=' + encodeURIComponent(pricingBrandId != null ? pricingBrandId : '');
+        try {
+            var res = await fetch(qs);
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (err) {
+            return null;
+        }
+    }
+
+    async function refreshOverviewPricesForCard(card) {
+        var marketId = card.getAttribute('data-market-row');
+        if (!marketId) return;
+        var pricingBrandId = getPricingBrandParam();
+        var hasLine = (card.getAttribute('data-market-has-line') || '') === '1';
+        if (hasLine) {
+            var btns = card.querySelectorAll('.market-line-btn');
+            var jobs = Array.from(btns).map(function (btn) {
+                var lix = btn.getAttribute('data-line-index');
+                var lineVal = (btn.getAttribute('data-line') || '').trim();
+                return fetchOverviewMargined(marketId, lineVal, pricingBrandId).then(function (data) {
+                    return { lix: lix, data: data };
+                });
+            });
+            var results = await Promise.all(jobs);
+            var activeBtn = card.querySelector('.market-line-btn.bg-primary');
+            var activeLix = activeBtn ? activeBtn.getAttribute('data-line-index') : null;
+            results.forEach(function (r) {
+                if (r.data && r.data.ok) applyOverviewDataToLineRows(card, r.lix, r.data);
+            });
+            var marginPick = results.find(function (r) { return String(r.lix) === String(activeLix) && r.data && r.data.ok; });
+            if (marginPick && marginPick.data) setMarginInputFromData(card, marginPick.data);
+            return;
+        }
+        var data = await fetchOverviewMargined(marketId, '', pricingBrandId);
+        if (data && data.ok) applyOverviewDataToSimpleCard(card, data);
+    }
+
+    async function refreshOverviewPrices() {
+        if (!overviewRows) return;
+        var cards = overviewRows.querySelectorAll('[data-market-row]');
+        await Promise.all(Array.from(cards).map(function (c) { return refreshOverviewPricesForCard(c); }));
     }
 
     function updateGroupCheckboxState(container) {
@@ -409,6 +512,13 @@
 
     groupContainers.forEach(updateGroupCheckboxState);
 
+    var pricingBrandEl = document.getElementById('event-details-pricing-brand');
+    if (pricingBrandEl) {
+        pricingBrandEl.addEventListener('change', function () {
+            void refreshOverviewPrices();
+        });
+    }
+
     overviewRows.addEventListener('click', function (e) {
         var btn = e.target.closest('.market-line-btn');
         if (!btn) return;
@@ -427,8 +537,8 @@
             else row.classList.add('hidden');
         });
         var radio = card.querySelector('.brand-overview-radio:checked');
-        if (!radio) return;
-        var marketId = radio.value;
+        var marketId = card.getAttribute('data-market-row');
+        if (!marketId) return;
         var marketName = (card.getAttribute('data-market-name') || '').trim() || ('Market #' + marketId);
         var marketCode = (card.getAttribute('data-market-code') || '').trim();
         var outcomeCount = parseInt(card.getAttribute('data-outcome-count') || '3', 10) || 3;
@@ -440,19 +550,32 @@
         } catch (err) { outcomeLabels = []; }
         if (!Array.isArray(outcomeLabels)) outcomeLabels = [];
         var lineVal = (btn.getAttribute('data-line') || btn.textContent || '').trim();
-        updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, lineVal);
+        void (async function () {
+            if (radio) {
+                await updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, lineVal);
+                await updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels, lineVal);
+            }
+            await refreshOverviewPricesForCard(card);
+        })();
     });
 
-    function feedOddsMargin(outcomes) {
-        var n = outcomes.length;
+    function feedOddsMargin(outcomes, maxSlots) {
+        var arr = outcomes || [];
+        if (maxSlots != null && maxSlots > 0 && arr.length > maxSlots) {
+            arr = arr.slice(0, maxSlots);
+        }
+        var n = arr.length;
         if (n < 2) return '—';
         var inv = 0;
         for (var i = 0; i < n; i++) {
-            var p = parseFloat(outcomes[i] && outcomes[i].price);
+            var raw = arr[i];
+            var p = (raw != null && typeof raw === 'object' && !Array.isArray(raw) && raw.price != null)
+                ? parseFloat(raw.price)
+                : parseFloat(raw);
             if (isNaN(p) || p <= 0) return '—';
             inv += 1 / p;
         }
-        return (inv * 100).toFixed(1) + ' %';
+        return (inv * 100).toFixed(1);
     }
 
     async function updateInternalModel(marketId, marketName, outcomeCount, hasLine, outcomeLabels, selectedLine) {
@@ -621,7 +744,7 @@
                     '<td class="py-1.5 px-2 font-mono text-warning/90 feed-odds-s4">' + escapeHtml(s4) + '</td>' +
                     '<td class="py-1.5 px-2 font-mono text-warning/90 feed-odds-s5">' + escapeHtml(s5) + '</td>' +
                     '<td class="py-1.5 px-2 font-mono text-warning/90 feed-odds-s6">' + escapeHtml(s6) + '</td>' +
-                    '<td class="py-1.5 px-2 font-mono text-gmp-text-muted">' + escapeHtml(margin) + '</td></tr>';
+                    '<td class="py-1.5 px-2 font-mono italic text-purple-400">' + escapeHtml(margin) + '</td></tr>';
                 return cells;
             }).join('');
             var feedColL = document.getElementById('feed-odds-col-L');
@@ -650,7 +773,7 @@
         }
     }
 
-    function updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels) {
+    async function updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels, selectedLine) {
         var emptyEl = document.getElementById('brand-overview-empty');
         var contentEl = document.getElementById('brand-overview-content');
         var firstColHeader = document.getElementById('brand-overview-first-col-header');
@@ -682,26 +805,80 @@
         if (col5) { col5.style.display = outCount >= 5 ? '' : 'none'; col5.textContent = (labels[4] !== undefined && labels[4] !== '') ? labels[4] : 'S5'; }
         if (col6) { col6.style.display = outCount >= 6 ? '' : 'none'; col6.textContent = (labels[5] !== undefined && labels[5] !== '') ? labels[5] : 'S6'; }
         contentEl.querySelectorAll('.brand-odds-L').forEach(function (el) { el.style.display = showL ? '' : 'none'; });
-        contentEl.querySelectorAll('.brand-overview-row').forEach(function (row) {
-            var cellL = row.querySelector('.brand-odds-L');
-            var c1 = row.querySelector('.brand-odds-1');
-            var c2 = row.querySelector('.brand-odds-2');
-            var c3 = row.querySelector('.brand-odds-3');
-            var c4 = row.querySelector('.brand-odds-4');
-            var c5 = row.querySelector('.brand-odds-5');
-            var c6 = row.querySelector('.brand-odds-6');
-            var m = row.querySelector('.brand-margin');
-            var liab = row.querySelector('.brand-liab');
-            if (cellL) { cellL.style.display = showL ? '' : 'none'; cellL.textContent = showL ? '—' : ''; }
-            if (c1) c1.textContent = '—';
-            if (c2) c2.textContent = '—';
-            if (c3) { c3.style.display = outCount >= 3 ? '' : 'none'; c3.textContent = '—'; }
-            if (c4) { c4.style.display = outCount >= 4 ? '' : 'none'; c4.textContent = '—'; }
-            if (c5) { c5.style.display = outCount >= 5 ? '' : 'none'; c5.textContent = '—'; }
-            if (c6) { c6.style.display = outCount >= 6 ? '' : 'none'; c6.textContent = '—'; }
-            if (m) m.textContent = '—';
-            if (liab) liab.textContent = '—';
-        });
+        function fmtPrice(v) {
+            if (v == null || v === '') return '—';
+            var n = typeof v === 'number' ? v : parseFloat(v);
+            if (isNaN(n) || n <= 0) return '—';
+            return n.toFixed(2);
+        }
+        function resetToDash() {
+            contentEl.querySelectorAll('.brand-overview-row').forEach(function (row) {
+                var cellL = row.querySelector('.brand-odds-L');
+                var c1 = row.querySelector('.brand-odds-1');
+                var c2 = row.querySelector('.brand-odds-2');
+                var c3 = row.querySelector('.brand-odds-3');
+                var c4 = row.querySelector('.brand-odds-4');
+                var c5 = row.querySelector('.brand-odds-5');
+                var c6 = row.querySelector('.brand-odds-6');
+                var m = row.querySelector('.brand-margin');
+                var liab = row.querySelector('.brand-liab');
+                if (cellL) { cellL.style.display = showL ? '' : 'none'; cellL.textContent = showL ? '—' : ''; }
+                if (c1) c1.textContent = '—';
+                if (c2) c2.textContent = '—';
+                if (c3) { c3.style.display = outCount >= 3 ? '' : 'none'; c3.textContent = '—'; }
+                if (c4) { c4.style.display = outCount >= 4 ? '' : 'none'; c4.textContent = '—'; }
+                if (c5) { c5.style.display = outCount >= 5 ? '' : 'none'; c5.textContent = '—'; }
+                if (c6) { c6.style.display = outCount >= 6 ? '' : 'none'; c6.textContent = '—'; }
+                if (m) m.textContent = '—';
+                if (liab) liab.textContent = '—';
+            });
+        }
+        resetToDash();
+        try {
+            var qs = '/api/event-details/brand-overview-margined?domain_event_id=' + encodeURIComponent(domainEventId)
+                + '&domain_market_id=' + encodeURIComponent(marketId);
+            var ln = (selectedLine || '').trim();
+            if (ln) qs += '&line=' + encodeURIComponent(ln);
+            var res = await fetch(qs);
+            if (!res.ok) return;
+            var data = await res.json();
+            var byId = {};
+            (data.brands || []).forEach(function (b) { byId[String(b.id)] = b; });
+            contentEl.querySelectorAll('.brand-overview-row').forEach(function (row) {
+                var bid = row.getAttribute('data-brand-id');
+                var b = byId[bid];
+                var cellL = row.querySelector('.brand-odds-L');
+                var c1 = row.querySelector('.brand-odds-1');
+                var c2 = row.querySelector('.brand-odds-2');
+                var c3 = row.querySelector('.brand-odds-3');
+                var c4 = row.querySelector('.brand-odds-4');
+                var c5 = row.querySelector('.brand-odds-5');
+                var c6 = row.querySelector('.brand-odds-6');
+                var m = row.querySelector('.brand-margin');
+                var liab = row.querySelector('.brand-liab');
+                if (cellL) { cellL.style.display = showL ? '' : 'none'; cellL.textContent = showL ? '—' : ''; }
+                if (!b || !b.outcomes) {
+                    if (c1) c1.textContent = '—';
+                    if (c2) c2.textContent = '—';
+                    if (c3) { c3.style.display = outCount >= 3 ? '' : 'none'; c3.textContent = '—'; }
+                    if (c4) { c4.style.display = outCount >= 4 ? '' : 'none'; c4.textContent = '—'; }
+                    if (c5) { c5.style.display = outCount >= 5 ? '' : 'none'; c5.textContent = '—'; }
+                    if (c6) { c6.style.display = outCount >= 6 ? '' : 'none'; c6.textContent = '—'; }
+                    if (m) m.textContent = '—';
+                    if (liab) liab.textContent = '—';
+                    return;
+                }
+                var o = b.outcomes;
+                if (c1) c1.textContent = fmtPrice(o[0]);
+                if (c2) c2.textContent = fmtPrice(o[1]);
+                if (c3) { c3.style.display = outCount >= 3 ? '' : 'none'; c3.textContent = fmtPrice(o[2]); }
+                if (c4) { c4.style.display = outCount >= 4 ? '' : 'none'; c4.textContent = fmtPrice(o[3]); }
+                if (c5) { c5.style.display = outCount >= 5 ? '' : 'none'; c5.textContent = fmtPrice(o[4]); }
+                if (c6) { c6.style.display = outCount >= 6 ? '' : 'none'; c6.textContent = fmtPrice(o[5]); }
+                if (m) m.textContent = feedOddsMargin(o, outCount);
+                if (liab) liab.textContent = '—';
+            });
+        } catch (err) { /* keep dashes */ }
     }
 
     overviewRows.addEventListener('change', function (e) {
@@ -720,13 +897,16 @@
             if (raw) outcomeLabels = JSON.parse(raw);
         } catch (err) { outcomeLabels = []; }
         if (!Array.isArray(outcomeLabels)) outcomeLabels = [];
-        updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels);
         var lineVal = '';
         if (hasLine) {
             var activeLineBtn = card.querySelector('.market-line-btn.bg-primary');
             if (activeLineBtn) lineVal = (activeLineBtn.getAttribute('data-line') || activeLineBtn.textContent || '').trim();
         }
-        updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, lineVal);
+        void (async function () {
+            await updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, lineVal);
+            await updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels, lineVal);
+            if (card) await refreshOverviewPricesForCard(card);
+        })();
     });
 })();
 </script>
