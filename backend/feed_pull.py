@@ -3,7 +3,7 @@ Pull feed events from live APIs and merge into stored feed data.
 Bet365: https://api.b365api.com/v1/bet365/upcoming?sport_id={id}&token=... with pagination.
 Betfair: https://api.b365api.com/v1/betfair/sb/upcoming?sport_id={id}&token=... with pagination.
 1xbet: https://api.b365api.com/v1/1xbet/upcoming?sport_id={id}&token=... with pagination.
-Bwin: https://api.b365api.com/v1/bwin/prematch?token=...&sport_id={id} per sport (100 per page).
+Bwin / Bwin L2: same https://api.b365api.com/v1/bwin/prematch?token=...&sport_id={id}; L2 stores high-id / ``2:`` events in feed_data/bwin_l2.json.
 
 Uses async HTTP (httpx) so pulls can be run in parallel with a concurrency cap.
 """
@@ -38,6 +38,28 @@ ONEXBET_API_BASE = "https://api.b365api.com/v1/1xbet/upcoming"
 ONEXBET_PER_PAGE = 50
 BWIN_API_BASE = "https://api.b365api.com/v1/bwin/prematch"
 BWIN_PER_PAGE = 100
+# BetsAPI / Bwin: alternate product line uses high numeric event Id (and sometimes "2:" ids). Split into feed "bwin_l2".
+BWIN_L2_MIN_NUMERIC_EVENT_ID = 200_000_000
+
+
+def bwin_event_id_is_layer_l2(raw_id) -> bool:
+    """True if this Bwin event Id belongs to the L2 / extended line (stored under feed_provider bwin_l2)."""
+    if raw_id is None:
+        return False
+    s = str(raw_id).strip()
+    if not s:
+        return False
+    if s.lower().startswith("2:"):
+        return True
+    try:
+        return int(float(s)) >= BWIN_L2_MIN_NUMERIC_EVENT_ID
+    except (ValueError, TypeError):
+        return False
+
+
+def bwin_event_id_is_layer_l1(raw_id) -> bool:
+    """Classic Bwin line (feed_provider bwin)."""
+    return not bwin_event_id_is_layer_l2(raw_id)
 
 # Event-details API (BetsAPI): token from .env (BETSAPI_TOKEN). Used when domain event is created or mapped.
 # 1xbet: /v1/1xbet/event?token=...&event_id=...   bwin: /v1/bwin/event?token=...&event_id=...   bet365 prematch: /v4/bet365/prematch?token=...&FI=...
@@ -91,7 +113,7 @@ async def fetch_event_details_async(
         return None
     if feed == "1xbet":
         url = f"{ONEXBET_EVENT_DETAILS_BASE}?token={token}&event_id={fid}"
-    elif feed == "bwin":
+    elif feed in ("bwin", "bwin_l2"):
         url = f"{BWIN_EVENT_DETAILS_BASE}?token={token}&event_id={fid}"
     elif feed == "bet365":
         url = f"{BET365_PREMATCH_DETAILS_BASE}?token={token}&FI={fid}"
@@ -386,9 +408,60 @@ async def pull_1xbet_sport(sport_id: str, sport_name: str, token: str) -> dict:
     return {"ok": True, "added": added, "skipped": skipped, "total": total_from_api, "error": None}
 
 
-def _normalize_bwin_item(item: dict, sport_name_override: str | None = None) -> dict:
-    """Convert one Bwin prematch API result item to our bwin event shape.
+def _bwin_template_id_placeholder(template_id: object) -> bool:
+    if template_id is None:
+        return True
+    try:
+        return int(template_id) == 0
+    except (TypeError, ValueError):
+        s = str(template_id).strip()
+        return s == "" or s == "0"
+
+
+def _bwin_market_row_display_name(m: dict) -> str:
+    n = m.get("name")
+    if isinstance(n, dict):
+        return (n.get("value") or "").strip()
+    if isinstance(n, str):
+        return n.strip()
+    return ""
+
+
+def _bwin_market_identity_key(m: dict, *, l2_dedupe_by_name: bool) -> tuple[str, str]:
+    """One key per logical market type for counting; L2 grid uses display name so multi-line totals collapse."""
+    tc = m.get("templateCategory") or {}
+    tid = m.get("templateId")
+    if tid is None:
+        tid = tc.get("id")
+    placeholder = _bwin_template_id_placeholder(tid)
+    if l2_dedupe_by_name and placeholder:
+        nm = _bwin_market_row_display_name(m)
+        if not nm and isinstance(tc.get("name"), dict):
+            nm = (tc["name"].get("value") or "").strip()
+        if nm:
+            return ("name", nm.casefold())
+        rid = m.get("id")
+        return ("row", str(rid) if rid is not None else "")
+    if not placeholder:
+        return ("tid", str(tid).strip())
+    rid = m.get("id")
+    return ("row", str(rid) if rid is not None else "")
+
+
+def _bwin_distinct_market_types_count(item: dict, *, l2_dedupe_by_name: bool) -> int:
+    keys: set[tuple[str, str]] = set()
+    for m in (item.get("Markets") or []) + (item.get("optionMarkets") or []):
+        if isinstance(m, dict):
+            keys.add(_bwin_market_identity_key(m, l2_dedupe_by_name=l2_dedupe_by_name))
+    return len(keys)
+
+
+def _normalize_bwin_item(
+    item: dict, sport_name_override: str | None = None, *, feed_provider: str = "bwin"
+) -> dict:
+    """Convert one Bwin prematch API result item to our stored event shape.
     sport_name_override: when pulling by sport, use this (from feed_sports.csv) so sport_id 11 -> American Football etc.
+    feed_provider: "bwin" (L1 ids) or "bwin_l2" (L2 ids); same API payload shape.
     """
     raw_id = item.get("Id") or item.get("id")
     valid_id = str(raw_id) if raw_id is not None else ""
@@ -424,8 +497,11 @@ def _normalize_bwin_item(item: dict, sport_name_override: str | None = None) -> 
         updated_at = int(updated_at)
     elif not isinstance(updated_at, int):
         updated_at = None
+    fp = (feed_provider or "bwin").strip().lower()
+    if fp not in ("bwin", "bwin_l2"):
+        fp = "bwin"
     return {
-        "feed_provider": "bwin",
+        "feed_provider": fp,
         "valid_id": valid_id,
         "domain_id": None,
         "raw_home_name": (item.get("HomeTeam") or "") if not is_outright else "",
@@ -448,23 +524,40 @@ def _normalize_bwin_item(item: dict, sport_name_override: str | None = None) -> 
         "updated_at": updated_at,
         "mapping_status": "UNMAPPED",
         "status": (item.get("status") or "Open").strip() or "Open",
-        "markets_count": item.get("markets_count")
-        if item.get("markets_count") is not None
-        else (len(item.get("Markets") or []) + len(item.get("optionMarkets") or [])),
+        "markets_count": (
+            _bwin_distinct_market_types_count(item, l2_dedupe_by_name=True)
+            if fp == "bwin_l2"
+            else (
+                item.get("markets_count")
+                if item.get("markets_count") is not None
+                else (len(item.get("Markets") or []) + len(item.get("optionMarkets") or []))
+            )
+        ),
+        # Keep prematch market payloads for Configuration → Markets mapper. L2 ids often have no /v1/bwin/event body.
+        "SportId": item.get("SportId"),
+        "Markets": list(item.get("Markets") or []),
+        "optionMarkets": list(item.get("optionMarkets") or []),
     }
 
 
-async def pull_bwin_sport(sport_id: str, sport_name: str, token: str) -> dict:
+async def _pull_bwin_prematch_layer(
+    sport_id: str,
+    sport_name: str,
+    token: str,
+    *,
+    store_feed_code: str,
+    for_l2_layer: bool,
+) -> dict:
     """
-    Pull prematch events for one Bwin sport from the API (sport_id param, 100 per page).
-    Replaces/updates only this sport's events in stored bwin.json; other sports unchanged.
-    Returns {"ok": bool, "added": int, "updated": int, "total": int, "error": str | None}.
+    Pull prematch from BetsAPI bwin/prematch; filter rows into L1 (bwin) or L2 (bwin_l2) by event Id rule.
+    Replaces/updates only this sport's events in feed_data/{store_feed_code}.json.
     """
     token = (token or "").strip()
     if not token:
         return {"ok": False, "added": 0, "updated": 0, "total": 0, "error": "API key required"}
 
-    existing = load_stored_feed_events("bwin")
+    store_feed_code = (store_feed_code or "bwin").strip().lower()
+    existing = load_stored_feed_events(store_feed_code)
     sport_id_str = str(sport_id or "").strip()
     existing_for_sport = {str(e.get("valid_id") or "").strip() for e in existing if str(e.get("sport_id") or "").strip() == sport_id_str}
     added = 0
@@ -493,7 +586,15 @@ async def pull_bwin_sport(sport_id: str, sport_name: str, token: str) -> dict:
             eid = str(raw_id).strip() if raw_id is not None else ""
             if not eid:
                 continue
-            normalized = _normalize_bwin_item(item, sport_name_override=sport_name)
+            if for_l2_layer:
+                if not bwin_event_id_is_layer_l2(raw_id):
+                    continue
+            else:
+                if not bwin_event_id_is_layer_l1(raw_id):
+                    continue
+            normalized = _normalize_bwin_item(
+                item, sport_name_override=sport_name, feed_provider=store_feed_code
+            )
             if eid not in api_by_id:
                 api_order.append(eid)
                 api_by_id[eid] = normalized
@@ -509,13 +610,23 @@ async def pull_bwin_sport(sport_id: str, sport_name: str, token: str) -> dict:
         page += 1
 
     if api_by_id or sport_id_str:
-        async with _feed_lock("bwin"):
-            current = load_stored_feed_events("bwin")
+        async with _feed_lock(store_feed_code):
+            current = load_stored_feed_events(store_feed_code)
             other_sports = [e for e in current if str(e.get("sport_id") or "").strip() != sport_id_str]
             merged = other_sports + [api_by_id[eid] for eid in api_order]
-            save_stored_feed_events("bwin", merged)
+            save_stored_feed_events(store_feed_code, merged)
 
     return {"ok": True, "added": added, "updated": updated, "total": total_from_api, "error": None}
+
+
+async def pull_bwin_sport(sport_id: str, sport_name: str, token: str) -> dict:
+    """Bwin L1: prematch ids below BWIN_L2_MIN_NUMERIC_EVENT_ID and not ``2:``-prefixed."""
+    return await _pull_bwin_prematch_layer(sport_id, sport_name, token, store_feed_code="bwin", for_l2_layer=False)
+
+
+async def pull_bwin_l2_sport(sport_id: str, sport_name: str, token: str) -> dict:
+    """Bwin L2: same API as bwin; high numeric ids (>= 200M) or ``2:``-prefixed ids → feed_data/bwin_l2.json."""
+    return await _pull_bwin_prematch_layer(sport_id, sport_name, token, store_feed_code="bwin_l2", for_l2_layer=True)
 
 
 # Map feed code to its async pull-one-sport function (sport_id, sport_name, token) -> result dict.
@@ -524,6 +635,7 @@ _PULL_ONE_SPORT: dict[str, Callable[..., object]] = {
     "betfair": pull_betfair_sport,
     "1xbet": pull_1xbet_sport,
     "bwin": pull_bwin_sport,
+    "bwin_l2": pull_bwin_l2_sport,
 }
 
 

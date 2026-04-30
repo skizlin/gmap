@@ -5,3 +5,5 @@ domain_id,code,name,params
 4,OVERUNDER,Total,
 5,CORRECT_SCORE,Correct Score,
 6,ODD_EVEN,Odd Even,
+7,YES_NO, Yes No,
+8,EXACT_TOTAL,Exact Total,

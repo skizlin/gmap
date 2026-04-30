@@ -5,8 +5,9 @@ IMLog (internal model logarithmic) synthetic feed: Bwin-shaped event JSON under
 Convention for Configuration → Event mapping (recommended; Feed Odds also picks up IMLog when
 ``feed_event_details/imlog/{domain_event_id}.json`` exists even if the CSV row is missing):
   - Map domain event to feed ``imlog`` with ``feed_valid_id`` equal to the domain event id (e.g. ``E-12``).
-  - Map domain markets (Correct Set Score, Match Winner, Set Handicap, …) to these feed market ids:
-      ``IMLOG_CORRECT_SET_SCORE``, ``IMLOG_MATCH_WINNER``, ``IMLOG_SET_HANDICAP_M15``
+  - Map domain markets (Correct Set Score, Match Winner, Match Set Handicap, exact sets / odd-even sets, …) to:
+      ``IMLOG_CORRECT_SET_SCORE``, ``IMLOG_MATCH_WINNER``, ``IMLOG_MATCH_SET_HANDICAP``,
+      ``IMLOG_EXACT_SETS_TOTAL``, ``IMLOG_TOTAL_SETS_ODD_EVEN``, ``IMLOG_HOME_SETS_EXACT``, ``IMLOG_AWAY_SETS_EXACT``.
   - Add a ``sport_feed_mappings`` row for IMLog + your domain sport: ``feed_id`` is the feed sport id written as
     ``SportId`` on the synthetic JSON. Use any id you like; Configuration resolves IMLog markets from that mapping
     (same mechanism as Bet365/Bwin/1xbet — no need to match another feed).
@@ -29,19 +30,35 @@ from backend.internal_pricing.transforms.log_function import true_odds_and_probs
 # Feed market ids (map domain markets to these in market_type_mappings.csv)
 IMLOG_MARKET_CORRECT_SET_SCORE = "IMLOG_CORRECT_SET_SCORE"
 IMLOG_MARKET_MATCH_WINNER = "IMLOG_MATCH_WINNER"
-IMLOG_MARKET_SET_HANDICAP_M15 = "IMLOG_SET_HANDICAP_M15"
+IMLOG_MARKET_MATCH_SET_HANDICAP = "IMLOG_MATCH_SET_HANDICAP"
+IMLOG_SET_HANDICAP_M25 = "IMLOG_SET_HANDICAP_M25"
+IMLOG_SET_HANDICAP_M15 = "IMLOG_SET_HANDICAP_M15"
+IMLOG_SET_HANDICAP_P15 = "IMLOG_SET_HANDICAP_P15"
+IMLOG_SET_HANDICAP_P25 = "IMLOG_SET_HANDICAP_P25"
+IMLOG_SET_HANDICAP_LINE_TEMPLATE_IDS: frozenset[str] = frozenset(
+    {IMLOG_SET_HANDICAP_M25, IMLOG_SET_HANDICAP_M15, IMLOG_SET_HANDICAP_P15, IMLOG_SET_HANDICAP_P25}
+)
+IMLOG_MARKET_EXACT_SETS_TOTAL = "IMLOG_EXACT_SETS_TOTAL"
+IMLOG_MARKET_TOTAL_SETS_ODD_EVEN = "IMLOG_TOTAL_SETS_ODD_EVEN"
+IMLOG_MARKET_HOME_SETS_EXACT = "IMLOG_HOME_SETS_EXACT"
+IMLOG_MARKET_AWAY_SETS_EXACT = "IMLOG_AWAY_SETS_EXACT"
 
 
 def imlog_markets_for_configuration_mapper() -> list[dict]:
     """
     Stable market list for Configuration → Markets when cached ``feed_event_details/imlog/*.json``
     does not match ``sport_feed_mappings`` ``feed_id`` (e.g. legacy files used ``SportId`` 18 fallback).
-    IDs must match ``templateId`` on written JSON.
+    Use ``IMLOG_MATCH_SET_HANDICAP`` for set handicap; synced JSON holds four ``Markets`` rows (templateIds
+    ``IMLOG_SET_HANDICAP_M25`` … ``_P25``) resolved under that umbrella when building feed odds.
     """
     return [
         {"id": IMLOG_MARKET_CORRECT_SET_SCORE, "name": "Correct Set Score (IMLog)", "is_prematch": True, "line": None},
         {"id": IMLOG_MARKET_MATCH_WINNER, "name": "Match Winner (IMLog)", "is_prematch": True, "line": None},
-        {"id": IMLOG_MARKET_SET_HANDICAP_M15, "name": "Set Handicap -1.5 (IMLog)", "is_prematch": True, "line": None},
+        {"id": IMLOG_MARKET_MATCH_SET_HANDICAP, "name": "Match Set Handicap (IMLog)", "is_prematch": True, "line": None},
+        {"id": IMLOG_MARKET_EXACT_SETS_TOTAL, "name": "Exact Number of Sets Played (IMLog)", "is_prematch": True, "line": None},
+        {"id": IMLOG_MARKET_TOTAL_SETS_ODD_EVEN, "name": "Odd/Even Total Sets (IMLog)", "is_prematch": True, "line": None},
+        {"id": IMLOG_MARKET_HOME_SETS_EXACT, "name": "Exact Sets Won — Home (IMLog)", "is_prematch": True, "line": None},
+        {"id": IMLOG_MARKET_AWAY_SETS_EXACT, "name": "Exact Sets Won — Away (IMLog)", "is_prematch": True, "line": None},
     ]
 
 
@@ -52,12 +69,16 @@ def _decimal_odds_two_places(x: Any) -> float:
         return 1.0
 
 
-def _bwin_result(name: str, odds: float) -> dict[str, Any]:
-    return {
+def _bwin_result(name: str, odds: float, *, side: str | None = None) -> dict[str, Any]:
+    """Bwin-shaped result row. ``name`` is the display line (e.g. ``3`` for exact total sets). Optional ``side`` (``home`` / ``away``) for team-scoped EXACT_TOTAL-style markets."""
+    row: dict[str, Any] = {
         "name": {"value": name},
         "odds": _decimal_odds_two_places(odds),
         "visibility": "Visible",
     }
+    if side:
+        row["side"] = str(side).strip().lower()
+    return row
 
 
 def _bwin_market(template_id: str, display_name: str, results: list[dict[str, Any]], attr: str = "") -> dict[str, Any]:
@@ -99,6 +120,14 @@ def _two_way_odds_from_probs(p_a: float, p_b: float) -> tuple[float, float]:
     return round(o1, 2), round(o2, 2)
 
 
+def _decimal_odds_from_prob(pr: float) -> float:
+    """Single-outcome display odds ~1/p (same spirit as Correct Set Score rows)."""
+    p = float(pr)
+    if p <= 1e-9:
+        return 50.0
+    return round(1.0 / p, 2)
+
+
 def build_imlog_event_payload(
     *,
     domain_event_id: str,
@@ -128,11 +157,61 @@ def build_imlog_event_payload(
         p_home, p_away = p_home / s, p_away / s
     mw_h, mw_a = _two_way_odds_from_probs(p_home, p_away)
 
+    # Match set handicaps from correct-score masses (home set margin vs away).
+    p_h_m25 = p("3:0")
     p_h_m15 = p("3:0") + p("3:1")
-    p_a_p15 = 1.0 - p_h_m15
-    if p_h_m15 <= 0 or p_a_p15 <= 0:
-        p_h_m15, p_a_p15 = 0.5, 0.5
-    sh_h, sh_a = _two_way_odds_from_probs(p_h_m15, p_a_p15)
+    p_h_p15 = p("3:0") + p("3:1") + p("3:2") + p("2:3")
+    p_h_p25 = p("3:0") + p("3:1") + p("3:2") + p("2:3") + p("1:3")
+
+    def _sh_odds(ph: float) -> tuple[float, float]:
+        ph = float(ph)
+        if ph <= 0.0:
+            ph = 1e-4
+        pa = 1.0 - ph
+        if pa <= 0.0:
+            pa = 1e-4
+        s = ph + pa
+        ph, pa = ph / s, pa / s
+        return _two_way_odds_from_probs(ph, pa)
+
+    o_m25_h, o_m25_a = _sh_odds(p_h_m25)
+    o_m15_h, o_m15_a = _sh_odds(p_h_m15)
+    o_p15_h, o_p15_a = _sh_odds(p_h_p15)
+    o_p25_h, o_p25_a = _sh_odds(p_h_p25)
+
+    p30, p31, p32, p23, p13, p03 = p("3:0"), p("3:1"), p("3:2"), p("2:3"), p("1:3"), p("0:3")
+    # Exact match length (Bo5): 3 / 4 / 5 sets.
+    p_sets3 = p30 + p03
+    p_sets4 = p31 + p13
+    p_sets5 = p32 + p23
+    st_sum = p_sets3 + p_sets4 + p_sets5
+    if st_sum > 1e-9:
+        p_sets3, p_sets4, p_sets5 = p_sets3 / st_sum, p_sets4 / st_sum, p_sets5 / st_sum
+    else:
+        p_sets3 = p_sets4 = p_sets5 = 1.0 / 3.0
+    # Odd = 3 or 5 sets; Even = 4 sets.
+    p_odd_sets = p_sets3 + p_sets5
+    p_even_sets = p_sets4
+    soe = p_odd_sets + p_even_sets
+    if soe > 1e-9:
+        p_odd_sets, p_even_sets = p_odd_sets / soe, p_even_sets / soe
+    else:
+        p_odd_sets = p_even_sets = 0.5
+    o_odd, o_even = _two_way_odds_from_probs(p_odd_sets, p_even_sets)
+    # Home sets won (0–3).
+    p_h0, p_h1, p_h2, p_h3 = p03, p13, p23, p30 + p31 + p32
+    shx = p_h0 + p_h1 + p_h2 + p_h3
+    if shx > 1e-9:
+        p_h0, p_h1, p_h2, p_h3 = p_h0 / shx, p_h1 / shx, p_h2 / shx, p_h3 / shx
+    else:
+        p_h0 = p_h1 = p_h2 = p_h3 = 0.25
+    # Away sets won (0–3).
+    p_a0, p_a1, p_a2, p_a3 = p30, p31, p32, p23 + p13 + p03
+    sax = p_a0 + p_a1 + p_a2 + p_a3
+    if sax > 1e-9:
+        p_a0, p_a1, p_a2, p_a3 = p_a0 / sax, p_a1 / sax, p_a2 / sax, p_a3 / sax
+    else:
+        p_a0 = p_a1 = p_a2 = p_a3 = 0.25
 
     css_results = []
     for lbl in correct_score_labels:
@@ -148,21 +227,72 @@ def build_imlog_event_payload(
             od = round(1.0 / pr, 2) if pr > 0 else 50.0
         css_results.append(_bwin_result(lbl, od))
 
+    hn = home_name or "Home"
+    an = away_name or "Away"
     markets = [
         _bwin_market(IMLOG_MARKET_CORRECT_SET_SCORE, "Correct Set Score (IMLog)", css_results),
         _bwin_market(
             IMLOG_MARKET_MATCH_WINNER,
             "Match Winner (IMLog)",
-            [_bwin_result(home_name or "Home", mw_h), _bwin_result(away_name or "Away", mw_a)],
+            [_bwin_result(hn, mw_h), _bwin_result(an, mw_a)],
         ),
         _bwin_market(
-            IMLOG_MARKET_SET_HANDICAP_M15,
-            "Set Handicap -1.5 (IMLog)",
-            [
-                _bwin_result(f"{home_name or 'Home'} -1.5", sh_h),
-                _bwin_result(f"{away_name or 'Away'} +1.5", sh_a),
-            ],
+            IMLOG_SET_HANDICAP_M25,
+            "Match Set Handicap −2.5 (IMLog)",
+            [_bwin_result(f"{hn} -2.5", o_m25_h), _bwin_result(f"{an} +2.5", o_m25_a)],
+            attr="-2.5",
+        ),
+        _bwin_market(
+            IMLOG_SET_HANDICAP_M15,
+            "Match Set Handicap −1.5 (IMLog)",
+            [_bwin_result(f"{hn} -1.5", o_m15_h), _bwin_result(f"{an} +1.5", o_m15_a)],
             attr="-1.5",
+        ),
+        _bwin_market(
+            IMLOG_SET_HANDICAP_P15,
+            "Match Set Handicap +1.5 (IMLog)",
+            [_bwin_result(f"{hn} +1.5", o_p15_h), _bwin_result(f"{an} -1.5", o_p15_a)],
+            attr="+1.5",
+        ),
+        _bwin_market(
+            IMLOG_SET_HANDICAP_P25,
+            "Match Set Handicap +2.5 (IMLog)",
+            [_bwin_result(f"{hn} +2.5", o_p25_h), _bwin_result(f"{an} -2.5", o_p25_a)],
+            attr="+2.5",
+        ),
+        _bwin_market(
+            IMLOG_MARKET_EXACT_SETS_TOTAL,
+            "Exact Number of Sets Played (IMLog)",
+            [
+                _bwin_result("3", _decimal_odds_from_prob(p_sets3)),
+                _bwin_result("4", _decimal_odds_from_prob(p_sets4)),
+                _bwin_result("5", _decimal_odds_from_prob(p_sets5)),
+            ],
+        ),
+        _bwin_market(
+            IMLOG_MARKET_TOTAL_SETS_ODD_EVEN,
+            "Odd/Even Total Sets (IMLog)",
+            [_bwin_result("Odd", o_odd), _bwin_result("Even", o_even)],
+        ),
+        _bwin_market(
+            IMLOG_MARKET_HOME_SETS_EXACT,
+            "Exact Sets Won — Home (IMLog)",
+            [
+                _bwin_result("0", _decimal_odds_from_prob(p_h0), side="home"),
+                _bwin_result("1", _decimal_odds_from_prob(p_h1), side="home"),
+                _bwin_result("2", _decimal_odds_from_prob(p_h2), side="home"),
+                _bwin_result("3", _decimal_odds_from_prob(p_h3), side="home"),
+            ],
+        ),
+        _bwin_market(
+            IMLOG_MARKET_AWAY_SETS_EXACT,
+            "Exact Sets Won — Away (IMLog)",
+            [
+                _bwin_result("0", _decimal_odds_from_prob(p_a0), side="away"),
+                _bwin_result("1", _decimal_odds_from_prob(p_a1), side="away"),
+                _bwin_result("2", _decimal_odds_from_prob(p_a2), side="away"),
+                _bwin_result("3", _decimal_odds_from_prob(p_a3), side="away"),
+            ],
         ),
     ]
 

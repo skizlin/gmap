@@ -310,6 +310,22 @@ def load_all_mock_data():
         if bwin_path.exists():
             all_events.extend(parse_bwin(bwin_path))
 
+    # Bwin L2: separate file (same API shape; ids in L2 range). Optional feed_data/bwin_l2.json.
+    if FEED_DATA_DIR and (FEED_DATA_DIR / "bwin_l2.json").exists():
+        try:
+            with open(FEED_DATA_DIR / "bwin_l2.json", "r", encoding="utf-8") as f:
+                b2 = json.load(f)
+            if isinstance(b2, list):
+                # Recompute #MKT: stored files may predate L2 logic that counts one per market name (multi-line totals = 1).
+                from backend.feed_pull import _bwin_distinct_market_types_count
+
+                for e in b2:
+                    if isinstance(e, dict):
+                        e["markets_count"] = _bwin_distinct_market_types_count(e, l2_dedupe_by_name=True)
+                all_events.extend(b2)
+        except (json.JSONDecodeError, OSError):
+            pass
+
     # Bet365: use only feed_data/bet365.json when feed_data dir exists (no fallback if file missing/empty)
     bet365_loaded_from_stored = False
     if FEED_DATA_DIR:

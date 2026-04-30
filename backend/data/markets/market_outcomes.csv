@@ -7,3 +7,4 @@ market_template_domain_id,market_template_code,has_line,has_period,best_of,outco
 5,CORRECT_SCORE,,,3,fixed,2:0,2:1,1:2,0:2,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 6,ODD_EVEN,,,,fixed,odd,even,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
 7,YES_NO,,,,fixed,yes,no,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+8,EXACT_TOTAL,,,,variable,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

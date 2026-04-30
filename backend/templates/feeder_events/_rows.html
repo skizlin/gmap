@@ -45,7 +45,7 @@
     {% set comp_display = event.raw_league_name or (event.raw_league_id|string if event.raw_league_id is not none else '') or '' %}
     {% set comp_mapped = event.feed_competition_mapped %}
     {% set league_cell = (event.raw_league_name or (event.raw_league_id|string if event.raw_league_id is not none else '') or '') %}
-    {% set merged_ok = fp == 'bwin' and cat_label and league_cell %}
+    {% set merged_ok = fp in ('bwin', 'bwin_l2') and cat_label and league_cell %}
     {# Competition column: green only when competition is mapped, not when category alone is mapped. #}
     {% set comp_title = (('[' ~ cat_label ~ '] ' ~ league_cell) if merged_ok else (event.raw_league_name or '—')) %}
     <td class="px-3 py-1.5 max-w-[220px] truncate {{ 'text-gmp-text-faint' if is_ignored else 'text-gmp-text-menu' }}"

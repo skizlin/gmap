@@ -52,9 +52,29 @@ class BwinMarketAdapter(BaseMarketAdapter):
         if not name and isinstance(m.get("name"), dict):
             name = (m.get("name") or {}).get("value") or ""
         if not name:
-            name = m.get("name") if isinstance(m.get("name"), str) else "Outright market"
-        name_str = (name.strip() if isinstance(name, str) else str(name)) or "Outright market"
-        mid = m.get("marketGroupItemId") or m.get("id") or ""
+            name = m.get("name") if isinstance(m.get("name"), str) else ""
+        raw_name = (name.strip() if isinstance(name, str) else str(name)).strip()
+        name_str = raw_name or "Outright market"
+        fp = (feed_provider or "").strip().lower()
+        tpl = m.get("templateId")
+        tc = m.get("templateCategory") or {}
+        if tpl is None and isinstance(tc, dict):
+            tpl = tc.get("id")
+
+        def _tid_placeholder(tid: object) -> bool:
+            if tid is None:
+                return True
+            try:
+                return int(tid) == 0
+            except (TypeError, ValueError):
+                s = str(tid).strip()
+                return s == "" or s == "0"
+
+        # Bwin L2 grid: template id is a placeholder; per-event row ids differ — use feeder display name as feed_market_id.
+        if fp == "bwin_l2" and _tid_placeholder(tpl) and raw_name:
+            mid: object = raw_name
+        else:
+            mid = m.get("marketGroupItemId") or m.get("id") or ""
         return NormalizedMarket(
             feed_provider=feed_provider,
             feed_market_id=str(mid) if mid else f"opt:{event_id}:{name_str[:24]}",

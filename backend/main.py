@@ -35,6 +35,10 @@ DATA_COUNTRIES_DIR = config.DATA_COUNTRIES_DIR
 # Feed pull module uses this for stored feed data (e.g. bet365 from API)
 from backend import feed_pull
 from backend import alerts_csv
+from backend.internal_pricing.imlog_sync import (
+    IMLOG_MARKET_MATCH_SET_HANDICAP,
+    IMLOG_SET_HANDICAP_LINE_TEMPLATE_IDS,
+)
 
 feed_pull.FEED_DATA_DIR = FEED_DATA_DIR
 DATA_MARKETS_DIR = config.DATA_MARKETS_DIR
@@ -645,7 +649,7 @@ from fastapi import Query
 from typing import List
 
 # Known feed providers (drives the filter dropdown)
-KNOWN_FEEDS = ["bet365", "betfair", "1xbet", "bwin"]
+KNOWN_FEEDS = ["bet365", "betfair", "1xbet", "bwin", "bwin_l2"]
 
 # DUMMY DATA FOR PROTOTYPE
 from backend.mock_data import load_all_mock_data
@@ -1638,6 +1642,40 @@ def _imlog_true_prices_for_event_market(
     im_used = bool(true_prices and any(x is not None and x > 0 for x in true_prices))
     n_sel = sum(1 for x in true_prices if x is not None and x > 0)
     return true_prices, im_used, n_sel
+
+
+def _feed_outcome_names_for_event_market(
+    domain_event_id: str,
+    domain_market_id: str | int,
+    line: str | None,
+) -> list[str]:
+    """
+    Outcome display names from the same feed row used for pricing basis (see ``_imlog_true_prices_for_event_market``).
+    Used for variable templates (e.g. EXACT_TOTAL) where domain ``outcome_labels`` are empty.
+    """
+    eid = str(domain_event_id).strip()
+    line_q = (line or "").strip() or None
+    all_ln = line_q is None
+    rows = _get_feed_odds_for_event_market(eid, domain_market_id, line_q, all_lines=all_ln)
+    if not rows:
+        return []
+    order_ids = _feeder_config_pricing_feed_order_ids()
+    if order_ids:
+        for fid in order_ids:
+            fr = [r for r in rows if r.get("feed_provider_id") == fid]
+            row = _pick_feed_odds_row_for_line(fr, line_q)
+            if not row:
+                continue
+            decs = _decimal_odds_from_feed_row(row)
+            if not decs or any(x is None or x <= 0 for x in decs):
+                continue
+            return [str((o.get("name") or "")).strip() or "—" for o in (row.get("outcomes") or [])]
+        return []
+    im_rows = [r for r in rows if (r.get("feed_name") or "").strip().lower() == "imlog"]
+    im_row = _pick_feed_odds_row_for_line(im_rows, line_q)
+    if not im_row:
+        return []
+    return [str((o.get("name") or "")).strip() or "—" for o in (im_row.get("outcomes") or [])]
 
 
 def _load_market_templates() -> list[dict]:
@@ -3609,7 +3647,7 @@ def _load_feed_markets_from_event_details(
     Does not fall back to "all cached events" (that previously leaked other sports into the mapper).
     """
     feed_lower = (feed_code or "").strip().lower()
-    if feed_lower not in ("bwin", "bet365", "1xbet", "imlog"):
+    if feed_lower not in ("bwin", "bwin_l2", "bet365", "1xbet", "imlog"):
         return []
     details_dir = config.FEED_EVENT_DETAILS_DIR / feed_lower
     if not details_dir.exists():
@@ -3674,6 +3712,8 @@ def _load_feed_markets_from_event_details(
         return _with_sport_dedupe(_parse_bet365_feed_markets)
     if feed_lower == "1xbet":
         return _with_sport_dedupe(_parse_1xbet_feed_markets)
+    if feed_lower == "bwin_l2":
+        return _with_sport_dedupe(_parse_bwin_feed_markets, feed_sport_id, True, True)
     # bwin + imlog (Bwin-shaped JSON, string templateId for IMLog markets)
     return _with_sport_dedupe(_parse_bwin_feed_markets, feed_sport_id, True)
 
@@ -3682,25 +3722,68 @@ def _load_feed_markets_for_sport(
     feed_code: str, feed_sport_id: int, domain_sport_id: str | int | None = None
 ) -> list[dict]:
     """
-    Load unique markets for a sport from feed JSON. Prefers stored event-details (from create/map),
-    then sport-specific example file, then generic feed file.
+    Load unique markets for a sport from feed JSON.
+    bwin_l2: prematch-backed feed_data first (event-details API has no body for L2 ids), then cached details, then examples.
+    Other feeds: stored event-details first, then example / feed_data files.
     Returns list of { "id", "name", "is_prematch" } for the mapping modal.
     """
     feed_lower = (feed_code or "").strip().lower()
+    # bwin_l2: BetsAPI /v1/bwin/event is empty for L2 ids; full Markets live on prematch rows in feed_data/bwin_l2.json.
+    if feed_lower == "bwin_l2":
+        sport_slug = _get_sport_slug(domain_sport_id) if domain_sport_id is not None else ""
+        paths_l2: list[Path] = []
+        if sport_slug:
+            paths_l2.append(FEED_JSON_DIR / f"{feed_code}{sport_slug}.json")
+        paths_l2.append(FEED_DATA_DIR / f"{feed_code}.json")
+        paths_l2.append(FEED_JSON_DIR / f"{feed_code}.json")
+        data_l2 = None
+        used_sp = False
+        for path in paths_l2:
+            if path.exists():
+                try:
+                    with open(path, encoding="utf-8") as f:
+                        data_l2 = json.load(f)
+                    used_sp = bool(sport_slug and sport_slug in path.name)
+                    break
+                except (json.JSONDecodeError, OSError):
+                    continue
+        if data_l2:
+            markets_l2 = _parse_bwin_feed_markets(data_l2, feed_sport_id, used_sp, True)
+            if markets_l2:
+                sport_display = _get_feed_sport_name(feed_lower, feed_sport_id)
+                for m in markets_l2:
+                    m.setdefault("sport_name", sport_display)
+                return markets_l2
     # 1) Stored event details (from event-details API when domain event created/mapped)
     from_stored = _load_feed_markets_from_event_details(feed_code, feed_sport_id, domain_sport_id)
-    if from_stored:
-        return from_stored
-    # IMLog: synthetic feed — if no JSON matches SportId vs sport_feed_mappings.feed_id, still offer fixed ids
-    # (avoids empty mapper when files used fallback SportId 18 before mapping existed).
+    # IMLog: always include canonical mapper ids (e.g. IMLOG_MATCH_SET_HANDICAP), then extras from JSON;
+    # drop legacy per-line set-handicap templateIds — they are folded under the umbrella id.
     if feed_lower == "imlog":
-        from backend.internal_pricing.imlog_sync import imlog_markets_for_configuration_mapper
+        from backend.internal_pricing.imlog_sync import (
+            IMLOG_SET_HANDICAP_LINE_TEMPLATE_IDS,
+            imlog_markets_for_configuration_mapper,
+        )
 
         static_list = [dict(m) for m in imlog_markets_for_configuration_mapper()]
         sport_display = _get_feed_sport_name(feed_lower, feed_sport_id)
+        out: list[dict] = []
+        seen: set[str] = set()
         for m in static_list:
-            m.setdefault("sport_name", sport_display)
-        return static_list
+            mm = dict(m)
+            mm.setdefault("sport_name", sport_display)
+            out.append(mm)
+            seen.add(str(mm.get("id") or "").strip())
+        for m in from_stored or []:
+            mid = str(m.get("id") or "").strip()
+            if not mid or mid in seen or mid in IMLOG_SET_HANDICAP_LINE_TEMPLATE_IDS:
+                continue
+            mm = dict(m)
+            mm.setdefault("sport_name", sport_display)
+            out.append(mm)
+            seen.add(mid)
+        return out
+    if from_stored:
+        return from_stored
 
     sport_slug = _get_sport_slug(domain_sport_id) if domain_sport_id is not None else ""
     paths_to_try: list[Path] = []
@@ -3736,24 +3819,41 @@ def _load_feed_markets_for_sport(
 
 
 def _parse_bwin_feed_markets(
-    data: dict | list, feed_sport_id: int, skip_sport_filter: bool = False
+    data: dict | list,
+    feed_sport_id: int,
+    skip_sport_filter: bool = False,
+    bwin_l2_stable_name_as_id: bool = False,
 ) -> list[dict]:
-    """Extract unique markets from Bwin-style results. Uses templateId as market ID. One entry per market ID;
-    line (attr) is not part of identity - lines vary per match, so we do not create separate list entries per line."""
+    """Extract unique markets from Bwin-style results. Uses templateId (or templateCategory.id) when set;
+    placeholder grid ids (0 / missing) fall back to per-row ``id`` for classic Bwin, or **display name** for ``bwin_l2_stable_name_as_id`` so L2 optionMarkets dedupe across events."""
     if isinstance(data, list):
         results = data
     else:
         results = data.get("results") or []
-    by_key: dict[int, dict] = {}
+    by_key: dict[int | str, dict] = {}
+
     for event in results:
-        if not skip_sport_filter and not _feed_sport_id_values_equal(event.get("SportId"), feed_sport_id):
-            continue
+        if not skip_sport_filter:
+            ev_sid = event.get("SportId") if event.get("SportId") is not None else event.get("sport_id")
+            if not _feed_sport_id_values_equal(ev_sid, feed_sport_id):
+                continue
         is_prematch = event.get("IsPreMatch", True)
         for item in (event.get("Markets") or []) + (event.get("optionMarkets") or []):
             tc = item.get("templateCategory") or {}
             template_id = item.get("templateId")
             if template_id is None:
                 template_id = tc.get("id")
+
+            if _bwin_template_id_placeholder(template_id):
+                name_early = _bwin_market_display_name(item)
+                if not name_early and isinstance(tc, dict):
+                    tn = tc.get("name")
+                    if isinstance(tn, dict):
+                        name_early = (tn.get("value") or "").strip()
+                if bwin_l2_stable_name_as_id and name_early:
+                    template_id = name_early
+                else:
+                    template_id = item.get("id")
             if template_id is None:
                 continue
             try:
@@ -4189,6 +4289,27 @@ def _bet365_row_handicap_line_match(h: str | None, lf: float) -> bool:
     return _float_line_close(v, lf) or _float_line_close(v, -lf)
 
 
+def _bet365_handicap_positive_display_handicap(sub: list) -> str:
+    """Bet365 pairs +/- the same spread; show the **positive** handicap string (+1.5) so the L column matches header 1 first."""
+    for o in sub:
+        if not isinstance(o, dict):
+            continue
+        v = _bet365_handicap_scalar(o.get("handicap"))
+        if v is not None and v > 0:
+            s = str(o.get("handicap") or "").strip()
+            if s:
+                return s
+    for o in sub:
+        if not isinstance(o, dict):
+            continue
+        v = _bet365_handicap_scalar(o.get("handicap"))
+        if v is not None:
+            s = str(o.get("handicap") or "").strip()
+            if s:
+                return s
+    return ""
+
+
 def _bet365_row_total_line_match(h: str | None, lf: float) -> bool:
     v = _bet365_total_line_float(h)
     if v is None:
@@ -4379,8 +4500,8 @@ def _bet365_handicap_lines_from_sub(sub: list) -> list[dict]:
         om = sides.get("-")
         if op is None or om is None:
             continue
-        h_neg = str(om.get("handicap") or "").strip()
-        line_disp = h_neg if h_neg else _fmt_line_num(-a)
+        h_pos = str(op.get("handicap") or "").strip()
+        line_disp = h_pos if h_pos else f"+{_fmt_line_num(a)}"
         p1 = op.get("odds")
         p2 = om.get("odds")
         if p1 is None or p2 is None:
@@ -4436,13 +4557,60 @@ def _extract_bet365_all_line_rows(events_data: list[dict] | dict, feed_market_id
     return []
 
 
+def _bwin_template_id_placeholder(template_id: object) -> bool:
+    if template_id is None:
+        return True
+    try:
+        return int(template_id) == 0
+    except (TypeError, ValueError):
+        s = str(template_id).strip()
+        return s == "" or s == "0"
+
+
+def _bwin_market_display_name(m: dict) -> str:
+    n = m.get("name")
+    if isinstance(n, dict):
+        v = n.get("value")
+    elif isinstance(n, str):
+        v = n
+    else:
+        v = None
+    return (str(v) if v is not None else "").strip()
+
+
+def _bwin_feed_market_id_matches(m: dict, feed_market_id: str) -> bool:
+    """Map domain feed_market_id to a Bwin ``Markets`` / ``optionMarkets`` row: templateId, row id (legacy L2), **name** (stable Bwin L2 grid), or category id."""
+    fid = (feed_market_id or "").strip()
+    if not fid:
+        return False
+    template_id = m.get("templateId")
+    tid_str = str(template_id).strip() if template_id is not None else ""
+    if tid_str and tid_str == fid:
+        return True
+    if fid == IMLOG_MARKET_MATCH_SET_HANDICAP and tid_str in IMLOG_SET_HANDICAP_LINE_TEMPLATE_IDS:
+        return True
+    row_id = m.get("id")
+    if row_id is not None and str(row_id).strip() == fid:
+        return True
+    dn = _bwin_market_display_name(m)
+    if dn and dn.casefold() == fid.casefold():
+        return True
+    tc = m.get("templateCategory")
+    cid = m.get("categoryId")
+    tid = (tc.get("id") if isinstance(tc, dict) else None) or cid
+    return tid is not None and str(tid).strip() == fid
+
+
 def _bwin_market_outcomes_and_attr(m: dict) -> tuple[list[dict], str]:
     outcomes = []
-    for r in m.get("results") or []:
+    rows = m.get("results") if m.get("results") else (m.get("options") or [])
+    for r in rows:
         if not isinstance(r, dict):
             continue
         name = (r.get("name") or {}).get("value") or (r.get("sourceName") or {}).get("value") or ""
         odds = r.get("odds")
+        if odds is None and isinstance(r.get("price"), dict):
+            odds = r["price"].get("odds")
         if odds is not None:
             outcomes.append({"name": str(name).strip() or "—", "price": str(odds)})
     attr_line = (m.get("attr") or "").strip() or ""
@@ -4458,19 +4626,12 @@ def _extract_bwin_all_line_rows(events_data: list[dict] | dict, feed_market_id: 
     results = events_data if isinstance(events_data, list) else (events_data.get("results") or [])
     fid = str(feed_market_id).strip()
 
-    def _market_matches(m: dict) -> bool:
-        template_id = m.get("templateId")
-        if template_id is not None and str(template_id).strip() == fid:
-            return True
-        tc = m.get("templateCategory")
-        cid = m.get("categoryId")
-        tid = (tc.get("id") if isinstance(tc, dict) else None) or cid
-        return tid is not None and str(tid).strip() == fid
-
     for event in results:
         if not isinstance(event, dict):
             continue
-        candidates = [m for m in (event.get("Markets") or []) + (event.get("optionMarkets") or []) if _market_matches(m)]
+        candidates = [
+            m for m in (event.get("Markets") or []) + (event.get("optionMarkets") or []) if _bwin_feed_market_id_matches(m, fid)
+        ]
         if not candidates:
             continue
         out: list[dict] = []
@@ -4537,28 +4698,26 @@ def _pick_1xbet_cells_for_line(rows: list, target: float) -> tuple[list[dict], s
 def _extract_bwin_market_odds(
     events_data: list[dict] | dict, feed_market_id: str, line: str | None = None
 ) -> dict:
-    """From Bwin event details, extract outcomes and line (attr) for market by templateId (or categoryId for legacy). Returns {outcomes: [...], line: str}.
+    """From Bwin event details, extract outcomes and line (attr). Matches ``feed_market_id`` via templateId, row id (legacy), **market display name** (Bwin L2 grid), or category id.
     When ``line`` is set, pick the market instance whose attr matches that line (multi-line handicap/total templates)."""
     results = events_data if isinstance(events_data, list) else (events_data.get("results") or [])
     fid = str(feed_market_id).strip()
     line_f = _line_string_to_float(line) if (line and str(line).strip()) else None
 
-    def _market_matches(m: dict) -> bool:
-        template_id = m.get("templateId")
-        if template_id is not None and str(template_id).strip() == fid:
-            return True
-        tc = m.get("templateCategory")
-        cid = m.get("categoryId")
-        tid = (tc.get("id") if isinstance(tc, dict) else None) or cid
-        return tid is not None and str(tid).strip() == fid
-
     def _outcomes_for(m: dict) -> tuple[list[dict], str]:
         outcomes = []
-        for r in m.get("results") or []:
+        rows = m.get("results") if m.get("results") else (m.get("options") or [])
+        for r in rows:
             name = (r.get("name") or {}).get("value") or (r.get("sourceName") or {}).get("value") or ""
             odds = r.get("odds")
+            if odds is None and isinstance(r.get("price"), dict):
+                odds = r["price"].get("odds")
             if odds is not None:
-                outcomes.append({"name": str(name).strip() or "—", "price": str(odds)})
+                item: dict[str, Any] = {"name": str(name).strip() or "—", "price": str(odds)}
+                side_raw = r.get("side")
+                if side_raw is not None and str(side_raw).strip():
+                    item["side"] = str(side_raw).strip().lower()
+                outcomes.append(item)
         attr_line = (m.get("attr") or "").strip() or ""
         if not attr_line and len(outcomes) >= 2:
             first_name = (outcomes[0].get("name") or "").strip()
@@ -4568,7 +4727,9 @@ def _extract_bwin_market_odds(
         return outcomes, attr_line
 
     for event in results:
-        candidates = [m for m in (event.get("Markets") or []) + (event.get("optionMarkets") or []) if _market_matches(m)]
+        candidates = [
+            m for m in (event.get("Markets") or []) + (event.get("optionMarkets") or []) if _bwin_feed_market_id_matches(m, fid)
+        ]
         if not candidates:
             continue
         chosen = candidates[0]
@@ -4664,13 +4825,11 @@ def _extract_bet365_market_odds(
                 price = o.get("odds")
                 if price is not None:
                     outcomes.append({"name": header or "—", "price": str(price)})
-            if not disp_line and sub and isinstance(sub[0], dict):
-                h0 = sub[0].get("handicap")
+            if not disp_line and sub:
                 if suffix == "2":
-                    v = _bet365_handicap_scalar(h0)
-                    if v is not None:
-                        disp_line = str(h0).strip()
-                elif suffix == "3":
+                    disp_line = _bet365_handicap_positive_display_handicap(sub)
+                elif suffix == "3" and isinstance(sub[0], dict):
+                    h0 = sub[0].get("handicap")
                     v = _bet365_total_line_float(h0)
                     if v is not None:
                         disp_line = str(v).replace(".", ",") if isinstance(v, float) else str(h0)
@@ -4793,20 +4952,28 @@ def _get_feed_odds_for_event_market(
             if feed_market_id == "910204":
                 feed_market_id = "910204_1"
         path = config.FEED_EVENT_DETAILS_DIR / feed_provider_str / f"{feed_valid_id}.json"
-        if not path.exists():
-            result.append({
-                "feed_provider_id": feed_provider_id,
-                "feed_name": feed_name,
-                "feed_market_id": feed_market_id,
-                "outcomes": [],
-                "line": "—",
-                "is_main_line": False,
-            })
-            continue
-        try:
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
-        except (json.JSONDecodeError, OSError):
+        data: dict | list | None = None
+        if path.exists():
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                data = None
+        # bwin_l2: /v1/bwin/event cache is often {"success":1,"results":[]}; prematch row lives in feed_data only.
+        if feed_provider_str == "bwin_l2":
+            ev_snap = next(
+                (
+                    ev
+                    for ev in feed_pull.load_stored_feed_events("bwin_l2")
+                    if str(ev.get("valid_id") or "").strip() == feed_valid_id
+                ),
+                None,
+            )
+            if ev_snap:
+                inner = data.get("results") if isinstance(data, dict) else None
+                if data is None or not isinstance(inner, list) or len(inner) == 0:
+                    data = {"success": 1, "results": [ev_snap], "sport_id": ev_snap.get("SportId")}
+        if data is None:
             result.append({
                 "feed_provider_id": feed_provider_id,
                 "feed_name": feed_name,
@@ -4858,7 +5025,7 @@ def _get_feed_odds_for_event_market(
                 "is_main_line": False,
             })
 
-        if feed_provider_str in ("bwin", "imlog"):
+        if feed_provider_str in ("bwin", "bwin_l2", "imlog"):
             if all_lines:
                 multi = _extract_bwin_all_line_rows(payload, feed_market_id)
                 if multi:
@@ -5836,12 +6003,31 @@ async def update_market(request: Request, domain_id: str, body: UpdateMarketRequ
 
 
 async def _fetch_and_save_event_details(feed_provider: str, feed_valid_id: str) -> None:
-    """Background: fetch event details from BetsAPI and save under feed_event_details/{feed}/{id}.json. Token from .env (BETSAPI_TOKEN)."""
+    """Background: fetch event details from BetsAPI and save under feed_event_details/{feed}/{id}.json. Token from .env (BETSAPI_TOKEN).
+    bwin_l2: no usable /v1/bwin/event body — writes a prematch snapshot from feed_data/bwin_l2.json when the event id is present."""
     token = (config.BETSAPI_TOKEN or "").strip()
     if not token:
         return
     feed_code = (feed_provider or "").strip().lower()
-    if feed_code not in ("bwin", "bet365", "1xbet"):
+    if feed_code not in ("bwin", "bwin_l2", "bet365", "1xbet"):
+        return
+    # Bwin L2: /v1/bwin/event returns empty results for these ids; snapshot one row from prematch store (feed_data).
+    if feed_code == "bwin_l2":
+        fid = (feed_valid_id or "").strip()
+        if fid:
+            try:
+                for ev in feed_pull.load_stored_feed_events("bwin_l2"):
+                    if str(ev.get("valid_id") or "").strip() != fid:
+                        continue
+                    snap = {
+                        "success": 1,
+                        "results": [ev],
+                        "sport_id": ev.get("SportId"),
+                    }
+                    feed_pull.save_event_details(feed_code, feed_valid_id, snap)
+                    break
+            except Exception:
+                pass
         return
     try:
         data = await feed_pull.fetch_event_details_async(feed_code, feed_valid_id, token)
@@ -7279,6 +7465,20 @@ def _save_feed_last_pull(feed_provider: str, feed_sport_id: str) -> None:
         w.writerows(key_to_row.values())
 
 
+def _sport_id_name_pairs_for_feed_pull(feed_provider: str) -> list[tuple[str, str]]:
+    """Rows from feed_sports.csv for this feed only (bwin and bwin_l2 are independent)."""
+    rows = _load_feed_sports_rows()
+    fp = (feed_provider or "").strip().lower()
+    out: list[tuple[str, str]] = []
+    for r in rows:
+        if (r.get("feed_provider") or "").strip().lower() != fp:
+            continue
+        sid = (r.get("feed_sport_id") or "").strip()
+        name = (r.get("feed_sport_name") or sid or "").strip()
+        out.append((sid, name or sid))
+    return out
+
+
 @app.get("/pull-feeds", response_class=HTMLResponse)
 async def pull_feeds_view(request: Request):
     """Pull Feeds Data screen: manually pull fresh data from each feed (Bet365/Betfair per-sport, Bwin all sports)."""
@@ -7288,6 +7488,7 @@ async def pull_feeds_view(request: Request):
     betfair_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "betfair"]
     onexbet_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "1xbet"]
     bwin_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "bwin"]
+    bwin_l2_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "bwin_l2"]
     for s in bet365_sports:
         s["last_pull"] = _format_last_pull(last_pulls.get(("bet365", (s.get("feed_sport_id") or "").strip())))
     for s in betfair_sports:
@@ -7296,6 +7497,8 @@ async def pull_feeds_view(request: Request):
         s["last_pull"] = _format_last_pull(last_pulls.get(("1xbet", (s.get("feed_sport_id") or "").strip())))
     for s in bwin_sports:
         s["last_pull"] = _format_last_pull(last_pulls.get(("bwin", (s.get("feed_sport_id") or "").strip())))
+    for s in bwin_l2_sports:
+        s["last_pull"] = _format_last_pull(last_pulls.get(("bwin_l2", (s.get("feed_sport_id") or "").strip())))
     return templates.TemplateResponse(request, "pull_feeds.html", {
         "request": request,
         "section": "pull_feeds",
@@ -7303,6 +7506,7 @@ async def pull_feeds_view(request: Request):
         "betfair_sports": betfair_sports,
         "onexbet_sports": onexbet_sports,
         "bwin_sports": bwin_sports,
+        "bwin_l2_sports": bwin_l2_sports,
     })
 
 
@@ -7371,8 +7575,20 @@ async def api_pull_feed(
                     break
             feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
         result = await feed_pull.pull_bwin_sport(feed_sport_id, feed_sport_name, token)
+    elif feed_provider == "bwin_l2":
+        if not feed_sport_id:
+            raise HTTPException(status_code=400, detail="feed_sport_id is required for Bwin L2.")
+        if not token:
+            return {"ok": False, "added": 0, "updated": 0, "total": 0, "error": "Please enter API key"}
+        if not feed_sport_name:
+            for r in _load_feed_sports_rows():
+                if (r.get("feed_provider") or "").strip().lower() == "bwin_l2" and (r.get("feed_sport_id") or "").strip() == feed_sport_id:
+                    feed_sport_name = (r.get("feed_sport_name") or feed_sport_id).strip()
+                    break
+            feed_sport_name = feed_sport_name or f"Sport {feed_sport_id}"
+        result = await feed_pull.pull_bwin_l2_sport(feed_sport_id, feed_sport_name, token)
     else:
-        raise HTTPException(status_code=400, detail="Only bet365, betfair, 1xbet and bwin are supported.")
+        raise HTTPException(status_code=400, detail="Unsupported feed (use bet365, betfair, 1xbet, bwin, or bwin_l2).")
 
     if result.get("ok"):
         old_ids = _valid_ids_for_feed(feed_provider)
@@ -7407,14 +7623,9 @@ async def _pull_all_sports_for_feed_internal(
     token = (token or "").strip()
     if not token:
         return {"ok": False, "results": [], "error": "Please enter API key"}
-    if feed_provider not in ("bet365", "betfair", "1xbet", "bwin"):
+    if feed_provider not in ("bet365", "betfair", "1xbet", "bwin", "bwin_l2"):
         return {"ok": False, "results": [], "error": f"Unsupported feed: {feed_provider}"}
-    rows = _load_feed_sports_rows()
-    sports = [
-        ((r.get("feed_sport_id") or "").strip(), (r.get("feed_sport_name") or r.get("feed_sport_id") or "").strip())
-        for r in rows
-        if (r.get("feed_provider") or "").strip().lower() == feed_provider
-    ]
+    sports = _sport_id_name_pairs_for_feed_pull(feed_provider)
     if not sports:
         return {"ok": False, "results": [], "error": "No sports configured for this feed."}
     concurrency = max(1, min(concurrency, 10))
@@ -7510,7 +7721,7 @@ async def api_pull_feed_all(
     token = (api_token or "").strip()
     if not token:
         return {"ok": False, "results": [], "error": "Please enter API key"}
-    if feed_provider not in ("bet365", "betfair", "1xbet", "bwin"):
+    if feed_provider not in ("bet365", "betfair", "1xbet", "bwin", "bwin_l2"):
         raise HTTPException(status_code=400, detail="Unsupported feed.")
     concurrency = max(1, min(concurrency, 10))
     return await _pull_all_sports_for_feed_internal(feed_provider, token, concurrency)
@@ -7615,7 +7826,7 @@ def _feeder_competition_filter_token_for_event(e: dict) -> str:
     comp = _feeder_competition_key(e)
     if not comp:
         return ""
-    if feed_l == "bwin":
+    if feed_l in ("bwin", "bwin_l2"):
         cat = _feeder_category_key(e)
         if cat:
             return f"{cat}{_FEEDER_COMP_FILTER_SEP}{comp}"
@@ -7628,7 +7839,7 @@ def _feeder_competition_filter_label_for_event(e: dict) -> str:
     comp = _feeder_competition_key(e)
     if not comp:
         return "—"
-    if feed_l == "bwin":
+    if feed_l in ("bwin", "bwin_l2"):
         cat = _feeder_category_key(e)
         if cat:
             return f"[{cat}] {comp}"
@@ -7651,7 +7862,7 @@ def _feeder_competition_filter_options(feed: str, sports: list[str] | None) -> l
             continue
         seen.add(tok)
         comp = _feeder_competition_key(e)
-        cat = (_feeder_category_key(e) if feed_l == "bwin" else "") or ""
+        cat = (_feeder_category_key(e) if feed_l in ("bwin", "bwin_l2") else "") or ""
         lbl = _feeder_competition_filter_label_for_event(e)
         rows.append(((cat.lower(), comp.lower()), tok, lbl))
     rows.sort(key=lambda r: r[0])
@@ -8814,6 +9025,9 @@ def _template_outcome_count(market: dict) -> int:
         return len(labels)
     template = (market.get("template") or "").strip().upper()
     code = (market.get("code") or "").strip().lower()
+    otype = (market.get("outcome_type") or "").strip().lower()
+    if otype == "variable" or template == "EXACT_TOTAL":
+        return 8
     if template in ("WINNER2",) or code in ("2way",):
         return 2
     if template in ("WINNER2D",) or code in ("3way",):
@@ -9513,6 +9727,7 @@ async def api_event_details_brand_overview_margined(
     if not ev:
         return JSONResponse({"ok": False, "message": "Domain event not found"}, status_code=404)
     line_q = (line or "").strip() or None
+    outcome_names = _feed_outcome_names_for_event_market(eid, domain_market_id, line_q)
     true_prices, im_used, n_sel = _imlog_true_prices_for_event_market(eid, domain_market_id, line_q)
 
     brands = _load_brands()
@@ -9547,6 +9762,7 @@ async def api_event_details_brand_overview_margined(
         "conversion": "log2",
         "imlog_used": im_used,
         "pricing_feed_used": im_used,
+        "outcome_names": outcome_names,
         "brands": out,
     }
 
@@ -9580,6 +9796,7 @@ async def api_event_details_overview_margined_prices(
         except (TypeError, ValueError):
             pb = None
     line_q = (line or "").strip() or None
+    outcome_names = _feed_outcome_names_for_event_market(eid, domain_market_id, line_q)
     true_prices, im_used, n_sel = _imlog_true_prices_for_event_market(eid, domain_market_id, line_q)
     pm, tname = _prematch_pm_pct_for_pricing_scope(ev, pb)
     if not im_used or pm is None:
@@ -9593,6 +9810,7 @@ async def api_event_details_overview_margined_prices(
             "template_name": tname,
             "true_prices": true_prices,
             "outcomes": empty,
+            "outcome_names": outcome_names,
         }
     margined: list[float | None] = []
     for tp in true_prices:
@@ -9610,6 +9828,7 @@ async def api_event_details_overview_margined_prices(
         "template_name": tname,
         "true_prices": true_prices,
         "outcomes": margined,
+        "outcome_names": outcome_names,
     }
 
 
