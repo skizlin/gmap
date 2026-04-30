@@ -62,17 +62,42 @@
             <!-- Navigation Menu (desktop) -->
             <nav class="hidden md:flex items-stretch h-full flex-1 min-w-0 overflow-visible" aria-label="Main">
 
-                {% if rbac_can_any(request, 'menu.admin.view', 'menu.admin.users.view', 'menu.admin.roles_permissions.view') %}
-                <!-- Admin (User Management) -->
-                <div class="nav-item relative flex items-center">
-                    <a href="/users"
-                        class="flex items-center h-full px-4 text-sm transition-colors {% if section == 'users' %}text-primary{% else %}text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10{% endif %}">
+                {% if rbac_can_any(request, 'menu.admin.view', 'menu.admin.users.view', 'menu.admin.roles_permissions.view') or rbac_is_superadmin(request) %}
+                <!-- Admin: user management (RBAC) + SuperAdmin-only data tools -->
+                <div class="nav-item relative flex items-center group">
+                    <button type="button"
+                        class="flex items-center h-full px-4 text-sm transition-colors gap-1.5 {% if section in ['users', 'admin_data_tools'] %}text-primary{% else %}text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10{% endif %}">
                         Admin
+                        <i class="fa-solid fa-chevron-down text-xs opacity-50"></i>
+                    </button>
+                    <div class="nav-dropdown absolute top-full left-0 min-w-[12rem] bg-gmp-surface border border-gmp-border rounded-b shadow-xl z-50">
+                        {% if rbac_can_any(request, 'menu.admin.view', 'menu.admin.users.view', 'menu.admin.roles_permissions.view') %}
+                        <a href="/users"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'users' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            <i class="fa-solid fa-users w-5 text-gmp-text-faint"></i> User management
+                        </a>
+                        {% endif %}
+                        {% if rbac_is_superadmin(request) %}
+                        <a href="/admin/dump-csv-data"
+                            class="flex items-center px-4 py-2.5 text-sm hover:bg-gmp-hover/10 hover:text-gmp-text-heading transition-colors {% if section == 'admin_data_tools' %}text-primary{% else %}text-gmp-text-menu{% endif %}">
+                            <i class="fa-solid fa-database w-5 text-gmp-text-faint"></i> Data &amp; CSV tools
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if rbac_is_superadmin(request) %}
+                <div class="nav-item relative flex items-center">
+                    <a href="/"
+                        class="flex items-center h-full px-4 text-sm transition-colors gap-1.5 {% if section == 'dashboard' %}text-primary{% else %}text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/10{% endif %}">
+                        <i class="fa-solid fa-gauge-high text-xs opacity-70" aria-hidden="true"></i>
+                        Dashboard
                     </a>
                 </div>
                 {% endif %}
 
-                {% if rbac_menu_branch_visible(request, 'Configuration') %}
+                {% if not rbac_is_superadmin(request) and rbac_menu_branch_visible(request, 'Configuration') %}
                 <!-- Configuration (dropdown) -->
                 <div class="nav-item relative flex items-center group">
                     <button
@@ -128,7 +153,7 @@
                 </div>
                 {% endif %}
 
-                {% if rbac_menu_branch_visible(request, 'Betting Program') %}
+                {% if not rbac_is_superadmin(request) and rbac_menu_branch_visible(request, 'Betting Program') %}
                 <!-- Betting Program (dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <button
@@ -160,7 +185,7 @@
                 </div>
                 {% endif %}
 
-                {% if rbac_can_any(request, 'menu.risk.view') %}
+                {% if not rbac_is_superadmin(request) and rbac_can_any(request, 'menu.risk.view') %}
                 <!-- Risk (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
@@ -170,7 +195,7 @@
                 </div>
                 {% endif %}
 
-                {% if rbac_can_any(request, 'menu.bets_ptls.view') %}
+                {% if not rbac_is_superadmin(request) and rbac_can_any(request, 'menu.bets_ptls.view') %}
                 <!-- Bets/PTLs (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
@@ -180,7 +205,7 @@
                 </div>
                 {% endif %}
 
-                {% if rbac_can_any(request, 'menu.alerts.view') %}
+                {% if not rbac_is_superadmin(request) and rbac_can_any(request, 'menu.alerts.view') %}
                 <!-- Alerts (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="/alerts"
@@ -190,7 +215,7 @@
                 </div>
                 {% endif %}
 
-                {% if rbac_can_any(request, 'menu.reports.view') %}
+                {% if not rbac_is_superadmin(request) and rbac_can_any(request, 'menu.reports.view') %}
                 <!-- Reports (no dropdown) -->
                 <div class="nav-item relative flex items-center">
                     <a href="#"
@@ -267,14 +292,34 @@
                 </button>
             </div>
             <nav class="mobile-drawer-nav flex flex-col flex-1 min-h-0 overflow-y-auto py-2" aria-label="Mobile main">
-                {% if rbac_can_any(request, 'menu.admin.view', 'menu.admin.users.view', 'menu.admin.roles_permissions.view') %}
-                <a href="/users"
-                    class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 {% if section == 'users' %}text-primary bg-gmp-hover/10{% else %}text-gmp-text hover:bg-gmp-hover/10{% endif %}">
-                    Admin
+                {% if rbac_can_any(request, 'menu.admin.view', 'menu.admin.users.view', 'menu.admin.roles_permissions.view') or rbac_is_superadmin(request) %}
+                <details class="border-b border-gmp-border-subtle/80 group">
+                    <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-gmp-text hover:bg-gmp-hover/10 {% if section in ['users', 'admin_data_tools'] %}text-primary{% endif %}">
+                        <span>Admin</span>
+                        <i class="fa-solid fa-chevron-down text-xs text-gmp-text-faint transition-transform group-open:rotate-180"></i>
+                    </summary>
+                    <div class="pb-1 bg-[rgb(var(--gmp-surface-inset)/0.4)]">
+                        {% if rbac_can_any(request, 'menu.admin.view', 'menu.admin.users.view', 'menu.admin.roles_permissions.view') %}
+                        <a href="/users" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'users' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
+                            <i class="fa-solid fa-users w-5 text-gmp-text-faint shrink-0"></i> User management
+                        </a>
+                        {% endif %}
+                        {% if rbac_is_superadmin(request) %}
+                        <a href="/admin/dump-csv-data" class="mobile-drawer-link flex items-center gap-2 pl-6 pr-4 py-2.5 text-sm {% if section == 'admin_data_tools' %}text-primary{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
+                            <i class="fa-solid fa-database w-5 text-gmp-text-faint shrink-0"></i> Data &amp; CSV tools
+                        </a>
+                        {% endif %}
+                    </div>
+                </details>
+                {% endif %}
+
+                {% if rbac_is_superadmin(request) %}
+                <a href="/" class="mobile-drawer-link flex items-center gap-2 px-4 py-3 text-sm border-b border-gmp-border-subtle/80 {% if section == 'dashboard' %}text-primary bg-gmp-hover/10{% else %}text-gmp-text-menu hover:bg-gmp-hover/10{% endif %}">
+                    <i class="fa-solid fa-gauge-high w-5 text-gmp-text-faint shrink-0"></i> Dashboard
                 </a>
                 {% endif %}
 
-                {% if rbac_menu_branch_visible(request, 'Configuration') %}
+                {% if not rbac_is_superadmin(request) and rbac_menu_branch_visible(request, 'Configuration') %}
                 <details class="border-b border-gmp-border-subtle/80 group">
                     <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-gmp-text hover:bg-gmp-hover/10 {% if section in ['entities', 'localization', 'brands', 'feeders', 'margin_config', 'risk_rules', 'compliance'] %}text-primary{% endif %}">
                         <span>Configuration</span>
@@ -320,7 +365,7 @@
                 </details>
                 {% endif %}
 
-                {% if rbac_menu_branch_visible(request, 'Betting Program') %}
+                {% if not rbac_is_superadmin(request) and rbac_menu_branch_visible(request, 'Betting Program') %}
                 <details class="border-b border-gmp-border-subtle/80 group">
                     <summary class="flex items-center justify-between px-4 py-3 text-sm cursor-pointer text-gmp-text hover:bg-gmp-hover/10 {% if section in ['domain', 'feeder', 'archived_events'] %}text-primary{% endif %}">
                         <span>Betting Program</span>
@@ -346,16 +391,16 @@
                 </details>
                 {% endif %}
 
-                {% if rbac_can_any(request, 'menu.risk.view') %}
+                {% if not rbac_is_superadmin(request) and rbac_can_any(request, 'menu.risk.view') %}
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-gmp-hover/10">Risk</a>
                 {% endif %}
-                {% if rbac_can_any(request, 'menu.bets_ptls.view') %}
+                {% if not rbac_is_superadmin(request) and rbac_can_any(request, 'menu.bets_ptls.view') %}
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-gmp-hover/10">Bets/PTLs</a>
                 {% endif %}
-                {% if rbac_can_any(request, 'menu.alerts.view') %}
+                {% if not rbac_is_superadmin(request) and rbac_can_any(request, 'menu.alerts.view') %}
                 <a href="/alerts" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 {% if section == 'alerts' %}text-primary bg-gmp-hover/10{% else %}text-gmp-text hover:bg-gmp-hover/10{% endif %}">Alerts</a>
                 {% endif %}
-                {% if rbac_can_any(request, 'menu.reports.view') %}
+                {% if not rbac_is_superadmin(request) and rbac_can_any(request, 'menu.reports.view') %}
                 <a href="#" class="mobile-drawer-link flex items-center px-4 py-3 text-sm border-b border-gmp-border-subtle/80 text-gmp-text hover:bg-gmp-hover/10">Reports</a>
                 {% endif %}
                 {% if request.state.dev_login_enabled %}

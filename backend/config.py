@@ -69,19 +69,19 @@ DATA_MARKETS_DIR.mkdir(exist_ok=True)
 # Categories/competitions/teams use column `country` (ISO code or '-' for international). Brands use `jurisdiction` (Compliance).
 ENTITY_FIELDS = {
     "feeds":         ["domain_id", "code", "name"],
-    "sports":        ["domain_id", "name", "baseid", "created_at", "updated_at"],
-    "categories":    ["domain_id", "sport_id", "name", "baseid", "country", "created_at", "updated_at"],
+    "sports":        ["domain_id", "name", "baseid", "active", "created_at", "updated_at"],
+    "categories":    ["domain_id", "sport_id", "name", "baseid", "country", "active", "created_at", "updated_at"],
     "competitions":  [
         "domain_id", "sport_id", "category_id", "name", "baseid", "country",
-        "underage_category_id", "participant_type_id", "is_amateur", "created_at", "updated_at",
+        "underage_category_id", "participant_type_id", "is_amateur", "active", "created_at", "updated_at",
     ],
     "teams":         [
         "domain_id", "sport_id", "name", "baseid", "country",
-        "underage_category_id", "participant_type_id", "is_amateur", "created_at", "updated_at",
+        "underage_category_id", "participant_type_id", "is_amateur", "active", "created_at", "updated_at",
     ],
     "markets":       [
         "domain_id", "sport_id", "code", "name", "abb", "market_type", "market_group",
-        "template", "period_type", "score_type", "side_type", "score_dependant",
+        "template", "period_type", "score_type", "side_type", "score_dependant", "active",
         "created_at", "updated_at",
     ],
 }

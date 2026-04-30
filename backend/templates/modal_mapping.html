@@ -479,11 +479,14 @@
             class="px-5 py-1.5 text-sm font-medium bg-secondary hover:bg-infoHover text-white rounded shadow-lg shadow-secondary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
             <i class="fa-solid fa-plus mr-1.5"></i> Create &amp; Map
         </button>
-        <button id="btn-confirm-mapping" hx-post="/api/map-event" hx-target="#modal-content"
+        <button type="button" id="btn-confirm-mapping" hx-post="/api/map-event" hx-target="#modal-content" hx-swap="innerHTML"
             hx-include="#domain-id-selected, [name='feeder_provider'], [name='feeder_valid_id']" disabled
             title="Select a domain event from the list first"
-            class="px-5 py-1.5 text-sm font-medium bg-primary hover:bg-primaryHover text-white rounded shadow-lg shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-            Confirm Mapping
+            hx-on:htmx:before-request="this.classList.add('opacity-80','cursor-wait','pointer-events-none');var l=this.querySelector('[data-cm-label]');var s=this.querySelector('[data-cm-spinner]');if(l)l.classList.add('hidden');if(s)s.classList.remove('hidden');"
+            hx-on:htmx:after-request="this.classList.remove('opacity-80','cursor-wait','pointer-events-none');var l=this.querySelector('[data-cm-label]');var s=this.querySelector('[data-cm-spinner]');if(l)l.classList.remove('hidden');if(s)s.classList.add('hidden');"
+            class="px-5 py-1.5 text-sm font-medium bg-primary hover:bg-primaryHover text-white rounded shadow-lg shadow-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 min-w-[10.5rem]">
+            <span data-cm-label>Confirm Mapping</span>
+            <span data-cm-spinner class="hidden inline-flex items-center gap-1.5"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i><span>Mapping…</span></span>
         </button>
     </div>
 

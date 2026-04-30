@@ -424,7 +424,8 @@
                     </div>
                     <div class="min-h-0 flex flex-col">
                         <h4 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-2">Add to this template</h4>
-                        <p class="text-[11px] text-gmp-text-muted mb-2">Competitions in other templates or Uncategorized.</p>
+                        <p id="competitions-not-in-hint-tier" class="hidden text-[11px] text-gmp-text-muted mb-2">Only competitions in <strong class="text-gmp-text-heading">Uncategorized</strong> (default bucket). To move a league from one tier to another, use <strong class="text-gmp-text-heading">In this template</strong> on the template that currently holds it.</p>
+                        <p id="competitions-not-in-hint-uncat" class="hidden text-[11px] text-gmp-text-muted mb-2">Competitions assigned to another template for this sport. Add here to move them into Uncategorized.</p>
                         <ul id="competitions-not-in-template" class="space-y-2 flex-1 min-h-[280px] max-h-[50vh] overflow-y-auto border border-gmp-border rounded-lg p-2">
                             <li class="text-xs text-gmp-text-faint py-2 text-center">Loading…</li>
                         </ul>
@@ -776,6 +777,13 @@
         var inList = document.getElementById('competitions-in-template');
         var notInList = document.getElementById('competitions-not-in-template');
         if (!data || !inList || !notInList) return;
+        var hintTier = document.getElementById('competitions-not-in-hint-tier');
+        var hintUncat = document.getElementById('competitions-not-in-hint-uncat');
+        var isUncatModal = data.template_name && String(data.template_name).trim().toLowerCase() === 'uncategorized';
+        if (hintTier && hintUncat) {
+            hintTier.classList.toggle('hidden', isUncatModal);
+            hintUncat.classList.toggle('hidden', !isUncatModal);
+        }
         var q = competitionsSearchInput ? competitionsSearchInput.value : '';
         var inFiltered = filterBySearch(data.in_template || [], q);
         var notInFiltered = filterBySearch(data.not_in_template || [], q);
@@ -799,15 +807,26 @@
             }).join('');
         }
         if (notInFiltered.length === 0) {
-            notInList.innerHTML = data.not_in_template && data.not_in_template.length > 0
-                ? '<li class="text-xs text-gmp-text-faint py-2 text-center">No matches for search.</li>'
-                : '<li class="text-xs text-gmp-text-faint py-2 text-center">All competitions are in this template.</li>';
+            var emptyRight;
+            if (data.not_in_template && data.not_in_template.length > 0) {
+                emptyRight = '<li class="text-xs text-gmp-text-faint py-2 text-center">No matches for search.</li>';
+            } else if (isUncatModal) {
+                emptyRight = '<li class="text-xs text-gmp-text-faint py-2 text-center">All competitions are already in Uncategorized or unassigned.</li>';
+            } else {
+                emptyRight = '<li class="text-xs text-gmp-text-faint py-2 text-center">No competitions in Uncategorized for this sport.</li>';
+            }
+            notInList.innerHTML = emptyRight;
         } else {
             notInList.innerHTML = notInFiltered.map(function (c) {
                 var catLabel = c.category_name && c.category_name !== '—' ? ' <span class="text-gmp-text-faint text-[10px]">(' + (c.category_name || '') + ')</span>' : '';
-                var tplLabel = ' <span class="text-gmp-text-faint text-[10px]">(' + (c.current_template_name || '—') + ')</span>';
+                var hideTpl = !!data.hide_current_template_on_add;
+                var tplLabel = '';
+                if (!hideTpl && (c.current_template_name || '') !== '') {
+                    tplLabel = ' <span class="text-gmp-text-faint text-[10px]">(' + (c.current_template_name || '—') + ')</span>';
+                }
+                var titleAttr = hideTpl ? '' : (c.current_template_name || '');
                 return '<li class="flex items-center justify-between gap-2 py-1.5 px-2 rounded bg-gmp-surface-raised/50 text-gmp-text text-xs">' +
-                    '<span class="truncate min-w-0" title="' + (c.current_template_name || '') + '">' + (c.name || '') + catLabel + tplLabel + '</span>' +
+                    '<span class="truncate min-w-0"' + (titleAttr ? ' title="' + titleAttr.replace(/"/g, '&quot;') + '"' : '') + '>' + (c.name || '') + catLabel + tplLabel + '</span>' +
                     '<button type="button" class="competitions-add-btn px-2 py-1 bg-primary/80 hover:bg-primary text-white text-[11px] rounded flex-shrink-0" data-competition-id="' + c.competition_id + '">Add</button>' +
                     '</li>';
             }).join('');

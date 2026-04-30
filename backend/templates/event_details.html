@@ -137,12 +137,12 @@
                             <tr class="border-b border-gmp-border/50 brand-overview-row" data-brand-id="{{ brand.id }}">
                                 <td class="py-1.5 pr-2">{{ brand.name }}</td>
                                 <td class="py-1.5 px-2 font-mono text-gmp-text-muted brand-odds-L">—</td>
-                                <td class="py-1.5 px-2 font-mono text-warning/90 brand-odds-1">—</td>
-                                <td class="py-1.5 px-2 font-mono text-warning/90 brand-odds-2">—</td>
-                                <td class="py-1.5 px-2 font-mono text-warning/90 brand-odds-3">—</td>
-                                <td class="py-1.5 px-2 font-mono text-warning/90 brand-odds-4">—</td>
-                                <td class="py-1.5 px-2 font-mono text-warning/90 brand-odds-5">—</td>
-                                <td class="py-1.5 px-2 font-mono text-warning/90 brand-odds-6">—</td>
+                                <td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 brand-odds-1">—</td>
+                                <td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 brand-odds-2">—</td>
+                                <td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 brand-odds-3">—</td>
+                                <td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 brand-odds-4">—</td>
+                                <td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 brand-odds-5">—</td>
+                                <td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 brand-odds-6">—</td>
                                 <td class="py-1.5 px-2 font-mono italic text-purple-400 brand-margin">—</td>
                                 <td class="py-1.5 px-2 font-mono text-gmp-text-muted brand-liab">—</td>
                             </tr>
@@ -307,9 +307,9 @@
             lineData.forEach(function (line, idx) {
                 var rowVis = idx === 0 ? '' : ' hidden';
                 table += '<tr class="market-line-row market-overview-outcome-row border-b border-gmp-border/40 text-gmp-text-menu' + rowVis + '" data-line-index="' + idx + '" data-side="0">' +
-                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selA) + '</td><td class="py-1.5 px-2 font-mono text-warning/90 market-overview-price">—</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint market-overview-original">—</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.a[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
+                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selA) + '</td><td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 market-overview-price">—</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint market-overview-original">—</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.a[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
                 table += '<tr class="market-line-row market-overview-outcome-row border-b border-gmp-border/40 text-gmp-text-menu' + rowVis + '" data-line-index="' + idx + '" data-side="1">' +
-                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selB) + '</td><td class="py-1.5 px-2 font-mono text-warning/90 market-overview-price">—</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint market-overview-original">—</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.b[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
+                    '<td class="py-1.5 px-2 font-medium">' + escapeHtml(selB) + '</td><td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 market-overview-price">—</td><td class="py-1.5 px-2 font-mono text-gmp-text-faint market-overview-original">—</td><td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + statusClass + '">' + line.b[3] + '</span></td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">60,000</td><td class="py-1.5 px-2 font-mono text-gmp-text-muted">6,000</td><td class="py-1.5 px-2"><button type="button" class="text-gmp-text-faint hover:text-gmp-text-heading p-0.5" aria-label="Menu"><i class="fa-solid fa-ellipsis-vertical text-[10px]"></i></button></td></tr>';
             });
             table += '</tbody></table></div>';
             var footer = '<div class="gmp-table-chrome px-3 py-2 border-t border-gmp-border flex flex-wrap items-center gap-2">' +
@@ -343,7 +343,7 @@
             if (i === 0) { status = 'SUSPENDED'; sc = 'bg-gmp-text-faint/30 text-gmp-text-menu'; }
             table += '<tr class="border-b border-gmp-border/40 text-gmp-text-menu market-overview-outcome-row" data-outcome-index="' + i + '">' +
                 '<td class="py-1.5 px-2 font-medium">' + escapeHtml(name) + '</td>' +
-                '<td class="py-1.5 px-2 font-mono text-warning/90 market-overview-price">—</td>' +
+                '<td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 market-overview-price">—</td>' +
                 '<td class="py-1.5 px-2 font-mono text-gmp-text-faint market-overview-original">—</td>' +
                 '<td class="py-1.5 px-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-medium ' + sc + '">' + status + '</span></td>' +
                 '<td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td><td class="py-1.5 px-2">0</td>' +
@@ -738,12 +738,12 @@
                 var cells = '<tr class="border-b border-gmp-border/50">' +
                     '<td class="py-1.5 pr-2">' + escapeHtml(r.feed_name || '') + '</td>' +
                     '<td class="py-1.5 px-2 font-mono text-gmp-text-muted feed-odds-L">' + escapeHtml(lineVal) + '</td>' +
-                    '<td class="py-1.5 px-2 font-mono text-warning/90">' + escapeHtml(s1) + '</td>' +
-                    '<td class="py-1.5 px-2 font-mono text-warning/90">' + escapeHtml(s2) + '</td>' +
-                    '<td class="py-1.5 px-2 font-mono text-warning/90 feed-odds-s3">' + escapeHtml(s3) + '</td>' +
-                    '<td class="py-1.5 px-2 font-mono text-warning/90 feed-odds-s4">' + escapeHtml(s4) + '</td>' +
-                    '<td class="py-1.5 px-2 font-mono text-warning/90 feed-odds-s5">' + escapeHtml(s5) + '</td>' +
-                    '<td class="py-1.5 px-2 font-mono text-warning/90 feed-odds-s6">' + escapeHtml(s6) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90">' + escapeHtml(s1) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90">' + escapeHtml(s2) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 feed-odds-s3">' + escapeHtml(s3) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 feed-odds-s4">' + escapeHtml(s4) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 feed-odds-s5">' + escapeHtml(s5) + '</td>' +
+                    '<td class="py-1.5 px-2 font-mono font-semibold tabular-nums text-warning/90 feed-odds-s6">' + escapeHtml(s6) + '</td>' +
                     '<td class="py-1.5 px-2 font-mono italic text-purple-400">' + escapeHtml(margin) + '</td></tr>';
                 return cells;
             }).join('');

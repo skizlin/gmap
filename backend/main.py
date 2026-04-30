@@ -2620,6 +2620,36 @@ def _migrate_entity_underage_participant_amateur_if_needed() -> None:
             w.writerows(rows)
 
 
+def _migrate_entity_active_column_if_needed() -> None:
+    """One-time: add active (1/0) column to entity CSVs if missing. Existing rows default to active."""
+    for etype in ("sports", "categories", "competitions", "teams", "markets"):
+        if etype not in _ENTITY_FIELDS:
+            continue
+        path = DATA_DIR / f"{etype}.csv"
+        if not path.exists():
+            continue
+        with open(path, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            fieldnames = list(reader.fieldnames or [])
+        if "active" in fieldnames:
+            continue
+        fields = _ENTITY_FIELDS[etype]
+        for row in rows:
+            row["active"] = "1"
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+            w.writeheader()
+            w.writerows(rows)
+
+
+def _coerce_entity_active_bool(raw) -> bool:
+    s = str(raw if raw is not None else "").strip().lower()
+    if s in ("0", "false", "no", "inactive", "off"):
+        return False
+    return True
+
+
 def _coerce_entity_fk(val) -> str | None:
     """Sport/category FKs on entities: stored as prefixed strings (S-1, G-2)."""
     s = str(val or "").strip()
@@ -2670,6 +2700,8 @@ def _load_entities() -> dict:
                     if etype in ("categories", "competitions", "teams"):
                         row["country"] = (row.get("country") or row.get("jurisdiction") or "").strip() or COUNTRY_CODE_NONE
                         row.pop("jurisdiction", None)
+                    if etype in ("sports", "categories", "competitions", "teams", "markets"):
+                        row["active"] = _coerce_entity_active_bool(row.get("active"))
                     store[etype].append(row)
     return store
 
@@ -2724,6 +2756,7 @@ def _update_entity_name(
             continue
         if etype in ("sports", "categories", "competitions", "teams"):
             row.setdefault("baseid", "")
+            row.setdefault("active", "1")
         if etype in ("categories", "competitions", "teams"):
             row.setdefault("country", COUNTRY_CODE_NONE)
         if etype == "teams":
@@ -2771,6 +2804,7 @@ def _update_entity_country(etype: str, domain_id: str, country: str, updated_at:
             continue
         if etype in ("categories", "competitions", "teams"):
             row.setdefault("country", COUNTRY_CODE_NONE)
+            row.setdefault("active", "1")
         if row_id == want:
             row["country"] = (country or "").strip() or COUNTRY_CODE_NONE
             row["updated_at"] = updated_at
@@ -2781,7 +2815,7 @@ def _update_entity_country(etype: str, domain_id: str, country: str, updated_at:
 
 
 def _update_entity_market(domain_id: str, updated_at: str, **kwargs: str | bool | None) -> None:
-    """Update a single market row in markets.csv and in DOMAIN_ENTITIES. kwargs: name, code, abb, market_type, market_group, template, period_type, score_type, side_type, score_dependant."""
+    """Update a single market row in markets.csv and in DOMAIN_ENTITIES. kwargs: name, code, abb, market_type, market_group, template, period_type, score_type, side_type, score_dependant, active."""
     path = DATA_DIR / "markets.csv"
     if not path.exists():
         return
@@ -2815,6 +2849,8 @@ def _update_entity_market(domain_id: str, updated_at: str, **kwargs: str | bool 
                 row["side_type"] = (kwargs["side_type"] or "").strip()
             if "score_dependant" in kwargs and kwargs["score_dependant"] is not None:
                 row["score_dependant"] = "1" if kwargs["score_dependant"] else "0"
+            if "active" in kwargs and kwargs["active"] is not None:
+                row["active"] = "1" if kwargs["active"] else "0"
             row["updated_at"] = updated_at
             break
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -2846,6 +2882,8 @@ def _update_entity_market(domain_id: str, updated_at: str, **kwargs: str | bool 
                 m["side_type"] = (kwargs["side_type"] or "").strip()
             if "score_dependant" in kwargs and kwargs["score_dependant"] is not None:
                 m["score_dependant"] = "1" if kwargs["score_dependant"] else "0"
+            if "active" in kwargs and kwargs["active"] is not None:
+                m["active"] = bool(kwargs["active"])
             break
 
 
@@ -3273,6 +3311,7 @@ _migrate_entity_created_updated_if_needed()
 _migrate_entity_country_column_if_needed()
 _migrate_entity_baseid_if_needed()
 _migrate_entity_underage_participant_amateur_if_needed()
+_migrate_entity_active_column_if_needed()
 migrate_prefixed_domain_ids_if_needed()
 DOMAIN_ENTITIES: dict[str, list[dict]] = _load_entities()
 ENTITY_FEED_MAPPINGS: list[dict] = _load_entity_feed_mappings()
@@ -5567,6 +5606,9 @@ async def create_entity(request: Request, body: CreateEntityRequest):
         entity["side_type"] = (body.side_type or "").strip()
         entity["score_dependant"] = "1" if body.score_dependant else "0"
 
+    if body.entity_type in ("categories", "competitions", "teams", "markets"):
+        entity["active"] = True
+
     if body.entity_type in ("sports", "markets"):
         pass  # name only for sports; markets have code and sport_id set above
     elif body.entity_type in ("categories", "teams"):
@@ -5598,6 +5640,8 @@ async def create_entity(request: Request, body: CreateEntityRequest):
         save_row["underage_category_id"] = str(entity["underage_category_id"]) if entity.get("underage_category_id") else ""
         save_row["participant_type_id"] = str(entity["participant_type_id"]) if entity.get("participant_type_id") else ""
         save_row["is_amateur"] = "1" if entity.get("is_amateur") else "0"
+    if body.entity_type in ("categories", "competitions", "teams", "markets"):
+        save_row["active"] = "1"
     _save_entity(body.entity_type, save_row)
 
     # New competitions are automatically assigned to Uncategorized margin template
@@ -5784,6 +5828,8 @@ async def update_market(request: Request, domain_id: str, body: UpdateMarketRequ
         kwargs["side_type"] = body.side_type
     if body.score_dependant is not None:
         kwargs["score_dependant"] = body.score_dependant
+    if body.active is not None:
+        kwargs["active"] = body.active
 
     _update_entity_market(domain_id, _now, **kwargs)
     return {"domain_id": domain_id, "updated_at": _now}
@@ -6387,6 +6433,41 @@ def _run_auto_map_then_create_domain_events_for_feed(feed_provider_code: str) ->
     return n_map + n_link, n_new
 
 
+# Shown after manual map/create success while auto-map/auto-create runs in the background (see _schedule_post_map_auto_map_then_create).
+_POST_MAP_BACKGROUND_NOTE_HTML = (
+    '<p class="text-slate-500 text-xs mt-3 max-w-sm leading-relaxed">'
+    "If <strong>Auto map Events</strong> / <strong>Auto create Events</strong> are enabled for this feed, other eligible rows may still "
+    "be processed in the background—refresh Feeder Events shortly to see updates.</p>"
+)
+
+
+def _schedule_post_map_auto_map_then_create(feed_provider: str) -> None:
+    """Defer heavy auto-map/auto-create so Confirm Mapping / Create & Map respond immediately."""
+    fp = (feed_provider or "").strip()
+    if not fp:
+        return
+
+    async def _runner() -> None:
+        try:
+            await asyncio.to_thread(_run_auto_map_then_create_domain_events_for_feed, fp)
+        except Exception:
+            logging.getLogger("uvicorn.error").exception(
+                "Background auto-map/auto-create failed for feed=%s", fp
+            )
+        finally:
+            try:
+                _invalidate_dashboard_feed_stats_cache()
+            except Exception:
+                logging.getLogger("uvicorn.error").exception(
+                    "Dashboard cache invalidation after background auto-map failed feed=%s", fp
+                )
+
+    try:
+        asyncio.get_running_loop().create_task(_runner())
+    except RuntimeError:
+        pass
+
+
 def _resolve_domain_team_ids_for_feed_row(feeder_ev: dict, feed_pid: int) -> tuple[str, str]:
     """Resolve domain team ids (P-*) from feeder raw_home/raw_away id or name via entity_feed_mappings."""
 
@@ -6640,24 +6721,8 @@ async def create_domain_event(body: CreateDomainEventRequest):
 
     _remove_valid_id_from_feed_dashboard_new(fp_lc, str(body.feeder_valid_id))
 
-    auto_m, auto_c = _run_auto_map_then_create_domain_events_for_feed(body.feeder_provider)
+    _schedule_post_map_auto_map_then_create(body.feeder_provider)
     _invalidate_dashboard_feed_stats_cache()
-    auto_map_html = ""
-    if auto_m:
-        ev_word = "event" if auto_m == 1 else "events"
-        auto_map_html = (
-            f'<p class="text-slate-400 text-xs mt-3 max-w-sm leading-relaxed">'
-            f'Additionally mapped <span class="font-mono text-emerald-300/90 font-semibold">{auto_m}</span> '
-            f'feed {ev_word} to existing domain events <span class="text-slate-500">(Auto map Events)</span>.</p>'
-        )
-    auto_extra_html = ""
-    if auto_c:
-        ev_word = "event" if auto_c == 1 else "events"
-        auto_extra_html = (
-            f'<p class="text-slate-400 text-xs mt-3 max-w-sm leading-relaxed">'
-            f'Additionally created <span class="font-mono text-emerald-300/90 font-semibold">{auto_c}</span> '
-            f"domain {ev_word} automatically <span class=\"text-slate-500\">(Auto create Events)</span>.</p>"
-        )
 
     event_label = f"{body.home} vs {body.away}" if (body.home and body.away) else (body.home or "Outright Event")
 
@@ -6669,8 +6734,7 @@ async def create_domain_event(body: CreateDomainEventRequest):
                 <span class="font-mono text-secondary bg-secondary/10 px-2 py-0.5 rounded">{new_id}</span>
             </p>
             <p class="text-slate-500 text-xs mt-1">{event_label}</p>
-            {auto_map_html}
-            {auto_extra_html}
+            {_POST_MAP_BACKGROUND_NOTE_HTML}
             <button onclick="closeModal(true)" class="mt-6 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded transition-all">
                 Close
             </button>
@@ -6752,24 +6816,8 @@ async def map_event_to_domain(
 
     _remove_valid_id_from_feed_dashboard_new(fp_lc, str(feeder_valid_id))
 
-    auto_m, auto_c = _run_auto_map_then_create_domain_events_for_feed(feeder_provider)
+    _schedule_post_map_auto_map_then_create(feeder_provider)
     _invalidate_dashboard_feed_stats_cache()
-    auto_map_html = ""
-    if auto_m:
-        ev_word = "event" if auto_m == 1 else "events"
-        auto_map_html = (
-            f'<p class="text-slate-400 text-xs mt-3 max-w-sm leading-relaxed">'
-            f'Additionally mapped <span class="font-mono text-emerald-300/90 font-semibold">{auto_m}</span> '
-            f'feed {ev_word} to existing domain events <span class="text-slate-500">(Auto map Events)</span>.</p>'
-        )
-    auto_extra_html = ""
-    if auto_c:
-        ev_word = "event" if auto_c == 1 else "events"
-        auto_extra_html = (
-            f'<p class="text-slate-400 text-xs mt-3 max-w-sm leading-relaxed">'
-            f'Additionally created <span class="font-mono text-emerald-300/90 font-semibold">{auto_c}</span> '
-            f"domain {ev_word} automatically <span class=\"text-slate-500\">(Auto create Events)</span>.</p>"
-        )
 
     label = domain_ev.get("home", "") or "Event"
     if domain_ev.get("away"):
@@ -6784,8 +6832,7 @@ async def map_event_to_domain(
                 <span class="font-mono text-secondary bg-secondary/10 px-2 py-0.5 rounded">{domain_id_selected}</span>
             </p>
             <p class="text-slate-500 text-xs mt-1">{label}</p>
-            {auto_map_html}
-            {auto_extra_html}
+            {_POST_MAP_BACKGROUND_NOTE_HTML}
             <button onclick="closeModal(true)" class="mt-6 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded transition-all">
                 Close
             </button>
@@ -7477,18 +7524,22 @@ async def _startup_scheduled_feed_pull() -> None:
 
 @app.get("/admin/dump-csv-data", response_class=HTMLResponse)
 async def dump_csv_data_page(request: Request):
-    """
-    Hidden page (not in menu). Dump CSV data tool. Access only via URL.
-    """
-    return templates.TemplateResponse(request, "admin/dump_csv_data.html", {})
+    """SuperAdmin only. Data & CSV tools (destructive reset + future read-only previews)."""
+    _rbac_require_superadmin(request)
+    return templates.TemplateResponse(
+        request,
+        "admin/dump_csv_data.html",
+        {"section": "admin_data_tools"},
+    )
 
 
 @app.post("/api/dump-csv-data", response_class=HTMLResponse)
 async def dump_csv_data(request: Request):
     """
-    Clear all entity and relation CSVs (header-only). feeds.csv is not touched.
-    Reloads in-memory state and redirects to dashboard.
+    SuperAdmin only. Clear all entity and relation CSVs (header-only). feeds.csv is not touched.
+    Reloads in-memory state; redirects to /users when RBAC shell applies to SuperAdmin, else /.
     """
+    _rbac_require_superadmin(request)
     _dump_entity_and_relation_csvs()
     global DOMAIN_EVENTS, DOMAIN_ENTITIES, ENTITY_FEED_MAPPINGS, SPORT_FEED_MAPPINGS
     DOMAIN_EVENTS = _load_domain_events()
@@ -7498,7 +7549,50 @@ async def dump_csv_data(request: Request):
     # Feeder rows (DUMMY_EVENTS) keep stale MAPPED until re-synced from event_mappings.csv; dashboard counts use those.
     _sync_feeder_events_mapping_status()
     _invalidate_dashboard_feed_stats_cache()
-    return RedirectResponse(url="/", status_code=303)
+    _admin_audit_append(
+        request,
+        resource="superadmin.data_tools",
+        action="dump_entity_csvs",
+        subject=json.dumps({"tool": "dump_entity_and_relation_csvs"}, separators=(",", ":")),
+        was="live DOMAIN_ENTITIES / DOMAIN_EVENTS / mappings",
+        now="entity+relation CSVs rewritten header-only; in-memory reloaded",
+        details="feeds.csv, sports.csv, sport_feed_mappings.csv unchanged",
+    )
+    after = (
+        "/users"
+        if _rbac_nav_enforced(request) and _rbac_actor_is_superadmin(request)
+        else "/"
+    )
+    return RedirectResponse(url=after, status_code=303)
+
+
+@app.get("/api/superadmin/csv-files")
+async def api_superadmin_csv_files(request: Request):
+    """SuperAdmin only. List whitelisted CSVs under data/ with size and existence."""
+    _rbac_require_superadmin(request)
+    files: list[dict] = []
+    for key, pth, label in _SUPERADMIN_CSV_CATALOG:
+        exists = pth.exists()
+        size = int(pth.stat().st_size) if exists else 0
+        files.append({"key": key, "label": label, "exists": exists, "size": size})
+    return JSONResponse({"files": files})
+
+
+@app.get("/api/superadmin/csv-preview")
+async def api_superadmin_csv_preview(request: Request, key: str = "", offset: int = 0, limit: int = 100):
+    """SuperAdmin only. Paginated CSV rows (header + data rows) for a catalog key."""
+    _rbac_require_superadmin(request)
+    key = (key or "").strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="Missing query parameter: key")
+    pth = _superadmin_csv_path_for_key(key)
+    if pth is None:
+        raise HTTPException(status_code=404, detail="Unknown file key")
+    label = next((lb for k, _, lb in _SUPERADMIN_CSV_CATALOG if k == key), key)
+    prev = _superadmin_read_csv_preview(pth, offset, limit)
+    prev["key"] = key
+    prev["label"] = label
+    return JSONResponse(prev)
 
 
 def _feeder_category_key(e: dict) -> str:
@@ -10042,7 +10136,8 @@ _RBAC_API_USERS_ANY = frozenset(
 # Longest prefix first: first match wins. User needs at least one code in the frozenset.
 _RBAC_PATH_GATE: list[tuple[str, frozenset[str]]] = sorted(
     [
-        ("/admin/dump-csv-data", frozenset({"menu.admin.view"})),
+        # Not assignable in Roles & Permissions — SuperAdmin bypasses path gate in _rbac_forbidden_if_path_denied.
+        ("/admin/dump-csv-data", frozenset({"__rbac.internal.superadmin_data_tools_only__"})),
         ("/notifications/unconfirmed", frozenset({"menu.notifications.view"})),
         ("/modal/feeder-event-log", frozenset({"menu.betting_program.feeder_events.view"})),
         ("/modal/feeder-event-notes", frozenset({"menu.betting_program.feeder_events.view"})),
@@ -10140,6 +10235,157 @@ def _rbac_require_any_permission_codes(request: Request, *codes: str) -> None:
     if any(c in perms for c in codes):
         return
     raise HTTPException(status_code=403, detail=f"Missing one of: {', '.join(codes)}")
+
+
+def _rbac_require_superadmin(request: Request) -> None:
+    """Break-glass tools (e.g. CSV reset). Not an assignable permission — only users with is_superadmin."""
+    if not _rbac_actor_is_superadmin(request):
+        raise HTTPException(status_code=403, detail="SuperAdmin only.")
+
+
+def _build_superadmin_csv_catalog() -> list[tuple[str, Path, str]]:
+    """(api_key, resolved_path, display_label) — only paths under data/ for read-only preview."""
+    root = config.DATA_DIR.resolve()
+    out: list[tuple[str, Path, str]] = []
+
+    def add(key: str, path: Path | None, label: str) -> None:
+        if path is None:
+            return
+        try:
+            rp = path.resolve()
+        except (OSError, RuntimeError):
+            return
+        rroot = str(root) + os.sep
+        rs = str(rp)
+        if rp != root and not rs.startswith(rroot):
+            return
+        out.append((key, rp, label))
+
+    add("feeds", config.FEEDS_PATH, "feeds.csv")
+    add("sports", config.DATA_DIR / "sports.csv", "sports.csv")
+    add("categories", config.DATA_DIR / "categories.csv", "categories.csv")
+    add("competitions", config.DATA_DIR / "competitions.csv", "competitions.csv")
+    add("teams", config.DATA_DIR / "teams.csv", "teams.csv")
+    add("markets", config.DATA_DIR / "markets.csv", "markets.csv")
+    add("domain_events", config.DOMAIN_EVENTS_PATH, "domain_events.csv")
+    add("event_mappings", config.EVENT_MAPPINGS_PATH, "event_mappings.csv")
+    add("entity_feed_mappings", config.ENTITY_FEED_MAPPINGS_PATH, "entity_feed_mappings.csv")
+    add("sport_feed_mappings", config.SPORT_FEED_MAPPINGS_PATH, "sport_feed_mappings.csv")
+    add("partners", config.PARTNERS_PATH, "partners.csv")
+    add("brands", config.BRANDS_PATH, "brands.csv")
+    add("languages", config.LANGUAGES_PATH, "languages.csv")
+    add("translations", config.TRANSLATIONS_PATH, "translations.csv")
+    add("feed_sports", config.FEED_SPORTS_PATH, "feed_sports.csv")
+    add("feed_time_statuses", config.FEED_TIME_STATUSES_PATH, "feed_time_statuses.csv")
+    add("feed_last_pull", config.FEED_LAST_PULL_PATH, "feed_last_pull.csv")
+    add("feeder_config", config.FEEDER_CONFIG_PATH, "feeder_config.csv")
+    add("feeder_incidents", config.FEEDER_INCIDENTS_PATH, "feeder_incidents.csv")
+    add("feeder_ignored_events", config.FEEDER_IGNORED_EVENTS_PATH, "feeder_ignored_events.csv")
+    add("feeder_event_notes", config.FEEDER_EVENT_NOTES_PATH, "feeder_event_notes.csv")
+    add("margin_templates", config.MARGIN_TEMPLATES_PATH, "margin_templates.csv")
+    add("margin_template_competitions", config.MARGIN_TEMPLATE_COMPETITIONS_PATH, "margin_template_competitions.csv")
+    add("participant_type", config.PARTICIPANT_TYPE_PATH, "countries/participant_type.csv")
+    add("underage_categories", config.UNDERAGE_CATEGORIES_PATH, "countries/underage_categories.csv")
+    add("market_templates", config.MARKET_TEMPLATES_PATH, "markets/market_templates.csv")
+    add("market_period_type", config.MARKET_PERIOD_TYPE_PATH, "markets/market_period_type.csv")
+    add("market_score_type", config.MARKET_SCORE_TYPE_PATH, "markets/market_score_type.csv")
+    add("market_groups", config.MARKET_GROUPS_PATH, "markets/market_groups.csv")
+    add("market_type_mappings", config.MARKET_TYPE_MAPPINGS_PATH, "markets/market_type_mappings.csv")
+    add("market_outcomes", config.MARKET_OUTCOMES_PATH, "markets/market_outcomes.csv")
+    add("onexbet_market_names", config.ONEXBET_MARKET_NAMES_PATH, "markets/1xbet_market_names.csv")
+    add("rbac_users", config.RBAC_USERS_PATH, "rbac/users.csv")
+    add("rbac_roles", config.RBAC_ROLES_PATH, "rbac/roles.csv")
+    add("rbac_user_roles", config.RBAC_USER_ROLES_PATH, "rbac/user_roles.csv")
+    add("rbac_role_permissions", config.RBAC_ROLE_PERMISSIONS_PATH, "rbac/role_permissions.csv")
+    add("rbac_user_brands", config.RBAC_USER_BRANDS_PATH, "rbac/user_brands.csv")
+    add("rbac_audit_log", config.RBAC_AUDIT_LOG_PATH, "rbac/rbac_audit_log.csv")
+    add("platform_notes", config.NOTES_PATH, "notes/platform_notes.csv")
+    add("platform_notifications", config.NOTIFICATIONS_PATH, "notes/platform_notifications.csv")
+    add("alert_types", config.ALERT_TYPES_PATH, "notes/alert_types.csv")
+    add("alerts", config.ALERTS_PATH, "notes/alerts.csv")
+    add("event_navigator_notes", config.EVENT_NAVIGATOR_NOTES_PATH, "notes/event_navigator_notes.csv")
+    add("admin_audit_log", config.ADMIN_AUDIT_LOG_PATH, "audit/admin_audit_log.csv")
+    add("feeder_event_log", config.FEEDER_EVENT_LOG_PATH, "audit/feeder_event_log.csv")
+    add("domain_event_log", config.DOMAIN_EVENT_LOG_PATH, "audit/domain_event_log.csv")
+    leg = getattr(config, "NOTES_PATH_LEGACY", None)
+    if leg:
+        add("platform_notes_legacy", leg, "platform_notes.csv (legacy)")
+    return out
+
+
+_SUPERADMIN_CSV_CATALOG: list[tuple[str, Path, str]] = _build_superadmin_csv_catalog()
+
+
+def _superadmin_csv_path_for_key(key: str) -> Path | None:
+    for k, p, _ in _SUPERADMIN_CSV_CATALOG:
+        if k == key:
+            return p
+    return None
+
+
+def _superadmin_read_csv_preview(path: Path, offset: int, limit: int) -> dict:
+    """Read UTF-8 CSV slice; offset/limit apply to data rows after header."""
+    offset = max(0, min(int(offset), 500_000))
+    limit = max(1, min(int(limit), 200))
+    if not path.exists():
+        return {
+            "ok": False,
+            "error": "file_not_found",
+            "headers": [],
+            "rows": [],
+            "offset": offset,
+            "limit": limit,
+            "has_more": False,
+        }
+    headers: list[str] = []
+    rows: list[list[str]] = []
+    has_more = False
+    data_idx = 0
+    with open(path, newline="", encoding="utf-8", errors="replace") as f:
+        reader = csv.reader(f)
+        headers = next(reader, [])
+        for row in reader:
+            if data_idx < offset:
+                data_idx += 1
+                continue
+            if len(rows) >= limit:
+                has_more = True
+                break
+            rows.append(row)
+            data_idx += 1
+    return {
+        "ok": True,
+        "headers": headers,
+        "rows": rows,
+        "offset": offset,
+        "limit": limit,
+        "has_more": has_more,
+    }
+
+
+def _rbac_superadmin_shell_redirect_if_needed(request: Request) -> RedirectResponse | None:
+    """SuperAdmin day-to-day shell: only dashboard, user admin, data tools, dev auth, static, notifications HTMX, APIs."""
+    if not _rbac_nav_enforced(request):
+        return None
+    if not _rbac_actor_is_superadmin(request):
+        return None
+    method = (request.method or "GET").upper()
+    if method not in ("GET", "HEAD"):
+        return None
+    path = request.url.path
+    if path.startswith("/api/"):
+        return None
+    if path.startswith("/static/"):
+        return None
+    if path in frozenset({"/", "/users", "/admin/dump-csv-data"}):
+        return None
+    if path.startswith("/dev/"):
+        return None
+    if path.startswith("/notifications/unconfirmed"):
+        return None
+    if path in ("/favicon.ico",):
+        return None
+    return RedirectResponse(url="/users", status_code=303)
 
 
 # Plural entity_type from /api/entities* → RBAC prefix (matches RBAC_ENTITY_CRUD / tree).
@@ -10318,10 +10564,19 @@ def _rbac_enforce_api_permissions(request: Request) -> None:
         _rbac_require_permission_code(request, "config.feeders.update")
         return
 
-    # --- Admin dump ---
+    # --- SuperAdmin: destructive CSV reset (not role-grantable) ---
     if re.fullmatch(r"/api/dump-csv-data", path) and method == "POST":
-        _rbac_require_permission_code(request, "menu.admin.view")
+        _rbac_require_superadmin(request)
         return
+
+    # --- SuperAdmin: read-only CSV catalog / preview (not role-grantable) ---
+    if path.startswith("/api/superadmin/"):
+        _rbac_require_superadmin(request)
+        if re.fullmatch(r"/api/superadmin/csv-files", path) and method == "GET":
+            return
+        if path.startswith("/api/superadmin/csv-preview") and method == "GET":
+            return
+        raise HTTPException(status_code=404, detail="Unknown superadmin API endpoint")
 
     # --- Event navigator ---
     if re.fullmatch(r"/api/event-navigator/notes", path) and method == "POST":
@@ -10444,6 +10699,7 @@ def _template_rbac_menu_branch_visible(request: Request, branch_label: str) -> b
 
 templates.env.globals["rbac_can_any"] = _template_rbac_can_any
 templates.env.globals["rbac_menu_branch_visible"] = _template_rbac_menu_branch_visible
+templates.env.globals["rbac_is_superadmin"] = _rbac_actor_is_superadmin
 
 
 @app.get("/api/rbac/users")
@@ -11191,8 +11447,12 @@ async def margin_template_competitions(
     sport_id: str | None = None,
 ):
     """
-    List competitions in this template and not in this template (for current scope).
-    Used by Add/Remove Competitions modal. brand_id/sport_id define scope (query params).
+    List competitions for the Add/Remove Competitions modal (current brand × sport scope).
+
+    * Uncategorized template: left = default bucket; right = competitions assigned to other templates.
+    * Any other template: left = in this template; right = **Uncategorized bucket only** (unassigned or
+      explicit Uncategorized) so tiers are not listed as addable from here—move between tiers from
+      the left column on the source template.
     """
     from fastapi import HTTPException
     b = (brand_id or "").strip()
@@ -11236,6 +11496,9 @@ async def margin_template_competitions(
         return comp_to_template.get(_margin_scope_competition_key(c.get("competition_id")))
 
     is_uncategorized = (template_name_by_id.get(template_id) or "").strip().lower() == "uncategorized"
+    unc_tid = next((t["id"] for t in scope_templates if (t.get("name") or "").strip().lower() == "uncategorized" and t.get("id") is not None), None)
+    unc_display = (template_name_by_id.get(unc_tid) or "Uncategorized") if unc_tid is not None else "Uncategorized"
+
     if is_uncategorized:
         # Default bucket: in_template = explicitly in Uncategorized or not in any scope template
         in_template = [
@@ -11259,16 +11522,29 @@ async def margin_template_competitions(
             for c in sport_competitions
             if _tpl_for_comp(c) == template_id
         ]
-        not_in_template = [
-            {
-                "competition_id": c["competition_id"],
-                "name": c["name"],
-                "category_name": c.get("category_name", "—"),
-                "current_template_name": template_name_by_id.get(_tpl_for_comp(c), "—"),
-            }
-            for c in sport_competitions
-            if _tpl_for_comp(c) != template_id
-        ]
+        # Right column: only Uncategorized bucket (explicit Uncategorized row or no assignment yet).
+        # Tiers already on another named template are moved via "In this template" on that template, not from here.
+        def _in_uncategorized_bucket(c: dict) -> bool:
+            tid = _tpl_for_comp(c)
+            if tid is None:
+                return True
+            if unc_tid is not None:
+                return tid == unc_tid
+            return False
+
+        not_in_template = sorted(
+            (
+                {
+                    "competition_id": c["competition_id"],
+                    "name": c["name"],
+                    "category_name": c.get("category_name", "—"),
+                    "current_template_name": unc_display,
+                }
+                for c in sport_competitions
+                if _in_uncategorized_bucket(c)
+            ),
+            key=lambda d: (d.get("name") or "").strip().casefold(),
+        )
     other_templates = [{"id": t["id"], "name": (t.get("name") or "").strip() or "—"} for t in scope_templates if t.get("id") != template_id]
     return {
         "template_id": template_id,
@@ -11276,6 +11552,7 @@ async def margin_template_competitions(
         "in_template": in_template,
         "not_in_template": not_in_template,
         "other_templates": other_templates,
+        "hide_current_template_on_add": not is_uncategorized,
     }
 
 
@@ -12045,7 +12322,10 @@ async def margin_view(
     See docs/MARGIN_CONFIG_SPEC.md.
     """
     brands = _load_brands()
-    sports = DOMAIN_ENTITIES.get("sports", [])
+    sports = sorted(
+        DOMAIN_ENTITIES.get("sports", []),
+        key=lambda s: (s.get("name") or "").strip().casefold(),
+    )
 
     # User must click Apply (sport_id in query) before we show tables or load table data
     applied = sport_id is not None and str(sport_id).strip() != ""
@@ -12617,6 +12897,9 @@ class _DevActorMiddleware(BaseHTTPMiddleware):
         denied = _rbac_forbidden_if_path_denied(request)
         if denied is not None:
             return denied
+        shell_redir = _rbac_superadmin_shell_redirect_if_needed(request)
+        if shell_redir is not None:
+            return shell_redir
         try:
             _rbac_enforce_api_permissions(request)
         except HTTPException as e:

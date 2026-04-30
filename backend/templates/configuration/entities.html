@@ -19,6 +19,19 @@
 {% endif %}
 {% set default_entity_tab = dtab.v %}
 
+{% macro entity_activity_switcher(panel_key) %}
+<div class="entity-activity-root flex items-center gap-1.5 shrink-0" data-entity-activity-panel="{{ panel_key }}">
+    <span class="text-[10px] uppercase tracking-wider text-gmp-text-faint hidden md:inline">Status</span>
+    <input type="hidden" id="entity-activity-filter-{{ panel_key }}" class="entity-activity-filter-input" value="active" autocomplete="off">
+    <div class="inline-flex rounded-md border border-gmp-border bg-gmp-surface-raised/80 p-0.5 gap-0.5" role="group" aria-label="Show active or inactive rows">
+        <button type="button" class="entity-activity-btn px-2 py-1 rounded text-[11px] font-medium transition-colors border border-transparent" data-entity-activity="active">Active</button>
+        <button type="button" class="entity-activity-btn px-2 py-1 rounded text-[11px] font-medium transition-colors border border-transparent" data-entity-activity="inactive">Inactive</button>
+        <button type="button" class="entity-activity-btn px-2 py-1 rounded text-[11px] font-medium transition-colors border border-transparent" data-entity-activity="all">All</button>
+    </div>
+</div>
+{% endmacro %}
+{% set entity_reset_filters_btn_class = 'inline-flex items-center gap-1 text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px border border-transparent transition-colors' %}
+
 {% block content %}
 <div class="flex flex-col h-full space-y-2">
 
@@ -140,15 +153,12 @@
                 <option value="{{ s.domain_id }}" {% if market_sport_id is not none and market_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
             </select>
-            <div class="flex items-center bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 min-w-[160px]">
+            {{ entity_activity_switcher('markets') }}
+            <div class="flex items-center bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 min-w-[160px] flex-1 max-w-xs">
                 <i class="fa-solid fa-search text-gmp-text-faint mr-2 text-xs"></i>
                 <input type="text" id="mt-name" placeholder="Name" class="bg-transparent border-none text-xs text-gmp-text-heading placeholder-gmp-text-faint focus:ring-0 p-0 w-full outline-none">
             </div>
-            <label class="flex items-center gap-2 text-xs text-gmp-text-muted cursor-pointer">
-                <input type="checkbox" id="mt-active-only" class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary/30">
-                Active only
-            </label>
-            <button type="button" onclick="mtClearFilters()" class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px border border-transparent transition-colors" title="Clear">× Clear</button>
+            <button type="button" onclick="mtClearFilters()" class="{{ entity_reset_filters_btn_class }}" title="Reset filters"><span class="font-medium" aria-hidden="true">×</span> Reset Filters</button>
             <button type="button" onclick="mtSort()" class="text-gmp-text-muted hover:text-gmp-text-heading text-xs px-3 py-1.5 rounded border border-gmp-border hover:border-gmp-border">Sort Market Types</button>
             {% if rbac_can_any(request, 'entity.markets.create') %}
             <button type="button" onclick="mtToggleCreateForm()" class="ml-auto bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded flex items-center gap-1.5">
@@ -358,7 +368,7 @@
                     {% for s in market_score_types %}{% if s.code == entity.get('score_type') %}{% set _scr.s = s %}{% endif %}{% endfor %}
                     {% set _grp = namespace(g=None) %}
                     {% for g in market_groups %}{% if g.code == entity.get('market_group') %}{% set _grp.g = g %}{% endif %}{% endfor %}
-                    <tr class="entity-row hover:bg-gmp-hover/5 transition-colors" data-search="{{ (entity.name ~ ' ' ~ (entity.get('code') or '') ~ ' ' ~ (entity.get('abb') or '')) | lower }}" data-sport-id="{{ entity.get('sport_id') or '' }}">
+                    <tr class="entity-row hover:bg-gmp-hover/5 transition-colors" data-search="{{ (entity.name ~ ' ' ~ (entity.get('code') or '') ~ ' ' ~ (entity.get('abb') or '')) | lower }}" data-sport-id="{{ entity.get('sport_id') or '' }}" data-active="{{ '1' if entity.get('active', True) else '0' }}">
                         <td class="px-3 py-2 font-mono text-gmp-text-muted">{{ entity.domain_id }}</td>
                         <td class="px-3 py-2 text-gmp-text-muted">{{ sports_by_id.get(entity.sport_id, '—') }}</td>
                         <td class="px-3 py-2 text-gmp-text-heading font-medium">{{ entity.name }}</td>
@@ -403,13 +413,8 @@
         </div>
 
         {% else %}
-        <!-- Search + filter bar -->
+        <!-- Filter bar: dropdowns → status → search → reset (same order on every tab) -->
         <div class="flex flex-wrap items-center gap-3">
-            <div class="flex items-center bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 flex-1 max-w-xs min-w-[140px]">
-                <i class="fa-solid fa-search text-gmp-text-faint mr-2 text-xs"></i>
-                <input type="text" id="search-{{ key }}" placeholder="Search {{ key }}…" data-panel="{{ key }}"
-                    class="entity-search bg-transparent border-none text-xs text-gmp-text-heading placeholder-gmp-text-faint focus:ring-0 p-0 w-full outline-none">
-            </div>
             {% if key == 'categories' %}
             <select id="filter-categories-sport" class="filter-categories bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
                 <option value="">— Sport —</option>
@@ -417,7 +422,6 @@
                 <option value="{{ s.domain_id }}">{{ s.name }}</option>
                 {% endfor %}
             </select>
-            <button type="button" onclick="clearCategoriesFilters()" class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px border border-transparent transition-colors" title="Clear filters">Clear</button>
             {% endif %}
             {% if key == 'teams' %}
             <select id="filter-teams-sport" class="filter-teams bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
@@ -443,7 +447,6 @@
                 <option value="{{ u.id }}">{{ u.name }}</option>
                 {% endfor %}
             </select>
-            <button type="button" onclick="clearTeamsFilters()" class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px border border-transparent transition-colors" title="Clear filters">Clear</button>
             {% endif %}
             {% if key == 'competitions' %}
             <select id="filter-competitions-sport" class="filter-competitions bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
@@ -463,7 +466,23 @@
                 <option value="{{ u.id }}">{{ u.name }}</option>
                 {% endfor %}
             </select>
-            <button type="button" onclick="clearCompetitionsFilters()" class="inline-flex items-center text-[11px] font-medium text-rose-700 hover:text-rose-900 hover:bg-rose-100/90 dark:text-rose-300 dark:hover:text-rose-50 dark:hover:bg-rose-950/50 rounded-full px-2 py-px border border-transparent transition-colors" title="Clear filters">Clear</button>
+            {% endif %}
+            {% if key in ('sports', 'categories', 'competitions', 'teams') %}
+            {{ entity_activity_switcher(key) }}
+            {% endif %}
+            <div class="flex items-center bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 flex-1 max-w-xs min-w-[140px]">
+                <i class="fa-solid fa-search text-gmp-text-faint mr-2 text-xs"></i>
+                <input type="text" id="search-{{ key }}" placeholder="Search {{ key }}…" data-panel="{{ key }}"
+                    class="entity-search bg-transparent border-none text-xs text-gmp-text-heading placeholder-gmp-text-faint focus:ring-0 p-0 w-full outline-none">
+            </div>
+            {% if key == 'sports' %}
+            <button type="button" onclick="clearSportsFilters()" class="{{ entity_reset_filters_btn_class }}" title="Reset filters"><span class="font-medium" aria-hidden="true">×</span> Reset Filters</button>
+            {% elif key == 'categories' %}
+            <button type="button" onclick="clearCategoriesFilters()" class="{{ entity_reset_filters_btn_class }}" title="Reset filters"><span class="font-medium" aria-hidden="true">×</span> Reset Filters</button>
+            {% elif key == 'teams' %}
+            <button type="button" onclick="clearTeamsFilters()" class="{{ entity_reset_filters_btn_class }}" title="Reset filters"><span class="font-medium" aria-hidden="true">×</span> Reset Filters</button>
+            {% elif key == 'competitions' %}
+            <button type="button" onclick="clearCompetitionsFilters()" class="{{ entity_reset_filters_btn_class }}" title="Reset filters"><span class="font-medium" aria-hidden="true">×</span> Reset Filters</button>
             {% endif %}
             {% if key == 'categories' and rbac_can_any(request, 'entity.category.create') %}
             <button type="button" onclick="openNewEntityForm('categories')" class="ml-auto bg-primary hover:bg-primaryHover text-white text-xs font-medium px-3 py-1.5 rounded shadow-lg shadow-primary/20 transition-all flex items-center gap-1.5">
@@ -522,7 +541,7 @@
                     {% set refs = entity_feed_refs_by_key.get(key ~ ':' ~ entity.domain_id, []) %}
                     {% set ns = namespace(parts=[entity.domain_id | string, entity.name, (entity.get('code') or ''), (sports_by_id.get(entity.get('sport_id'), '') or ''), (categories_by_id.get(entity.get('category_id'), '') or '')]) %}
                     {% for r in refs %}{% set ns.parts = ns.parts + [feeds_by_id.get(r.feed_provider_id, '') or '', r.feed_id] %}{% endfor %}
-                    <tr class="entity-row hover:bg-gmp-hover/5 transition-colors" data-search="{{ ns.parts | join(' ') | lower }}" data-entity-id="{{ entity.domain_id }}"{% if key == 'categories' %} data-sport-id="{{ entity.get('sport_id') or '' }}"{% endif %}{% if key == 'teams' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-participant-type-id="{{ entity.get('participant_type_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}{% if key == 'competitions' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}>
+                    <tr class="entity-row hover:bg-gmp-hover/5 transition-colors" data-search="{{ ns.parts | join(' ') | lower }}" data-entity-id="{{ entity.domain_id }}" data-active="{{ '1' if entity.get('active', True) else '0' }}"{% if key == 'categories' %} data-sport-id="{{ entity.get('sport_id') or '' }}"{% endif %}{% if key == 'teams' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-participant-type-id="{{ entity.get('participant_type_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}{% if key == 'competitions' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}>
                         <td class="px-4 py-2.5 font-mono text-gmp-text-muted">{{ entity.domain_id }}</td>
                         <td class="px-4 py-2.5 text-gmp-text-heading font-medium" data-entity-name="1">{{ entity.name }}</td>
                         {% if key in ('sports', 'categories', 'competitions', 'teams') %}
@@ -995,9 +1014,11 @@
     window.addEventListener('hashchange', applyEntityTabFromHash);
     document.addEventListener('DOMContentLoaded', function () {
         if (typeof entityWirePagerButtons === 'function') entityWirePagerButtons();
+        if (typeof wireEntityActivityFilters === 'function') wireEntityActivityFilters();
         if (!ENTITY_TAB_KEYS.length) return;
         if (!window.location.hash) window.location.hash = DEFAULT_ENTITY_TAB;
         applyEntityTabFromHash();
+        if (typeof entityApplyInitialFiltersAllPanels === 'function') entityApplyInitialFiltersAllPanels();
     });
 
     function toggleNewEntityForm() {
@@ -1390,10 +1411,11 @@
     function mtClearFilters() {
         const sport = document.getElementById('mt-sport');
         const name = document.getElementById('mt-name');
-        const active = document.getElementById('mt-active-only');
         if (sport) sport.value = '';
         if (name) name.value = '';
-        if (active) active.checked = false;
+        var act = document.getElementById('entity-activity-filter-markets');
+        if (act) act.value = 'active';
+        if (typeof syncEntityActivityFilterUi === 'function') syncEntityActivityFilterUi('markets');
         var u = new URL(window.location.href);
         u.searchParams.delete('market_sport_id');
         u.hash = 'markets';
@@ -1705,15 +1727,79 @@
         renderMarketMapperAvailableList();
     });
 
-    function mtToggleActive(el) {
-        if (!el) return;
-        console.log('Activate/Deactivate:', el.checked ? 'active' : 'inactive');
+    function getEntityActivityMode(panel) {
+        var el = document.getElementById('entity-activity-filter-' + panel);
+        var v = (el && el.value ? String(el.value) : 'active').trim().toLowerCase();
+        if (v === 'inactive' || v === 'all') return v;
+        return 'active';
+    }
+    function rowMatchesEntityActivity(tr, mode) {
+        if (mode === 'all') return true;
+        var a = (tr.getAttribute('data-active') || '1').trim();
+        var isActive = (a === '1' || a === 'true');
+        if (mode === 'active') return isActive;
+        return !isActive;
+    }
+    function syncEntityActivityFilterUi(panel) {
+        var input = document.getElementById('entity-activity-filter-' + panel);
+        if (!input) return;
+        var mode = getEntityActivityMode(panel);
+        input.value = mode;
+        var root = input.closest('.entity-activity-root');
+        if (!root) return;
+        root.querySelectorAll('.entity-activity-btn').forEach(function (btn) {
+            var v = (btn.getAttribute('data-entity-activity') || 'active').trim().toLowerCase();
+            var on = v === mode;
+            btn.classList.toggle('bg-primary/15', on);
+            btn.classList.toggle('text-primary', on);
+            btn.classList.toggle('border-primary/25', on);
+            btn.classList.toggle('text-gmp-text-muted', !on);
+            btn.classList.toggle('hover:text-gmp-text-heading', !on);
+            btn.classList.toggle('border-transparent', !on);
+        });
+    }
+    function onEntityActivitySegmentClick(panel, mode) {
+        var input = document.getElementById('entity-activity-filter-' + panel);
+        if (!input) return;
+        input.value = mode;
+        syncEntityActivityFilterUi(panel);
+        if (panel === 'markets' && typeof mtApplyFilters === 'function') mtApplyFilters();
+        else if (panel === 'sports' && typeof applySportsFilters === 'function') applySportsFilters();
+        else if (panel === 'categories' && typeof applyCategoriesFilters === 'function') applyCategoriesFilters();
+        else if (panel === 'teams' && typeof applyTeamsFilters === 'function') applyTeamsFilters();
+        else if (panel === 'competitions' && typeof applyCompetitionsFilters === 'function') applyCompetitionsFilters();
+    }
+    function wireEntityActivityFilters() {
+        document.querySelectorAll('.entity-activity-root').forEach(function (root) {
+            var panel = root.getAttribute('data-entity-activity-panel');
+            if (!panel) return;
+            root.querySelectorAll('.entity-activity-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var mode = (btn.getAttribute('data-entity-activity') || 'active').trim().toLowerCase();
+                    onEntityActivitySegmentClick(panel, mode);
+                });
+            });
+            syncEntityActivityFilterUi(panel);
+        });
+    }
+    function resetEntityActivityFilterToActive(panel) {
+        var input = document.getElementById('entity-activity-filter-' + panel);
+        if (input) input.value = 'active';
+        syncEntityActivityFilterUi(panel);
+    }
+    function entityApplyInitialFiltersAllPanels() {
+        if (document.querySelector('.entity-tbody[data-panel="sports"]') && typeof applySportsFilters === 'function') applySportsFilters();
+        if (document.querySelector('.entity-tbody[data-panel="categories"]') && typeof applyCategoriesFilters === 'function') applyCategoriesFilters();
+        if (document.querySelector('.entity-tbody[data-panel="competitions"]') && typeof applyCompetitionsFilters === 'function') applyCompetitionsFilters();
+        if (document.querySelector('.entity-tbody[data-panel="teams"]') && typeof applyTeamsFilters === 'function') applyTeamsFilters();
+        if (document.querySelector('.entity-tbody[data-panel="markets"]') && typeof mtApplyFilters === 'function') mtApplyFilters();
     }
     function applySportsFilters() {
         const panel = 'sports';
         window._entityPage[panel] = 1;
         const searchInput = document.getElementById('search-sports');
         const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
+        const actMode = getEntityActivityMode(panel);
         const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
         if (!tbody) return;
         tbody.querySelectorAll('.entity-row').forEach(function (tr) {
@@ -1722,7 +1808,9 @@
                 return;
             }
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
-            const show = !query || searchText.indexOf(query) !== -1;
+            const matchSearch = !query || searchText.indexOf(query) !== -1;
+            const matchAct = rowMatchesEntityActivity(tr, actMode);
+            const show = matchSearch && matchAct;
             tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
         });
         entityApplyPaging(panel);
@@ -1731,6 +1819,7 @@
         window._entityPage.markets = 1;
         const sportVal = (document.getElementById('mt-sport')?.value || '').trim();
         const nameQuery = (document.getElementById('mt-name')?.value || '').trim().toLowerCase();
+        const actMode = getEntityActivityMode('markets');
         const tbody = document.querySelector('.entity-tbody[data-panel="markets"]');
         if (!tbody) return;
         const noSportRow = document.getElementById('mt-no-sport-row');
@@ -1750,7 +1839,8 @@
             const matchSport = rowSportId === sportVal;
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
             const matchName = !nameQuery || searchText.indexOf(nameQuery) !== -1;
-            tr.setAttribute('data-entity-filter-match', (matchSport && matchName) ? '1' : '0');
+            const matchAct = rowMatchesEntityActivity(tr, actMode);
+            tr.setAttribute('data-entity-filter-match', (matchSport && matchName && matchAct) ? '1' : '0');
         });
         entityApplyPaging('markets');
     }
@@ -1770,6 +1860,7 @@
         const typeVal = (typeSel && typeSel.value ? typeSel.value.trim() : '') || '';
         const amateurVal = (amateurSel && amateurSel.value ? amateurSel.value.trim() : '') || '';
         const ageCatVal = (ageCatSel && ageCatSel.value ? ageCatSel.value.trim() : '') || '';
+        const actMode = getEntityActivityMode(panel);
         const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
         if (!tbody) return;
         const rows = tbody.querySelectorAll('.entity-row');
@@ -1788,7 +1879,8 @@
             const matchType = !typeVal || rowTypeId === typeVal;
             const matchAmateur = !amateurVal || rowAmateur === amateurVal;
             const matchAgeCat = !ageCatVal || rowAgeCatId === ageCatVal;
-            const show = matchSearch && matchSport && matchType && matchAmateur && matchAgeCat;
+            const matchAct = rowMatchesEntityActivity(tr, actMode);
+            const show = matchSearch && matchSport && matchType && matchAmateur && matchAgeCat && matchAct;
             tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
         });
         entityApplyPaging(panel);
@@ -1799,6 +1891,7 @@
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
+        resetEntityActivityFilterToActive('teams');
         applyTeamsFilters();
     }
 
@@ -1809,6 +1902,7 @@
         const sportSel = document.getElementById('filter-categories-sport');
         const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
         const sportVal = (sportSel && sportSel.value ? sportSel.value.trim() : '') || '';
+        const actMode = getEntityActivityMode(panel);
         const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
         if (!tbody) return;
         const rows = tbody.querySelectorAll('.entity-row');
@@ -1821,10 +1915,18 @@
             const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
             const matchSearch = !query || searchText.indexOf(query) !== -1;
             const matchSport = !sportVal || rowSportId === sportVal;
-            const show = matchSearch && matchSport;
+            const matchAct = rowMatchesEntityActivity(tr, actMode);
+            const show = matchSearch && matchSport && matchAct;
             tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
         });
         entityApplyPaging(panel);
+    }
+
+    function clearSportsFilters() {
+        const searchInput = document.getElementById('search-sports');
+        if (searchInput) searchInput.value = '';
+        resetEntityActivityFilterToActive('sports');
+        applySportsFilters();
     }
 
     function clearCategoriesFilters() {
@@ -1832,6 +1934,7 @@
         if (searchInput) searchInput.value = '';
         const sportSel = document.getElementById('filter-categories-sport');
         if (sportSel) sportSel.value = '';
+        resetEntityActivityFilterToActive('categories');
         applyCategoriesFilters();
     }
 
@@ -1846,6 +1949,7 @@
         const sportVal = (sportSel && sportSel.value ? sportSel.value.trim() : '') || '';
         const amateurVal = (amateurSel && amateurSel.value ? amateurSel.value.trim() : '') || '';
         const ageCatVal = (ageCatSel && ageCatSel.value ? ageCatSel.value.trim() : '') || '';
+        const actMode = getEntityActivityMode(panel);
         const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
         if (!tbody) return;
         const rows = tbody.querySelectorAll('.entity-row');
@@ -1862,7 +1966,8 @@
             const matchSport = !sportVal || rowSportId === sportVal;
             const matchAmateur = !amateurVal || rowAmateur === amateurVal;
             const matchAgeCat = !ageCatVal || rowAgeCatId === ageCatVal;
-            const show = matchSearch && matchSport && matchAmateur && matchAgeCat;
+            const matchAct = rowMatchesEntityActivity(tr, actMode);
+            const show = matchSearch && matchSport && matchAmateur && matchAgeCat && matchAct;
             tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
         });
         entityApplyPaging(panel);
@@ -1875,6 +1980,7 @@
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
+        resetEntityActivityFilterToActive('competitions');
         applyCompetitionsFilters();
     }
 

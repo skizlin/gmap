@@ -72,6 +72,7 @@ class UpdateMarketRequest(BaseModel):
     score_type: Optional[str] = None
     side_type: Optional[str] = None
     score_dependant: Optional[bool] = None
+    active: Optional[bool] = None
 
 
 class CreatePartnerRequest(BaseModel):

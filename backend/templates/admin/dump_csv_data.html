@@ -1,21 +1,77 @@
 {% extends "layout.html" %}
 
-{% block page_heading %}Dump CSV data{% endblock %}
+{% block page_heading %}Data &amp; CSV tools{% endblock %}
 
-{% block title %}Dump CSV data{% endblock %}
+{% block title %}Data &amp; CSV tools{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
+<div class="max-w-6xl mx-auto space-y-6">
+    <div class="flex flex-wrap items-center gap-2 text-xs text-gmp-text-muted">
+        <a href="/users" class="hover:text-gmp-text-heading transition-colors">Admin</a>
+        <span class="text-gmp-text-faint" aria-hidden="true">/</span>
+        <span class="text-gmp-text-heading font-medium">Data &amp; CSV tools</span>
+    </div>
+
+    <div class="rounded-lg border border-gmp-border bg-gmp-surface-raised/40 px-5 py-4">
+        <h2 class="text-sm font-semibold text-gmp-text-heading mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved text-secondary" aria-hidden="true"></i>
+            SuperAdmin only
+        </h2>
+        <p class="text-gmp-text-menu text-sm leading-relaxed">
+            This screen is not tied to any role in <strong>Roles &amp; Permissions</strong>. Only accounts with
+            <span class="font-mono text-xs bg-gmp-surface-raised px-1.5 py-0.5 rounded border border-gmp-border">is_superadmin</span>
+            can open it or run the reset below. While signed in as SuperAdmin, the top nav shows <strong>Admin</strong> plus
+            <strong>Dashboard</strong> only (no Configuration / Betting Program). Use a non–SuperAdmin account for day-to-day work.
+        </p>
+        <p class="text-gmp-text-muted text-xs mt-3">
+            Destructive CSV reset is logged to <code class="text-[11px]">admin_audit_log.csv</code>. Preview is read-only (whitelisted files under <code class="text-[11px]">data/</code>).
+        </p>
+    </div>
+
+    <div class="rounded-lg border border-gmp-border bg-gmp-surface-raised/30 p-5">
+        <h2 class="text-base font-semibold text-gmp-text-heading mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-table text-gmp-text-muted" aria-hidden="true"></i>
+            CSV preview
+        </h2>
+        <p class="text-gmp-text-muted text-xs mb-4">Select a file, then load. Rows are paged (max 200 per request) for large CSVs.</p>
+        <div class="flex flex-wrap items-end gap-3 mb-4">
+            <div class="min-w-[14rem] flex-1 max-w-md">
+                <label for="csv-file-select" class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">File</label>
+                <select id="csv-file-select" class="w-full bg-gmp-surface border border-gmp-border rounded px-2.5 py-2 text-sm text-gmp-text-heading focus:border-primary outline-none">
+                    <option value="">— Loading list… —</option>
+                </select>
+            </div>
+            <button type="button" id="csv-preview-load" class="bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-2 rounded shrink-0">
+                Load preview
+            </button>
+        </div>
+        <p id="csv-preview-meta" class="text-xs text-gmp-text-muted mb-2 min-h-[1.25rem]"></p>
+        <div id="csv-preview-error" class="text-xs text-danger mb-2 hidden"></div>
+        <div class="overflow-x-auto border border-gmp-border rounded-lg bg-gmp-surface max-h-[min(28rem,55vh)] overflow-y-auto">
+            <table class="gmp-data-table w-full text-left text-xs border-collapse" id="csv-preview-table">
+                <thead id="csv-preview-thead"></thead>
+                <tbody id="csv-preview-tbody"></tbody>
+            </table>
+        </div>
+        <div class="flex items-center justify-between gap-2 mt-3">
+            <button type="button" id="csv-preview-prev" class="px-3 py-1.5 text-xs rounded border border-gmp-border bg-gmp-surface-raised hover:bg-gmp-hover/10 disabled:opacity-40 disabled:cursor-not-allowed" disabled>Previous page</button>
+            <span id="csv-preview-page" class="text-xs text-gmp-text-muted"></span>
+            <button type="button" id="csv-preview-next" class="px-3 py-1.5 text-xs rounded border border-gmp-border bg-gmp-surface-raised hover:bg-gmp-hover/10 disabled:opacity-40 disabled:cursor-not-allowed" disabled>Next page</button>
+        </div>
+    </div>
+
     <div class="glass-panel rounded-lg p-6 border-2 border-danger/50 bg-gmp-surface-inset/20">
-        <h2 class="text-lg font-semibold text-danger mb-2">
-            <i class="fa-solid fa-triangle-exclamation mr-2"></i> Destructive action
+        <h2 class="text-lg font-semibold text-danger mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+            Danger zone — reset entity CSVs
         </h2>
         <p class="text-gmp-text-menu text-sm mb-4">
-            This will <strong>clear all data</strong> in: categories, competitions, teams, domain events, event mappings, entity feed mappings.
-            Files are reset to header-only. <strong>feeds.csv</strong>, <strong>sports.csv</strong> and <strong>sport_feed_mappings.csv</strong> are not changed.
+            Clears <strong>all rows</strong> (headers only after run) in: categories, competitions, teams, markets, domain events,
+            event mappings, and entity feed mappings. Unchanged: <strong>feeds.csv</strong>, <strong>sports.csv</strong>,
+            <strong>sport_feed_mappings.csv</strong>.
         </p>
         <p class="text-gmp-text-muted text-xs mb-6">
-            Use only when you intentionally want to wipe entity/relation data (e.g. fresh start). This action cannot be undone.
+            Use only for an intentional wipe (e.g. fresh environment). This cannot be undone from the UI. A row is appended to the admin audit log when the operation completes.
         </p>
 
         <form method="post" action="/api/dump-csv-data" id="dump-form" class="space-y-4" onsubmit="return confirm('Last chance: this will delete all entity and relation data. Continue?');">
@@ -27,13 +83,14 @@
                     class="w-full max-w-xs bg-gmp-surface-raised border border-gmp-border rounded px-3 py-2 text-gmp-text-heading font-mono placeholder-gmp-text-faint focus:border-danger focus:ring-1 focus:ring-danger/30 outline-none"
                     placeholder="Type DUMP here">
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex flex-wrap items-center gap-4">
                 <button type="submit" id="dump-submit" disabled
                     class="inline-flex items-center px-4 py-2 bg-gmp-surface-raised text-gmp-text-muted border border-gmp-border rounded-lg cursor-not-allowed font-medium"
                     title="Type DUMP above to enable">
-                    <i class="fa-solid fa-trash-can mr-2"></i> Dump CSV data
+                    <i class="fa-solid fa-trash-can mr-2" aria-hidden="true"></i> Dump CSV data
                 </button>
-                <a href="/" class="text-gmp-text-muted hover:text-gmp-text-heading text-sm">Cancel and go to Dashboard</a>
+                <a href="/users" class="text-gmp-text-muted hover:text-gmp-text-heading text-sm">Back to User management</a>
+                <a href="/" class="text-gmp-text-muted hover:text-gmp-text-heading text-sm">Dashboard</a>
             </div>
         </form>
     </div>
@@ -60,6 +117,158 @@
     input.addEventListener('input', check);
     input.addEventListener('keyup', check);
     check();
+})();
+
+(function csvPreview() {
+    var sel = document.getElementById('csv-file-select');
+    var loadBtn = document.getElementById('csv-preview-load');
+    var meta = document.getElementById('csv-preview-meta');
+    var errEl = document.getElementById('csv-preview-error');
+    var thead = document.getElementById('csv-preview-thead');
+    var tbody = document.getElementById('csv-preview-tbody');
+    var prevBtn = document.getElementById('csv-preview-prev');
+    var nextBtn = document.getElementById('csv-preview-next');
+    var pageLbl = document.getElementById('csv-preview-page');
+    if (!sel || !loadBtn) return;
+
+    var PAGE = 100;
+    var offset = 0;
+    var currentKey = '';
+    var lastHasMore = false;
+
+    function fmtSize(n) {
+        if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+        if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+        return n + ' B';
+    }
+
+    function showErr(msg) {
+        if (!errEl) return;
+        if (msg) {
+            errEl.textContent = msg;
+            errEl.classList.remove('hidden');
+        } else {
+            errEl.textContent = '';
+            errEl.classList.add('hidden');
+        }
+    }
+
+    function renderTable(headers, rows) {
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+        if (!headers || !headers.length) {
+            tbody.innerHTML = '<tr><td class="px-3 py-4 text-gmp-text-faint italic">No header row (empty file).</td></tr>';
+            return;
+        }
+        var hr = document.createElement('tr');
+        headers.forEach(function (h) {
+            var th = document.createElement('th');
+            th.className = 'px-3 py-2 font-semibold text-gmp-text-menu whitespace-nowrap border-b border-gmp-border';
+            th.textContent = h;
+            hr.appendChild(th);
+        });
+        thead.appendChild(hr);
+        rows.forEach(function (row) {
+            var tr = document.createElement('tr');
+            tr.className = 'border-b border-gmp-border/40 hover:bg-gmp-hover/5';
+            row.forEach(function (cell) {
+                var td = document.createElement('td');
+                td.className = 'px-3 py-1.5 text-gmp-text-heading max-w-[14rem] truncate align-top';
+                td.textContent = cell != null ? String(cell) : '';
+                td.title = td.textContent;
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td class="px-3 py-4 text-gmp-text-faint italic">No data rows in this range.</td></tr>';
+        }
+    }
+
+    function syncPager() {
+        var page = Math.floor(offset / PAGE) + 1;
+        pageLbl.textContent = 'Page ' + page + (lastHasMore ? ' (more after this page)' : '');
+        prevBtn.disabled = offset <= 0;
+        nextBtn.disabled = !lastHasMore;
+    }
+
+    async function fetchPreview() {
+        var key = (sel.value || '').trim();
+        showErr('');
+        if (!key) {
+            showErr('Select a file first.');
+            return;
+        }
+        currentKey = key;
+        meta.textContent = 'Loading…';
+        try {
+            var u = new URL('/api/superadmin/csv-preview', window.location.origin);
+            u.searchParams.set('key', key);
+            u.searchParams.set('offset', String(offset));
+            u.searchParams.set('limit', String(PAGE));
+            var res = await fetch(u.toString(), { credentials: 'same-origin' });
+            var data = await res.json().catch(function () { return {}; });
+            if (!res.ok) {
+                showErr(data.detail || ('HTTP ' + res.status));
+                meta.textContent = '';
+                return;
+            }
+            if (!data.ok && data.error === 'file_not_found') {
+                showErr('File not found on disk.');
+                meta.textContent = data.label || key;
+                thead.innerHTML = '';
+                tbody.innerHTML = '';
+                lastHasMore = false;
+                syncPager();
+                return;
+            }
+            lastHasMore = !!data.has_more;
+            meta.textContent = (data.label || key) + ' — rows ' + (data.offset + 1) + '–' + (data.offset + (data.rows || []).length) + (data.has_more ? ' (truncated)' : '');
+            renderTable(data.headers || [], data.rows || []);
+            syncPager();
+        } catch (e) {
+            showErr('Request failed.');
+            meta.textContent = '';
+        }
+    }
+
+    async function loadFileList() {
+        sel.innerHTML = '<option value="">— Loading… —</option>';
+        try {
+            var res = await fetch('/api/superadmin/csv-files', { credentials: 'same-origin' });
+            var data = await res.json().catch(function () { return {}; });
+            if (!res.ok) {
+                sel.innerHTML = '<option value="">(failed to load list)</option>';
+                return;
+            }
+            var files = data.files || [];
+            sel.innerHTML = '<option value="">— Select file —</option>';
+            files.forEach(function (f) {
+                var opt = document.createElement('option');
+                opt.value = f.key;
+                opt.textContent = f.label + (f.exists ? ' (' + fmtSize(f.size) + ')' : ' (missing)');
+                if (!f.exists) opt.disabled = true;
+                sel.appendChild(opt);
+            });
+        } catch (e) {
+            sel.innerHTML = '<option value="">(error)</option>';
+        }
+    }
+
+    loadBtn.addEventListener('click', function () {
+        offset = 0;
+        fetchPreview();
+    });
+    prevBtn.addEventListener('click', function () {
+        offset = Math.max(0, offset - PAGE);
+        fetchPreview();
+    });
+    nextBtn.addEventListener('click', function () {
+        if (lastHasMore) offset += PAGE;
+        fetchPreview();
+    });
+
+    loadFileList();
 })();
 </script>
 {% endblock %}
