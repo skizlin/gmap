@@ -1,7 +1,7 @@
 #!/bin/bash
 # Run this ONCE on the server (e.g. in /var/www/gmap) so Git never overwrites
 # these data files when you run "git pull". Updated from GitHub: sports.csv,
-# feed_sports.csv, and backend/data/markets/*.csv (market_score_type, market_period_type,
+# feed_sports.csv, feeds.csv, and backend/data/markets/*.csv (market_score_type, market_period_type,
 # market_templates — reference data shared between environments). RBAC CSVs and all other
 # paths below are environment-local (do not copy roles/users from another machine).
 # To undo: git update-index --no-skip-worktree <file>
@@ -49,4 +49,4 @@ for f in "${FILES[@]}"; do
     echo "Skip (not found): $f"
   fi
 done
-echo "Done. git pull will update sports.csv, feed_sports.csv, and backend/data/markets/*.csv; listed data files (including rbac/*.csv) stay local."
+echo "Done. git pull will update sports.csv, feed_sports.csv, feeds.csv, and backend/data/markets/*.csv; listed data files (including rbac/*.csv) stay local."

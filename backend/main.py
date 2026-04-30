@@ -1597,22 +1597,22 @@ def _decimal_odds_from_feed_row(row: dict | None) -> list[float | None]:
     return out
 
 
-def _imlog_true_prices_for_event_market(
+def _imlog_true_prices_and_outcome_names_for_event_market(
     domain_event_id: str,
-    domain_market_id: str,
+    domain_market_id: str | int,
     line: str | None,
-) -> tuple[list[float | None], bool, int]:
+) -> tuple[list[float | None], bool, int, list[str]]:
     """
-    Basis for Brand Overview / markets overview (center column).
+    Single pass over cached feed odds: fair prices + outcome labels for the pricing row.
 
-    When **Pricing Feed** order is configured (global All Sports), walk feeds in that order;
-    use the first feed with a full set of positive outcome decimals, **log de-vig** to fair
-    odds, then callers apply **log2** margining from margin templates.
-
-    When no pricing order is configured, legacy behavior: **IMLog** decimals are used as the
-    basis for log2 (no de-vig), same as before.
+    When **Pricing Feed** order is configured, walk feeds in that order; else **IMLog** decimals.
     """
     from backend.internal_pricing.transforms.log_function import true_odds_and_probs_from_decimal_odds
+
+    def _names_from_row(row: dict | None) -> list[str]:
+        if not row:
+            return []
+        return [str((o.get("name") or "")).strip() or "—" for o in (row.get("outcomes") or [])]
 
     eid = str(domain_event_id).strip()
     line_q = (line or "").strip() or None
@@ -1633,15 +1633,25 @@ def _imlog_true_prices_for_event_market(
             true_odds, _probs = to
             tp: list[float | None] = [float(x) for x in true_odds]
             n_sel = len(tp)
-            return tp, True, n_sel
-        return [], False, 0
+            return tp, True, n_sel, _names_from_row(row)
+        return [], False, 0, []
 
     im_rows = [r for r in rows if (r.get("feed_name") or "").strip().lower() == "imlog"]
     im_row = _pick_feed_odds_row_for_line(im_rows, line_q)
     true_prices = _decimal_odds_from_feed_row(im_row)
     im_used = bool(true_prices and any(x is not None and x > 0 for x in true_prices))
     n_sel = sum(1 for x in true_prices if x is not None and x > 0)
-    return true_prices, im_used, n_sel
+    return true_prices, im_used, n_sel, _names_from_row(im_row)
+
+
+def _imlog_true_prices_for_event_market(
+    domain_event_id: str,
+    domain_market_id: str,
+    line: str | None,
+) -> tuple[list[float | None], bool, int]:
+    """Basis for Brand Overview / markets overview (see ``_imlog_true_prices_and_outcome_names_for_event_market``)."""
+    tp, iu, n, _ = _imlog_true_prices_and_outcome_names_for_event_market(domain_event_id, domain_market_id, line)
+    return tp, iu, n
 
 
 def _feed_outcome_names_for_event_market(
@@ -1649,33 +1659,9 @@ def _feed_outcome_names_for_event_market(
     domain_market_id: str | int,
     line: str | None,
 ) -> list[str]:
-    """
-    Outcome display names from the same feed row used for pricing basis (see ``_imlog_true_prices_for_event_market``).
-    Used for variable templates (e.g. EXACT_TOTAL) where domain ``outcome_labels`` are empty.
-    """
-    eid = str(domain_event_id).strip()
-    line_q = (line or "").strip() or None
-    all_ln = line_q is None
-    rows = _get_feed_odds_for_event_market(eid, domain_market_id, line_q, all_lines=all_ln)
-    if not rows:
-        return []
-    order_ids = _feeder_config_pricing_feed_order_ids()
-    if order_ids:
-        for fid in order_ids:
-            fr = [r for r in rows if r.get("feed_provider_id") == fid]
-            row = _pick_feed_odds_row_for_line(fr, line_q)
-            if not row:
-                continue
-            decs = _decimal_odds_from_feed_row(row)
-            if not decs or any(x is None or x <= 0 for x in decs):
-                continue
-            return [str((o.get("name") or "")).strip() or "—" for o in (row.get("outcomes") or [])]
-        return []
-    im_rows = [r for r in rows if (r.get("feed_name") or "").strip().lower() == "imlog"]
-    im_row = _pick_feed_odds_row_for_line(im_rows, line_q)
-    if not im_row:
-        return []
-    return [str((o.get("name") or "")).strip() or "—" for o in (im_row.get("outcomes") or [])]
+    """Outcome display names from the same feed row as pricing (variable EXACT_TOTAL, etc.)."""
+    *_, names = _imlog_true_prices_and_outcome_names_for_event_market(domain_event_id, domain_market_id, line)
+    return names
 
 
 def _load_market_templates() -> list[dict]:
@@ -1723,12 +1709,30 @@ def _load_market_groups() -> list[dict]:
     return _load_market_csv(MARKET_GROUPS_PATH)
 
 
+_market_outcomes_cache_mtime: float | None = None
+_market_outcomes_cache_rows: list[dict] = []
+
+
 def _load_market_outcomes() -> list[dict]:
-    """Load market_outcomes.csv (template outcomes: o1..o50, outcome_type fixed|dynamic)."""
-    if not MARKET_OUTCOMES_PATH.exists():
+    """Load market_outcomes.csv (template outcomes: o1..o50, outcome_type fixed|dynamic). Cached until file mtime changes."""
+    global _market_outcomes_cache_mtime, _market_outcomes_cache_rows
+    path = MARKET_OUTCOMES_PATH
+    if not path.exists():
+        _market_outcomes_cache_mtime = None
+        _market_outcomes_cache_rows = []
         return []
-    with open(MARKET_OUTCOMES_PATH, newline="", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        with open(path, newline="", encoding="utf-8") as f:
+            return list(csv.DictReader(f))
+    if _market_outcomes_cache_mtime == mtime:
+        return _market_outcomes_cache_rows
+    with open(path, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    _market_outcomes_cache_mtime = mtime
+    _market_outcomes_cache_rows = rows
+    return rows
 
 
 def _get_outcome_labels_for_market(market: dict, sport_id: int | None = None) -> tuple[list[str], str]:
@@ -8718,6 +8722,34 @@ def _domain_event_feed_start_times(mappings: list[dict], feed_events: list[dict]
     return out
 
 
+def _navigator_events_enrich_providers_only(domain_events: list, mappings_by_event: dict[str, list]) -> list[dict]:
+    """Cheap row shape for filtering/sorting: mapped feed list only (no scan of full feed event list)."""
+    enriched: list[dict] = []
+    for ev in domain_events:
+        mappings = mappings_by_event.get(ev["id"], [])
+        providers = ", ".join(sorted({m["feed_provider"] for m in mappings}))
+        enriched.append({
+            **ev,
+            "mapped_providers": providers,
+            "mapped_feed_count": len(mappings),
+            "start_time_mismatch": False,
+            "feed_start_times": [],
+        })
+    return enriched
+
+
+def _navigator_events_attach_feed_timing(
+    ev_list: list[dict],
+    mappings_by_event: dict[str, list],
+    feed_events: list[dict],
+) -> None:
+    """Fill start_time_mismatch and feed_start_times (expensive); call only for the visible page."""
+    for ev in ev_list:
+        mappings = mappings_by_event.get(ev["id"], [])
+        ev["start_time_mismatch"] = _domain_event_start_time_mismatch(ev["id"], mappings, feed_events)
+        ev["feed_start_times"] = _domain_event_feed_start_times(mappings, feed_events)
+
+
 def _find_duplicate_domain_event_snapshot(
     *,
     sport_id: str,
@@ -8822,14 +8854,8 @@ async def event_navigator_view(
     mappings_by_event: dict[str, list[dict]] = {}
     for m in _load_event_mappings():
         mappings_by_event.setdefault(m["domain_event_id"], []).append(m)
-    feed_events = load_all_mock_data()
-    enriched = []
-    for ev in DOMAIN_EVENTS:
-        mappings = mappings_by_event.get(ev["id"], [])
-        providers = ", ".join(sorted({m["feed_provider"] for m in mappings}))
-        start_time_mismatch = _domain_event_start_time_mismatch(ev["id"], mappings, feed_events)
-        feed_start_times = _domain_event_feed_start_times(mappings, feed_events)
-        enriched.append({**ev, "mapped_providers": providers, "mapped_feed_count": len(mappings), "start_time_mismatch": start_time_mismatch, "feed_start_times": feed_start_times})
+    feed_events = DUMMY_EVENTS
+    enriched = _navigator_events_enrich_providers_only(DOMAIN_EVENTS, mappings_by_event)
     domain_sports = _domain_events_sports()
     selected_sports = sports if sports else domain_sports
     active_sports = selected_sports if sports else None
@@ -8880,6 +8906,7 @@ async def event_navigator_view(
     page = max(1, min(page, total_pages))
     start_idx = (page - 1) * per_page
     page_events = filtered[start_idx : start_idx + per_page]
+    _navigator_events_attach_feed_timing(page_events, mappings_by_event, feed_events)
     tpl_by_sport = _margin_templates_by_sport_for_event_navigator(page_events, selected_brand_id)
     for e in page_events:
         e["risk_class"] = _event_risk_class_from_margin_template(e, selected_brand_id, tpl_by_sport)
@@ -8945,14 +8972,8 @@ async def event_navigator_table(
     mappings_by_event: dict[str, list[dict]] = {}
     for m in _load_event_mappings():
         mappings_by_event.setdefault(m["domain_event_id"], []).append(m)
-    feed_events = load_all_mock_data()
-    enriched = []
-    for ev in DOMAIN_EVENTS:
-        mappings = mappings_by_event.get(ev["id"], [])
-        providers = ", ".join(sorted({m["feed_provider"] for m in mappings}))
-        start_time_mismatch = _domain_event_start_time_mismatch(ev["id"], mappings, feed_events)
-        feed_start_times = _domain_event_feed_start_times(mappings, feed_events)
-        enriched.append({**ev, "mapped_providers": providers, "mapped_feed_count": len(mappings), "start_time_mismatch": start_time_mismatch, "feed_start_times": feed_start_times})
+    feed_events = DUMMY_EVENTS
+    enriched = _navigator_events_enrich_providers_only(DOMAIN_EVENTS, mappings_by_event)
     domain_sports = _domain_events_sports()
     selected_sports = sports if sports else domain_sports
     active_sports = selected_sports if sports else None
@@ -8999,6 +9020,7 @@ async def event_navigator_table(
     page = max(1, min(page, total_pages))
     start_idx = (page - 1) * per_page
     page_events = filtered[start_idx : start_idx + per_page]
+    _navigator_events_attach_feed_timing(page_events, mappings_by_event, feed_events)
     tpl_by_sport = _margin_templates_by_sport_for_event_navigator(page_events, selected_brand_id)
     for e in page_events:
         e["risk_class"] = _event_risk_class_from_margin_template(e, selected_brand_id, tpl_by_sport)
@@ -9727,8 +9749,9 @@ async def api_event_details_brand_overview_margined(
     if not ev:
         return JSONResponse({"ok": False, "message": "Domain event not found"}, status_code=404)
     line_q = (line or "").strip() or None
-    outcome_names = _feed_outcome_names_for_event_market(eid, domain_market_id, line_q)
-    true_prices, im_used, n_sel = _imlog_true_prices_for_event_market(eid, domain_market_id, line_q)
+    true_prices, im_used, n_sel, outcome_names = _imlog_true_prices_and_outcome_names_for_event_market(
+        eid, domain_market_id, line_q
+    )
 
     brands = _load_brands()
     out: list[dict] = []
@@ -9796,8 +9819,9 @@ async def api_event_details_overview_margined_prices(
         except (TypeError, ValueError):
             pb = None
     line_q = (line or "").strip() or None
-    outcome_names = _feed_outcome_names_for_event_market(eid, domain_market_id, line_q)
-    true_prices, im_used, n_sel = _imlog_true_prices_for_event_market(eid, domain_market_id, line_q)
+    true_prices, im_used, n_sel, outcome_names = _imlog_true_prices_and_outcome_names_for_event_market(
+        eid, domain_market_id, line_q
+    )
     pm, tname = _prematch_pm_pct_for_pricing_scope(ev, pb)
     if not im_used or pm is None:
         empty = [None] * len(true_prices) if true_prices else []

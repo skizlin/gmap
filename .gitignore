@@ -58,7 +58,7 @@ backend/data/feed_dashboard_state.json
 backend/data/audit/
 
 # ─── Per-environment (NOT in repo): each instance (local, server) has its own. Do not commit. ───
-# In repo / deployed with code: sports.csv, sport_feed_mappings.csv, feed_sports.csv; backend/data/markets/: market_templates.csv, market_groups.csv, market_outcomes.csv, market_period_type.csv, market_score_type.csv (reference only).
+# In repo / deployed with code: sports.csv, sport_feed_mappings.csv, feed_sports.csv, feeds.csv; backend/data/markets/: market_templates.csv, market_groups.csv, market_outcomes.csv, market_period_type.csv, market_score_type.csv (reference only).
 backend/data/brands.csv
 backend/data/categories.csv
 backend/data/competitions.csv
@@ -68,7 +68,6 @@ backend/data/event_mappings.csv
 backend/data/feeder_config.csv
 backend/data/feeder_event_notes.csv
 backend/data/feeder_ignored_events.csv
-backend/data/feeds.csv
 backend/data/feed_time_statuses.csv
 backend/data/languages.csv
 backend/data/margin_template_competitions.csv
