@@ -66,7 +66,7 @@
                         <ul class="space-y-1 pl-5">
                             {% for m in item.markets %}
                             <li class="flex items-center gap-2">
-                                <input type="checkbox" id="market-{{ m.domain_id }}" data-market-id="{{ m.domain_id }}" data-market-name="{{ m.name }}" data-market-code="{{ m.code or '' }}" data-outcome-count="{{ template_outcome_count(m) }}" data-market-has-line="{{ 1 if market_has_line(m) else 0 }}" data-outcome-labels='{{ (m.outcome_labels or []) | tojson }}' class="event-detail-market-cb rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary"
+                                <input type="checkbox" id="market-{{ m.domain_id }}" data-market-id="{{ m.domain_id }}" data-market-name="{{ m.name }}" data-market-code="{{ m.code or '' }}" data-market-template="{{ m.template or '' }}" data-outcome-type="{{ m.outcome_type or '' }}" data-outcome-count="{{ template_outcome_count(m) }}" data-market-has-line="{{ 1 if market_has_line(m) else 0 }}" data-outcome-labels='{{ (m.outcome_labels or []) | tojson }}' class="event-detail-market-cb rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary"
                                     aria-label="Select {{ m.name }}">
                                 <label for="market-{{ m.domain_id }}" class="text-xs text-gmp-text-menu cursor-pointer flex-1">{{ m.name }}</label>
                                 {% if m.abb %}<span class="text-[10px] font-mono text-gmp-text-faint">{{ m.abb }}</span>{% endif %}
@@ -245,19 +245,37 @@
         return ids;
     }
 
+    function isVariableExactTotalLike(outcomeType, marketTemplate) {
+        var ot = (outcomeType || '').trim().toLowerCase();
+        var tpl = (marketTemplate || '').trim().toUpperCase();
+        return ot === 'variable' || tpl === 'EXACT_TOTAL';
+    }
+
     function getMarketInfo(id) {
         const cb = document.querySelector('.event-detail-market-cb[data-market-id="' + id + '"]');
         if (!cb) return null;
         var outcomeCount = parseInt(cb.dataset.outcomeCount, 10);
         if (isNaN(outcomeCount) || outcomeCount < 1) outcomeCount = 3;
         var hasLine = (cb.dataset.marketHasLine || '') === '1';
+        var outcomeType = (cb.getAttribute('data-outcome-type') || '').trim();
+        var marketTemplate = (cb.getAttribute('data-market-template') || '').trim();
         var outcomeLabels = [];
         try {
             var raw = (cb.getAttribute('data-outcome-labels') || '').trim();
             if (raw) outcomeLabels = JSON.parse(raw);
         } catch (e) { outcomeLabels = []; }
         if (!Array.isArray(outcomeLabels)) outcomeLabels = [];
-        return { id: id, name: cb.dataset.marketName || ('Market #' + id), code: cb.dataset.marketCode || '', outcomeCount: outcomeCount, hasLine: hasLine, outcomeLabels: outcomeLabels };
+        return {
+            id: id,
+            name: cb.dataset.marketName || ('Market #' + id),
+            code: cb.dataset.marketCode || '',
+            outcomeCount: outcomeCount,
+            hasLine: hasLine,
+            outcomeLabels: outcomeLabels,
+            outcomeType: outcomeType,
+            marketTemplate: marketTemplate,
+            variableLike: isVariableExactTotalLike(outcomeType, marketTemplate),
+        };
     }
 
     function escapeHtml(s) {
@@ -275,7 +293,9 @@
         var hasLine = info.hasLine || isTwoWayMultiLine(code);
         var cardId = 'market-card-' + info.id;
         var outcomeLabelsAttr = (info.outcomeLabels && info.outcomeLabels.length) ? escapeHtml(JSON.stringify(info.outcomeLabels)) : '';
-        var header = '<div class="bg-gmp-surface-raised/50 border border-gmp-border/50 rounded-lg overflow-hidden" data-market-row="' + info.id + '" id="' + cardId + '" data-market-name="' + escapeHtml(info.name || '') + '" data-market-code="' + escapeHtml(code) + '" data-outcome-count="' + (info.outcomeCount || 3) + '" data-market-has-line="' + (hasLine ? '1' : '0') + '" data-outcome-labels="' + outcomeLabelsAttr + '">' +
+        var oTypeEsc = escapeHtml(info.outcomeType || '');
+        var tplEsc = escapeHtml(info.marketTemplate || '');
+        var header = '<div class="bg-gmp-surface-raised/50 border border-gmp-border/50 rounded-lg overflow-hidden" data-market-row="' + info.id + '" id="' + cardId + '" data-market-name="' + escapeHtml(info.name || '') + '" data-market-code="' + escapeHtml(code) + '" data-outcome-type="' + oTypeEsc + '" data-market-template="' + tplEsc + '" data-outcome-count="' + (info.outcomeCount || 3) + '" data-market-has-line="' + (hasLine ? '1' : '0') + '" data-outcome-labels="' + outcomeLabelsAttr + '">' +
             '<div class="px-3 py-2 border-b border-gmp-border/50 flex items-center gap-2">' +
             '<input type="radio" name="brand-overview-market" value="' + info.id + '" class="brand-overview-radio rounded-full border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary" aria-label="Show in Brand Overview">' +
             '<span class="text-xs font-medium text-gmp-text-heading">' + name + '</span>' +
@@ -403,8 +423,16 @@
     function applyOverviewDataToSimpleCard(card, data) {
         var trueP = data.true_prices || [];
         var out = data.outcomes || [];
+        var names = data.outcome_names || [];
         var rows = card.querySelectorAll('.market-overview-outcome-row:not(.market-line-row)');
         rows.forEach(function (row, i) {
+            if (names.length > 0) {
+                row.style.display = i < names.length ? '' : 'none';
+                var sel = row.querySelector('td:first-child');
+                if (sel && names[i]) sel.textContent = names[i];
+            } else {
+                row.style.display = '';
+            }
             var pc = row.querySelector('.market-overview-price');
             var oc = row.querySelector('.market-overview-original');
             if (pc) pc.textContent = fmtOverviewPrice(out[i]);
@@ -550,10 +578,12 @@
         } catch (err) { outcomeLabels = []; }
         if (!Array.isArray(outcomeLabels)) outcomeLabels = [];
         var lineVal = (btn.getAttribute('data-line') || btn.textContent || '').trim();
+        var outcomeType = (card.getAttribute('data-outcome-type') || '').trim();
+        var marketTemplate = (card.getAttribute('data-market-template') || '').trim();
         void (async function () {
             if (radio) {
-                await updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, lineVal);
-                await updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels, lineVal);
+                await updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, lineVal, outcomeType, marketTemplate);
+                await updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels, lineVal, outcomeType, marketTemplate);
             }
             await refreshOverviewPricesForCard(card);
         })();
@@ -690,8 +720,10 @@
         }
     }
 
-    async function updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, selectedLine) {
+    async function updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, selectedLine, outcomeType, marketTemplate) {
         if (!feedOddsEmpty || !feedOddsContent || !feedOddsTbody) return;
+        outcomeType = (outcomeType || '').trim();
+        marketTemplate = (marketTemplate || '').trim();
         if (!marketId) {
             await updateInternalModel('', '', 3, false, [], '');
             return;
@@ -702,6 +734,7 @@
         feedOddsEmpty.classList.remove('hidden');
         var outCount = Math.max(1, parseInt(outcomeCount, 10) || 3);
         var labels = Array.isArray(outcomeLabels) ? outcomeLabels : [];
+        var varLike = isVariableExactTotalLike(outcomeType, marketTemplate);
         try {
             var url = '/api/event-details/feed-odds?domain_event_id=' + encodeURIComponent(domainEventId) + '&domain_market_id=' + encodeURIComponent(marketId) + '&all_lines=1';
             var res = await fetch(url);
@@ -722,6 +755,29 @@
                 var l = (r.line != null && String(r.line).trim() !== '' && String(r.line) !== '—');
                 return l;
             });
+            var hdrNames = [];
+            var pickHdr = null;
+            rows.forEach(function (r) {
+                var ox = (r.outcomes || []).length;
+                if (!ox) return;
+                if (!pickHdr || ox > (pickHdr.outcomes || []).length) pickHdr = r;
+            });
+            if (!pickHdr) pickHdr = rows[0];
+            if (pickHdr && pickHdr.outcomes && pickHdr.outcomes.length) {
+                if (varLike || labels.length === 0) {
+                    hdrNames = pickHdr.outcomes.map(function (x) { return (x && x.name) ? String(x.name) : ''; });
+                }
+            }
+            if (hdrNames.length) {
+                outCount = Math.min(6, Math.max(outCount, hdrNames.length));
+            }
+            var colHdrs = [];
+            var hi;
+            for (var hi = 0; hi < 6; hi++) {
+                if (hdrNames[hi]) colHdrs[hi] = hdrNames[hi];
+                else if (labels[hi] !== undefined && labels[hi] !== '') colHdrs[hi] = labels[hi];
+                else colHdrs[hi] = 'S' + (hi + 1);
+            }
             feedOddsTbody.innerHTML = rows.map(function (r) {
                 var o = r.outcomes || [];
                 var s1 = o[0] ? (o[0].price || '—') : '—';
@@ -734,7 +790,8 @@
                 if (r.is_main_line) {
                     lineVal = lineVal + ' \u2605';
                 }
-                var margin = feedOddsMargin(o);
+                var marginSlots = hdrNames.length > 0 ? hdrNames.length : null;
+                var margin = feedOddsMargin(o, marginSlots);
                 var cells = '<tr class="border-b border-gmp-border/50">' +
                     '<td class="py-1.5 pr-2">' + escapeHtml(r.feed_name || '') + '</td>' +
                     '<td class="py-1.5 px-2 font-mono text-gmp-text-muted feed-odds-L">' + escapeHtml(lineVal) + '</td>' +
@@ -755,12 +812,12 @@
             var feedCol5 = document.getElementById('feed-odds-col-5');
             var feedCol6 = document.getElementById('feed-odds-col-6');
             if (feedColL) feedColL.style.display = showL ? '' : 'none';
-            if (feedCol1) feedCol1.textContent = (labels[0] !== undefined && labels[0] !== '') ? labels[0] : 'S1';
-            if (feedCol2) feedCol2.textContent = (labels[1] !== undefined && labels[1] !== '') ? labels[1] : 'S2';
-            if (feedCol3) { feedCol3.style.display = outCount >= 3 ? '' : 'none'; feedCol3.textContent = (labels[2] !== undefined && labels[2] !== '') ? labels[2] : 'S3'; }
-            if (feedCol4) { feedCol4.style.display = outCount >= 4 ? '' : 'none'; feedCol4.textContent = (labels[3] !== undefined && labels[3] !== '') ? labels[3] : 'S4'; }
-            if (feedCol5) { feedCol5.style.display = outCount >= 5 ? '' : 'none'; feedCol5.textContent = (labels[4] !== undefined && labels[4] !== '') ? labels[4] : 'S5'; }
-            if (feedCol6) { feedCol6.style.display = outCount >= 6 ? '' : 'none'; feedCol6.textContent = (labels[5] !== undefined && labels[5] !== '') ? labels[5] : 'S6'; }
+            if (feedCol1) feedCol1.textContent = colHdrs[0] || 'S1';
+            if (feedCol2) feedCol2.textContent = colHdrs[1] || 'S2';
+            if (feedCol3) { feedCol3.style.display = outCount >= 3 ? '' : 'none'; feedCol3.textContent = colHdrs[2] || 'S3'; }
+            if (feedCol4) { feedCol4.style.display = outCount >= 4 ? '' : 'none'; feedCol4.textContent = colHdrs[3] || 'S4'; }
+            if (feedCol5) { feedCol5.style.display = outCount >= 5 ? '' : 'none'; feedCol5.textContent = colHdrs[4] || 'S5'; }
+            if (feedCol6) { feedCol6.style.display = outCount >= 6 ? '' : 'none'; feedCol6.textContent = colHdrs[5] || 'S6'; }
             feedOddsContent.querySelectorAll('.feed-odds-L').forEach(function (el) { el.style.display = showL ? '' : 'none'; });
             feedOddsContent.querySelectorAll('.feed-odds-s3').forEach(function (el) { el.style.display = outCount >= 3 ? '' : 'none'; });
             feedOddsContent.querySelectorAll('.feed-odds-s4').forEach(function (el) { el.style.display = outCount >= 4 ? '' : 'none'; });
@@ -773,7 +830,7 @@
         }
     }
 
-    async function updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels, selectedLine) {
+    async function updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels, selectedLine, outcomeType, marketTemplate) {
         var emptyEl = document.getElementById('brand-overview-empty');
         var contentEl = document.getElementById('brand-overview-content');
         var firstColHeader = document.getElementById('brand-overview-first-col-header');
@@ -787,6 +844,8 @@
             contentEl.classList.add('hidden');
             return;
         }
+        outcomeType = (outcomeType || '').trim();
+        marketTemplate = (marketTemplate || '').trim();
         emptyEl.classList.add('hidden');
         contentEl.classList.remove('hidden');
         var displayName = marketName || 'Market #' + marketId;
@@ -794,16 +853,10 @@
         var outCount = Math.max(1, parseInt(outcomeCount, 10) || 3);
         var showL = !!hasLine;
         var labels = Array.isArray(outcomeLabels) ? outcomeLabels : [];
-        if (colL) { colL.style.display = showL ? '' : 'none'; colL.textContent = 'L'; }
         var col4 = document.getElementById('brand-overview-col-4');
         var col5 = document.getElementById('brand-overview-col-5');
         var col6 = document.getElementById('brand-overview-col-6');
-        if (col1) col1.textContent = (labels[0] !== undefined && labels[0] !== '') ? labels[0] : 'S1';
-        if (col2) col2.textContent = (labels[1] !== undefined && labels[1] !== '') ? labels[1] : 'S2';
-        if (col3) { col3.style.display = outCount >= 3 ? '' : 'none'; col3.textContent = (labels[2] !== undefined && labels[2] !== '') ? labels[2] : 'S3'; }
-        if (col4) { col4.style.display = outCount >= 4 ? '' : 'none'; col4.textContent = (labels[3] !== undefined && labels[3] !== '') ? labels[3] : 'S4'; }
-        if (col5) { col5.style.display = outCount >= 5 ? '' : 'none'; col5.textContent = (labels[4] !== undefined && labels[4] !== '') ? labels[4] : 'S5'; }
-        if (col6) { col6.style.display = outCount >= 6 ? '' : 'none'; col6.textContent = (labels[5] !== undefined && labels[5] !== '') ? labels[5] : 'S6'; }
+        if (colL) { colL.style.display = showL ? '' : 'none'; colL.textContent = 'L'; }
         contentEl.querySelectorAll('.brand-odds-L').forEach(function (el) { el.style.display = showL ? '' : 'none'; });
         function fmtPrice(v) {
             if (v == null || v === '') return '—';
@@ -811,7 +864,8 @@
             if (isNaN(n) || n <= 0) return '—';
             return n.toFixed(2);
         }
-        function resetToDash() {
+        function resetToDash(ocUse) {
+            var oc = ocUse != null ? ocUse : outCount;
             contentEl.querySelectorAll('.brand-overview-row').forEach(function (row) {
                 var cellL = row.querySelector('.brand-odds-L');
                 var c1 = row.querySelector('.brand-odds-1');
@@ -825,15 +879,14 @@
                 if (cellL) { cellL.style.display = showL ? '' : 'none'; cellL.textContent = showL ? '—' : ''; }
                 if (c1) c1.textContent = '—';
                 if (c2) c2.textContent = '—';
-                if (c3) { c3.style.display = outCount >= 3 ? '' : 'none'; c3.textContent = '—'; }
-                if (c4) { c4.style.display = outCount >= 4 ? '' : 'none'; c4.textContent = '—'; }
-                if (c5) { c5.style.display = outCount >= 5 ? '' : 'none'; c5.textContent = '—'; }
-                if (c6) { c6.style.display = outCount >= 6 ? '' : 'none'; c6.textContent = '—'; }
+                if (c3) { c3.style.display = oc >= 3 ? '' : 'none'; c3.textContent = '—'; }
+                if (c4) { c4.style.display = oc >= 4 ? '' : 'none'; c4.textContent = '—'; }
+                if (c5) { c5.style.display = oc >= 5 ? '' : 'none'; c5.textContent = '—'; }
+                if (c6) { c6.style.display = oc >= 6 ? '' : 'none'; c6.textContent = '—'; }
                 if (m) m.textContent = '—';
                 if (liab) liab.textContent = '—';
             });
         }
-        resetToDash();
         try {
             var qs = '/api/event-details/brand-overview-margined?domain_event_id=' + encodeURIComponent(domainEventId)
                 + '&domain_market_id=' + encodeURIComponent(marketId);
@@ -842,8 +895,26 @@
             var res = await fetch(qs);
             if (!res.ok) return;
             var data = await res.json();
+            var hdrNames = data.outcome_names || [];
+            var colHdrs = [];
+            for (var hi2 = 0; hi2 < 6; hi2++) {
+                if (hdrNames[hi2]) colHdrs[hi2] = hdrNames[hi2];
+                else if (labels[hi2] !== undefined && labels[hi2] !== '') colHdrs[hi2] = labels[hi2];
+                else colHdrs[hi2] = 'S' + (hi2 + 1);
+            }
+            if (hdrNames.length) {
+                outCount = Math.min(6, Math.max(outCount, hdrNames.length));
+            }
+            if (col1) col1.textContent = colHdrs[0] || 'S1';
+            if (col2) col2.textContent = colHdrs[1] || 'S2';
+            if (col3) { col3.style.display = outCount >= 3 ? '' : 'none'; col3.textContent = colHdrs[2] || 'S3'; }
+            if (col4) { col4.style.display = outCount >= 4 ? '' : 'none'; col4.textContent = colHdrs[3] || 'S4'; }
+            if (col5) { col5.style.display = outCount >= 5 ? '' : 'none'; col5.textContent = colHdrs[4] || 'S5'; }
+            if (col6) { col6.style.display = outCount >= 6 ? '' : 'none'; col6.textContent = colHdrs[5] || 'S6'; }
+            resetToDash(outCount);
             var byId = {};
             (data.brands || []).forEach(function (b) { byId[String(b.id)] = b; });
+            var marginSlots = hdrNames.length > 0 ? hdrNames.length : outCount;
             contentEl.querySelectorAll('.brand-overview-row').forEach(function (row) {
                 var bid = row.getAttribute('data-brand-id');
                 var b = byId[bid];
@@ -875,7 +946,7 @@
                 if (c4) { c4.style.display = outCount >= 4 ? '' : 'none'; c4.textContent = fmtPrice(o[3]); }
                 if (c5) { c5.style.display = outCount >= 5 ? '' : 'none'; c5.textContent = fmtPrice(o[4]); }
                 if (c6) { c6.style.display = outCount >= 6 ? '' : 'none'; c6.textContent = fmtPrice(o[5]); }
-                if (m) m.textContent = feedOddsMargin(o, outCount);
+                if (m) m.textContent = feedOddsMargin(o, marginSlots);
                 if (liab) liab.textContent = '—';
             });
         } catch (err) { /* keep dashes */ }
@@ -897,14 +968,16 @@
             if (raw) outcomeLabels = JSON.parse(raw);
         } catch (err) { outcomeLabels = []; }
         if (!Array.isArray(outcomeLabels)) outcomeLabels = [];
+        var outcomeType = (card.getAttribute('data-outcome-type') || '').trim();
+        var marketTemplate = (card.getAttribute('data-market-template') || '').trim();
         var lineVal = '';
         if (hasLine) {
             var activeLineBtn = card.querySelector('.market-line-btn.bg-primary');
             if (activeLineBtn) lineVal = (activeLineBtn.getAttribute('data-line') || activeLineBtn.textContent || '').trim();
         }
         void (async function () {
-            await updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, lineVal);
-            await updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels, lineVal);
+            await updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, lineVal, outcomeType, marketTemplate);
+            await updateBrandOverview(marketId, marketName, marketCode, outcomeCount, hasLine, outcomeLabels, lineVal, outcomeType, marketTemplate);
             if (card) await refreshOverviewPricesForCard(card);
         })();
     });
