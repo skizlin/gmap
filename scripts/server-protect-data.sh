@@ -1,15 +1,17 @@
 #!/bin/bash
 # Run this ONCE on the server (e.g. in /var/www/gmap) so Git never overwrites
 # these data files when you run "git pull". Updated from GitHub: sports.csv,
-# feed_sports.csv, feeds.csv, and backend/data/markets/*.csv (market_score_type, market_period_type,
-# market_templates — reference data shared between environments). RBAC CSVs and all other
-# paths below are environment-local (do not copy roles/users from another machine).
+# feed_sports.csv, feeds.csv, sport_feed_mappings.csv, and backend/data/markets/*.csv
+# (market_score_type, market_period_type, market_templates — reference data shared between
+# environments). RBAC CSVs and all other paths below are environment-local (do not copy
+# roles/users from another machine). Do NOT add feeds.csv or sport_feed_mappings.csv to FILES.
 # To undo: git update-index --no-skip-worktree <file>
 
 set -e
 cd "$(dirname "$0")/.."
 
-# Protect everything EXCEPT sports.csv and feed_sports.csv (those two come from repo).
+# Server-local only (skip-worktree). Repo-shared: sports.csv, feed_sports.csv, feeds.csv,
+# sport_feed_mappings.csv, backend/data/markets/*.csv — never list those here.
 FILES=(
   backend/data/rbac/users.csv
   backend/data/rbac/roles.csv
@@ -26,7 +28,6 @@ FILES=(
   backend/data/feeder_config.csv
   backend/data/feeder_event_notes.csv
   backend/data/feeder_ignored_events.csv
-  backend/data/feeds.csv
   backend/data/feed_time_statuses.csv
   backend/data/feed_dashboard_state.json
   backend/data/languages.csv
@@ -49,4 +50,4 @@ for f in "${FILES[@]}"; do
     echo "Skip (not found): $f"
   fi
 done
-echo "Done. git pull will update sports.csv, feed_sports.csv, feeds.csv, and backend/data/markets/*.csv; listed data files (including rbac/*.csv) stay local."
+echo "Done. git pull will update sports.csv, feed_sports.csv, feeds.csv, sport_feed_mappings.csv, and backend/data/markets/*.csv; listed data files (including rbac/*.csv) stay local."
