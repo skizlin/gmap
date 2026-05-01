@@ -35,7 +35,6 @@ FILES=(
   backend/data/margin_templates.csv
   backend/data/markets.csv
   backend/data/partners.csv
-  backend/data/sport_feed_mappings.csv
   backend/data/teams.csv
   backend/data/translations.csv
   backend/data/notes/alert_types.csv
