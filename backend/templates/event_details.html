@@ -31,21 +31,19 @@
                 <div class="text-gmp-text-faint">[Live] Bets: — Turnover: — P/L: —</div>
             </div>
         </div>
-        <div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-gmp-border/50">
-            <div class="flex flex-wrap items-center gap-2">
-                <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(S) Suspend</button>
-                <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(D) Display</button>
-                <button type="button" class="px-3 py-1.5 rounded text-xs font-medium bg-gmp-surface-raised hover:bg-surfaceHover text-gmp-text-heading transition-colors">(L) Limits</button>
+        <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-gmp-border/50 w-full">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-gmp-text-faint shrink-0">Pricing</span>
+            <div id="event-details-pricing-brand-bar" class="flex flex-wrap items-center gap-1.5 flex-1 min-w-0" role="tablist" aria-label="Pricing brand for overview prices">
+                <button type="button" role="tab" aria-selected="true"
+                    class="event-details-pricing-brand-pill px-3 py-1.5 rounded text-xs font-medium border transition-colors bg-primary text-white border-primary"
+                    data-brand-id="">Global</button>
+                {% for b in brands %}
+                <button type="button" role="tab" aria-selected="false"
+                    class="event-details-pricing-brand-pill px-3 py-1.5 rounded text-xs font-medium border transition-colors bg-gmp-surface-raised border-gmp-border text-gmp-text-muted hover:bg-gmp-hover/15 hover:text-gmp-text-heading"
+                    data-brand-id="{{ b.id }}">{{ b.name }}</button>
+                {% endfor %}
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <label for="event-details-pricing-brand" class="text-xs text-gmp-text-muted whitespace-nowrap">Pricing brand</label>
-                <select id="event-details-pricing-brand" class="bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1.5 text-xs text-gmp-text-menu min-w-[11rem]" aria-label="Pricing brand for overview prices">
-                    <option value="" selected>Global</option>
-                    {% for b in brands %}
-                    <option value="{{ b.id }}">{{ b.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+            <input type="hidden" id="event-details-pricing-brand" value="">
         </div>
     </div>
 
@@ -54,22 +52,39 @@
         <!-- Left: Markets + Resulted Markets -->
         <div class="flex flex-col gap-4 overflow-auto min-w-0">
             <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg p-4 flex-shrink-0">
-                <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-3">Markets</h2>
+                <div class="flex items-center justify-between gap-3 mb-2">
+                    <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint">Markets</h2>
+                    <label class="flex items-center gap-1.5 text-xs text-gmp-text-muted cursor-pointer shrink-0">
+                        <input type="checkbox" id="markets-with-positions" class="rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary">
+                        With Positions
+                    </label>
+                </div>
                 {% if markets_by_group %}
-                <div class="space-y-3">
+                <div class="flex items-center mb-2 pl-5 pr-0.5">
+                    <span class="flex-1 min-w-0"></span>
+                    <span class="text-[10px] font-semibold uppercase tracking-wider text-gmp-text-faint shrink-0 w-[5.5rem] text-right">wLiability</span>
+                </div>
+                <div class="space-y-3" id="event-detail-markets-list">
                     {% for item in markets_by_group %}
                     <div class="event-detail-group" data-group-market-ids="{{ item.markets | map(attribute='domain_id') | join(',') }}">
                         <div class="flex items-center gap-2 mb-1.5">
                             <input type="checkbox" id="group-{{ item.group.domain_id }}-{{ item.group.code or 'other' }}" class="event-detail-group-cb rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary" aria-label="Select all {{ item.group.name }}">
-                            <label for="group-{{ item.group.domain_id }}-{{ item.group.code or 'other' }}" class="text-[10px] font-semibold uppercase tracking-wider text-gmp-text-faint cursor-pointer">{{ item.group.name }}</label>
+                            <label for="group-{{ item.group.domain_id }}-{{ item.group.code or 'other' }}" class="text-[10px] font-semibold uppercase tracking-wider text-gmp-text-faint cursor-pointer flex-1 min-w-0">{{ item.group.name }}</label>
                         </div>
                         <ul class="space-y-1 pl-5">
                             {% for m in item.markets %}
-                            <li class="flex items-center gap-2">
+                            <li class="event-detail-market-row flex items-center gap-2" data-market-id="{{ m.domain_id }}" data-w-liability="0">
                                 <input type="checkbox" id="market-{{ m.domain_id }}" data-market-id="{{ m.domain_id }}" data-market-name="{{ m.name }}" data-market-code="{{ m.code or '' }}" data-market-template="{{ m.template or '' }}" data-outcome-type="{{ m.outcome_type or '' }}" data-outcome-count="{{ template_outcome_count(m) }}" data-market-has-line="{{ 1 if market_has_line(m) else 0 }}" data-outcome-labels='{{ (m.outcome_labels or []) | tojson }}' class="event-detail-market-cb rounded border-gmp-border bg-gmp-surface-raised text-primary focus:ring-primary"
                                     aria-label="Select {{ m.name }}">
-                                <label for="market-{{ m.domain_id }}" class="text-xs text-gmp-text-menu cursor-pointer flex-1">{{ m.name }}</label>
-                                {% if m.abb %}<span class="text-[10px] font-mono text-gmp-text-faint">{{ m.abb }}</span>{% endif %}
+                                <label for="market-{{ m.domain_id }}" class="text-xs text-gmp-text-menu cursor-pointer flex-1 min-w-0 truncate">{{ m.name }}</label>
+                                <div class="market-wliability w-[5.5rem] shrink-0 ml-auto flex items-center justify-end gap-1" title="Weighted liability">
+                                    <span class="market-wliability-value text-[11px] font-mono tabular-nums text-gmp-text-menu text-right min-w-[2.25rem]">0</span>
+                                    <span class="market-wliability-bar-wrap relative shrink-0 w-[3rem] h-2.5 rounded-sm border border-gmp-border/80 bg-gmp-surface-inset/50 overflow-hidden" aria-hidden="true">
+                                        <span class="market-wliability-bar-fill absolute inset-y-0 left-0 overflow-hidden transition-[width] duration-150" style="width: 0%">
+                                            <span class="market-wliability-bar-gradient absolute inset-y-0 left-0 h-full" style="background: linear-gradient(90deg, #22c55e 0%, #eab308 50%, #ef4444 100%);"></span>
+                                        </span>
+                                    </span>
+                                </div>
                             </li>
                             {% endfor %}
                         </ul>
@@ -89,17 +104,6 @@
         <!-- Center: Markets Overview -->
         <div class="flex flex-col min-h-0 min-w-0">
             <div class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg p-4 flex-1 flex flex-col min-h-0">
-                <div class="flex flex-wrap items-center gap-2 mb-3">
-                    <select class="bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-xs text-gmp-text-menu">
-                        <option>State/Status</option>
-                    </select>
-                    <select class="bg-gmp-surface-raised border border-gmp-border rounded px-2 py-1 text-xs text-gmp-text-menu">
-                        <option>Resulted</option>
-                    </select>
-                    <label class="flex items-center gap-1.5 text-xs text-gmp-text-muted">
-                        <input type="checkbox" class="rounded border-gmp-border accent-primary"> Show only with bets
-                    </label>
-                </div>
                 <div id="markets-overview-body" class="flex-1 overflow-auto space-y-2 min-h-0">
                     <p id="markets-overview-empty" class="text-xs text-gmp-text-faint italic">Select markets from the left to show them here.</p>
                     <div id="markets-overview-rows" class="space-y-2 hidden"></div>
@@ -540,12 +544,144 @@
 
     groupContainers.forEach(updateGroupCheckboxState);
 
-    var pricingBrandEl = document.getElementById('event-details-pricing-brand');
-    if (pricingBrandEl) {
-        pricingBrandEl.addEventListener('change', function () {
-            void refreshOverviewPrices();
+    var withPositionsCb = document.getElementById('markets-with-positions');
+
+    function formatWLiabilityMagnitude(absEur) {
+        var v = Math.round(Math.abs(Number(absEur) || 0));
+        if (v === 0) return '0';
+        if (v < 1000) return String(v);
+        if (v < 1000000) {
+            var k = v / 1000;
+            if (k >= 100) return Math.round(k) + 'K';
+            var kR = Math.round(k * 10) / 10;
+            return (Number.isInteger(kR) ? String(kR) : kR.toFixed(1)) + 'K';
+        }
+        var m = v / 1000000;
+        if (m >= 100) return Math.round(m) + 'M';
+        var mR = Math.round(m * 10) / 10;
+        return (Number.isInteger(mR) ? String(mR) : mR.toFixed(1)) + 'M';
+    }
+
+    function formatWLiabilityAmount(eur) {
+        var n = Number(eur) || 0;
+        if (n === 0) return '0';
+        var body = formatWLiabilityMagnitude(n);
+        return n < 0 ? ('-' + body) : body;
+    }
+
+    function randomDemoWLiabilityEur() {
+        var bucket = Math.random();
+        if (bucket < 0.12) return -(Math.floor(Math.random() * 999) + 1);
+        if (bucket < 0.18) return -(Math.floor(Math.random() * 99000) + 1000);
+        if (bucket < 0.45) return Math.floor(Math.random() * 999) + 1;
+        if (bucket < 0.72) return Math.floor(Math.random() * 99000) + 1000;
+        if (bucket < 0.9) return Math.floor(Math.random() * 900000) + 100000;
+        return Math.floor(Math.random() * 9000000) + 1000000;
+    }
+
+    function seedDemoMarketLiabilities() {
+        document.querySelectorAll('.event-detail-market-row').forEach(function (row) {
+            if (Math.random() < 0.55) {
+                row.setAttribute('data-w-liability', '0');
+                return;
+            }
+            row.setAttribute('data-w-liability', String(randomDemoWLiabilityEur()));
         });
     }
+
+    function wLiabilityBarScale() {
+        var max = 0;
+        document.querySelectorAll('.event-detail-market-row').forEach(function (row) {
+            var v = parseFloat(row.getAttribute('data-w-liability') || '0') || 0;
+            var a = Math.abs(v);
+            if (a > max) max = a;
+        });
+        return max > 0 ? max : 100;
+    }
+
+    function syncWLiabilityBarGradientWidths() {
+        document.querySelectorAll('.market-wliability-bar-wrap').forEach(function (wrap) {
+            var grad = wrap.querySelector('.market-wliability-bar-gradient');
+            if (grad) grad.style.width = wrap.offsetWidth + 'px';
+        });
+    }
+
+    function refreshMarketWLiabilityUI() {
+        syncWLiabilityBarGradientWidths();
+        var scale = wLiabilityBarScale();
+        document.querySelectorAll('.event-detail-market-row').forEach(function (row) {
+            var v = parseFloat(row.getAttribute('data-w-liability') || '0') || 0;
+            var valEl = row.querySelector('.market-wliability-value');
+            var fillEl = row.querySelector('.market-wliability-bar-fill');
+            var wrapEl = row.querySelector('.market-wliability');
+            if (valEl) {
+                valEl.textContent = formatWLiabilityAmount(v);
+                valEl.classList.remove('text-gmp-text-menu', 'text-danger');
+                valEl.classList.add(v < 0 ? 'text-danger' : 'text-gmp-text-menu');
+            }
+            if (wrapEl) {
+                wrapEl.title = v !== 0
+                    ? ('€' + v.toLocaleString('en-GB'))
+                    : 'Weighted liability';
+            }
+            if (fillEl) {
+                var pct = scale > 0 ? Math.min(100, (Math.abs(v) / scale) * 100) : 0;
+                fillEl.style.width = (v > 0 ? Math.max(pct, 4) : 0) + '%';
+            }
+        });
+    }
+
+    function applyWithPositionsFilter() {
+        var onlyWith = withPositionsCb && withPositionsCb.checked;
+        document.querySelectorAll('.event-detail-market-row').forEach(function (row) {
+            var v = parseFloat(row.getAttribute('data-w-liability') || '0') || 0;
+            row.classList.toggle('hidden', !!(onlyWith && v === 0));
+        });
+        groupContainers.forEach(function (container) {
+            var visible = container.querySelectorAll('.event-detail-market-row:not(.hidden)');
+            container.classList.toggle('hidden', !!(onlyWith && visible.length === 0));
+        });
+    }
+
+    if (withPositionsCb) {
+        withPositionsCb.addEventListener('change', applyWithPositionsFilter);
+    }
+    seedDemoMarketLiabilities();
+    refreshMarketWLiabilityUI();
+    applyWithPositionsFilter();
+    window.addEventListener('resize', function () {
+        syncWLiabilityBarGradientWidths();
+    });
+
+    var pricingBrandPills = document.querySelectorAll('.event-details-pricing-brand-pill');
+    var pricingBrandHidden = document.getElementById('event-details-pricing-brand');
+
+    function setActivePricingBrandPill(brandId) {
+        var id = brandId != null ? String(brandId).trim() : '';
+        if (pricingBrandHidden) pricingBrandHidden.value = id;
+        pricingBrandPills.forEach(function (pill) {
+            var pillId = (pill.getAttribute('data-brand-id') || '').trim();
+            var active = pillId === id;
+            pill.setAttribute('aria-selected', active ? 'true' : 'false');
+            pill.classList.toggle('bg-primary', active);
+            pill.classList.toggle('text-white', active);
+            pill.classList.toggle('border-primary', active);
+            pill.classList.toggle('bg-gmp-surface-raised', !active);
+            pill.classList.toggle('text-gmp-text-muted', !active);
+            pill.classList.toggle('border-gmp-border', !active);
+            pill.classList.toggle('hover:bg-gmp-hover/15', !active);
+            pill.classList.toggle('hover:text-gmp-text-heading', !active);
+        });
+    }
+
+    pricingBrandPills.forEach(function (pill) {
+        pill.addEventListener('click', function () {
+            var nextId = (pill.getAttribute('data-brand-id') || '').trim();
+            if (pricingBrandHidden && (pricingBrandHidden.value || '').trim() === nextId) return;
+            setActivePricingBrandPill(nextId);
+            void refreshOverviewPrices();
+        });
+    });
 
     overviewRows.addEventListener('click', function (e) {
         var btn = e.target.closest('.market-line-btn');
