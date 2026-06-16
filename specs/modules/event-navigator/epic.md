@@ -13,4 +13,4 @@ Operators need a single place to see canonical (domain) events — the golden co
 
 **Out of scope for initial:** Backend filtering by period, has bets, live, notes, outright, brand; full behaviour for action menu items other than View Event and Notes; Bulk Update behaviour (button present, disabled); pagination and page size (e.g. 20 per page) — Previous/Next present but disabled.
 
-**Dependencies:** Domain events store, event mappings, Feeder Events (mapping flow), Entities (sports, categories, competitions), brands list, platform notifications (for IMPORTANT notes).
+**Dependencies:** Domain events store, event mappings, Feeder Events (mapping flow), Entities (sports, categories, competitions), brands list, platform notifications (for IMPORTANT notes). **Child:** [Event Details](event-details/epic.md) — single-event workspace (separate page, new tab).

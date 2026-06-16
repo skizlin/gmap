@@ -17,7 +17,11 @@ from typing import Callable, Optional
 
 import httpx
 
-from backend.mock_data import _bwin_outright_detection
+from backend.mock_data import (
+    _bwin_outright_detection,
+    bwin_canonical_market_display_name,
+    bwin_normalize_outright_stored_event,
+)
 
 # Per-feed locks so parallel pulls for the same feed serialize merge/save only (fetch stays parallel).
 _feed_locks: dict[str, asyncio.Lock] = {}
@@ -418,26 +422,30 @@ def _bwin_template_id_placeholder(template_id: object) -> bool:
         return s == "" or s == "0"
 
 
-def _bwin_market_row_display_name(m: dict) -> str:
+def _bwin_market_row_display_name(m: dict, *, canonical: bool = False) -> str:
     n = m.get("name")
     if isinstance(n, dict):
-        return (n.get("value") or "").strip()
-    if isinstance(n, str):
-        return n.strip()
-    return ""
+        raw = (n.get("value") or "").strip()
+    elif isinstance(n, str):
+        raw = n.strip()
+    else:
+        raw = ""
+    if canonical and raw:
+        return bwin_canonical_market_display_name(raw)
+    return raw
 
 
 def _bwin_market_identity_key(m: dict, *, l2_dedupe_by_name: bool) -> tuple[str, str]:
-    """One key per logical market type for counting; L2 grid uses display name so multi-line totals collapse."""
+    """One key per logical market type for counting; L2 grid uses display name so multi-line handicaps count as one type."""
     tc = m.get("templateCategory") or {}
     tid = m.get("templateId")
     if tid is None:
         tid = tc.get("id")
     placeholder = _bwin_template_id_placeholder(tid)
     if l2_dedupe_by_name and placeholder:
-        nm = _bwin_market_row_display_name(m)
+        nm = _bwin_market_row_display_name(m, canonical=True)
         if not nm and isinstance(tc.get("name"), dict):
-            nm = (tc["name"].get("value") or "").strip()
+            nm = bwin_canonical_market_display_name((tc["name"].get("value") or "").strip())
         if nm:
             return ("name", nm.casefold())
         rid = m.get("id")
@@ -500,7 +508,7 @@ def _normalize_bwin_item(
     fp = (feed_provider or "bwin").strip().lower()
     if fp not in ("bwin", "bwin_l2"):
         fp = "bwin"
-    return {
+    out = {
         "feed_provider": fp,
         "valid_id": valid_id,
         "domain_id": None,
@@ -538,6 +546,11 @@ def _normalize_bwin_item(
         "Markets": list(item.get("Markets") or []),
         "optionMarkets": list(item.get("optionMarkets") or []),
     }
+    if is_outright:
+        bwin_normalize_outright_stored_event(out)
+        if fp == "bwin_l2":
+            out["markets_count"] = _bwin_distinct_market_types_count(out, l2_dedupe_by_name=True)
+    return out
 
 
 async def _pull_bwin_prematch_layer(

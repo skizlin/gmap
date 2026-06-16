@@ -97,12 +97,6 @@
             <input id="nef-name" type="text" placeholder="e.g. England"
                 class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary placeholder-gmp-text-faint">
         </div>
-        <div id="nef-feedid-wrap" class="flex-1">
-            <label class="block text-[10px] uppercase tracking-wider text-gmp-text-faint mb-1">Feed ID <span
-                    class="text-gmp-text-faint normal-case">(blank = use name)</span></label>
-            <input id="nef-feedid" type="text" placeholder="e.g. 1, Soccer, FA Cup"
-                class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary placeholder-gmp-text-faint">
-        </div>
         <button onclick="submitNewEntity()"
             class="shrink-0 bg-primary hover:bg-primaryHover text-white text-xs font-medium px-4 py-1.5 rounded transition-all">
             <i class="fa-solid fa-plus mr-1"></i> Create
@@ -150,7 +144,7 @@
             <select id="mt-sport" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none" title="Select a sport to view its market types" onchange="mtSportChange()">
                 <option value="">— Select sport —</option>
                 {% for s in entities.sports %}
-                <option value="{{ s.domain_id }}" {% if market_sport_id is not none and market_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
+                <option value="{{ s.domain_id }}" {% if market_sport_id is not none and market_sport_id|string == s.domain_id|string %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
             </select>
             {{ entity_activity_switcher('markets') }}
@@ -177,7 +171,7 @@
                     <select id="mt-form-sport" required class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-2.5 py-1.5 text-sm text-gmp-text-heading outline-none focus:border-primary">
                         <option value="">— select sport —</option>
                         {% for s in entities.sports %}
-                        <option value="{{ s.name }}" {% if market_sport_id is not none and market_sport_id == s.domain_id %}selected{% endif %}>{{ s.name }}</option>
+                        <option value="{{ s.name }}" {% if market_sport_id is not none and (sports_by_id.get(market_sport_id) or '') == s.name %}selected{% endif %}>{{ s.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -336,7 +330,6 @@
                 <thead class="text-gmp-text-menu text-xs uppercase tracking-wider border-b border-gmp-border sticky top-0 z-10 dark:text-gmp-text-muted">
                     <tr>
                         <th class="px-3 py-2 font-semibold">ID</th>
-                        <th class="px-3 py-2 font-semibold"><span class="inline-flex items-center gap-1.5"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport</span></th>
                         <th class="px-3 py-2 font-semibold">Name</th>
                         <th class="px-3 py-2 font-semibold">Abb.</th>
                         <th class="px-3 py-2 font-semibold">Market Type</th>
@@ -353,12 +346,12 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gmp-border/40 entity-tbody" data-panel="markets">
-                    <tr id="mt-no-sport-row" class="mt-select-sport-placeholder" style="display: none;">
-                        <td colspan="15" class="px-4 py-10 text-center text-gmp-text-faint">Select a sport above to view market types.</td>
+                    {% if not market_sport_id %}
+                    <tr id="mt-no-sport-row" class="mt-select-sport-placeholder entity-select-sport-placeholder">
+                        <td colspan="14" class="px-4 py-10 text-center text-gmp-text-faint">Select a sport above to view market types.</td>
                     </tr>
-                    {% set entity_data = entities.markets %}
-                    {% if entity_data %}
-                    {% for entity in entity_data %}
+                    {% elif entities.markets %}
+                    {% for entity in entities.markets %}
                     {% set mfc = market_feed_counts_by_market_id.get(entity.domain_id, {'prematch': 0, 'live': 0}) %}
                     {% set _tpl = namespace(t=None) %}
                     {% for t in market_templates %}{% if t.code == entity.get('template') %}{% set _tpl.t = t %}{% endif %}{% endfor %}
@@ -370,7 +363,6 @@
                     {% for g in market_groups %}{% if g.code == entity.get('market_group') %}{% set _grp.g = g %}{% endif %}{% endfor %}
                     <tr class="entity-row hover:bg-gmp-hover/5 transition-colors" data-search="{{ (entity.name ~ ' ' ~ (entity.get('code') or '') ~ ' ' ~ (entity.get('abb') or '')) | lower }}" data-sport-id="{{ entity.get('sport_id') or '' }}" data-active="{{ '1' if entity.get('active', True) else '0' }}">
                         <td class="px-3 py-2 font-mono text-gmp-text-muted">{{ entity.domain_id }}</td>
-                        <td class="px-3 py-2 text-gmp-text-muted">{{ sports_by_id.get(entity.sport_id, '—') }}</td>
                         <td class="px-3 py-2 text-gmp-text-heading font-medium">{{ entity.name }}</td>
                         <td class="px-3 py-2 text-gmp-text-muted">{{ entity.get('abb') or entity.get('code') or '—' }}</td>
                         <td class="px-3 py-2 text-gmp-text-muted">{{ entity.get('market_type') or '—' }}</td>
@@ -394,8 +386,8 @@
                     </tr>
                     {% endfor %}
                     {% else %}
-                    <tr class="entity-empty-row">
-                        <td colspan="15" class="px-4 py-10 text-center text-gmp-text-faint italic">No market types yet. Use “+ create Market Type” or add data when ready.</td>
+                    <tr class="entity-row entity-empty-row">
+                        <td colspan="14" class="px-4 py-10 text-center text-gmp-text-faint italic">No market types for this sport yet. Use “+ create Market Type” or add data when ready.</td>
                     </tr>
                     {% endif %}
                 </tbody>
@@ -416,18 +408,20 @@
         <!-- Filter bar: dropdowns → status → search → reset (same order on every tab) -->
         <div class="flex flex-wrap items-center gap-3">
             {% if key == 'categories' %}
-            <select id="filter-categories-sport" class="filter-categories bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
-                <option value="">— Sport —</option>
+            <label class="text-[10px] uppercase tracking-wider text-gmp-text-faint self-center inline-flex items-center gap-1.5"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport</label>
+            <select id="filter-categories-sport" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[140px]" title="Select a sport to load categories" onchange="categorySportChange()">
+                <option value="">— Select sport —</option>
                 {% for s in entities.sports %}
-                <option value="{{ s.domain_id }}">{{ s.name }}</option>
+                <option value="{{ s.domain_id }}" {% if category_sport_id is not none and category_sport_id|string == s.domain_id|string %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
             </select>
             {% endif %}
             {% if key == 'teams' %}
-            <select id="filter-teams-sport" class="filter-teams bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
-                <option value="">— Sport —</option>
+            <label class="text-[10px] uppercase tracking-wider text-gmp-text-faint self-center inline-flex items-center gap-1.5"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport</label>
+            <select id="filter-teams-sport" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[140px]" title="Select a sport to load teams" onchange="teamSportChange()">
+                <option value="">— Select sport —</option>
                 {% for s in entities.sports %}
-                <option value="{{ s.domain_id }}">{{ s.name }}</option>
+                <option value="{{ s.domain_id }}" {% if team_sport_id is not none and team_sport_id|string == s.domain_id|string %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
             </select>
             <select id="filter-teams-participant-type" class="filter-teams bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[140px]" title="Filter by type">
@@ -449,10 +443,11 @@
             </select>
             {% endif %}
             {% if key == 'competitions' %}
-            <select id="filter-competitions-sport" class="filter-competitions bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[120px]" title="Filter by sport">
-                <option value="">— Sport —</option>
+            <label class="text-[10px] uppercase tracking-wider text-gmp-text-faint self-center inline-flex items-center gap-1.5"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport</label>
+            <select id="filter-competitions-sport" class="bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[140px]" title="Select a sport to load competitions" onchange="competitionSportChange()">
+                <option value="">— Select sport —</option>
                 {% for s in entities.sports %}
-                <option value="{{ s.domain_id }}">{{ s.name }}</option>
+                <option value="{{ s.domain_id }}" {% if competition_sport_id is not none and competition_sport_id|string == s.domain_id|string %}selected{% endif %}>{{ s.name }}</option>
                 {% endfor %}
             </select>
             <select id="filter-competitions-amateur" class="filter-competitions bg-gmp-surface border border-gmp-border rounded px-2.5 py-1.5 text-xs text-gmp-text-heading focus:border-primary outline-none min-w-[100px]" title="Filter by amateur">
@@ -522,8 +517,6 @@
                             {% endif %}
                         </th>
                         {% if key in ('sports', 'categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">Base ID</th>{% endif %}
-                        {% if key in ('categories', 'competitions', 'teams') %}<th class="px-4 py-2.5 font-semibold">
-                            <span class="inline-flex items-center gap-1.5"><i class="fa-solid fa-futbol text-gmp-text-muted text-[10px]" aria-hidden="true"></i>Sport</span></th>{% endif %}
                         {% if key == 'competitions' %}<th class="px-4 py-2.5 font-semibold">Category</th>{% endif %}
                         {% if key == 'teams' %}<th class="px-4 py-2.5 font-semibold">Type</th>{% endif %}
                         {% if key in ('teams', 'competitions') %}<th class="px-4 py-2.5 font-semibold">Amateur</th><th class="px-4 py-2.5 font-semibold">Age category</th>{% endif %}
@@ -535,37 +528,18 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gmp-border/40 text-xs entity-tbody" data-panel="{{ key }}">
+                    {% if key == 'sports' %}
                     {% set entity_data = entities[key] %}
                     {% if entity_data %}
                     {% for entity in entity_data %}
                     {% set refs = entity_feed_refs_by_key.get(key ~ ':' ~ entity.domain_id, []) %}
                     {% set ns = namespace(parts=[entity.domain_id | string, entity.name, (entity.get('code') or ''), (sports_by_id.get(entity.get('sport_id'), '') or ''), (categories_by_id.get(entity.get('category_id'), '') or '')]) %}
                     {% for r in refs %}{% set ns.parts = ns.parts + [feeds_by_id.get(r.feed_provider_id, '') or '', r.feed_id] %}{% endfor %}
-                    <tr class="entity-row hover:bg-gmp-hover/5 transition-colors" data-search="{{ ns.parts | join(' ') | lower }}" data-entity-id="{{ entity.domain_id }}" data-active="{{ '1' if entity.get('active', True) else '0' }}"{% if key == 'categories' %} data-sport-id="{{ entity.get('sport_id') or '' }}"{% endif %}{% if key == 'teams' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-participant-type-id="{{ entity.get('participant_type_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}{% if key == 'competitions' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}>
+                    <tr class="entity-row hover:bg-gmp-hover/5 transition-colors" data-search="{{ ns.parts | join(' ') | lower }}" data-entity-id="{{ entity.domain_id }}" data-active="{{ '1' if entity.get('active', True) else '0' }}">
                         <td class="px-4 py-2.5 font-mono text-gmp-text-muted">{{ entity.domain_id }}</td>
                         <td class="px-4 py-2.5 text-gmp-text-heading font-medium" data-entity-name="1">{{ entity.name }}</td>
-                        {% if key in ('sports', 'categories', 'competitions', 'teams') %}
                         <td class="px-4 py-2.5 text-gmp-text-muted font-mono" data-entity-baseid="{{ entity.get('baseid') or '' }}">{{ entity.get('baseid') or '—' }}</td>
-                        {% endif %}
-                        {% if key in ('categories', 'competitions', 'teams') %}
-                        <td class="px-4 py-2.5 text-gmp-text-muted">{{ sports_by_id.get(entity.get('sport_id'), '—') }}</td>
-                        {% endif %}
-                        {% if key == 'competitions' %}
-                        <td class="px-4 py-2.5 text-gmp-text-muted">{{ categories_by_id.get(entity.get('category_id'), '—')
-                            }}</td>
-                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}">{% if entity.get('is_amateur') %}Yes{% else %}—{% endif %}</td>
-                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
-                        {% endif %}
-                        {% if key == 'teams' %}
-                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-participant-type-id="{{ entity.get('participant_type_id') or '' }}">{{ participant_types_by_id.get(entity.get('participant_type_id'), '—') }}</td>
-                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}">{% if entity.get('is_amateur') %}Yes{% else %}—{% endif %}</td>
-                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
-                        {% endif %}
-                        {% if key in ('categories', 'competitions', 'teams') %}
-                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-country="{{ entity.get('country') or '-' }}" title="Country">{{ countries_by_cc.get(entity.get('country') or '-', '—') }}</td>
-                        {% endif %}
                         <td class="px-4 py-2.5">
-                            {# All entity types (sports, categories, competitions, teams, markets): feed refs from entity_feed_mappings #}
                             {% if refs %}
                             <div class="flex flex-wrap gap-1">
                                     {% for r in refs %}
@@ -582,7 +556,6 @@
                         <td class="px-4 py-2.5 text-gmp-text-muted whitespace-nowrap">{{ entity.get('created_at') | format_entity_date }}</td>
                         <td class="px-4 py-2.5 text-gmp-text-muted whitespace-nowrap">{{ entity.get('updated_at') | format_entity_date }}</td>
                         <td class="px-4 py-2.5 text-right align-top">
-                            {% if key == 'sports' %}
                             {% if rbac_can_any(request, 'entity.sport.edit', 'entity.sport.remove_mappings', 'entity.sport.active_inactive') %}
                             <button type="button" class="entity-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 transition-colors"
                                 data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
@@ -592,7 +565,63 @@
                             {% else %}
                             <span class="text-gmp-text-faint text-[11px]">—</span>
                             {% endif %}
-                            {% elif key == 'categories' %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr class="entity-row entity-empty-row">
+                        <td colspan="7" class="px-4 py-10 text-center text-gmp-text-faint italic">
+                            No {{ key }} yet. Create them here or from the mapping modal.
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% else %}
+                    {% if key == 'categories' %}{% set panel_sp = category_sport_id %}{% elif key == 'competitions' %}{% set panel_sp = competition_sport_id %}{% else %}{% set panel_sp = team_sport_id %}{% endif %}
+                    {% if not panel_sp %}
+                    <tr class="entity-select-sport-placeholder" id="{{ key }}-no-sport-row">
+                        <td colspan="{% if key == 'categories' %}8{% else %}11{% endif %}" class="px-4 py-10 text-center text-gmp-text-faint">Select a sport above to view {{ key }}.</td>
+                    </tr>
+                    {% elif entities[key] %}
+                    {% for entity in entities[key] %}
+                    {% set refs = entity_feed_refs_by_key.get(key ~ ':' ~ entity.domain_id, []) %}
+                    {% set ns = namespace(parts=[entity.domain_id | string, entity.name, (entity.get('code') or ''), (sports_by_id.get(entity.get('sport_id'), '') or ''), (categories_by_id.get(entity.get('category_id'), '') or '')]) %}
+                    {% for r in refs %}{% set ns.parts = ns.parts + [feeds_by_id.get(r.feed_provider_id, '') or '', r.feed_id] %}{% endfor %}
+                    <tr class="entity-row hover:bg-gmp-hover/5 transition-colors" data-search="{{ ns.parts | join(' ') | lower }}" data-entity-id="{{ entity.domain_id }}" data-active="{{ '1' if entity.get('active', True) else '0' }}"{% if key == 'categories' %} data-sport-id="{{ entity.get('sport_id') or '' }}"{% endif %}{% if key == 'teams' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-participant-type-id="{{ entity.get('participant_type_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}{% if key == 'competitions' %} data-sport-id="{{ entity.get('sport_id') or '' }}" data-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}" data-underage-category-id="{{ entity.get('underage_category_id') or '' }}"{% endif %}>
+                        <td class="px-4 py-2.5 font-mono text-gmp-text-muted">{{ entity.domain_id }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-heading font-medium" data-entity-name="1">{{ entity.name }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted font-mono" data-entity-baseid="{{ entity.get('baseid') or '' }}">{{ entity.get('baseid') or '—' }}</td>
+                        {% if key == 'competitions' %}
+                        <td class="px-4 py-2.5 text-gmp-text-muted">{{ categories_by_id.get(entity.get('category_id'), '—')
+                            }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}">{% if entity.get('is_amateur') %}Yes{% else %}—{% endif %}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
+                        {% endif %}
+                        {% if key == 'teams' %}
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-participant-type-id="{{ entity.get('participant_type_id') or '' }}">{{ participant_types_by_id.get(entity.get('participant_type_id'), '—') }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-is-amateur="{{ '1' if entity.get('is_amateur') else '0' }}">{% if entity.get('is_amateur') %}Yes{% else %}—{% endif %}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-underage-category-id="{{ entity.get('underage_category_id') or '' }}">{{ underage_categories_by_id.get(entity.get('underage_category_id'), '—') }}</td>
+                        {% endif %}
+                        {% if key in ('categories', 'competitions', 'teams') %}
+                        <td class="px-4 py-2.5 text-gmp-text-muted" data-entity-country="{{ entity.get('country') or '-' }}" title="Country">{{ countries_by_cc.get(entity.get('country') or '-', '—') }}</td>
+                        {% endif %}
+                        <td class="px-4 py-2.5">
+                            {% if refs %}
+                            <div class="flex flex-wrap gap-1">
+                                    {% for r in refs %}
+                                    <span class="bg-gmp-surface-raised/80 text-gmp-text px-2 py-1 rounded text-[10px] inline-flex items-center gap-1" title="Feed ID: {{ r.feed_id }}">
+                                        <i class="fa-solid fa-satellite-dish text-gmp-text-faint text-[8px]"></i>
+                                        {{ feeds_by_id.get(r.feed_provider_id, 'Feed #' ~ r.feed_provider_id) }} <span class="text-gmp-text-faint">·</span> <span class="font-mono">{{ r.feed_id }}</span>
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <span class="text-gmp-text-faint italic text-[11px]">No feeds mapped</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted whitespace-nowrap">{{ entity.get('created_at') | format_entity_date }}</td>
+                        <td class="px-4 py-2.5 text-gmp-text-muted whitespace-nowrap">{{ entity.get('updated_at') | format_entity_date }}</td>
+                        <td class="px-4 py-2.5 text-right align-top">
+                            {% if key == 'categories' %}
                             {% if rbac_can_any(request, 'entity.category.edit', 'entity.category.remove_mappings', 'entity.category.active_inactive') %}
                             <button type="button" class="entity-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 transition-colors"
                                 data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
@@ -622,22 +651,17 @@
                             {% else %}
                             <span class="text-gmp-text-faint text-[11px]">—</span>
                             {% endif %}
-                            {% else %}
-                            <button type="button" class="entity-kebab-btn p-1.5 rounded text-gmp-text-muted hover:text-gmp-text-heading hover:bg-gmp-hover/15 transition-colors"
-                                data-entity-panel="{{ key }}" data-entity-id="{{ entity.domain_id }}"
-                                aria-haspopup="true" title="Actions">
-                                <i class="fa-solid fa-ellipsis-vertical text-sm"></i>
-                            </button>
                             {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                     {% else %}
                     <tr class="entity-row entity-empty-row">
-                        <td colspan="12" class="px-4 py-10 text-center text-gmp-text-faint italic">
-                            No {{ key }} yet. Create them here or from the mapping modal.
+                        <td colspan="{% if key == 'categories' %}8{% else %}11{% endif %}" class="px-4 py-10 text-center text-gmp-text-faint italic">
+                            No {{ key }} for this sport yet. Create them here or from the mapping modal.
                         </td>
                     </tr>
+                    {% endif %}
                     {% endif %}
                 </tbody>
             </table>
@@ -868,6 +892,7 @@
     ];
     var ENTITY_PER_PAGE = 50;
     window._entityPage = { sports: 1, categories: 1, competitions: 1, teams: 1, markets: 1 };
+    window.__sportFeedMappings = {{ sport_feed_mappings_for_ui | default([]) | tojson }};
     function entityPagerLabel(panel) {
         if (panel === 'sports') return 'sports';
         if (panel === 'categories') return 'categories';
@@ -883,6 +908,24 @@
         const prevBtn = document.getElementById('entity-pager-prev-' + panel);
         const nextBtn = document.getElementById('entity-pager-next-' + panel);
         if (!tbody || !pagerEl) return;
+        if (panel === 'categories' || panel === 'competitions' || panel === 'teams') {
+            var selId = panel === 'categories' ? 'filter-categories-sport' : (panel === 'competitions' ? 'filter-competitions-sport' : 'filter-teams-sport');
+            var spSel = document.getElementById(selId);
+            var spVal = (spSel && spSel.value ? String(spSel.value).trim() : '') || '';
+            if (!spVal) {
+                tbody.querySelectorAll('.entity-row').forEach(function (tr) {
+                    if (!tr.classList.contains('entity-empty-row') && !tr.classList.contains('entity-select-sport-placeholder')) tr.style.display = 'none';
+                });
+                if (summaryEl) summaryEl.textContent = 'Select a sport to view ' + entityPagerLabel(panel) + '.';
+                if (prevBtn) prevBtn.disabled = true;
+                if (nextBtn) nextBtn.disabled = true;
+                pagerEl.setAttribute('data-total', '0');
+                pagerEl.setAttribute('data-page', '1');
+                pagerEl.setAttribute('data-per-page', String(ENTITY_PER_PAGE));
+                pagerEl.setAttribute('data-total-pages', '1');
+                return;
+            }
+        }
         if (panel === 'markets') {
             const sportVal = ((document.getElementById('mt-sport') || {}).value || '').trim();
             const noSportRow = document.getElementById('mt-no-sport-row');
@@ -901,7 +944,7 @@
             }
         }
         const dataRows = Array.from(tbody.querySelectorAll('.entity-row')).filter(function (tr) {
-            return !tr.classList.contains('entity-empty-row') && !tr.classList.contains('mt-select-sport-placeholder');
+            return !tr.classList.contains('entity-empty-row') && !tr.classList.contains('mt-select-sport-placeholder') && !tr.classList.contains('entity-select-sport-placeholder');
         });
         const matched = dataRows.filter(function (tr) { return tr.getAttribute('data-entity-filter-match') === '1'; });
         const total = matched.length;
@@ -1050,8 +1093,8 @@
 
     // All categories as flat array — JS filters by sport at runtime
     const _allCategories = [
-        {% for cat in entities.categories %}
-    { name: "{{ cat.name }}", sport: "{{ sports_by_id.get(cat.sport_id, '') }}" },
+        {% for cat in (all_categories_for_form if all_categories_for_form is defined else []) %}
+    { name: {{ cat.name | tojson }}, sport: {{ (sports_by_id.get(cat.sport_id, '') or '') | tojson }} },
     {% endfor %}
     ];
 
@@ -1061,13 +1104,11 @@
         const needsCategory = type === 'competitions';
         const needsCountry = ['categories', 'competitions', 'teams'].includes(type);
         const needsBaseid = ['sports', 'categories', 'competitions', 'teams'].includes(type);
-        const needsFeedId = ['categories', 'competitions', 'teams', 'markets'].includes(type);
         const needsCode = type === 'markets';
         document.getElementById('nef-sport-wrap').classList.toggle('hidden', !needsSport);
         document.getElementById('nef-category-wrap').classList.toggle('hidden', !needsCategory);
         document.getElementById('nef-country-wrap').classList.toggle('hidden', !needsCountry);
         document.getElementById('nef-baseid-wrap').classList.toggle('hidden', !needsBaseid);
-        document.getElementById('nef-feedid-wrap').classList.toggle('hidden', !needsFeedId);
         document.getElementById('nef-code-wrap').classList.toggle('hidden', !needsCode);
     }
 
@@ -1083,7 +1124,6 @@
     async function submitNewEntity() {
         const name = document.getElementById('nef-name').value.trim();
         const type = document.getElementById('nef-type').value;
-        const feedId = type === 'sports' ? '' : (document.getElementById('nef-feedid').value.trim() || name);
         const statusEl = document.getElementById('nef-status');
         if (!userCanCreateEntityType(type)) {
             statusEl.textContent = 'You do not have permission to create this entity type.';
@@ -1094,7 +1134,7 @@
         const sport = document.getElementById('nef-sport')?.value || null;
         const category = document.getElementById('nef-category')?.value || null;
         statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-gmp-text-muted"></i>';
-        const payload = { entity_type: type, feed_id: feedId, name, sport, category };
+        const payload = { entity_type: type, name, sport, category };
         if (type === 'markets') payload.code = (document.getElementById('nef-code')?.value || '').trim() || null;
         if (['categories', 'competitions', 'teams'].includes(type)) {
             const countrySel = document.getElementById('nef-country');
@@ -1430,6 +1470,33 @@
         u.hash = 'markets';
         window.location.href = u.toString();
     }
+    function categorySportChange() {
+        var sel = document.getElementById('filter-categories-sport');
+        if (!sel) return;
+        var v = sel.value;
+        var u = new URL(window.location.href);
+        if (v) u.searchParams.set('category_sport_id', v); else u.searchParams.delete('category_sport_id');
+        u.hash = 'categories';
+        window.location.href = u.toString();
+    }
+    function competitionSportChange() {
+        var sel = document.getElementById('filter-competitions-sport');
+        if (!sel) return;
+        var v = sel.value;
+        var u = new URL(window.location.href);
+        if (v) u.searchParams.set('competition_sport_id', v); else u.searchParams.delete('competition_sport_id');
+        u.hash = 'competitions';
+        window.location.href = u.toString();
+    }
+    function teamSportChange() {
+        var sel = document.getElementById('filter-teams-sport');
+        if (!sel) return;
+        var v = sel.value;
+        var u = new URL(window.location.href);
+        if (v) u.searchParams.set('team_sport_id', v); else u.searchParams.delete('team_sport_id');
+        u.hash = 'teams';
+        window.location.href = u.toString();
+    }
     function mtSort() {
         alert('Sort Market Types: UI coming soon. Order will define display order on site.');
     }
@@ -1589,6 +1656,7 @@
         } catch (e) { /* ignore */ }
         renderMapperPrematchLive();
         document.getElementById('market-mapper-modal').classList.remove('hidden');
+        if (typeof syncMapperFeedOptions === 'function') syncMapperFeedOptions(true);
     }
     function closeMarketMapper() {
         document.getElementById('market-mapper-modal').classList.add('hidden');
@@ -1623,6 +1691,54 @@
 
     let marketMapperFeedMarkets = [];
     let marketMapperGloballyMappedKeys = {};
+    /** Feed market id for mapper payloads: only coerce pure numeric strings (avoids parseInt("2up…") → 2). */
+    function parseMapperFeedMarketId(raw) {
+        if (raw == null || raw === '') return null;
+        var s = String(raw).trim();
+        if (!s) return null;
+        if (/^\d+$/.test(s)) return parseInt(s, 10);
+        return s;
+    }
+    function getMapperFeedSportId(feedProviderId, domainSportId) {
+        var mappings = window.__sportFeedMappings || [];
+        var row = mappings.find(function (m) {
+            return String(m.domain_id) === String(domainSportId) && m.feed_provider_id === feedProviderId;
+        });
+        return row && row.feed_id != null ? String(row.feed_id).trim() : '';
+    }
+    function isBwinL2FeedProvider(feedProviderId) {
+        var mappings = window.__sportFeedMappings || [];
+        return mappings.some(function (m) {
+            return m.feed_provider_id === feedProviderId && (m.feed_code || '') === 'bwin_l2';
+        });
+    }
+    function mapperRegisterMappedKeys(mappedSet, feedProviderId, id, name, domainSportId) {
+        var pid = feedProviderId != null ? String(feedProviderId) : '';
+        var idStr = id != null ? String(id).trim() : '';
+        var nameStr = (name || '').trim();
+        var fsid = (domainSportId && isBwinL2FeedProvider(feedProviderId))
+            ? getMapperFeedSportId(feedProviderId, domainSportId) : '';
+        if (fsid) {
+            if (idStr) mappedSet[pid + '|' + fsid + '|' + idStr] = true;
+            if (nameStr) mappedSet[pid + '|' + fsid + '|' + nameStr] = true;
+        }
+        if (idStr) mappedSet[pid + '|' + idStr] = true;
+        if (nameStr) mappedSet[pid + '|' + nameStr] = true;
+    }
+    function mapperAvailableMarketIsMapped(m, feedProviderId, mappedSet, domainSportId) {
+        var pid = String(feedProviderId);
+        var idStr = m.id != null ? String(m.id).trim() : '';
+        var nameStr = (m.name || '').trim();
+        var fsid = (domainSportId && isBwinL2FeedProvider(feedProviderId))
+            ? getMapperFeedSportId(feedProviderId, domainSportId) : '';
+        if (fsid) {
+            if (mappedSet[pid + '|' + fsid + '|' + idStr]) return true;
+            if (nameStr && mappedSet[pid + '|' + fsid + '|' + nameStr]) return true;
+        }
+        if (mappedSet[pid + '|' + idStr]) return true;
+        if (nameStr && mappedSet[pid + '|' + nameStr]) return true;
+        return false;
+    }
     function getMapperDomainSportId() {
         // Use the domain market's sport (e.g. Volleyball) so we show that sport's feed markets, not the panel filter
         if (currentMarketMapperSportId != null && String(currentMarketMapperSportId).trim() !== '')
@@ -1631,6 +1747,32 @@
         if (!sel) return '';
         const val = (sel.value || '').trim();
         return val || '';
+    }
+    function syncMapperFeedOptions(keepSelection) {
+        const feedSelect = document.getElementById('market-mapper-feed');
+        if (!feedSelect) return;
+        const domainSportId = getMapperDomainSportId();
+        const mappings = window.__sportFeedMappings || [];
+        const allowedIds = new Set();
+        if (domainSportId) {
+            mappings.forEach(function (m) {
+                if (String(m.domain_id) === String(domainSportId)) allowedIds.add(m.feed_provider_id);
+            });
+        }
+        let firstVisible = null;
+        Array.from(feedSelect.options).forEach(function (opt) {
+            if (!opt.value) return;
+            const fpid = parseInt(opt.value, 10);
+            const show = !domainSportId || allowedIds.has(fpid);
+            opt.hidden = !show;
+            opt.disabled = !show;
+            if (show && firstVisible === null) firstVisible = opt;
+        });
+        const selected = feedSelect.options[feedSelect.selectedIndex];
+        if (!keepSelection || !selected || selected.disabled) {
+            feedSelect.value = firstVisible ? firstVisible.value : '';
+        }
+        loadFeedMarkets();
     }
     async function loadFeedMarkets() {
         const feedSelect = document.getElementById('market-mapper-feed');
@@ -1671,20 +1813,18 @@
             items = items.filter(function (m) { return (m.name || '').toLowerCase().indexOf(nameFilter) !== -1; });
         }
         var mappedSet = {};
+        var domainSportId = getMapperDomainSportId();
         Object.keys(marketMapperGloballyMappedKeys || {}).forEach(function (k) { mappedSet[k] = true; });
         mapperPrematchList.concat(mapperLiveList).forEach(function (m) {
-            var idStr = m.id != null ? String(m.id) : '';
-            var pk = (m.feed_provider_id != null ? m.feed_provider_id : '') + '|' + idStr;
-            mappedSet[pk] = true;
+            mapperRegisterMappedKeys(mappedSet, m.feed_provider_id, m.id, m.name, domainSportId);
         });
         if (feedProviderId != null) {
             items = items.filter(function (m) {
-                var k = feedProviderId + '|' + (m.id != null ? String(m.id) : '');
-                return !mappedSet[k];
+                return !mapperAvailableMarketIsMapped(m, feedProviderId, mappedSet, domainSportId);
             });
         }
         if (items.length === 0) {
-            listEl.innerHTML = '<p class="text-gmp-text-faint italic text-[11px]">No markets found.</p>';
+            listEl.innerHTML = '<p class="text-gmp-text-faint italic text-[11px]">No feed markets for this sport. Pull Bwin L2 prematch for the sport (Feeder) or map an L2 event so snapshots are stored.</p>';
             return;
         }
         const feedName = marketMapperFeedMarkets[0] && marketMapperFeedMarkets[0].feed_name ? marketMapperFeedMarkets[0].feed_name : '';
@@ -1708,7 +1848,7 @@
                 const feedProviderId = feedSelect && feedSelect.value ? parseInt(feedSelect.value, 10) : null;
                 if (feedProviderId == null) return;
                 const marketId = row.getAttribute('data-market-id');
-                const id = marketId === '' || marketId === null ? null : (isNaN(parseInt(marketId, 10)) ? marketId : parseInt(marketId, 10));
+                const id = parseMapperFeedMarketId(marketId);
                 const name = (row.getAttribute('data-market-name') || '').replace(/&quot;/g, '"');
                 const isPrematch = row.getAttribute('data-is-prematch') === '1';
                 const item = { feed_provider_id: feedProviderId, id: id, name: name, feed_name: currentMapperFeedName };
@@ -1723,6 +1863,11 @@
         });
     }
     document.getElementById('market-mapper-feed')?.addEventListener('change', loadFeedMarkets);
+    document.getElementById('mt-sport')?.addEventListener('change', function () {
+        if (document.getElementById('market-mapper-modal') && !document.getElementById('market-mapper-modal').classList.contains('hidden')) {
+            syncMapperFeedOptions(false);
+        }
+    });
     document.getElementById('market-mapper-name-filter')?.addEventListener('input', function () {
         renderMarketMapperAvailableList();
     });
@@ -1825,7 +1970,7 @@
         const noSportRow = document.getElementById('mt-no-sport-row');
         if (noSportRow) noSportRow.style.display = sportVal ? 'none' : '';
         tbody.querySelectorAll('.entity-row, .entity-empty-row').forEach(function (tr) {
-            if (tr.classList.contains('mt-select-sport-placeholder')) return;
+            if (tr.classList.contains('mt-select-sport-placeholder') || tr.classList.contains('entity-select-sport-placeholder')) return;
             if (tr.classList.contains('entity-empty-row')) {
                 tr.setAttribute('data-entity-filter-match', '0');
                 tr.style.display = sportVal ? '' : 'none';
@@ -1851,12 +1996,10 @@
         const panel = 'teams';
         window._entityPage[panel] = 1;
         const searchInput = document.getElementById('search-teams');
-        const sportSel = document.getElementById('filter-teams-sport');
         const typeSel = document.getElementById('filter-teams-participant-type');
         const amateurSel = document.getElementById('filter-teams-amateur');
         const ageCatSel = document.getElementById('filter-teams-age-category');
         const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
-        const sportVal = (sportSel && sportSel.value ? sportSel.value.trim() : '') || '';
         const typeVal = (typeSel && typeSel.value ? typeSel.value.trim() : '') || '';
         const amateurVal = (amateurSel && amateurSel.value ? amateurSel.value.trim() : '') || '';
         const ageCatVal = (ageCatSel && ageCatSel.value ? ageCatSel.value.trim() : '') || '';
@@ -1870,38 +2013,37 @@
                 return;
             }
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
-            const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
             const rowTypeId = (tr.getAttribute('data-participant-type-id') || '').trim();
             const rowAmateur = (tr.getAttribute('data-is-amateur') || '').trim();
             const rowAgeCatId = (tr.getAttribute('data-underage-category-id') || '').trim();
             const matchSearch = !query || searchText.indexOf(query) !== -1;
-            const matchSport = !sportVal || rowSportId === sportVal;
             const matchType = !typeVal || rowTypeId === typeVal;
             const matchAmateur = !amateurVal || rowAmateur === amateurVal;
             const matchAgeCat = !ageCatVal || rowAgeCatId === ageCatVal;
             const matchAct = rowMatchesEntityActivity(tr, actMode);
-            const show = matchSearch && matchSport && matchType && matchAmateur && matchAgeCat && matchAct;
+            const show = matchSearch && matchType && matchAmateur && matchAgeCat && matchAct;
             tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
         });
         entityApplyPaging(panel);
     }
 
     function clearTeamsFilters() {
-        ['filter-teams-sport', 'filter-teams-participant-type', 'filter-teams-amateur', 'filter-teams-age-category'].forEach(function (id) {
+        ['filter-teams-participant-type', 'filter-teams-amateur', 'filter-teams-age-category'].forEach(function (id) {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
         resetEntityActivityFilterToActive('teams');
-        applyTeamsFilters();
+        var u = new URL(window.location.href);
+        u.searchParams.delete('team_sport_id');
+        u.hash = 'teams';
+        window.location.href = u.toString();
     }
 
     function applyCategoriesFilters() {
         const panel = 'categories';
         window._entityPage[panel] = 1;
         const searchInput = document.getElementById('search-categories');
-        const sportSel = document.getElementById('filter-categories-sport');
         const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
-        const sportVal = (sportSel && sportSel.value ? sportSel.value.trim() : '') || '';
         const actMode = getEntityActivityMode(panel);
         const tbody = document.querySelector('.entity-tbody[data-panel="' + panel + '"]');
         if (!tbody) return;
@@ -1912,11 +2054,9 @@
                 return;
             }
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
-            const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
             const matchSearch = !query || searchText.indexOf(query) !== -1;
-            const matchSport = !sportVal || rowSportId === sportVal;
             const matchAct = rowMatchesEntityActivity(tr, actMode);
-            const show = matchSearch && matchSport && matchAct;
+            const show = matchSearch && matchAct;
             tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
         });
         entityApplyPaging(panel);
@@ -1932,21 +2072,20 @@
     function clearCategoriesFilters() {
         const searchInput = document.getElementById('search-categories');
         if (searchInput) searchInput.value = '';
-        const sportSel = document.getElementById('filter-categories-sport');
-        if (sportSel) sportSel.value = '';
         resetEntityActivityFilterToActive('categories');
-        applyCategoriesFilters();
+        var u = new URL(window.location.href);
+        u.searchParams.delete('category_sport_id');
+        u.hash = 'categories';
+        window.location.href = u.toString();
     }
 
     function applyCompetitionsFilters() {
         const panel = 'competitions';
         window._entityPage[panel] = 1;
         const searchInput = document.getElementById('search-competitions');
-        const sportSel = document.getElementById('filter-competitions-sport');
         const amateurSel = document.getElementById('filter-competitions-amateur');
         const ageCatSel = document.getElementById('filter-competitions-age-category');
         const query = (searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '') || '';
-        const sportVal = (sportSel && sportSel.value ? sportSel.value.trim() : '') || '';
         const amateurVal = (amateurSel && amateurSel.value ? amateurSel.value.trim() : '') || '';
         const ageCatVal = (ageCatSel && ageCatSel.value ? ageCatSel.value.trim() : '') || '';
         const actMode = getEntityActivityMode(panel);
@@ -1959,15 +2098,13 @@
                 return;
             }
             const searchText = (tr.getAttribute('data-search') || '').toLowerCase();
-            const rowSportId = (tr.getAttribute('data-sport-id') || '').trim();
             const rowAmateur = (tr.getAttribute('data-is-amateur') || '').trim();
             const rowAgeCatId = (tr.getAttribute('data-underage-category-id') || '').trim();
             const matchSearch = !query || searchText.indexOf(query) !== -1;
-            const matchSport = !sportVal || rowSportId === sportVal;
             const matchAmateur = !amateurVal || rowAmateur === amateurVal;
             const matchAgeCat = !ageCatVal || rowAgeCatId === ageCatVal;
             const matchAct = rowMatchesEntityActivity(tr, actMode);
-            const show = matchSearch && matchSport && matchAmateur && matchAgeCat && matchAct;
+            const show = matchSearch && matchAmateur && matchAgeCat && matchAct;
             tr.setAttribute('data-entity-filter-match', show ? '1' : '0');
         });
         entityApplyPaging(panel);
@@ -1976,17 +2113,17 @@
     function clearCompetitionsFilters() {
         const searchInput = document.getElementById('search-competitions');
         if (searchInput) searchInput.value = '';
-        ['filter-competitions-sport', 'filter-competitions-amateur', 'filter-competitions-age-category'].forEach(function (id) {
+        ['filter-competitions-amateur', 'filter-competitions-age-category'].forEach(function (id) {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
         resetEntityActivityFilterToActive('competitions');
-        applyCompetitionsFilters();
+        var u = new URL(window.location.href);
+        u.searchParams.delete('competition_sport_id');
+        u.hash = 'competitions';
+        window.location.href = u.toString();
     }
 
-    document.querySelectorAll('.filter-categories').forEach(function (el) {
-        el.addEventListener('change', applyCategoriesFilters);
-    });
     document.querySelectorAll('.filter-teams').forEach(function (el) {
         el.addEventListener('change', applyTeamsFilters);
     });

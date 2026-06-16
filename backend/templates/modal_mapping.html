@@ -121,11 +121,14 @@
                 Category</div>
             <div class="flex-1 min-w-0 flex items-center gap-2 px-5 py-3 bg-gmp-surface-inset/20">
                 {% if resolved.category %}
-                {# LOCKED: category already exists for this feed_id #}
                 <input type="hidden" name="new_category" value="{{ resolved.category.name }}">
                 <input type="hidden" name="category_country" value="{{ (resolved.category.country or resolved.category.jurisdiction or '-') if resolved.category else '-' }}">
-                <span class="text-sm text-success font-medium flex-1">{{ resolved.category.name }} <span class="text-[10px] font-mono text-gmp-text-muted bg-gmp-surface-raised/80 px-1 py-0.5 rounded">ID {{ resolved.category.domain_id }}</span></span>
+                <span class="text-sm {% if category_from_competition %}text-gmp-text-heading{% else %}text-success{% endif %} font-medium flex-1">{{ resolved.category.name }} <span class="text-[10px] font-mono text-gmp-text-muted bg-gmp-surface-raised/80 px-1 py-0.5 rounded">ID {{ resolved.category.domain_id }}</span></span>
+                {% if category_from_competition %}
+                <span class="text-[10px] text-gmp-text-muted border border-gmp-border px-1.5 py-0.5 rounded shrink-0" title="Taken from the mapped competition entity">From competition</span>
+                {% else %}
                 <span class="text-[10px] text-success/80 border border-success/50 px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0"><i class="fa-solid fa-lock text-[8px]"></i> Matched</span>
+                {% endif %}
                 {% else %}
                 <input type="hidden" name="new_category" id="hidden-new-category" value="{{ suggested_entities.category.name if (suggested_entities and suggested_entities.category and (suggested_entities.category.get('country') or suggested_entities.category.get('jurisdiction') or '') and (suggested_entities.category.get('country') or suggested_entities.category.get('jurisdiction')) != '-') else '' }}">
                 <div class="flex flex-1 min-w-0 items-center gap-2 flex-nowrap">
@@ -407,9 +410,10 @@
             </span>
             <div class="relative flex-1 max-w-sm">
                 <input type="hidden" id="domain-search-sport-id" name="sport_id" value="{{ mapping_domain_sport_id }}">
+                <input type="hidden" id="domain-search-competition-id" name="competition_id" value="{{ mapping_domain_competition_id }}">
                 <input type="text" id="domain-search" name="q" hx-get="/api/search-domain-events"
                     hx-trigger="input changed delay:350ms" hx-target="#search-results"
-                    hx-include="#domain-search-sport-id"
+                    hx-include="#domain-search-sport-id, #domain-search-competition-id"
                     class="w-full bg-gmp-surface-raised border border-gmp-border rounded px-3 py-1.5 pl-7 text-xs text-gmp-text-heading placeholder-gmp-text-faint focus:border-primary outline-none"
                     placeholder="Search domain events…" value="">
                 <i class="fa-solid fa-search absolute left-2.5 top-2 text-gmp-text-faint text-[10px]"></i>
@@ -434,6 +438,7 @@
                  data-category="{{ (ev.category or '—') | e }}"
                  data-competition="{{ (ev.competition or '—') | e }}"
                  data-suggested-match-score="{{ item.score }}"
+                 data-exact-match="{{ '1' if item.exact_match else '0' }}"
                  data-reversed-home-away="{{ '1' if item.reversed_home_away else '0' }}"
                  onclick="selectDomainEvent(this)">
                 <div class="min-w-0 flex-1">
@@ -452,10 +457,23 @@
                     {% if item.reversed_home_away %}
                     <span class="text-[10px] font-medium text-warning bg-warning/20 px-1.5 py-0.5 rounded" title="Tick Reverse Home/Away when confirming">Reverse H/A</span>
                     {% endif %}
+                    {% if item.exact_match %}
+                    <span class="text-xs font-bold text-success bg-success/20 px-2 py-1 rounded">Exact match</span>
+                    {% else %}
                     <span class="text-xs font-bold text-primary bg-primary/20 px-2 py-1 rounded">{{ item.score }}% match</span>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
+            {% else %}
+            {% if not mapping_teams_mapped %}
+            <p class="text-[10px] text-gmp-text-muted italic self-center py-2">
+                Match <strong>home</strong> and <strong>away</strong> to domain teams (name match or Map, including fuzzy ≥85%). Domain event suggestions appear when both teams and competition resolve.
+            </p>
+            {% elif mapping_exact_event_scope %}
+            <p class="text-[10px] text-gmp-text-muted italic self-center py-2">
+                No domain event matches this fixture (same competition, teams, and kickoff). Use <strong>Create &amp; Map</strong> to add one.
+            </p>
             {% else %}
             {% if event.is_outright %}
             {% set fallback_q = (event.market_name or '')|trim %}
@@ -463,10 +481,11 @@
             {% set fallback_q = ((event.raw_home_name or '') ~ ' ' ~ (event.raw_away_name or '') ~ ' ' ~ (event.raw_league_name or ''))|trim %}
             {% endif %}
             <div hx-get="/api/search-domain-events" hx-trigger="load" hx-swap="innerHTML"
-                hx-vals='{{ {"q": fallback_q, "sport_id": mapping_domain_sport_id or ""} | tojson }}'
+                hx-vals='{{ {"q": fallback_q, "sport_id": mapping_domain_sport_id or "", "competition_id": mapping_domain_competition_id or ""} | tojson }}'
                 class="contents">
                 <span class="text-[10px] text-gmp-text-faint italic self-center">Searching…</span>
             </div>
+            {% endif %}
             {% endif %}
         </div>
     </div>
@@ -553,10 +572,51 @@
     }
 
     // Module-scope helper — used by both initModal and createEntityFromModal
+    function normalizeMatchName(s) {
+        if (!s) return '';
+        return String(s).trim().normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    }
+    function sequenceMatchRatio(a, b) {
+        if (!a && !b) return 1;
+        if (!a || !b) return 0;
+        if (a === b) return 1;
+        const m = a.length;
+        const n = b.length;
+        const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+        for (let i = 0; i <= m; i++) dp[i][0] = i;
+        for (let j = 0; j <= n; j++) dp[0][j] = j;
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+            }
+        }
+        const dist = dp[m][n];
+        return 1 - dist / Math.max(m, n);
+    }
+    function teamNamesMatch(a, b) {
+        if (!a || !b) return false;
+        if (a.trim().toLowerCase() === b.trim().toLowerCase()) return true;
+        const x = normalizeMatchName(a);
+        const y = normalizeMatchName(b);
+        if (x === y) return true;
+        return sequenceMatchRatio(x, y) >= 0.85;
+    }
+    function findTeamByName(teams, val) {
+        if (!val) return null;
+        const exact = teams.find(x => (x.name || '').trim() === val.trim());
+        if (exact) return exact;
+        return teams.find(x => teamNamesMatch(x.name, val)) || null;
+    }
     function datalistHas(dlId, val) {
         if (!val) return false;
         const v = val.trim().toLowerCase();
-        return [...document.querySelectorAll(`#${dlId} option`)].some(o => o.value.toLowerCase() === v);
+        const opts = [...document.querySelectorAll(`#${dlId} option`)];
+        if (opts.some(o => o.value.toLowerCase() === v)) return true;
+        if (dlId === 'dl-teams' || dlId === 'dl-teams-away') {
+            return opts.some(o => teamNamesMatch(o.value, val));
+        }
+        return false;
     }
 
     // ── Create a domain entity (sport / category / competition / team) ──
@@ -683,7 +743,10 @@
         if (!dd) return;
         const q = (filter || '').trim().toLowerCase();
         const teams = getTeamsForDropdown();
-        const filtered = q ? teams.filter(t => (t.name || '').toLowerCase().includes(q)) : teams;
+        const filtered = q ? teams.filter(t => {
+            const name = (t.name || '').toLowerCase();
+            return name.includes(q) || normalizeMatchName(t.name).includes(normalizeMatchName(q));
+        }) : teams;
         dd.innerHTML = filtered.length
             ? filtered.map(t => `<div class="px-3 py-2 text-xs text-gmp-text hover:bg-gmp-hover/15 cursor-pointer" data-id="${t.domain_id}" data-name="${(t.name || '').replace(/"/g, '&quot;')}">${(t.name || '').replace(/</g, '&lt;')} <span class="text-[10px] font-mono text-gmp-text-muted">ID ${t.domain_id}</span></div>`).join('')
             : '<div class="px-3 py-2 text-xs text-gmp-text-faint">No teams match. Type a name and use Create.</div>';
@@ -800,13 +863,13 @@
             if (!lockedValue('new_home_id')) {
                 const teams = getTeamsForDropdown();
                 const homeVal = (document.getElementById('input-home')?.value || '').trim();
-                const t = homeVal ? teams.find(x => (x.name || '').trim() === homeVal) : null;
+                const t = homeVal ? findTeamByName(teams, homeVal) : null;
                 setHiddenInput('new_home_id', t ? String(t.domain_id) : '');
             }
             if (!lockedValue('new_away_id')) {
                 const teams = getTeamsForDropdown();
                 const awayVal = (document.getElementById('input-away')?.value || '').trim();
-                const t = awayVal ? teams.find(x => (x.name || '').trim() === awayVal) : null;
+                const t = awayVal ? findTeamByName(teams, awayVal) : null;
                 setHiddenInput('new_away_id', t ? String(t.domain_id) : '');
             }
             const btn = document.getElementById('btn-create-and-map');
@@ -923,10 +986,11 @@
             });
         }
 
-        // Auto-select first suggested domain event only when it's clearly the same match (score >= 90)
+        // Auto-select when exact entity match (auto-map rules) or fuzzy score >= 90
         const suggestedCard = document.querySelector('.suggested-event-card');
         const suggestedScore = parseInt(suggestedCard?.dataset?.suggestedMatchScore || '0', 10);
-        if (suggestedCard && suggestedCard.dataset.domainId && suggestedScore >= 90) {
+        const exactMatch = suggestedCard?.dataset?.exactMatch === '1';
+        if (suggestedCard && suggestedCard.dataset.domainId && (exactMatch || suggestedScore >= 90)) {
             selectDomainEvent(suggestedCard);
         }
 

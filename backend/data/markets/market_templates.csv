@@ -7,3 +7,4 @@ domain_id,code,name,params
 6,ODD_EVEN,Odd Even,
 7,YES_NO, Yes No,
 8,EXACT_TOTAL,Exact Total,
+9,DOUBLE_CHANCE,Double Chance,

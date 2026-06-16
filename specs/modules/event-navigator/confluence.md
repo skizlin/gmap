@@ -190,6 +190,7 @@ When implemented: table shows a limited number of events per page (e.g. 20); foo
 
 ## Related specs
 
+- **Event Details** — [event-details/](event-details/) — Single-event page (markets, overview, feed odds, brands); opened from Event column or View Event.  
 - **Feeder Events** — Feed events; mapping to domain events.  
 - **Mapping Modal** — Map feed event to domain event; Create & Map.  
 - **Entities** — Sports, Categories, Competitions, Teams; entity_feed_mappings.  

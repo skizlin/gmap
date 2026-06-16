@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from backend.markets.models import NormalizedMarket
 from backend.markets.integration.base import BaseMarketAdapter
+from backend.mock_data import bwin_canonical_market_display_name
 
 
 class BwinMarketAdapter(BaseMarketAdapter):
@@ -54,8 +55,14 @@ class BwinMarketAdapter(BaseMarketAdapter):
         if not name:
             name = m.get("name") if isinstance(m.get("name"), str) else ""
         raw_name = (name.strip() if isinstance(name, str) else str(name)).strip()
-        name_str = raw_name or "Outright market"
         fp = (feed_provider or "").strip().lower()
+        name_str = (
+            bwin_canonical_market_display_name(raw_name)
+            if raw_name and fp == "bwin_l2"
+            else (raw_name or "Outright market")
+        )
+        if not name_str:
+            name_str = "Outright market"
         tpl = m.get("templateId")
         tc = m.get("templateCategory") or {}
         if tpl is None and isinstance(tc, dict):
@@ -71,8 +78,8 @@ class BwinMarketAdapter(BaseMarketAdapter):
                 return s == "" or s == "0"
 
         # Bwin L2 grid: template id is a placeholder; per-event row ids differ — use feeder display name as feed_market_id.
-        if fp == "bwin_l2" and _tid_placeholder(tpl) and raw_name:
-            mid: object = raw_name
+        if fp == "bwin_l2" and _tid_placeholder(tpl) and name_str:
+            mid: object = name_str
         else:
             mid = m.get("marketGroupItemId") or m.get("id") or ""
         return NormalizedMarket(

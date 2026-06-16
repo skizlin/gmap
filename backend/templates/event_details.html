@@ -852,6 +852,7 @@
         if (firstColHeader) firstColHeader.textContent = displayName;
         var outCount = Math.max(1, parseInt(outcomeCount, 10) || 3);
         var showL = !!hasLine;
+        var lineDisplay = (selectedLine || '').trim();
         var labels = Array.isArray(outcomeLabels) ? outcomeLabels : [];
         var col4 = document.getElementById('brand-overview-col-4');
         var col5 = document.getElementById('brand-overview-col-5');
@@ -876,7 +877,7 @@
                 var c6 = row.querySelector('.brand-odds-6');
                 var m = row.querySelector('.brand-margin');
                 var liab = row.querySelector('.brand-liab');
-                if (cellL) { cellL.style.display = showL ? '' : 'none'; cellL.textContent = showL ? '—' : ''; }
+                if (cellL) { cellL.style.display = showL ? '' : 'none'; cellL.textContent = showL ? (lineDisplay || '—') : ''; }
                 if (c1) c1.textContent = '—';
                 if (c2) c2.textContent = '—';
                 if (c3) { c3.style.display = oc >= 3 ? '' : 'none'; c3.textContent = '—'; }
@@ -927,7 +928,7 @@
                 var c6 = row.querySelector('.brand-odds-6');
                 var m = row.querySelector('.brand-margin');
                 var liab = row.querySelector('.brand-liab');
-                if (cellL) { cellL.style.display = showL ? '' : 'none'; cellL.textContent = showL ? '—' : ''; }
+                if (cellL) { cellL.style.display = showL ? '' : 'none'; cellL.textContent = showL ? (lineDisplay || '—') : ''; }
                 if (!b || !b.outcomes) {
                     if (c1) c1.textContent = '—';
                     if (c2) c2.textContent = '—';

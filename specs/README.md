@@ -29,6 +29,8 @@ Each spec includes (precise, minimal description):
 |--------|------|-------------|
 | **Backoffice** | [modules/backoffice/](modules/backoffice/) | Shell: top menu, layout, notifications (confirm read), profile, dashboard, toast, modal container, page header. Hosts all modules. |
 | Feeder Events | [feeder-events.md](feeder-events.md) / [modules/feeder-events/](modules/feeder-events/) | Feed events view, filters, mapping status, green highlighting; entry to Mapping Modal. |
+| Event Navigator | [modules/event-navigator/](modules/event-navigator/) | Domain events list: filters, table, notes, action menu; entry to Event Details. |
+| **Event Details** | [modules/event-navigator/event-details/](modules/event-navigator/event-details/) | Single domain event workspace: markets, overview, feed odds, brand overview, internal model, mapped feeds. |
 | Entities | [entities.md](entities.md) | Domain reference data: Sports, Categories, Competitions, Teams, Markets; feed links (entity_feed_mappings). |
 | Domain Events | [domain-events.md](domain-events.md) | Golden copy of events; mapped feeds; start-time mismatch (red). |
 | Mapping Modal Tool | [mapping-modal-tool.md](mapping-modal-tool.md) / [modules/mapping-modal/](modules/mapping-modal/) | Map feed event → domain (Confirm Mapping / Create & Map); suggestions, per-entity match %, entity resolution. |

@@ -1,7 +1,11 @@
 feed_provider,feed_sport_id,feed_sport_name
 betfair,1,Soccer
+betfair,2,Tennis
 betfair,4,Cricket
+betfair,5,Rugby Union
 betfair,7522,Basketball
+betfair,7524,Ice Hockey
+betfair,468328,Handball
 bet365,1,Soccer
 bet365,2,Horse Racing
 bet365,151,E Sports

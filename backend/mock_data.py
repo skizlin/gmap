@@ -1,8 +1,25 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from datetime import datetime, timezone
+
+# Outright grid patterns → one catalog market type; entity (group / team) goes on the feeder event label.
+# "Group A - To Qualify From Group" → event "Group A", market "To Qualify From Group".
+# "Which round will Portugal reach? (Stage of Elimination)" → event "Portugal" (or league when many teams), market "Stage of Elimination".
+_BWIN_GROUP_PREFIX_MARKET_RE = re.compile(
+    r"^(Group\s+[A-Za-z0-9]+)\s*-\s*(.+)$",
+    re.IGNORECASE,
+)
+_BWIN_GROUP_IN_TEXT_RE = re.compile(
+    r"\bGroup\s+([A-Za-z0-9]+)\b",
+    re.IGNORECASE,
+)
+_BWIN_STAGE_ELIMINATION_RE = re.compile(
+    r"^Which round will (.+?) reach\?\s*\((.+)\)\s*$",
+    re.IGNORECASE,
+)
 
 # Use exact path to designs/feed_json_examples
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,6 +45,132 @@ def _clear_synthetic_feed_categories(events: list) -> None:
             s = str(v).strip()
             if s.upper().startswith("COMP:"):
                 e[key] = None if key == "category_id" else ""
+
+
+def _bwin_name_from_market_dict(market: dict) -> str | None:
+    name_obj = market.get("name") or market.get("Name")
+    if isinstance(name_obj, dict):
+        return (name_obj.get("value") or name_obj.get("Value") or "").strip() or None
+    if name_obj is not None:
+        s = str(name_obj).strip()
+        return s or None
+    if isinstance(market.get("Name"), str):
+        s = market.get("Name").strip()
+        return s or None
+    return None
+
+
+def _bwin_set_market_row_display_name(market: dict, name: str) -> None:
+    n = market.get("name")
+    if isinstance(n, dict):
+        n["value"] = name
+    elif "name" in market:
+        market["name"] = {"value": name}
+    elif isinstance(market.get("Name"), str):
+        market["Name"] = name
+
+
+def bwin_split_group_prefixed_market(name: str) -> tuple[str | None, str]:
+    """Split 'Group A - To Qualify From Group' → ('Group A', 'To Qualify From Group')."""
+    s = (name or "").strip()
+    if not s:
+        return None, ""
+    m = _BWIN_GROUP_PREFIX_MARKET_RE.match(s)
+    if m:
+        return m.group(1).strip(), m.group(2).strip()
+    return None, s
+
+
+def bwin_split_stage_elimination_market(name: str) -> tuple[str | None, str | None]:
+    """Split 'Which round will Portugal reach? (Stage of Elimination)' → ('Portugal', 'Stage of Elimination')."""
+    s = (name or "").strip()
+    if not s:
+        return None, None
+    m = _BWIN_STAGE_ELIMINATION_RE.match(s)
+    if m:
+        return m.group(1).strip(), m.group(2).strip()
+    return None, None
+
+
+def bwin_canonical_market_display_name(name: str) -> str:
+    """Catalog / feed_market_id: one row per market type across groups / teams."""
+    _, market = bwin_split_group_prefixed_market(name)
+    if market and market != (name or "").strip():
+        return market
+    _, canonical = bwin_split_stage_elimination_market(name)
+    if canonical:
+        return canonical
+    return (name or "").strip()
+
+
+def _bwin_collect_market_display_names(item: dict) -> list[str]:
+    names: list[str] = []
+    for market in (item.get("Markets") or []) + (item.get("optionMarkets") or []):
+        if not isinstance(market, dict):
+            continue
+        nm = _bwin_name_from_market_dict(market)
+        if nm:
+            names.append(nm)
+    return names
+
+
+def bwin_outright_group_label(item: dict) -> str | None:
+    """Outright feeder event name: 'Group A' (not 'Group A - To Qualify From Group' or 'Group Winner')."""
+    groups: list[str] = []
+    for nm in _bwin_collect_market_display_names(item):
+        g, _ = bwin_split_group_prefixed_market(nm)
+        if g:
+            groups.append(g)
+    if groups:
+        return groups[0]
+    for nm in _bwin_collect_market_display_names(item):
+        for m in _BWIN_GROUP_IN_TEXT_RE.finditer(nm):
+            groups.append(f"Group {m.group(1)}")
+    if groups:
+        return groups[0]
+    return None
+
+
+def bwin_outright_event_label(item: dict) -> str | None:
+    """Outright feeder event column: group, single team, or league when many team-specific markets share one fixture."""
+    group = bwin_outright_group_label(item)
+    if group:
+        return group
+    teams: list[str] = []
+    seen: set[str] = set()
+    for nm in _bwin_collect_market_display_names(item):
+        team, _ = bwin_split_stage_elimination_market(nm)
+        if not team:
+            continue
+        key = team.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        teams.append(team)
+    if len(teams) == 1:
+        return teams[0]
+    if len(teams) > 1:
+        league = (item.get("raw_league_name") or item.get("LeagueName") or "").strip()
+        return league or None
+    return None
+
+
+def bwin_normalize_outright_stored_event(event: dict) -> None:
+    """Normalize outright market names and event label on a stored feeder event dict (in place)."""
+    if not event.get("is_outright"):
+        return
+    event_label = bwin_outright_event_label(event)
+    for market in (event.get("Markets") or []) + (event.get("optionMarkets") or []):
+        if not isinstance(market, dict):
+            continue
+        raw = _bwin_name_from_market_dict(market)
+        if not raw:
+            continue
+        canonical = bwin_canonical_market_display_name(raw)
+        if canonical and canonical != raw:
+            _bwin_set_market_row_display_name(market, canonical)
+    if event_label:
+        event["market_name"] = event_label
 
 
 def _bwin_market_container_is_outright(m: dict) -> bool:
@@ -72,32 +215,34 @@ def _bwin_outright_detection(item: dict) -> tuple[bool, str | None, bool]:
     if not is_outright:
         return False, None, False
 
-    def _name_from_market(market: dict) -> str | None:
-        name_obj = market.get("name") or market.get("Name")
-        if isinstance(name_obj, dict):
-            return (name_obj.get("value") or name_obj.get("Value") or "").strip() or None
-        if name_obj is not None:
-            s = str(name_obj).strip()
-            return s or None
-        return market.get("Name") if isinstance(market.get("Name"), str) else None
-
     for market in item.get("Markets", []) or []:
         if market.get("IsMainbook") or market.get("isMain"):
-            market_name = _name_from_market(market) or market.get("Name")
+            market_name = _bwin_name_from_market_dict(market) or market.get("Name")
             is_mainbook = True
             break
     if not market_name and item.get("Markets"):
         m0 = item["Markets"][0]
-        market_name = _name_from_market(m0) or m0.get("Name")
+        market_name = _bwin_name_from_market_dict(m0) or m0.get("Name")
     if not market_name:
         for market in item.get("optionMarkets", []) or []:
             if market.get("isMain") or market.get("IsMain"):
-                market_name = _name_from_market(market)
+                market_name = _bwin_name_from_market_dict(market)
                 is_mainbook = True
                 break
     if not market_name and item.get("optionMarkets"):
         m0 = item["optionMarkets"][0]
-        market_name = _name_from_market(m0)
+        market_name = _bwin_name_from_market_dict(m0)
+    event_label = bwin_outright_event_label(item)
+    if event_label:
+        market_name = event_label
+    elif market_name:
+        g, _ = bwin_split_group_prefixed_market(str(market_name))
+        if g:
+            market_name = g
+        else:
+            team, _ = bwin_split_stage_elimination_market(str(market_name))
+            if team:
+                market_name = team
     return True, market_name, is_mainbook
 
 
@@ -298,6 +443,9 @@ def load_all_mock_data():
                 with open(FEED_DATA_DIR / "bwin.json", "r", encoding="utf-8") as f:
                     bwin_stored = json.load(f)
                 if isinstance(bwin_stored, list):
+                    for e in bwin_stored:
+                        if isinstance(e, dict):
+                            bwin_normalize_outright_stored_event(e)
                     all_events.extend(bwin_stored)
                 bwin_loaded_from_stored = True
             except (json.JSONDecodeError, OSError):
@@ -321,6 +469,7 @@ def load_all_mock_data():
 
                 for e in b2:
                     if isinstance(e, dict):
+                        bwin_normalize_outright_stored_event(e)
                         e["markets_count"] = _bwin_distinct_market_types_count(e, l2_dedupe_by_name=True)
                 all_events.extend(b2)
         except (json.JSONDecodeError, OSError):

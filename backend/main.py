@@ -751,6 +751,7 @@ SPORTS_BY_FEED = {
 from typing import Any, Optional
 import uuid, csv, json
 import difflib
+import unicodedata
 
 from backend.domain_ids import (
     ENTITY_PREFIX,
@@ -3157,6 +3158,51 @@ def _load_entity_feed_mappings() -> list[dict]:
     return rows
 
 
+def _bwin_l2_feed_provider_id() -> int | None:
+    for f in FEEDS:
+        if (f.get("code") or "").strip().lower() == "bwin_l2":
+            try:
+                return int(f["domain_id"])
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def _domain_market_domain_sport_id(domain_market_id: str | int | None) -> str | None:
+    """Domain sport id (e.g. S-8) for a market type row in markets.csv."""
+    if domain_market_id is None:
+        return None
+    want = fid_str(domain_market_id)
+    for m in DOMAIN_ENTITIES.get("markets", []):
+        if entity_ids_equal(m.get("domain_id"), want):
+            sid = m.get("sport_id")
+            if sid is None or (isinstance(sid, str) and not str(sid).strip()):
+                return None
+            return fid_str(sid)
+    return None
+
+
+def _feed_sport_id_for_domain_sport_and_feed(
+    domain_sport_id: str | int | None, feed_provider_id: int
+) -> int | None:
+    """BetsAPI/Bwin feed sport id for a domain sport and feed provider (from sport_feed_mappings.csv)."""
+    if domain_sport_id is None:
+        return None
+    for m in SPORT_FEED_MAPPINGS:
+        if not entity_ids_equal(m.get("domain_id"), domain_sport_id):
+            continue
+        if int(m.get("feed_provider_id") or 0) != int(feed_provider_id):
+            continue
+        raw = m.get("feed_id")
+        if raw is None or str(raw).strip() == "":
+            return None
+        try:
+            return int(str(raw).strip())
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def _load_sport_feed_mappings() -> list[dict]:
     """Load sport_feed_mappings.csv only. Used for resolving feed sport id by domain sport (e.g. feed-markets API)."""
     out: list[dict] = []
@@ -3510,6 +3556,97 @@ def _category_name(cat_id: str | int | None) -> str:
     c = next((c for c in DOMAIN_ENTITIES["categories"] if entity_ids_equal(c["domain_id"], cat_id)), None)
     return c["name"] if c else ""
 
+
+def _competition_name(comp_id: str | int | None) -> str:
+    comp = _competition_entity_by_domain_id(comp_id)
+    return (comp.get("name") or "").strip() if comp else ""
+
+
+def _domain_event_scope_labels(
+    sport_id: Any,
+    category_id: Any,
+    competition_id: Any,
+) -> dict[str, str] | None:
+    """
+    Canonical sport/category/competition labels for a domain event from resolved G-/C-/S- ids.
+    Returns None when category or competition id is missing or does not resolve to an entity.
+    """
+    sid = str(sport_id or "").strip()
+    cid = str(category_id or "").strip()
+    comp_id = str(competition_id or "").strip()
+    if not sid or not cid or not comp_id:
+        return None
+    sport = _sport_name(sid)
+    category = _category_name(cid)
+    competition = _competition_name(comp_id)
+    if not sport or not category or not competition:
+        return None
+    return {"sport": sport, "category": category, "competition": competition, "sport_id": sid, "category_id": cid, "competition_id": comp_id}
+
+
+def _competition_entity_by_domain_id(comp_id: str | int | None) -> dict | None:
+    if comp_id is None or str(comp_id).strip() == "":
+        return None
+    return next(
+        (c for c in DOMAIN_ENTITIES.get("competitions", []) if entity_ids_equal(c.get("domain_id"), comp_id)),
+        None,
+    )
+
+
+def _domain_event_effective_category(ev: dict) -> tuple[str, str | None]:
+    """
+    Category label for display/filtering: prefer linked G-* entity, then row text, then competition entity.
+    """
+    cid = str(ev.get("category_id") or "").strip() or None
+    if cid:
+        canon = _category_name(cid)
+        if canon:
+            return canon, cid
+    cname = (ev.get("category") or "").strip()
+    if cname:
+        return cname, cid
+    _, comp_id = _domain_event_resolved_category_competition_ids(ev, ev.get("sport_id"))
+    comp = _competition_entity_by_domain_id(comp_id)
+    if comp:
+        cc = comp.get("category_id")
+        if cc is not None and str(cc).strip():
+            cc_s = str(cc).strip()
+            return _category_name(cc_s), cc_s
+    return "", None
+
+
+def _domain_event_effective_competition(ev: dict) -> tuple[str, str | None]:
+    """Competition label for display/filtering: prefer linked C-* entity, then row text."""
+    comp_id = str(ev.get("competition_id") or "").strip() or None
+    if comp_id:
+        canon = _competition_name(comp_id)
+        if canon:
+            return canon, comp_id
+    cname = (ev.get("competition") or "").strip()
+    if cname:
+        return cname, comp_id
+    _, comp_id2 = _domain_event_resolved_category_competition_ids(ev, ev.get("sport_id"))
+    if comp_id2:
+        return _competition_name(comp_id2), str(comp_id2).strip()
+    return "", None
+
+
+def _domain_event_display_row(ev: dict) -> dict:
+    """Fill category/competition name+id on a domain event from linked domain entities."""
+    out = dict(ev)
+    cname, cid = _domain_event_effective_category(ev)
+    if cname:
+        out["category"] = cname
+    if cid:
+        out["category_id"] = cid
+    cpname, cpid = _domain_event_effective_competition(ev)
+    if cpname:
+        out["competition"] = cpname
+    if cpid:
+        out["competition_id"] = cpid
+    return out
+
+
 def _normalize_sport_feed_id(value: str | int | float | None) -> str:
     """Canonical form for sport feed_id: numeric -> int string ('5'); else stripped lower."""
     if value is None:
@@ -3722,42 +3859,83 @@ def _load_feed_markets_from_event_details(
     return _with_sport_dedupe(_parse_bwin_feed_markets, feed_sport_id, True)
 
 
+def _bwin_l2_mapper_market_key(market_id: object) -> str:
+    """Dedupe key for Bwin L2 mapper rows (stable name ids are strings)."""
+    if market_id is None:
+        return ""
+    return str(market_id).strip().casefold()
+
+
+def _load_bwin_l2_feed_markets_for_sport(
+    feed_sport_id: int,
+    domain_sport_id: str | int | None = None,
+) -> list[dict]:
+    """
+    Unique Bwin L2 market types for Configuration > Markets mapper.
+    Uses one rule for all L2 sports: ``templateId`` placeholder → feed_market_id = display name.
+    Merges prematch ``feed_data/bwin_l2.json``, optional sport example JSON, and per-event snapshots.
+    """
+    sport_display = _get_feed_sport_name("bwin_l2", feed_sport_id)
+    merged: dict[str, dict] = {}
+
+    def _absorb(parsed: list[dict] | None) -> None:
+        if not parsed:
+            return
+        for m in parsed:
+            mid = m.get("id")
+            key = _bwin_l2_mapper_market_key(mid)
+            if not key:
+                continue
+            if key in merged:
+                continue
+            row = dict(m)
+            row.setdefault("sport_name", sport_display)
+            if not (row.get("name") or "").strip():
+                row["name"] = str(mid)
+            merged[key] = row
+
+    prematch_events = [
+        ev
+        for ev in feed_pull.load_stored_feed_events("bwin_l2")
+        if isinstance(ev, dict) and _event_matches_feed_sport_filter(ev, feed_sport_id)
+    ]
+    if prematch_events:
+        _absorb(_parse_bwin_feed_markets(prematch_events, feed_sport_id, True, True))
+
+    sport_slug = _get_sport_slug(domain_sport_id) if domain_sport_id is not None else ""
+    if sport_slug:
+        for path in (
+            FEED_JSON_DIR / f"bwin_l2{sport_slug}.json",
+            FEED_DATA_DIR / f"bwin_l2{sport_slug}.json",
+        ):
+            if not path.exists():
+                continue
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                continue
+            _absorb(_parse_bwin_feed_markets(data, feed_sport_id, True, True))
+
+    _absorb(_load_feed_markets_from_event_details("bwin_l2", feed_sport_id, domain_sport_id))
+
+    out = list(merged.values())
+    out.sort(key=lambda m: ((m.get("name") or "").strip().lower(), str(m.get("id") or "")))
+    return out
+
+
 def _load_feed_markets_for_sport(
     feed_code: str, feed_sport_id: int, domain_sport_id: str | int | None = None
 ) -> list[dict]:
     """
     Load unique markets for a sport from feed JSON.
-    bwin_l2: prematch-backed feed_data first (event-details API has no body for L2 ids), then cached details, then examples.
+    bwin_l2: merged prematch + event-detail snapshots; stable display name as feed_market_id.
     Other feeds: stored event-details first, then example / feed_data files.
     Returns list of { "id", "name", "is_prematch" } for the mapping modal.
     """
     feed_lower = (feed_code or "").strip().lower()
-    # bwin_l2: BetsAPI /v1/bwin/event is empty for L2 ids; full Markets live on prematch rows in feed_data/bwin_l2.json.
     if feed_lower == "bwin_l2":
-        sport_slug = _get_sport_slug(domain_sport_id) if domain_sport_id is not None else ""
-        paths_l2: list[Path] = []
-        if sport_slug:
-            paths_l2.append(FEED_JSON_DIR / f"{feed_code}{sport_slug}.json")
-        paths_l2.append(FEED_DATA_DIR / f"{feed_code}.json")
-        paths_l2.append(FEED_JSON_DIR / f"{feed_code}.json")
-        data_l2 = None
-        used_sp = False
-        for path in paths_l2:
-            if path.exists():
-                try:
-                    with open(path, encoding="utf-8") as f:
-                        data_l2 = json.load(f)
-                    used_sp = bool(sport_slug and sport_slug in path.name)
-                    break
-                except (json.JSONDecodeError, OSError):
-                    continue
-        if data_l2:
-            markets_l2 = _parse_bwin_feed_markets(data_l2, feed_sport_id, used_sp, True)
-            if markets_l2:
-                sport_display = _get_feed_sport_name(feed_lower, feed_sport_id)
-                for m in markets_l2:
-                    m.setdefault("sport_name", sport_display)
-                return markets_l2
+        return _load_bwin_l2_feed_markets_for_sport(feed_sport_id, domain_sport_id)
     # 1) Stored event details (from event-details API when domain event created/mapped)
     from_stored = _load_feed_markets_from_event_details(feed_code, feed_sport_id, domain_sport_id)
     # IMLog: always include canonical mapper ids (e.g. IMLOG_MATCH_SET_HANDICAP), then extras from JSON;
@@ -3829,7 +4007,10 @@ def _parse_bwin_feed_markets(
     bwin_l2_stable_name_as_id: bool = False,
 ) -> list[dict]:
     """Extract unique markets from Bwin-style results. Uses templateId (or templateCategory.id) when set;
-    placeholder grid ids (0 / missing) fall back to per-row ``id`` for classic Bwin, or **display name** for ``bwin_l2_stable_name_as_id`` so L2 optionMarkets dedupe across events."""
+    placeholder grid ids (0 / missing) fall back to per-row ``id`` for classic Bwin, or **display name** for
+    ``bwin_l2_stable_name_as_id`` (one configuration row per market type, e.g. Handicap / Total Points / Match Result).
+    Per-match lines are not listed here; they appear in Event details when resolving odds. All grid rows that
+    share that name still match ``feed_market_id`` for pricing."""
     if isinstance(data, list):
         results = data
     else:
@@ -3868,11 +4049,13 @@ def _parse_bwin_feed_markets(
                     continue
             if mid in by_key:
                 continue
-            name = (item.get("name") or {}).get("value") or ""
-            if not name:
-                name = (tc.get("name") or {}).get("value") or ""
+            name = _bwin_market_display_name(item)
+            if not name and isinstance(tc, dict):
+                tn = tc.get("name")
+                if isinstance(tn, dict):
+                    name = (tn.get("value") or "").strip()
             name = (name or "").strip() or ("(id " + str(mid) + ")")
-            by_key[mid] = {"id": mid, "name": name, "is_prematch": is_prematch, "line": None}  # id: int (Bwin) or str (IMLog)
+            by_key[mid] = {"id": mid, "name": name, "is_prematch": is_prematch, "line": None}
     return list(by_key.values())
 
 
@@ -4293,13 +4476,20 @@ def _bet365_row_handicap_line_match(h: str | None, lf: float) -> bool:
     return _float_line_close(v, lf) or _float_line_close(v, -lf)
 
 
-def _bet365_handicap_positive_display_handicap(sub: list) -> str:
-    """Bet365 pairs +/- the same spread; show the **positive** handicap string (+1.5) so the L column matches header 1 first."""
+def _bet365_handicap_outcome_sort_key(o: dict) -> tuple[int, str]:
+    h = _bet365_header_str(o.get("header"))
+    try:
+        return (int(h), h)
+    except ValueError:
+        return (99, h)
+
+
+def _bet365_handicap_header1_display_line(sub: list) -> str:
+    """Bet365 Handicap: use the **handicap** string from header 1 (home), e.g. -1.5 with 1.50 — matches API row order for L."""
     for o in sub:
         if not isinstance(o, dict):
             continue
-        v = _bet365_handicap_scalar(o.get("handicap"))
-        if v is not None and v > 0:
+        if _bet365_header_str(o.get("header")) == "1":
             s = str(o.get("handicap") or "").strip()
             if s:
                 return s
@@ -4485,7 +4675,7 @@ def _bet365_total_lines_from_sub(sub: list) -> list[dict]:
 
 
 def _bet365_handicap_lines_from_sub(sub: list) -> list[dict]:
-    """Group Bet365 Handicap odds by absolute line; pair + / - handicaps."""
+    """Group Bet365 Handicap odds by absolute line; pair + / -. L = header 1's handicap; columns 1/2 = header order (home first)."""
     by_abs: dict[float, dict[str, dict]] = {}
     for o in sub:
         if not isinstance(o, dict):
@@ -4504,17 +4694,23 @@ def _bet365_handicap_lines_from_sub(sub: list) -> list[dict]:
         om = sides.get("-")
         if op is None or om is None:
             continue
-        h_pos = str(op.get("handicap") or "").strip()
-        line_disp = h_pos if h_pos else f"+{_fmt_line_num(a)}"
-        p1 = op.get("odds")
-        p2 = om.get("odds")
+        pair = [op, om]
+        pair.sort(key=_bet365_handicap_outcome_sort_key)
+        o_first, o_second = pair[0], pair[1]
+        line_disp = str(o_first.get("handicap") or "").strip()
+        if not line_disp:
+            line_disp = str(o_second.get("handicap") or "").strip()
+        if not line_disp:
+            line_disp = f"+{_fmt_line_num(a)}"
+        p1 = o_first.get("odds")
+        p2 = o_second.get("odds")
         if p1 is None or p2 is None:
             continue
         out.append({
             "line": line_disp,
             "outcomes": [
-                {"name": str(op.get("header") or "1").strip() or "1", "price": str(p1)},
-                {"name": str(om.get("header") or "2").strip() or "2", "price": str(p2)},
+                {"name": str(o_first.get("header") or "1").strip() or "1", "price": str(p1)},
+                {"name": str(o_second.get("header") or "2").strip() or "2", "price": str(p2)},
             ],
             "is_main_line": False,
         })
@@ -4579,6 +4775,22 @@ def _bwin_market_display_name(m: dict) -> str:
         v = n
     else:
         v = None
+    raw = (str(v) if v is not None else "").strip()
+    if not raw:
+        return ""
+    from backend.mock_data import bwin_canonical_market_display_name
+
+    return bwin_canonical_market_display_name(raw)
+
+
+def _bwin_market_display_name_raw(m: dict) -> str:
+    n = m.get("name")
+    if isinstance(n, dict):
+        v = n.get("value")
+    elif isinstance(n, str):
+        v = n
+    else:
+        v = None
     return (str(v) if v is not None else "").strip()
 
 
@@ -4597,7 +4809,34 @@ def _bwin_feed_market_id_matches(m: dict, feed_market_id: str) -> bool:
     if row_id is not None and str(row_id).strip() == fid:
         return True
     dn = _bwin_market_display_name(m)
+    raw_dn = _bwin_market_display_name_raw(m)
+    if "|" in fid:
+        base, _, line_rest = fid.partition("|")
+        base = base.strip()
+        line_rest = line_rest.strip().replace(",", ".")
+        if base and line_rest and dn and dn.casefold() == base.casefold():
+            attr_s = (m.get("attr") or "").strip().replace(",", ".")
+            af = _line_string_to_float(attr_s) if attr_s else None
+            lf = _line_string_to_float(line_rest) if line_rest else None
+            if af is not None and lf is not None and _float_line_close(af, lf):
+                return True
     if dn and dn.casefold() == fid.casefold():
+        return True
+    if raw_dn and raw_dn.casefold() == fid.casefold():
+        return True
+    from backend.mock_data import (
+        bwin_canonical_market_display_name,
+        bwin_split_group_prefixed_market,
+        bwin_split_stage_elimination_market,
+    )
+
+    if fid and bwin_canonical_market_display_name(fid).casefold() == (dn or "").casefold():
+        return True
+    g, rest = bwin_split_group_prefixed_market(fid)
+    if g and rest and dn and rest.strip().casefold() == dn.casefold():
+        return True
+    team, stage_rest = bwin_split_stage_elimination_market(fid)
+    if team and stage_rest and dn and stage_rest.strip().casefold() == dn.casefold():
         return True
     tc = m.get("templateCategory")
     cid = m.get("categoryId")
@@ -4821,6 +5060,8 @@ def _extract_bet365_market_odds(
                 scored = _bet365_set_score_outcomes_ordered(sub, base_id)
                 if scored is not None:
                     return scored, ""
+            if suffix == "2" and len(sub) == 2:
+                sub = sorted([x for x in sub if isinstance(x, dict)], key=_bet365_handicap_outcome_sort_key)
             outcomes = []
             for o in sub:
                 if not isinstance(o, dict):
@@ -4831,7 +5072,7 @@ def _extract_bet365_market_odds(
                     outcomes.append({"name": header or "—", "price": str(price)})
             if not disp_line and sub:
                 if suffix == "2":
-                    disp_line = _bet365_handicap_positive_display_handicap(sub)
+                    disp_line = _bet365_handicap_header1_display_line(sub)
                 elif suffix == "3" and isinstance(sub[0], dict):
                     h0 = sub[0].get("handicap")
                     v = _bet365_total_line_float(h0)
@@ -5261,8 +5502,21 @@ def _acronym_word_initials_score(short: str, long_text: str) -> int:
     return 0
 
 
+TEAM_NAME_FUZZY_MATCH_MIN = 85
+
+
+def _normalize_entity_match_text(s: str) -> str:
+    """Case-fold and strip diacritics for entity name comparison (e.g. Türkiye -> turkiye)."""
+    s = (s or "").strip()
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return " ".join(s.casefold().split())
+
+
 def _fuzzy_score(a: str, b: str) -> int:
-    """Return similarity 0-100 between two strings (case-insensitive)."""
+    """Return similarity 0-100 between two strings (case-insensitive, diacritic-aware)."""
     if not a or not b:
         return 0
     a0, b0 = a.strip(), b.strip()
@@ -5270,12 +5524,16 @@ def _fuzzy_score(a: str, b: str) -> int:
     if a == b:
         return 100
     base = int(round(100 * difflib.SequenceMatcher(None, a, b).ratio()))
+    na, nb = _normalize_entity_match_text(a0), _normalize_entity_match_text(b0)
+    norm_score = 100 if na and na == nb else (
+        int(round(100 * difflib.SequenceMatcher(None, na, nb).ratio())) if na and nb else 0
+    )
     ac = 0
     if len(a) <= len(b):
         ac = max(ac, _acronym_word_initials_score(a, b0))
     if len(b) <= len(a):
         ac = max(ac, _acronym_word_initials_score(b, a0))
-    return min(100, max(base, ac))
+    return min(100, max(base, ac, norm_score))
 
 
 def _domain_event_start_minute_key(st: str | None) -> str:
@@ -5297,10 +5555,14 @@ def _domain_event_start_times_equivalent(a: str | None, b: str | None) -> bool:
     return _domain_event_start_minute_key(a) == _domain_event_start_minute_key(b)
 
 
-def _domain_event_matches_competition_scope(ev: dict, dcomp: str, feed_comp: str) -> bool:
+def _domain_event_matches_competition_scope(
+    ev: dict, dcomp: str, feed_comp: str, *, strict_mapped: bool = False
+) -> bool:
     """
     True when the domain event belongs to mapped competition dcomp: same competition_id,
-    or legacy rows with empty competition_id but competition text matching feed / canonical name.
+    or (non-strict only) legacy rows with empty competition_id and fuzzy competition text.
+    When strict_mapped is True (entity_feed_mappings already fixed the competition), only
+    competition_id or exact canonical name on legacy rows — no cross-league fuzzy matching.
     """
     if not dcomp:
         return True
@@ -5317,10 +5579,78 @@ def _domain_event_matches_competition_scope(ev: dict, dcomp: str, feed_comp: str
         None,
     )
     canon = (comp_ent.get("name") or "").strip() if comp_ent else ""
+    if strict_mapped:
+        return bool(canon and d_comp.casefold() == canon.casefold())
     for ref in (feed_comp, canon):
         if ref and _fuzzy_score(ref, d_comp) >= 78:
             return True
     return False
+
+
+def _resolve_modal_fixture_match_scope(feeder_ev: dict, feed_pid: int) -> dict[str, str | None]:
+    """
+    Domain ids for modal fixture matching: entity_feed_mappings first, then exact team name and
+    competition name match (same thresholds as the mapping modal Map buttons).
+    """
+    dsid, cid, comp_id = _feeder_domain_scope_ids_for_config(feeder_ev, feed_pid)
+    dsid_s = str(dsid).strip() if dsid not in (None, "") else None
+
+    if not comp_id and dsid_s:
+        comp_name = (feeder_ev.get("raw_league_name") or "").strip()
+        if comp_name:
+            for cand in _suggest_entity_by_name("competitions", comp_name, dsid_s, cid):
+                if (cand.get("match_pct") or 0) >= 55:
+                    comp_id = cand.get("domain_id")
+                    break
+
+    if not cid and comp_id:
+        comp_ent = _competition_entity_by_domain_id(comp_id)
+        if comp_ent:
+            cc = comp_ent.get("category_id")
+            if cc is not None and str(cc).strip():
+                cid = str(cc).strip()
+
+    hid, aid = _resolve_domain_team_ids_for_feed_row(feeder_ev, feed_pid)
+    if dsid_s:
+        if not hid:
+            hid = _lookup_team_domain_id_by_name(feeder_ev.get("raw_home_name"), dsid_s) or ""
+        if not aid:
+            aid = _lookup_team_domain_id_by_name(feeder_ev.get("raw_away_name"), dsid_s) or ""
+
+    return {
+        "sport_id": dsid_s,
+        "category_id": str(cid).strip() if cid not in (None, "") else None,
+        "competition_id": str(comp_id).strip() if comp_id not in (None, "") else None,
+        "home_id": hid or None,
+        "away_id": aid or None,
+    }
+
+
+def _feeder_modal_both_teams_entity_mapped(feed_event: dict, feed_pid: int | None) -> bool:
+    """True when both feed teams resolve to domain P-* ids (feed mapping or name match under sport)."""
+    if not feed_pid:
+        return False
+    scope = _resolve_modal_fixture_match_scope(feed_event, feed_pid)
+    return bool(scope.get("home_id") and scope.get("away_id"))
+
+
+def _feeder_modal_exact_event_match_scope(
+    feed_event: dict,
+    feed_pid: int | None,
+    *,
+    domain_sport_id: str | None,
+    domain_competition_id: str | None,
+) -> bool:
+    """Sport, competition, and both teams resolved — use auto-map rules, not name fuzzy."""
+    if not feed_pid or not domain_sport_id:
+        return False
+    scope = _resolve_modal_fixture_match_scope(feed_event, feed_pid)
+    return bool(
+        scope.get("sport_id")
+        and scope.get("competition_id")
+        and scope.get("home_id")
+        and scope.get("away_id")
+    )
 
 
 def _search_token_matches_field(t: str, field: str) -> bool:
@@ -5465,14 +5795,17 @@ def _suggest_domain_events(
     domain_sport_id: str | None = None,
     domain_category_id: str | None = None,
     domain_competition_id: str | None = None,
+    feed_pid: int | None = None,
 ) -> list[dict]:
     """
     Find domain events that may be the same fixture (another feed / naming variants).
     Supports reverse home/away (feed home vs domain away, feed away vs domain home).
 
-    When sport / category / competition are already mapped on the feed row, candidates are restricted
-    to domain events in that scope so scores reflect teams (and kickoff), not fuzzy competition strings
-    across unrelated leagues.
+    When competition and both teams are already entity-mapped, uses the same rules as auto-map
+    (domain ids + kickoff) — no cross-competition fuzzy guessing.
+
+    No suggestions at all until both teams are mapped: name fuzzy within a competition is misleading
+    when feed teams are only suggested (not in entity_feed_mappings).
     """
     if not DOMAIN_EVENTS:
         return []
@@ -5483,16 +5816,47 @@ def _suggest_domain_events(
     if not feed_home and not feed_away:
         return []
 
-    pool: list[dict] = list(DOMAIN_EVENTS)
+    if feed_pid and not _feeder_modal_both_teams_entity_mapped(feed_event, feed_pid):
+        return []
+
     dsid = fid_str(domain_sport_id) if domain_sport_id not in (None, "") else ""
+    dcomp = fid_str(domain_competition_id) if domain_competition_id not in (None, "") else ""
+    modal_scope = _resolve_modal_fixture_match_scope(feed_event, feed_pid) if feed_pid else {}
+    if modal_scope.get("competition_id"):
+        dcomp = modal_scope["competition_id"]
+    if modal_scope.get("sport_id") and not dsid:
+        dsid = modal_scope["sport_id"]
+
+    if _feeder_modal_exact_event_match_scope(
+        feed_event, feed_pid, domain_sport_id=dsid, domain_competition_id=dcomp
+    ):
+        exact: list[dict] = []
+        for ev in DOMAIN_EVENTS:
+            for swapped in (False, True):
+                if _domain_event_row_matches_feed_for_auto_map(
+                    feed_event, feed_pid, dsid, ev, swapped, scope_override=modal_scope
+                ):
+                    exact.append({
+                        "event": ev,
+                        "score": 100,
+                        "reversed_home_away": swapped,
+                        "exact_match": True,
+                    })
+                    break
+        exact.sort(key=lambda x: _domain_event_id_sort_key_for_pick(x["event"]))
+        return exact
+
+    pool: list[dict] = list(DOMAIN_EVENTS)
     if dsid:
         pool = [ev for ev in pool if _domain_event_row_matches_domain_sport(ev, dsid)]
     dcat = fid_str(domain_category_id) if domain_category_id not in (None, "") else ""
     if dcat:
         pool = [ev for ev in pool if entity_ids_equal(ev.get("category_id"), dcat)]
-    dcomp = fid_str(domain_competition_id) if domain_competition_id not in (None, "") else ""
     if dcomp:
-        pool = [ev for ev in pool if _domain_event_matches_competition_scope(ev, dcomp, feed_comp)]
+        pool = [
+            ev for ev in pool
+            if _domain_event_matches_competition_scope(ev, dcomp, feed_comp, strict_mapped=True)
+        ]
 
     scoped_comp = bool(dcomp)
     scoped_cat_only = bool(dcat and not dcomp)
@@ -5531,8 +5895,8 @@ def _suggest_domain_events(
             score_r = int(round(w_h * s_home_r + w_a * s_away_r + w_c * s_comp + w_t * s_time))
 
         best_score = max(score_n, score_r)
-        # When league is already fixed, allow slightly weaker team-string matches (short names / acronyms).
-        min_score = 45 if scoped_comp else 50
+        # When league is already fixed, still require strong team-name similarity (no cross-league noise).
+        min_score = 62 if scoped_comp else 50
         if best_score >= min_score:
             candidates.append({
                 "event": ev,
@@ -5556,9 +5920,9 @@ def _suggest_entity_by_name(
     bucket = DOMAIN_ENTITIES.get(etype, [])
     candidates = []
     for e in bucket:
-        if sport_id is not None and e.get("sport_id") != sport_id:
+        if sport_id is not None and not entity_ids_equal(e.get("sport_id"), sport_id):
             continue
-        if etype == "competitions" and category_id is not None and e.get("category_id") != category_id:
+        if etype == "competitions" and category_id is not None and not entity_ids_equal(e.get("category_id"), category_id):
             continue
         name = (e.get("name") or "").strip()
         if not name:
@@ -6006,6 +6370,29 @@ async def update_market(request: Request, domain_id: str, body: UpdateMarketRequ
     return {"domain_id": domain_id, "updated_at": _now}
 
 
+_APP_EVENT_LOOP: asyncio.AbstractEventLoop | None = None
+
+
+def _schedule_fetch_event_details(feed_provider: str, feed_valid_id: str) -> None:
+    """Queue BetsAPI event-details fetch from async handlers or background worker threads."""
+    if not (config.BETSAPI_TOKEN and feed_valid_id):
+        return
+    fp = (feed_provider or "").strip()
+    vid = str(feed_valid_id).strip()
+    if not fp or not vid:
+        return
+
+    try:
+        asyncio.get_running_loop().create_task(_fetch_and_save_event_details(fp, vid))
+        return
+    except RuntimeError:
+        pass
+
+    loop = _APP_EVENT_LOOP
+    if loop and loop.is_running():
+        asyncio.run_coroutine_threadsafe(_fetch_and_save_event_details(fp, vid), loop)
+
+
 async def _fetch_and_save_event_details(feed_provider: str, feed_valid_id: str) -> None:
     """Background: fetch event details from BetsAPI and save under feed_event_details/{feed}/{id}.json. Token from .env (BETSAPI_TOKEN).
     bwin_l2: no usable /v1/bwin/event body — writes a prematch snapshot from feed_data/bwin_l2.json when the event id is present."""
@@ -6282,6 +6669,12 @@ def _feeder_domain_scope_ids_for_config(feeder_ev: dict, feed_pid: int) -> tuple
                 comp_ent = best_c
         if comp_ent:
             comp_id = comp_ent["domain_id"]
+    if comp_id and not cid:
+        comp_ent = _competition_entity_by_domain_id(comp_id)
+        if comp_ent:
+            cc = comp_ent.get("category_id")
+            if cc is not None and str(cc).strip():
+                cid = str(cc).strip()
     return dsid, cid, comp_id
 
 
@@ -6365,14 +6758,83 @@ def _lookup_team_domain_id_by_exact_name(name: str | None, sport_domain_id: Any)
     return None
 
 
+def _lookup_team_domain_id_by_name(
+    name: str | None,
+    sport_domain_id: Any,
+    *,
+    min_fuzzy: int = TEAM_NAME_FUZZY_MATCH_MIN,
+) -> str | None:
+    """Resolve P-* from team name within sport: exact, diacritic-normalized, then fuzzy ≥ min_fuzzy."""
+    nm = (name or "").strip()
+    if not nm or sport_domain_id is None or str(sport_domain_id).strip() == "":
+        return None
+    exact = _lookup_team_domain_id_by_exact_name(nm, sport_domain_id)
+    if exact:
+        return exact
+    nm_norm = _normalize_entity_match_text(nm)
+    if nm_norm:
+        norm_matches: list[str] = []
+        for t in DOMAIN_ENTITIES.get("teams", []):
+            if not entity_ids_equal(t.get("sport_id"), sport_domain_id):
+                continue
+            if _normalize_entity_match_text(t.get("name") or "") == nm_norm:
+                tid = str(t.get("domain_id") or "").strip()
+                if tid:
+                    norm_matches.append(tid)
+        if len(norm_matches) == 1:
+            return norm_matches[0]
+    best_tid: str | None = None
+    best_score = 0
+    second_score = 0
+    for t in DOMAIN_ENTITIES.get("teams", []):
+        if not entity_ids_equal(t.get("sport_id"), sport_domain_id):
+            continue
+        tn = (t.get("name") or "").strip()
+        sc = _fuzzy_score(nm, tn)
+        if sc > best_score:
+            second_score = best_score
+            best_score = sc
+            best_tid = str(t.get("domain_id") or "").strip() or None
+        elif sc > second_score:
+            second_score = sc
+    if not best_tid or best_score < min_fuzzy:
+        return None
+    if second_score >= min_fuzzy and (best_score - second_score) < 5:
+        return None
+    return best_tid
+
+
+def _suggest_team_for_feed_name(
+    feed_name: str,
+    sport_domain_id: Any,
+    *,
+    min_pct: int = TEAM_NAME_FUZZY_MATCH_MIN,
+) -> dict | None:
+    """Best domain team for a feed name within sport; None if below threshold or ambiguous."""
+    nm = (feed_name or "").strip()
+    if not nm or sport_domain_id is None or str(sport_domain_id).strip() == "":
+        return None
+    cands = _suggest_entity_by_name("teams", nm, sport_domain_id)
+    if not cands:
+        return None
+    best = cands[0]
+    if (best.get("match_pct") or 0) < min_pct:
+        return None
+    if len(cands) > 1:
+        second = cands[1]
+        if (second.get("match_pct") or 0) >= min_pct and (best["match_pct"] - second["match_pct"]) < 5:
+            return None
+    return best
+
+
 def _domain_event_resolved_team_pair_ids(domain_ev: dict, sport_domain_id: Any) -> tuple[str, str]:
     """Home/away P-* from domain event row; missing CSV ids filled by exact entity name under sport."""
     hid = str(domain_ev.get("home_id") or "").strip()
     aid = str(domain_ev.get("away_id") or "").strip()
     if not hid:
-        hid = _lookup_team_domain_id_by_exact_name(domain_ev.get("home"), sport_domain_id) or ""
+        hid = _lookup_team_domain_id_by_name(domain_ev.get("home"), sport_domain_id) or ""
     if not aid:
-        aid = _lookup_team_domain_id_by_exact_name(domain_ev.get("away"), sport_domain_id) or ""
+        aid = _lookup_team_domain_id_by_name(domain_ev.get("away"), sport_domain_id) or ""
     return hid, aid
 
 
@@ -6397,6 +6859,12 @@ def _domain_event_resolved_category_competition_ids(domain_ev: dict, sport_domai
                 if (c.get("name") or "").strip().casefold() == cpn.casefold():
                     compid = str(c.get("domain_id") or "").strip() or None
                     break
+    if not cid and compid:
+        comp = _competition_entity_by_domain_id(compid)
+        if comp:
+            cc = comp.get("category_id")
+            if cc is not None and str(cc).strip():
+                cid = str(cc).strip()
     return cid, compid
 
 
@@ -6426,8 +6894,15 @@ def _event_start_times_match_auto_map(a: str, b: str) -> bool:
     return False
 
 
-def _explain_auto_map_feed_vs_domain_row(feeder_ev: dict, feed_pid: int, domain_ev: dict, swapped: bool) -> dict:
-    """Structured checklist for auto-map rule evaluation (same as _domain_event_row_matches_feed_for_auto_map)."""
+def _explain_auto_map_feed_vs_domain_row(
+    feeder_ev: dict,
+    feed_pid: int,
+    domain_ev: dict,
+    swapped: bool,
+    *,
+    scope_override: dict[str, str | None] | None = None,
+) -> dict:
+    """Structured checklist for auto-map / modal exact fixture match."""
     dsid = _resolve_domain_sport_id_for_entity_mapping({"sport": ""}, feeder_ev, feed_pid)
     ev_dsid = _resolve_domain_sport_id_from_domain_event_sport_display(domain_ev.get("sport"))
     sport_ok = bool(dsid and entity_ids_equal(ev_dsid, dsid))
@@ -6439,6 +6914,16 @@ def _explain_auto_map_feed_vs_domain_row(feeder_ev: dict, feed_pid: int, domain_
     feed_cat_cell = (feeder_ev.get("category") or "").strip()
     feed_start = (feeder_ev.get("start_time") or "").strip()
     _, feed_cid, feed_comp_id = _feeder_domain_scope_ids_for_config(feeder_ev, feed_pid)
+    fh, fa = _resolve_domain_team_ids_for_feed_row(feeder_ev, feed_pid)
+    if scope_override:
+        if scope_override.get("competition_id"):
+            feed_comp_id = scope_override["competition_id"]
+        if scope_override.get("category_id"):
+            feed_cid = scope_override["category_id"]
+        if scope_override.get("home_id"):
+            fh = scope_override["home_id"] or ""
+        if scope_override.get("away_id"):
+            fa = scope_override["away_id"] or ""
     dom_cid, dom_comp_id = _domain_event_resolved_category_competition_ids(domain_ev, ev_dsid)
 
     if feed_comp_id is not None and str(feed_comp_id).strip() and dom_comp_id:
@@ -6458,7 +6943,6 @@ def _explain_auto_map_feed_vs_domain_row(feeder_ev: dict, feed_pid: int, domain_
     ds = (domain_ev.get("start_time") or "").strip()
     time_ok = _event_start_times_match_auto_map(feed_start, ds)
 
-    fh, fa = _resolve_domain_team_ids_for_feed_row(feeder_ev, feed_pid)
     dh, da = _domain_event_resolved_team_pair_ids(domain_ev, ev_dsid)
     teams_resolved = bool(fh and fa and dh and da)
     if swapped:
@@ -6491,12 +6975,22 @@ def _explain_auto_map_feed_vs_domain_row(feeder_ev: dict, feed_pid: int, domain_
 
 
 def _domain_event_row_matches_feed_for_auto_map(
-    feeder_ev: dict, feed_pid: int, dsid: Any, domain_ev: dict, swapped: bool
+    feeder_ev: dict,
+    feed_pid: int,
+    dsid: Any,
+    domain_ev: dict,
+    swapped: bool,
+    *,
+    scope_override: dict[str, str | None] | None = None,
 ) -> bool:
     """True if domain_ev is the same fixture as feeder_ev (sport, scope, kickoff, team P-* ids)."""
     if not dsid:
         return False
-    return bool(_explain_auto_map_feed_vs_domain_row(feeder_ev, feed_pid, domain_ev, swapped)["match"])
+    return bool(
+        _explain_auto_map_feed_vs_domain_row(
+            feeder_ev, feed_pid, domain_ev, swapped, scope_override=scope_override
+        )["match"]
+    )
 
 
 def _collect_domain_events_auto_map_candidates(feeder_ev: dict, feed_pid: int, feed_provider_code: str) -> list[dict]:
@@ -6568,7 +7062,7 @@ def _apply_map_feed_row_to_existing_domain(
         _save_event_mapping(domain_id, fp, vid)
         mapping_new = True
     if config.BETSAPI_TOKEN and vid:
-        asyncio.create_task(_fetch_and_save_event_details(fp, vid))
+        _schedule_fetch_event_details(fp, vid)
     if mapping_new:
         _record_feed_domain_mapping_link(fp, vid, domain_id, source=log_source)
     feeder_ev["mapping_status"] = "MAPPED"
@@ -6712,26 +7206,29 @@ def _create_and_map_domain_event_from_feed_row(feeder_ev: dict, feeder_provider_
         return None
     sport_display = _sport_name(dsid)
     _, scope_cid, scope_comp_id = _feeder_domain_scope_ids_for_config(feeder_ev, feed_pid)
+    scope_labels = _domain_event_scope_labels(dsid, scope_cid, scope_comp_id)
+    if not scope_labels:
+        return None
     new_id = next_event_domain_id(DOMAIN_EVENTS)
-    new_event = {
+    new_event = _domain_event_display_row({
         "id": new_id,
-        "sport": sport_display,
-        "category": (feeder_ev.get("category") or "").strip(),
-        "competition": (feeder_ev.get("raw_league_name") or "").strip(),
+        "sport": scope_labels["sport"],
+        "category": scope_labels["category"],
+        "competition": scope_labels["competition"],
         "home": (feeder_ev.get("raw_home_name") or "").strip(),
         "home_id": hid,
         "away": (feeder_ev.get("raw_away_name") or "").strip(),
         "away_id": aid,
         "start_time": (feeder_ev.get("start_time") or "").strip(),
-        "sport_id": str(dsid).strip() if dsid not in (None, "") else "",
-        "category_id": str(scope_cid).strip() if scope_cid not in (None, "") else "",
-        "competition_id": str(scope_comp_id).strip() if scope_comp_id not in (None, "") else "",
-    }
+        "sport_id": scope_labels["sport_id"],
+        "category_id": scope_labels["category_id"],
+        "competition_id": scope_labels["competition_id"],
+    })
     DOMAIN_EVENTS.append(new_event)
     _save_domain_event(new_event)
     _save_event_mapping(new_id, feeder_provider_code, str(feeder_ev.get("valid_id")))
     if config.BETSAPI_TOKEN and feeder_ev.get("valid_id"):
-        asyncio.create_task(_fetch_and_save_event_details(feeder_provider_code, str(feeder_ev.get("valid_id"))))
+        _schedule_fetch_event_details(feeder_provider_code, str(feeder_ev.get("valid_id")))
     feeder_ev["mapping_status"] = "MAPPED"
     feeder_ev["domain_id"] = new_id
     _sync_entity_feed_mappings_from_feeder_domain(new_event, feeder_ev, feeder_provider_code)
@@ -6821,6 +7318,26 @@ async def create_domain_event(body: CreateDomainEventRequest):
             </div>
         """)
 
+    sid_csv, cat_csv, comp_csv = "", "", ""
+    if feeder_ev is not None and feed_pid is not None:
+        d0, c_v, co_v = _feeder_domain_scope_ids_for_config(feeder_ev, feed_pid)
+        sid_csv = str(d0).strip() if d0 not in (None, "") else ""
+        cat_csv = str(c_v).strip() if c_v not in (None, "") else ""
+        comp_csv = str(co_v).strip() if co_v not in (None, "") else ""
+    elif (body.sport or "").strip():
+        r0 = _resolve_domain_sport_id_from_domain_event_sport_display(body.sport)
+        sid_csv = str(r0).strip() if r0 not in (None, "") else ""
+
+    scope_labels = _domain_event_scope_labels(sid_csv, cat_csv, comp_csv)
+    if not scope_labels:
+        return HTMLResponse("""
+            <div class="p-6 text-center text-red-400 text-sm max-w-md mx-auto">
+                <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                Cannot create a domain event until category and competition are mapped to domain entities (G-* and C-*).
+                Map them in the modal first, then use Create &amp; Map.
+            </div>
+        """)
+
     vid_s = str(body.feeder_valid_id or "").strip()
     for m in _load_event_mappings():
         if (m.get("feed_provider") or "").strip().lower() == fp_lc and str(m.get("feed_valid_id") or "").strip() == vid_s:
@@ -6833,16 +7350,6 @@ async def create_domain_event(body: CreateDomainEventRequest):
                 Close the modal and open that event, or remove the mapping first if you meant to remap.
             </div>
             """)
-
-    sid_csv, cat_csv, comp_csv = "", "", ""
-    if feeder_ev is not None and feed_pid is not None:
-        d0, c_v, co_v = _feeder_domain_scope_ids_for_config(feeder_ev, feed_pid)
-        sid_csv = str(d0).strip() if d0 not in (None, "") else ""
-        cat_csv = str(c_v).strip() if c_v not in (None, "") else ""
-        comp_csv = str(co_v).strip() if co_v not in (None, "") else ""
-    elif (body.sport or "").strip():
-        r0 = _resolve_domain_sport_id_from_domain_event_sport_display(body.sport)
-        sid_csv = str(r0).strip() if r0 not in (None, "") else ""
 
     dup_ev = _find_duplicate_domain_event_snapshot(
         sport_id=sid_csv,
@@ -6878,20 +7385,20 @@ async def create_domain_event(body: CreateDomainEventRequest):
     new_id = next_event_domain_id(DOMAIN_EVENTS)
 
     # Build the in-memory event dict (empty string for missing IDs so CSV and lookups work)
-    new_event = {
+    new_event = _domain_event_display_row({
         "id":              new_id,
-        "sport":           body.sport,
-        "category":        body.category,
-        "competition":     body.competition,
+        "sport":           scope_labels["sport"],
+        "category":        scope_labels["category"],
+        "competition":     scope_labels["competition"],
         "home":            body.home,
         "home_id":         hid,
         "away":            body.away,
         "away_id":         aid,
         "start_time":      body.start_time,
-        "sport_id":        sid_csv,
-        "category_id":     cat_csv,
-        "competition_id":  comp_csv,
-    }
+        "sport_id":        scope_labels["sport_id"],
+        "category_id":     scope_labels["category_id"],
+        "competition_id":  scope_labels["competition_id"],
+    })
     DOMAIN_EVENTS.append(new_event)
     # Persist clean domain event to domain_events.csv
     _save_domain_event(new_event)
@@ -6901,7 +7408,7 @@ async def create_domain_event(body: CreateDomainEventRequest):
 
     # Fetch event details in background (BetsAPI token from .env) so we have markets for mapping modal
     if config.BETSAPI_TOKEN and body.feeder_provider and body.feeder_valid_id:
-        asyncio.create_task(_fetch_and_save_event_details(body.feeder_provider, body.feeder_valid_id))
+        _schedule_fetch_event_details(body.feeder_provider, body.feeder_valid_id)
 
     # Also mark the feeder event as MAPPED in memory; sync entity_feed_mappings (same as map-to-existing).
     if feeder_ev:
@@ -6987,7 +7494,7 @@ async def map_event_to_domain(
         mapping_new = True
     # Fetch event details in background (BetsAPI token from .env) so we have markets for mapping modal
     if config.BETSAPI_TOKEN and feeder_provider and feeder_valid_id:
-        asyncio.create_task(_fetch_and_save_event_details(feeder_provider, feeder_valid_id))
+        _schedule_fetch_event_details(feeder_provider, feeder_valid_id)
     if mapping_new:
         _record_feed_domain_mapping_link(feeder_provider, feeder_valid_id, domain_id_selected, source="manual_map")
 
@@ -7030,12 +7537,22 @@ async def map_event_to_domain(
     """)
 
 @app.get("/api/search-domain-events", response_class=HTMLResponse)
-async def search_domain_events(q: str = "", sport_id: str = ""):
-    """Search DOMAIN_EVENTS by home/away/competition name for the mapping modal. Optional sport_id scopes to one domain sport."""
+async def search_domain_events(
+    q: str = "",
+    sport_id: str = "",
+    competition_id: str = "",
+):
+    """Search DOMAIN_EVENTS for the mapping modal. sport_id / competition_id scope to mapped entities."""
     sid = fid_str(sport_id) if (sport_id or "").strip() else ""
+    dcomp = fid_str(competition_id) if (competition_id or "").strip() else ""
     pool = DOMAIN_EVENTS
     if sid:
-        pool = [e for e in DOMAIN_EVENTS if _domain_event_row_matches_domain_sport(e, sid)]
+        pool = [e for e in pool if _domain_event_row_matches_domain_sport(e, sid)]
+    if dcomp:
+        pool = [
+            e for e in pool
+            if _domain_event_matches_competition_scope(e, dcomp, "", strict_mapped=True)
+        ]
     q_lower = q.strip().lower()
     if q_lower:
         results = [e for e in pool if _domain_event_matches_search_q(e, q_lower)]
@@ -7733,6 +8250,8 @@ async def api_pull_feed_all(
 
 @app.on_event("startup")
 async def _startup_scheduled_feed_pull() -> None:
+    global _APP_EVENT_LOOP
+    _APP_EVENT_LOOP = asyncio.get_running_loop()
     if getattr(config, "SCHEDULED_FEED_PULL_ENABLED", False):
         asyncio.create_task(_scheduled_feed_pull_worker())
 
@@ -8631,11 +9150,14 @@ def _domain_events_categories(sports: list[str] | None) -> list[str]:
     if not sports:
         return []
     sport_set = set(sports)
-    return sorted({
-        ev.get("category") or ""
-        for ev in DOMAIN_EVENTS
-        if (ev.get("sport") or "") in sport_set and ev.get("category")
-    })
+    names: set[str] = set()
+    for ev in DOMAIN_EVENTS:
+        if (ev.get("sport") or "") not in sport_set:
+            continue
+        cname, _ = _domain_event_effective_category(ev)
+        if cname:
+            names.add(cname)
+    return sorted(names)
 
 
 def _domain_events_competitions(sports: list[str] | None, categories: list[str] | None) -> list[str]:
@@ -8728,8 +9250,9 @@ def _navigator_events_enrich_providers_only(domain_events: list, mappings_by_eve
     for ev in domain_events:
         mappings = mappings_by_event.get(ev["id"], [])
         providers = ", ".join(sorted({m["feed_provider"] for m in mappings}))
+        row = _domain_event_display_row(ev)
         enriched.append({
-            **ev,
+            **row,
             "mapped_providers": providers,
             "mapped_feed_count": len(mappings),
             "start_time_mismatch": False,
@@ -8805,7 +9328,7 @@ def _filter_domain_events(
     if sports:
         out = [ev for ev in out if (ev.get("sport") or "") in sports]
     if categories:
-        out = [ev for ev in out if (ev.get("category") or "") in categories]
+        out = [ev for ev in out if _domain_event_effective_category(ev)[0] in categories]
     if competitions:
         out = [ev for ev in out if (ev.get("competition") or "") in competitions]
     if q and q.strip():
@@ -9111,6 +9634,7 @@ async def event_navigator_event_details(request: Request, domain_id: str):
     ev = next((e for e in DOMAIN_EVENTS if e.get("id") == domain_id), None)
     if not ev:
         raise HTTPException(status_code=404, detail="Domain event not found")
+    ev = _domain_event_display_row(ev)
     mappings = [m for m in _load_event_mappings() if m.get("domain_event_id") == domain_id]
     sport_id = _event_sport_id(ev)
     markets_by_group = _markets_by_group(sport_id)
@@ -9288,6 +9812,21 @@ def _render_mapping_modal(request: Request, event_id: str):
                 break
     r_home = _resolve_entity("teams", str(event.get("raw_home_id") or event.get("raw_home_name") or ""), feed_pid) if feed_pid else None
     r_away = _resolve_entity("teams", str(event.get("raw_away_id") or event.get("raw_away_name") or ""), feed_pid) if feed_pid else None
+    category_from_competition = False
+    if r_competition and not r_category:
+        comp_cat_id = r_competition.get("category_id")
+        if comp_cat_id is not None and str(comp_cat_id).strip():
+            cat_ent = next(
+                (
+                    c
+                    for c in DOMAIN_ENTITIES.get("categories", [])
+                    if entity_ids_equal(c.get("domain_id"), comp_cat_id)
+                ),
+                None,
+            )
+            if cat_ent:
+                r_category = cat_ent
+                category_from_competition = True
 
     # Enrich resolved entities with display names
     def _enrich(e):
@@ -9306,12 +9845,19 @@ def _render_mapping_modal(request: Request, event_id: str):
     }
     sports_by_id = {s["domain_id"]: s["name"] for s in DOMAIN_ENTITIES["sports"]}
 
-    # Fuzzy: suggest domain events in mapped scope only; team-heavy scoring when competition is mapped.
+    mapping_exact_event_scope = _feeder_modal_exact_event_match_scope(
+        event,
+        feed_pid,
+        domain_sport_id=domain_sport_id,
+        domain_competition_id=(r_competition.get("domain_id") if r_competition else None),
+    )
+    mapping_teams_mapped = _feeder_modal_both_teams_entity_mapped(event, feed_pid)
     suggested_domain_events = _suggest_domain_events(
         event,
         domain_sport_id=domain_sport_id,
         domain_category_id=(r_category.get("domain_id") if r_category else None),
         domain_competition_id=(r_competition.get("domain_id") if r_competition else None),
+        feed_pid=feed_pid,
     )
     best_suggestion = suggested_domain_events[0] if suggested_domain_events else None
     suggested_domain_event = best_suggestion["event"] if best_suggestion else None
@@ -9359,6 +9905,26 @@ def _render_mapping_modal(request: Request, event_id: str):
         if pct_home >= 55 and pct_away >= 55:
             suggested_home = {"name": suggested_domain_event.get("home") or "", "match_pct": pct_home, "is_suggested": pct_home == 0, "domain_id": suggested_domain_event.get("home_id")}
             suggested_away = {"name": suggested_domain_event.get("away") or "", "match_pct": pct_away, "is_suggested": pct_away == 0, "domain_id": suggested_domain_event.get("away_id")}
+    if sport_id_for_suggest:
+        for side_key, raw_key, cur in (
+            ("home", "raw_home_name", suggested_home),
+            ("away", "raw_away_name", suggested_away),
+        ):
+            raw_nm = (event.get(raw_key) or "").strip()
+            if not raw_nm or cur.get("domain_id") or (cur.get("match_pct") or 0) >= TEAM_NAME_FUZZY_MATCH_MIN:
+                continue
+            best_team = _suggest_team_for_feed_name(raw_nm, sport_id_for_suggest)
+            if best_team:
+                enriched = {
+                    "name": best_team["name"],
+                    "match_pct": best_team["match_pct"],
+                    "domain_id": best_team["domain_id"],
+                    "is_suggested": False,
+                }
+                if side_key == "home":
+                    suggested_home = enriched
+                else:
+                    suggested_away = enriched
     # Normalize to dict with name + match_pct + is_suggested for template (raw_name used when no match)
     def _norm(v, raw_name: str = ""):
         if v is None and not raw_name:
@@ -9459,6 +10025,10 @@ def _render_mapping_modal(request: Request, event_id: str):
         "suggested_underage_home_id": suggested_underage_home_id,
         "suggested_underage_away_id": suggested_underage_away_id,
         "mapping_domain_sport_id": domain_sport_id or "",
+        "mapping_domain_competition_id": (r_competition.get("domain_id") if r_competition else "") or "",
+        "mapping_exact_event_scope": mapping_exact_event_scope,
+        "mapping_teams_mapped": mapping_teams_mapped,
+        "category_from_competition": category_from_competition,
     })
 
 
@@ -9987,6 +10557,7 @@ async def api_get_all_mapped_feed_market_keys():
     Bet365 Game Lines (910000) and Set 1 Lines (910204): only the specific sub-market (_1/2/3) that is mapped is added."""
     mappings = _load_market_type_mappings()
     bet365_codes = {f["domain_id"] for f in FEEDS if (f.get("code") or "").strip().lower() == "bet365"}
+    bwin_l2_pid = _bwin_l2_feed_provider_id()
     game_lines_names = {"Game Lines - Winner": "1", "Game Lines - Handicap": "2", "Game Lines - Total": "3"}
     set1_lines_names = {"Set 1 Lines - Winner": "1", "Set 1 Lines - Handicap": "2", "Set 1 Lines - Total": "3"}
     keys: set[str] = set()
@@ -9995,6 +10566,15 @@ async def api_get_all_mapped_feed_market_keys():
         pid = m.get("feed_provider_id")
         if not fid or pid is None:
             continue
+        fname = (m.get("feed_market_name") or "").strip()
+        if bwin_l2_pid is not None and int(pid) == int(bwin_l2_pid):
+            dm_sport = _domain_market_domain_sport_id(m.get("domain_market_id"))
+            fsid = _feed_sport_id_for_domain_sport_and_feed(dm_sport, int(pid))
+            if fsid is not None:
+                keys.add(f"{pid}|{fsid}|{fid}")
+                if fname and fname != fid:
+                    keys.add(f"{pid}|{fsid}|{fname}")
+                continue
         if pid in bet365_codes:
             fid = _normalize_bet365_feed_market_id(fid)
         if pid in bet365_codes and fid == "910000":
@@ -10021,6 +10601,8 @@ async def api_get_all_mapped_feed_market_keys():
             keys.add(f"{pid}|{fid}")
         else:
             keys.add(f"{pid}|{fid}")
+            if fname and fname != fid:
+                keys.add(f"{pid}|{fname}")
     return {"mapped_keys": list(keys)}
 
 
@@ -11829,12 +12411,16 @@ async def entities_view(
     request: Request,
     sort_sports: str = "asc",
     market_sport_id: str | None = None,
+    category_sport_id: str | None = None,
+    competition_sport_id: str | None = None,
+    team_sport_id: str | None = None,
 ):
     """
     Configuration > Entities page.
     Shows Sports, Categories, Competitions, Teams, Markets tabs.
     Sports: sort by name (default asc); sort_sports=asc|desc toggles via Name column header.
-    Markets: filter by sport when market_sport_id is set.
+    Categories, Competitions, Teams, Markets: rows are loaded only after a sport is chosen
+    (query params category_sport_id, competition_sport_id, team_sport_id, market_sport_id).
     """
     # Reload from CSV so manual edits to sports / mappings (e.g. in git) show without restarting the app.
     global DOMAIN_ENTITIES, ENTITY_FEED_MAPPINGS, SPORT_FEED_MAPPINGS
@@ -11845,20 +12431,58 @@ async def entities_view(
     sports_list = list(DOMAIN_ENTITIES["sports"])
     sort_asc = (sort_sports or "asc").strip().lower() != "desc"
     sports_list.sort(key=lambda e: (e.get("name") or "").strip().lower(), reverse=not sort_asc)
-    markets_list = list(DOMAIN_ENTITIES["markets"])
+    full = DOMAIN_ENTITIES
+    stats = {
+        "sports": len(full["sports"]),
+        "categories": len(full["categories"]),
+        "competitions": len(full["competitions"]),
+        "teams": len(full["teams"]),
+        "markets": len(full["markets"]),
+    }
+
     selected_market_sport_id: str | None = None
     if market_sport_id and str(market_sport_id).strip():
-        ms = fid_str(market_sport_id)
-        selected_market_sport_id = ms
-        markets_list = [m for m in markets_list if entity_ids_equal(m.get("sport_id"), ms)]
+        selected_market_sport_id = fid_str(market_sport_id)
+    markets_list = (
+        [m for m in full["markets"] if entity_ids_equal(m.get("sport_id"), selected_market_sport_id)]
+        if selected_market_sport_id
+        else []
+    )
+
+    selected_category_sport_id: str | None = None
+    if category_sport_id and str(category_sport_id).strip():
+        selected_category_sport_id = fid_str(category_sport_id)
+    categories_list = (
+        [c for c in full["categories"] if entity_ids_equal(c.get("sport_id"), selected_category_sport_id)]
+        if selected_category_sport_id
+        else []
+    )
+
+    selected_competition_sport_id: str | None = None
+    if competition_sport_id and str(competition_sport_id).strip():
+        selected_competition_sport_id = fid_str(competition_sport_id)
+    competitions_list = (
+        [c for c in full["competitions"] if entity_ids_equal(c.get("sport_id"), selected_competition_sport_id)]
+        if selected_competition_sport_id
+        else []
+    )
+
+    selected_team_sport_id: str | None = None
+    if team_sport_id and str(team_sport_id).strip():
+        selected_team_sport_id = fid_str(team_sport_id)
+    teams_list = (
+        [t for t in full["teams"] if entity_ids_equal(t.get("sport_id"), selected_team_sport_id)]
+        if selected_team_sport_id
+        else []
+    )
+
     entities = {
         "sports":       sports_list,
-        "categories":   DOMAIN_ENTITIES["categories"],
-        "competitions": DOMAIN_ENTITIES["competitions"],
-        "teams":        DOMAIN_ENTITIES["teams"],
+        "categories":   categories_list,
+        "competitions": competitions_list,
+        "teams":        teams_list,
         "markets":      markets_list,
     }
-    stats = {k: len(v) for k, v in entities.items()}
 
     # FK lookup dicts for template display
     sports_by_id     = {s["domain_id"]: s["name"] for s in DOMAIN_ENTITIES["sports"]}
@@ -11896,7 +12520,22 @@ async def entities_view(
 
     # Feeds that have at least one sport mapping (for market mapper dropdown; hides removed feeds like SBObet)
     feed_ids_with_sport_mappings = {m["feed_provider_id"] for m in SPORT_FEED_MAPPINGS}
-    mapper_feeds = [f for f in FEEDS if f.get("domain_id") in feed_ids_with_sport_mappings]
+    _MARKET_MAPPER_FEED_CODES = frozenset({"bet365", "1xbet", "bwin", "bwin_l2", "imlog"})
+    mapper_feeds = [
+        f for f in FEEDS
+        if f.get("domain_id") in feed_ids_with_sport_mappings
+        and ((f.get("code") or "").strip().lower() in _MARKET_MAPPER_FEED_CODES)
+    ]
+    sport_feed_mappings_for_ui = [
+        {
+            "domain_id": fid_str(m.get("domain_id")),
+            "feed_provider_id": int(m["feed_provider_id"]),
+            "feed_id": str(m.get("feed_id") or "").strip(),
+            "feed_code": (next((x.get("code") or "" for x in FEEDS if x.get("domain_id") == m.get("feed_provider_id")), "") or "").strip().lower(),
+        }
+        for m in SPORT_FEED_MAPPINGS
+        if (m.get("entity_type") or "").strip().lower() == "sports"
+    ]
 
     mt_feed_counts_raw = _market_type_feed_counts_by_domain_id()
     market_feed_counts_by_market_id: dict = {}
@@ -11924,6 +12563,7 @@ async def entities_view(
         "feeds_by_id": feeds_by_id,
         "feeds": FEEDS,
         "mapper_feeds": mapper_feeds,
+        "sport_feed_mappings_for_ui": sport_feed_mappings_for_ui,
         "entity_feed_refs_by_key": entity_feed_refs_by_key,
         "market_feed_counts_by_market_id": market_feed_counts_by_market_id,
         "market_templates": market_templates,
@@ -11932,6 +12572,10 @@ async def entities_view(
         "market_groups": market_groups,
         "participant_types_by_id": participant_types_by_id,
         "market_sport_id": selected_market_sport_id,
+        "category_sport_id": selected_category_sport_id,
+        "competition_sport_id": selected_competition_sport_id,
+        "team_sport_id": selected_team_sport_id,
+        "all_categories_for_form": list(full["categories"]),
     })
 
 
