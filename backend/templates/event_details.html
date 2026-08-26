@@ -158,7 +158,16 @@
                 </div>
             </div>
             <div id="feed-odds-card" class="bg-cardbg/80 backdrop-blur-md border border-gmp-border/50 rounded-lg p-4 flex-shrink-0 overflow-x-auto">
-                <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint mb-3">Feed Odds<span id="feed-odds-market-name" class="font-normal normal-case text-gmp-text-muted ml-1"></span></h2>
+                <div class="flex flex-wrap items-center gap-2 mb-3">
+                    <h2 class="text-xs font-semibold uppercase tracking-wider text-gmp-text-faint">Feed Odds<span id="feed-odds-market-name" class="font-normal normal-case text-gmp-text-muted ml-1"></span></h2>
+                    {% if has_api_football_mapping %}
+                    <button type="button" id="api-football-refresh-odds-btn"
+                            class="ml-auto text-[10px] px-2 py-1 rounded border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
+                            title="Fetch /odds?fixture= from API-Football (uses API_FOOTBALL_KEY in .env)">
+                        <i class="fa-solid fa-rotate mr-1"></i> Refresh API-Football odds
+                    </button>
+                    {% endif %}
+                </div>
                 <p id="feed-odds-empty" class="text-xs text-gmp-text-faint italic">Select a market from the center (radio in header) to see odds from each feed.</p>
                 <div id="feed-odds-content" class="hidden">
                     <table class="gmp-data-table w-full text-left text-[11px] border-collapse">
@@ -857,6 +866,16 @@
     }
 
     async function updateFeedOdds(marketId, marketName, outcomeCount, hasLine, outcomeLabels, selectedLine, outcomeType, marketTemplate) {
+        lastFeedOddsContext = {
+            marketId: marketId,
+            marketName: marketName,
+            outcomeCount: outcomeCount,
+            hasLine: hasLine,
+            outcomeLabels: outcomeLabels,
+            selectedLine: selectedLine,
+            outcomeType: outcomeType,
+            marketTemplate: marketTemplate
+        };
         if (!feedOddsEmpty || !feedOddsContent || !feedOddsTbody) return;
         outcomeType = (outcomeType || '').trim();
         marketTemplate = (marketTemplate || '').trim();
@@ -881,7 +900,7 @@
             var data = await res.json();
             var rows = data.feed_odds || [];
             if (rows.length === 0) {
-                feedOddsEmpty.textContent = 'No feed odds for this market.';
+                feedOddsEmpty.textContent = data.hint || 'No feed odds for this market.';
                 await updateInternalModel(marketId, marketName, outCount, hasLine, labels, selectedLine || '');
                 return;
             }
@@ -1087,6 +1106,37 @@
                 if (liab) liab.textContent = '—';
             });
         } catch (err) { /* keep dashes */ }
+    }
+
+    var lastFeedOddsContext = null;
+
+    var afRefreshOddsBtn = document.getElementById('api-football-refresh-odds-btn');
+    if (afRefreshOddsBtn) {
+        afRefreshOddsBtn.addEventListener('click', async function () {
+            afRefreshOddsBtn.disabled = true;
+            try {
+                var form = new FormData();
+                form.append('domain_event_id', domainEventId);
+                form.append('force', '1');
+                var res = await fetch('/api/api-football/fetch-odds', { method: 'POST', body: form, headers: { 'Accept': 'application/json' } });
+                var data = await res.json();
+                if (!res.ok || !data.ok) {
+                    var msg = data.error || data.detail || 'Refresh failed';
+                    if (feedOddsEmpty) {
+                        feedOddsEmpty.textContent = 'API-Football odds: ' + msg;
+                        feedOddsEmpty.classList.remove('hidden');
+                        feedOddsContent.classList.add('hidden');
+                    }
+                } else if (lastFeedOddsContext && lastFeedOddsContext.marketId) {
+                    var c = lastFeedOddsContext;
+                    await updateFeedOdds(c.marketId, c.marketName, c.outcomeCount, c.hasLine, c.outcomeLabels, c.selectedLine, c.outcomeType, c.marketTemplate);
+                }
+            } catch (e) {
+                if (feedOddsEmpty) feedOddsEmpty.textContent = 'API-Football odds: ' + (e.message || 'Refresh failed');
+            } finally {
+                afRefreshOddsBtn.disabled = false;
+            }
+        });
     }
 
     overviewRows.addEventListener('change', function (e) {

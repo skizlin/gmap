@@ -649,7 +649,8 @@ from fastapi import Query
 from typing import List
 
 # Known feed providers (drives the filter dropdown)
-KNOWN_FEEDS = ["bet365", "betfair", "1xbet", "bwin", "bwin_l2"]
+KNOWN_FEEDS = ["bet365", "betfair", "1xbet", "bwin", "bwin_l2", "pinnacle", "api_football"]
+
 
 # DUMMY DATA FOR PROTOTYPE
 from backend.mock_data import load_all_mock_data
@@ -3936,6 +3937,12 @@ def _load_feed_markets_for_sport(
     feed_lower = (feed_code or "").strip().lower()
     if feed_lower == "bwin_l2":
         return _load_bwin_l2_feed_markets_for_sport(feed_sport_id, domain_sport_id)
+    if feed_lower == "api_football":
+        # Phase 2: static /odds/bets catalog — feed_market_id = bet.id (shared by all bookmakers).
+        from backend.api_football_feed import bets_for_market_mapper
+
+        sport_display = _get_feed_sport_name(feed_lower, feed_sport_id) or "Football"
+        return bets_for_market_mapper(sport_name=sport_display)
     # 1) Stored event details (from event-details API when domain event created/mapped)
     from_stored = _load_feed_markets_from_event_details(feed_code, feed_sport_id, domain_sport_id)
     # IMLog: always include canonical mapper ids (e.g. IMLOG_MATCH_SET_HANDICAP), then extras from JSON;
@@ -5180,6 +5187,9 @@ def _get_feed_odds_for_event_market(
         feed_name = feed_obj.get("name") or feed_obj.get("code") or feed_provider_str
         mt = next((m for m in mt_mappings if m.get("feed_provider_id") == feed_provider_id), None)
         if not mt:
+            # api_football: never show a blank "API-Football" placeholder — bookmakers appear once odds exist.
+            if feed_provider_str == "api_football":
+                continue
             result.append({
                 "feed_provider_id": feed_provider_id,
                 "feed_name": feed_name,
@@ -5196,7 +5206,7 @@ def _get_feed_odds_for_event_market(
                 feed_market_id = "910000_1"
             if feed_market_id == "910204":
                 feed_market_id = "910204_1"
-        path = config.FEED_EVENT_DETAILS_DIR / feed_provider_str / f"{feed_valid_id}.json"
+        path = config.FEED_EVENT_DETAILS_DIR / feed_provider_str / f"{feed_pull._sanitize_feed_valid_id_for_path(feed_valid_id)}.json"
         data: dict | list | None = None
         if path.exists():
             try:
@@ -5204,6 +5214,15 @@ def _get_feed_odds_for_event_market(
                     data = json.load(f)
             except (json.JSONDecodeError, OSError):
                 data = None
+        # legacy unsanitized filename (numeric ids unchanged either way)
+        if data is None:
+            legacy = config.FEED_EVENT_DETAILS_DIR / feed_provider_str / f"{feed_valid_id}.json"
+            if legacy.exists() and legacy != path:
+                try:
+                    with open(legacy, encoding="utf-8") as f:
+                        data = json.load(f)
+                except (json.JSONDecodeError, OSError):
+                    data = None
         # bwin_l2: /v1/bwin/event cache is often {"success":1,"results":[]}; prematch row lives in feed_data only.
         if feed_provider_str == "bwin_l2":
             ev_snap = next(
@@ -5219,6 +5238,8 @@ def _get_feed_odds_for_event_market(
                 if data is None or not isinstance(inner, list) or len(inner) == 0:
                     data = {"success": 1, "results": [ev_snap], "sport_id": ev_snap.get("SportId")}
         if data is None:
+            if feed_provider_str == "api_football":
+                continue
             result.append({
                 "feed_provider_id": feed_provider_id,
                 "feed_name": feed_name,
@@ -5230,6 +5251,19 @@ def _get_feed_odds_for_event_market(
             continue
         events_list = data.get("results") if isinstance(data, dict) else (data if isinstance(data, list) else [])
         payload = events_list or data
+
+        if feed_provider_str == "api_football":
+            from backend.api_football_feed import extract_api_football_bookmaker_odds_rows
+
+            book_rows = extract_api_football_bookmaker_odds_rows(
+                data,
+                feed_market_id,
+                all_lines=all_lines,
+                line=line,
+                feed_provider_id=feed_provider_id,
+            )
+            result.extend(book_rows)
+            continue
 
         def _append_single_bwin() -> None:
             bwin_data = _extract_bwin_market_odds(payload, feed_market_id, line)
@@ -6066,10 +6100,17 @@ async def create_entity(request: Request, body: CreateEntityRequest):
     # For teams/categories/competitions/markets: check if this feed already maps to a domain entity (idempotent)
     # For categories/competitions, same feed_id can map to different domain entities per sport (e.g. Bwin 38 = Argentina Football vs Argentina Basketball)
     if body.entity_type in ("categories", "competitions", "teams", "markets") and body.feed_id and body.feed_provider_id:
-        already_mapped = next((m for m in ENTITY_FEED_MAPPINGS
-                              if m["entity_type"] == body.entity_type
-                              and m["feed_provider_id"] == body.feed_provider_id
-                              and str(m["feed_id"]) == str(body.feed_id)), None)
+        want_key = mapping_feed_id_key(body.feed_id)
+        already_mapped = next(
+            (
+                m
+                for m in ENTITY_FEED_MAPPINGS
+                if m["entity_type"] == body.entity_type
+                and m["feed_provider_id"] == body.feed_provider_id
+                and mapping_feed_id_key(m.get("feed_id")) == want_key
+            ),
+            None,
+        )
         if already_mapped:
             e = next((x for x in bucket if entity_ids_equal(x["domain_id"], already_mapped["domain_id"])), None)
             if e:
@@ -6095,15 +6136,24 @@ async def create_entity(request: Request, body: CreateEntityRequest):
         existing = next((e for e in bucket if entity_ids_equal(e.get("sport_id"), sport_id)
                          and nullable_fk_equal(e.get("category_id"), category_id)
                          and e["name"].lower() == body.name.lower()), None)
-    else:  # teams
-        existing = next((e for e in bucket if entity_ids_equal(e.get("sport_id"), sport_id)
-                         and e["name"].lower() == body.name.lower()), None)
+    else:  # teams — same name under same sport can still differ by underage (senior vs U19)
+        existing = next(
+            (
+                e
+                for e in bucket
+                if entity_ids_equal(e.get("sport_id"), sport_id)
+                and e["name"].lower() == body.name.lower()
+                and _underage_category_ids_equal(e.get("underage_category_id"), body.underage_category_id)
+            ),
+            None,
+        )
 
     if existing and body.entity_type in ("categories", "competitions", "teams", "markets") and body.feed_id and body.feed_provider_id:
         # Link this feed to the existing domain entity (multi-feed reference)
         already_in_mappings = any(
             m["entity_type"] == body.entity_type and entity_ids_equal(m["domain_id"], existing["domain_id"])
-            and m["feed_provider_id"] == body.feed_provider_id and str(m["feed_id"]) == str(body.feed_id)
+            and m["feed_provider_id"] == body.feed_provider_id
+            and mapping_feed_id_key(m.get("feed_id")) == mapping_feed_id_key(body.feed_id)
             for m in ENTITY_FEED_MAPPINGS
         )
         if not already_in_mappings:
@@ -6374,12 +6424,16 @@ _APP_EVENT_LOOP: asyncio.AbstractEventLoop | None = None
 
 
 def _schedule_fetch_event_details(feed_provider: str, feed_valid_id: str) -> None:
-    """Queue BetsAPI event-details fetch from async handlers or background worker threads."""
-    if not (config.BETSAPI_TOKEN and feed_valid_id):
-        return
+    """Queue event-details / odds fetch from async handlers or background worker threads."""
     fp = (feed_provider or "").strip()
     vid = str(feed_valid_id).strip()
     if not fp or not vid:
+        return
+    feed_l = fp.lower()
+    if feed_l == "api_football":
+        if not (getattr(config, "API_FOOTBALL_KEY", None) or "").strip():
+            return
+    elif not (config.BETSAPI_TOKEN and feed_valid_id):
         return
 
     try:
@@ -6394,12 +6448,25 @@ def _schedule_fetch_event_details(feed_provider: str, feed_valid_id: str) -> Non
 
 
 async def _fetch_and_save_event_details(feed_provider: str, feed_valid_id: str) -> None:
-    """Background: fetch event details from BetsAPI and save under feed_event_details/{feed}/{id}.json. Token from .env (BETSAPI_TOKEN).
+    """Background: fetch event details / odds and save under feed_event_details/{feed}/{id}.json.
+    BetsAPI feeds use BETSAPI_TOKEN; api_football uses API_FOOTBALL_KEY → GET /odds?fixture=.
     bwin_l2: no usable /v1/bwin/event body — writes a prematch snapshot from feed_data/bwin_l2.json when the event id is present."""
+    feed_code = (feed_provider or "").strip().lower()
+    if feed_code == "api_football":
+        key = (getattr(config, "API_FOOTBALL_KEY", None) or "").strip()
+        if not key:
+            return
+        try:
+            data = await feed_pull.fetch_api_football_fixture_odds(key, feed_valid_id)
+            if data:
+                feed_pull.save_event_details(feed_code, feed_valid_id, data)
+        except Exception:
+            pass
+        return
+
     token = (config.BETSAPI_TOKEN or "").strip()
     if not token:
         return
-    feed_code = (feed_provider or "").strip().lower()
     if feed_code not in ("bwin", "bwin_l2", "bet365", "1xbet"):
         return
     # Bwin L2: /v1/bwin/event returns empty results for these ids; snapshot one row from prematch store (feed_data).
@@ -6804,19 +6871,64 @@ def _lookup_team_domain_id_by_name(
     return best_tid
 
 
+def _underage_category_ids_equal(a: Any, b: Any) -> bool:
+    """Treat None/''/0 as equivalent empty underage; otherwise compare as ints."""
+    def _norm(v: Any) -> int | None:
+        if v is None or str(v).strip() == "":
+            return None
+        try:
+            n = int(v)
+        except (TypeError, ValueError):
+            return None
+        return None if n == 0 else n
+
+    return _norm(a) == _norm(b)
+
+
 def _suggest_team_for_feed_name(
     feed_name: str,
     sport_domain_id: Any,
     *,
     min_pct: int = TEAM_NAME_FUZZY_MATCH_MIN,
+    underage_category_id: int | None = None,
 ) -> dict | None:
-    """Best domain team for a feed name within sport; None if below threshold or ambiguous."""
+    """Best domain team for a feed name within sport; None if below threshold or ambiguous.
+
+    When underage_category_id is set (e.g. Pinnacle U19), prefer teams with the same underage
+    so senior \"Parnu Vaprus\" is not suggested for a U19 fixture.
+    """
     nm = (feed_name or "").strip()
     if not nm or sport_domain_id is None or str(sport_domain_id).strip() == "":
         return None
     cands = _suggest_entity_by_name("teams", nm, sport_domain_id)
     if not cands:
         return None
+    if underage_category_id is not None and str(underage_category_id).strip() not in ("", "0"):
+        scoped = []
+        for c in cands:
+            ent = next(
+                (t for t in DOMAIN_ENTITIES.get("teams", []) if entity_ids_equal(t.get("domain_id"), c.get("domain_id"))),
+                None,
+            )
+            if ent and _underage_category_ids_equal(ent.get("underage_category_id"), underage_category_id):
+                scoped.append(c)
+        if scoped:
+            cands = scoped
+        else:
+            # No underage-matched candidate: do not fall back to senior for youth fixtures
+            return None
+    else:
+        # Senior / no underage: prefer teams without underage so U19 clones are not suggested
+        scoped = []
+        for c in cands:
+            ent = next(
+                (t for t in DOMAIN_ENTITIES.get("teams", []) if entity_ids_equal(t.get("domain_id"), c.get("domain_id"))),
+                None,
+            )
+            if ent and _underage_category_ids_equal(ent.get("underage_category_id"), None):
+                scoped.append(c)
+        if scoped:
+            cands = scoped
     best = cands[0]
     if (best.get("match_pct") or 0) < min_pct:
         return None
@@ -8020,6 +8132,9 @@ async def pull_feeds_view(request: Request):
         s["last_pull"] = _format_last_pull(last_pulls.get(("bwin", (s.get("feed_sport_id") or "").strip())))
     for s in bwin_l2_sports:
         s["last_pull"] = _format_last_pull(last_pulls.get(("bwin_l2", (s.get("feed_sport_id") or "").strip())))
+    pinnacle_sports = [r for r in rows if (r.get("feed_provider") or "").strip().lower() == "pinnacle"]
+    for s in pinnacle_sports:
+        s["last_pull"] = _format_last_pull(last_pulls.get(("pinnacle", (s.get("feed_sport_id") or "").strip())))
     return templates.TemplateResponse(request, "pull_feeds.html", {
         "request": request,
         "section": "pull_feeds",
@@ -8028,7 +8143,195 @@ async def pull_feeds_view(request: Request):
         "onexbet_sports": onexbet_sports,
         "bwin_sports": bwin_sports,
         "bwin_l2_sports": bwin_l2_sports,
+        "pinnacle_sports": pinnacle_sports,
+        "pinnacle_last_ingest": _format_last_pull(last_pulls.get(("pinnacle", "")) or last_pulls.get(("pinnacle", "all"))),
+        "api_football_last_pull": _format_last_pull(last_pulls.get(("api_football", "1")) or last_pulls.get(("api_football", "all"))),
+        "api_football_catalogs_last_pull": _format_last_pull(last_pulls.get(("api_football", "catalogs"))),
+        "api_football_key_configured": bool((getattr(config, "API_FOOTBALL_KEY", None) or "").strip()),
+        "api_football_bets_count": _api_football_catalog_count("bets"),
+        "api_football_bookmakers_count": _api_football_catalog_count("bookmakers"),
     })
+
+
+def _api_football_catalog_count(kind: str) -> int:
+    from backend.api_football_feed import load_odds_catalog
+
+    return len(load_odds_catalog(kind))
+
+
+def _upsert_pinnacle_feed_sports(sports_seen: dict[str, str]) -> int:
+    """Add missing pinnacle rows to feed_sports.csv from ingest. Returns count of new rows."""
+    if not sports_seen:
+        return 0
+    rows = _load_feed_sports_rows()
+    existing = {
+        (r.get("feed_provider") or "").strip().lower() + "|" + (r.get("feed_sport_id") or "").strip()
+        for r in rows
+    }
+    added = 0
+    for sid, name in sorted(sports_seen.items(), key=lambda x: int(x[0]) if str(x[0]).isdigit() else 0):
+        key = f"pinnacle|{sid}"
+        if key in existing:
+            continue
+        rows.append({
+            "feed_provider": "pinnacle",
+            "feed_sport_id": str(sid),
+            "feed_sport_name": (name or f"Sport {sid}").strip(),
+        })
+        existing.add(key)
+        added += 1
+    if added:
+        _save_feed_sports(rows)
+    return added
+
+
+@app.post("/api/pinnacle/ingest")
+async def api_pinnacle_ingest(
+    feed_sport_id: str = Form(""),
+    replace: str = Form(""),
+):
+    """
+    Ingest native Pinnacle JSON from feed_data/pinnacle_raw.json (or designs sample).
+    Normalizes synthetic team keys + canonical event id; merges into feed_data/pinnacle.json.
+    Auto-upserts feed_sports for any sport_id seen. Does not auto-map/auto-create events.
+    Set replace=1 to clear stored pinnacle events (for the sport filter, or all) before merge.
+    """
+    raw = feed_pull.load_pinnacle_raw_file()
+    if not raw:
+        return {
+            "ok": False,
+            "added": 0,
+            "skipped": 0,
+            "total": 0,
+            "error": "No pinnacle_raw.json found. Place native JSON at backend/data/feed_data/pinnacle_raw.json (or designs/feed_json_examples/pinnacle_raw.json).",
+        }
+    sport_filter = (feed_sport_id or "").strip() or None
+    do_replace = (replace or "").strip().lower() in ("1", "true", "yes", "on")
+    result = feed_pull.ingest_pinnacle_raw_events(
+        raw, sport_id_filter=sport_filter, replace=do_replace
+    )
+    if result.get("ok"):
+        sports_seen = result.get("sports_seen") or {}
+        result["feed_sports_added"] = _upsert_pinnacle_feed_sports(sports_seen)
+        result["sports_count"] = len(sports_seen)
+        _save_feed_last_pull("pinnacle", sport_filter or "all")
+        if sport_filter:
+            _save_feed_last_pull("pinnacle", sport_filter)
+        result["last_pull_display"] = _format_last_pull(datetime.now(timezone.utc).isoformat())
+        global DUMMY_EVENTS, DOMAIN_EVENTS, ENTITY_FEED_MAPPINGS, DOMAIN_ENTITIES, SPORT_FEED_MAPPINGS
+        DUMMY_EVENTS = load_all_mock_data()
+        _enrich_feed_events_sport_names()
+        DOMAIN_EVENTS = _load_domain_events()
+        ENTITY_FEED_MAPPINGS = _load_entity_feed_mappings()
+        SPORT_FEED_MAPPINGS = _load_sport_feed_mappings()
+        DOMAIN_ENTITIES = _load_entities()
+        _sync_feeder_events_mapping_status()
+        _invalidate_dashboard_feed_stats_cache()
+    return result
+
+
+async def _reload_after_api_football_pull(result: dict) -> dict:
+    """Shared post-success reload for API-Football fixtures (no auto-map/auto-create in Phase 1)."""
+    if not result.get("ok"):
+        return result
+    _save_feed_last_pull("api_football", "1")
+    _save_feed_last_pull("api_football", "all")
+    result["last_pull_display"] = _format_last_pull(datetime.now(timezone.utc).isoformat())
+    global DUMMY_EVENTS, DOMAIN_EVENTS, ENTITY_FEED_MAPPINGS, DOMAIN_ENTITIES, SPORT_FEED_MAPPINGS
+    DUMMY_EVENTS = load_all_mock_data()
+    _enrich_feed_events_sport_names()
+    DOMAIN_EVENTS = _load_domain_events()
+    ENTITY_FEED_MAPPINGS = _load_entity_feed_mappings()
+    SPORT_FEED_MAPPINGS = _load_sport_feed_mappings()
+    DOMAIN_ENTITIES = _load_entities()
+    _sync_feeder_events_mapping_status()
+    _invalidate_dashboard_feed_stats_cache()
+    return result
+
+
+@app.post("/api/api-football/pull")
+async def api_api_football_pull(
+    api_token: str = Form(""),
+    days_ahead: str = Form("365"),
+    league_id: str = Form(""),
+    season: str = Form(""),
+    replace: str = Form(""),
+):
+    """
+    Phase 1: pull fixtures from today (UTC) through days_ahead into feed_data/api_football.json.
+    Uses form api_token, or falls back to API_FOOTBALL_KEY from .env.
+    Optional league_id+season scopes to one competition. No odds; no auto-map/auto-create.
+    """
+    token = (api_token or "").strip() or (getattr(config, "API_FOOTBALL_KEY", None) or "").strip()
+    do_replace = (replace or "").strip().lower() in ("1", "true", "yes", "on")
+    d_raw = (days_ahead or "").strip()
+    try:
+        d_val = int(d_raw) if d_raw else 365
+    except ValueError:
+        d_val = 365
+    result = await feed_pull.pull_api_football_fixtures(
+        token,
+        days_ahead=d_val,
+        league_id=(league_id or "").strip() or None,
+        season=(season or "").strip() or None,
+        replace=do_replace,
+    )
+    return await _reload_after_api_football_pull(result)
+
+
+@app.post("/api/api-football/ingest")
+async def api_api_football_ingest(replace: str = Form("")):
+    """Offline ingest of native fixtures JSON (feed_data/api_football_raw.json or designs sample)."""
+    raw = feed_pull.load_api_football_raw_file()
+    if not raw:
+        return {
+            "ok": False,
+            "added": 0,
+            "skipped": 0,
+            "total": 0,
+            "error": "No api_football fixtures file. Place JSON at backend/data/feed_data/api_football_raw.json (or designs/feed_json_examples/api_football_fixtures.json).",
+        }
+    do_replace = (replace or "").strip().lower() in ("1", "true", "yes", "on")
+    result = feed_pull.ingest_api_football_raw_events(raw, replace=do_replace)
+    return await _reload_after_api_football_pull(result)
+
+
+@app.post("/api/api-football/pull-catalogs")
+async def api_api_football_pull_catalogs(api_token: str = Form("")):
+    """
+    Phase 2: pull /odds/bets + /odds/bookmakers into feed_data catalogs.
+    Bets feed the Entities market mapper (map once per feed). Bookmakers are labels for nested odds later.
+    """
+    token = (api_token or "").strip() or (getattr(config, "API_FOOTBALL_KEY", None) or "").strip()
+    result = await feed_pull.pull_api_football_odds_catalogs(token)
+    if not result.get("ok"):
+        return result
+    _save_feed_last_pull("api_football", "catalogs")
+    result["last_pull_display"] = _format_last_pull(datetime.now(timezone.utc).isoformat())
+    result["bets_count"] = int(result.get("bets_count") or 0)
+    result["bookmakers_count"] = int(result.get("bookmakers_count") or 0)
+    return result
+
+
+@app.post("/api/api-football/fetch-odds")
+async def api_api_football_fetch_odds(
+    domain_event_id: str = Form(...),
+    api_token: str = Form(""),
+    force: str = Form(""),
+):
+    """
+    Fetch /odds?fixture= for the api_football row mapped to this domain event.
+    Uses api_token or API_FOOTBALL_KEY from .env. force=1 re-fetches even if cached.
+    """
+    token = (api_token or "").strip() or (getattr(config, "API_FOOTBALL_KEY", None) or "").strip()
+    do_force = (force or "").strip().lower() in ("1", "true", "yes", "on")
+    result = await _refresh_api_football_odds_for_event(
+        (domain_event_id or "").strip(),
+        api_key=token,
+        force=do_force,
+    )
+    result["ok"] = bool(result.get("ok"))
+    return result
 
 
 @app.post("/api/pull-feed")
@@ -9646,6 +9949,9 @@ async def event_navigator_event_details(request: Request, domain_id: str):
     brands = _load_brands()
     template_outcome_count = _template_outcome_count
     market_has_line = _market_has_line
+    has_api_football_mapping = any(
+        (m.get("feed_provider") or "").strip().lower() == "api_football" for m in mappings
+    )
     return templates.TemplateResponse(request, "event_details.html", {
         "request": request,
         "section": "domain",
@@ -9655,6 +9961,8 @@ async def event_navigator_event_details(request: Request, domain_id: str):
         "brands": brands,
         "template_outcome_count": template_outcome_count,
         "market_has_line": market_has_line,
+        "has_api_football_mapping": has_api_football_mapping,
+        "api_football_key_configured": bool((getattr(config, "API_FOOTBALL_KEY", None) or "").strip()),
     })
 
 
@@ -9891,10 +10199,51 @@ def _render_mapping_modal(request: Request, event_id: str):
     best_comp = comp_candidates[0] if comp_candidates else None
     suggested_competition = best_comp if (best_comp and (best_comp.get("match_pct") or 0) >= 55) else ({"name": raw_comp, "match_pct": 0} if raw_comp else None)
 
-    # Teams: suggest raw feed names; when mapping same match (score >= 70) and per-team match ≥55%, pre-fill from suggested domain event
-    # match_pct = similarity between feed name and domain name (like category/competition), not 100%
-    suggested_home = {"name": (event.get("raw_home_name") or "").strip(), "match_pct": 0, "is_suggested": True}
-    suggested_away = {"name": (event.get("raw_away_name") or "").strip(), "match_pct": 0, "is_suggested": True}
+    participant_types = _load_participant_types()
+    underage_categories = _load_underage_categories()
+    underage_ids = {int(u["id"]) for u in underage_categories}
+
+    def _suggest_underage_id(*raw_names: str):
+        import re
+        for raw_name in raw_names:
+            if not raw_name:
+                continue
+            m = re.search(r"U(\d+)", str(raw_name), re.IGNORECASE)
+            if not m:
+                continue
+            try:
+                n = int(m.group(1))
+            except (ValueError, TypeError):
+                continue
+            if n in underage_ids:
+                return n
+        return None
+
+    def _underage_from_event_field(val: Any) -> int | None:
+        if val is None or str(val).strip() in ("", "0"):
+            return None
+        try:
+            n = int(val)
+        except (TypeError, ValueError):
+            return None
+        return n if n in underage_ids else None
+
+    # Prefer Pinnacle ingest fields (home_underage_id / away_underage_id); else Uxx in names/league
+    suggested_underage_competition_id = _suggest_underage_id(event.get("raw_league_name") or "")
+    suggested_underage_home_id = (
+        _underage_from_event_field(event.get("home_underage_id"))
+        or _suggest_underage_id(event.get("raw_home_name") or "", event.get("suggested_home_name") or "", event.get("raw_league_name") or "")
+    )
+    suggested_underage_away_id = (
+        _underage_from_event_field(event.get("away_underage_id"))
+        or _suggest_underage_id(event.get("raw_away_name") or "", event.get("suggested_away_name") or "", event.get("raw_league_name") or "")
+    )
+
+    # Teams: prefer Pinnacle suggested_*_name (e.g. "Parnu Vaprus U19"); fuzzy match respects underage
+    sug_home_name = (event.get("suggested_home_name") or event.get("raw_home_name") or "").strip()
+    sug_away_name = (event.get("suggested_away_name") or event.get("raw_away_name") or "").strip()
+    suggested_home = {"name": sug_home_name, "match_pct": 0, "is_suggested": True}
+    suggested_away = {"name": sug_away_name, "match_pct": 0, "is_suggested": True}
     if suggested_domain_event and suggested_match_score >= 70:
         feed_home = (event.get("raw_home_name") or "").strip()
         feed_away = (event.get("raw_away_name") or "").strip()
@@ -9906,14 +10255,23 @@ def _render_mapping_modal(request: Request, event_id: str):
             suggested_home = {"name": suggested_domain_event.get("home") or "", "match_pct": pct_home, "is_suggested": pct_home == 0, "domain_id": suggested_domain_event.get("home_id")}
             suggested_away = {"name": suggested_domain_event.get("away") or "", "match_pct": pct_away, "is_suggested": pct_away == 0, "domain_id": suggested_domain_event.get("away_id")}
     if sport_id_for_suggest:
-        for side_key, raw_key, cur in (
-            ("home", "raw_home_name", suggested_home),
-            ("away", "raw_away_name", suggested_away),
+        for side_key, raw_key, sug_key, cur, u_id in (
+            ("home", "raw_home_name", "suggested_home_name", suggested_home, suggested_underage_home_id),
+            ("away", "raw_away_name", "suggested_away_name", suggested_away, suggested_underage_away_id),
         ):
             raw_nm = (event.get(raw_key) or "").strip()
-            if not raw_nm or cur.get("domain_id") or (cur.get("match_pct") or 0) >= TEAM_NAME_FUZZY_MATCH_MIN:
+            sug_nm = (event.get(sug_key) or "").strip()
+            if (not raw_nm and not sug_nm) or cur.get("domain_id") or (cur.get("match_pct") or 0) >= TEAM_NAME_FUZZY_MATCH_MIN:
                 continue
-            best_team = _suggest_team_for_feed_name(raw_nm, sport_id_for_suggest)
+            best_team = None
+            for try_nm in (sug_nm, raw_nm):
+                if not try_nm:
+                    continue
+                best_team = _suggest_team_for_feed_name(
+                    try_nm, sport_id_for_suggest, underage_category_id=u_id
+                )
+                if best_team:
+                    break
             if best_team:
                 enriched = {
                     "name": best_team["name"],
@@ -9979,25 +10337,6 @@ def _render_mapping_modal(request: Request, event_id: str):
             if country_match and (country_match.get("cc") or "").strip() != COUNTRY_CODE_NONE:
                 suggested_entities["category"] = dict(suggested_entities["category"])
                 suggested_entities["category"]["country"] = (country_match.get("cc") or "").strip()
-
-    participant_types = _load_participant_types()
-    underage_categories = _load_underage_categories()
-    underage_ids = {int(u["id"]) for u in underage_categories}
-    def _suggest_underage_id(raw_name: str):
-        if not raw_name:
-            return None
-        import re
-        m = re.search(r"U(\d+)", raw_name, re.IGNORECASE)
-        if not m:
-            return None
-        try:
-            n = int(m.group(1))
-            return n if n in underage_ids else None
-        except (ValueError, TypeError):
-            return None
-    suggested_underage_competition_id = _suggest_underage_id(event.get("raw_league_name") or "")
-    suggested_underage_home_id = _suggest_underage_id(event.get("raw_home_name") or "")
-    suggested_underage_away_id = _suggest_underage_id(event.get("raw_away_name") or "")
 
     exception_categories = [
         c for c in DOMAIN_ENTITIES["categories"]
@@ -10294,9 +10633,124 @@ async def api_event_details_feed_odds(
     line: str | None = Query(None, description="Selected line for handicap/total (e.g. -0.5, 184.5); used when all_lines is false"),
     all_lines: bool = Query(True, description="When true, return every offered line per feed (paired sides) where supported"),
 ):
-    """Return feed odds for the selected market from each mapped feed (from cached event details)."""
+    """Return feed odds for the selected market from each mapped feed (from cached event details).
+    api_football: one row per bookmaker (not a single API-Football row); fetches /odds if cache missing.
+    """
+    fetch_meta = await _refresh_api_football_odds_for_event(domain_event_id)
     rows = _get_feed_odds_for_event_market(domain_event_id, domain_market_id, line, all_lines=all_lines)
-    return {"feed_odds": rows}
+    hint = _api_football_feed_odds_hint(domain_event_id, domain_market_id, rows, fetch_meta)
+    return {"feed_odds": rows, "hint": hint}
+
+
+async def _refresh_api_football_odds_for_event(
+    domain_event_id: str,
+    *,
+    api_key: str | None = None,
+    force: bool = False,
+) -> dict:
+    """Fetch /odds?fixture= for api_football mapping when cache missing or force=True."""
+    eid = str(domain_event_id or "").strip()
+    if not eid:
+        return {"ok": False, "error": "domain_event_id missing", "fixture_id": None, "bookmakers_count": 0}
+    key = (api_key or "").strip() or (getattr(config, "API_FOOTBALL_KEY", None) or "").strip()
+    for em in _load_event_mappings():
+        if (em.get("domain_event_id") or "").strip() != eid:
+            continue
+        if (em.get("feed_provider") or "").strip().lower() != "api_football":
+            continue
+        fid = (em.get("feed_valid_id") or "").strip()
+        if not fid:
+            return {"ok": False, "error": "api_football mapping has no fixture id", "fixture_id": None, "bookmakers_count": 0}
+        safe = feed_pull._sanitize_feed_valid_id_for_path(fid)
+        path = config.FEED_EVENT_DETAILS_DIR / "api_football" / f"{safe}.json"
+        if path.exists() and not force:
+            try:
+                with open(path, encoding="utf-8") as f:
+                    cached = json.load(f)
+                from backend.api_football_feed import _api_football_odds_payload_bookmakers
+
+                books = _api_football_odds_payload_bookmakers(cached)
+                return {
+                    "ok": True,
+                    "error": None,
+                    "fixture_id": fid,
+                    "bookmakers_count": len(books),
+                    "cached": True,
+                }
+            except (json.JSONDecodeError, OSError):
+                pass
+        if not key:
+            return {
+                "ok": False,
+                "error": "API_FOOTBALL_KEY not set - add it to .env, then click Refresh API-Football odds on this page",
+                "fixture_id": fid,
+                "bookmakers_count": 0,
+                "cached": False,
+            }
+        data, err = await feed_pull.fetch_api_football_fixture_odds_result(key, fid)
+        if err or not data:
+            return {
+                "ok": False,
+                "error": err or "Odds fetch failed",
+                "fixture_id": fid,
+                "bookmakers_count": 0,
+                "cached": False,
+            }
+        feed_pull.save_event_details("api_football", fid, data)
+        from backend.api_football_feed import _api_football_odds_payload_bookmakers
+
+        books = _api_football_odds_payload_bookmakers(data)
+        return {
+            "ok": True,
+            "error": None,
+            "fixture_id": fid,
+            "bookmakers_count": len(books),
+            "cached": False,
+        }
+    return {"ok": False, "error": None, "fixture_id": None, "bookmakers_count": 0, "cached": False}
+
+
+def _api_football_feed_odds_hint(
+    domain_event_id: str,
+    domain_market_id: str,
+    rows: list[dict],
+    fetch_meta: dict,
+) -> str | None:
+    """User-facing hint when Feed Odds is empty but api_football is in play."""
+    eid = str(domain_event_id or "").strip()
+    dmid = fid_str(domain_market_id)
+    has_af_event = any(
+        (m.get("domain_event_id") or "").strip() == eid
+        and (m.get("feed_provider") or "").strip().lower() == "api_football"
+        for m in _load_event_mappings()
+    )
+    if not has_af_event:
+        return None
+    af_pid = next((f["domain_id"] for f in FEEDS if (f.get("code") or "").strip().lower() == "api_football"), None)
+    has_af_market = any(
+        fid_str(m.get("domain_market_id")) == dmid and m.get("feed_provider_id") == af_pid
+        for m in _load_market_type_mappings()
+    )
+    af_rows = [r for r in rows if r.get("bookmaker_id") or (af_pid and r.get("feed_provider_id") == af_pid and r.get("feed_name") and r.get("feed_name") != "API-Football")]
+    if af_rows:
+        return None
+    if not has_af_market:
+        return (
+            "API-Football is mapped on this event, but this domain market has no api_football bet mapping. "
+            "Map it in Entities → Markets (e.g. Full Time Result → bet id 1 Match Winner)."
+        )
+    if fetch_meta.get("error"):
+        return f"API-Football odds: {fetch_meta['error']}"
+    if fetch_meta.get("ok") and int(fetch_meta.get("bookmakers_count") or 0) == 0:
+        return "API-Football returned no bookmakers for this fixture yet."
+    if fetch_meta.get("ok") and int(fetch_meta.get("bookmakers_count") or 0) > 0:
+        return "API-Football odds cached, but no bookmaker offers this mapped bet for this fixture."
+    return "No API-Football odds loaded. Set API_FOOTBALL_KEY in .env and use Refresh below."
+
+
+async def _ensure_api_football_odds_cached(domain_event_id: str) -> None:
+    """Backward-compatible wrapper."""
+    await _refresh_api_football_odds_for_event(domain_event_id)
 
 
 @app.get("/api/event-details/brand-overview-margined")
@@ -11386,6 +11840,21 @@ def _rbac_enforce_api_permissions(request: Request) -> None:
         _rbac_require_permission_code(request, "config.feeders.update")
         return
     if re.fullmatch(r"/api/pull-feed-all", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.feeders.update")
+        return
+    if re.fullmatch(r"/api/pinnacle/ingest", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.feeders.update")
+        return
+    if re.fullmatch(r"/api/api-football/pull", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.feeders.update")
+        return
+    if re.fullmatch(r"/api/api-football/ingest", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.feeders.update")
+        return
+    if re.fullmatch(r"/api/api-football/pull-catalogs", path) and method == "POST":
+        _rbac_require_permission_code(request, "config.feeders.update")
+        return
+    if re.fullmatch(r"/api/api-football/fetch-odds", path) and method == "POST":
         _rbac_require_permission_code(request, "config.feeders.update")
         return
 
@@ -12520,7 +12989,7 @@ async def entities_view(
 
     # Feeds that have at least one sport mapping (for market mapper dropdown; hides removed feeds like SBObet)
     feed_ids_with_sport_mappings = {m["feed_provider_id"] for m in SPORT_FEED_MAPPINGS}
-    _MARKET_MAPPER_FEED_CODES = frozenset({"bet365", "1xbet", "bwin", "bwin_l2", "imlog"})
+    _MARKET_MAPPER_FEED_CODES = frozenset({"bet365", "1xbet", "bwin", "bwin_l2", "imlog", "api_football"})
     mapper_feeds = [
         f for f in FEEDS
         if f.get("domain_id") in feed_ids_with_sport_mappings

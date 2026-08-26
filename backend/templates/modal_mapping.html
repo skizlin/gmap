@@ -563,7 +563,17 @@
         if (window.validateReadyToMap) window.validateReadyToMap();
     }
 
-    function confirmEntityMapping(entityType, inputId, statusId) {
+    async function confirmEntityMapping(entityType, inputId, statusId) {
+        // Persist feed_id → domain entity immediately (required for Pinnacle synthetic team keys)
+        const typeMap = { competition: 'competitions', home: 'teams', away: 'teams' };
+        const feedId = (window.MAP_FEED_IDS && window.MAP_FEED_IDS[entityType]) || '';
+        const et = typeMap[entityType];
+        if (et && typeof createEntityFromModal === 'function') {
+            await createEntityFromModal(et, feedId, inputId, statusId);
+            const mapBtn = document.getElementById('btn-map-' + entityType);
+            if (mapBtn) { mapBtn.disabled = true; mapBtn.title = 'Mapped'; }
+            return;
+        }
         const statusEl = document.getElementById(statusId);
         const mapBtn = document.getElementById('btn-map-' + entityType);
         if (statusEl) statusEl.innerHTML = '<span class="text-[10px] text-success"><i class="fa-solid fa-circle-check"></i> Mapped</span>';
@@ -724,25 +734,43 @@
         dl.innerHTML = filtered.map(c => `<option value="${c.name}"></option>`).join('');
     }
 
+    function teamUnderageMatches(team, underageVal) {
+        const tu = (team && team.underage_category_id != null && String(team.underage_category_id).trim() !== '')
+            ? String(team.underage_category_id).trim() : '';
+        const want = (underageVal != null && String(underageVal).trim() !== '' && String(underageVal).trim() !== '0')
+            ? String(underageVal).trim() : '';
+        if (want) return tu === want;
+        return !tu || tu === '0';
+    }
+    function underageValForSide(side) {
+        const id = side === 'away' ? 'away-underage' : 'home-underage';
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    }
     function filterTeams() {
         const sportId = getSelectedSportId();
-        const filtered = sportId ? ALL_TEAMS.filter(t => entitySportIdMatches(t.sport_id, sportId)) : [];
-        const opts = filtered.map(t => `<option value="${(t.name || '').replace(/"/g, '&quot;')}"></option>`).join('');
-        ['dl-teams', 'dl-teams-away'].forEach(id => {
-            const dl = document.getElementById(id);
-            if (dl) dl.innerHTML = opts;
-        });
+        const base = sportId ? ALL_TEAMS.filter(t => entitySportIdMatches(t.sport_id, sportId)) : [];
+        const homeTeams = base.filter(t => teamUnderageMatches(t, underageValForSide('home')));
+        const awayTeams = base.filter(t => teamUnderageMatches(t, underageValForSide('away')));
+        const dlHome = document.getElementById('dl-teams');
+        const dlAway = document.getElementById('dl-teams-away');
+        if (dlHome) dlHome.innerHTML = homeTeams.map(t => `<option value="${(t.name || '').replace(/"/g, '&quot;')}"></option>`).join('');
+        if (dlAway) dlAway.innerHTML = awayTeams.map(t => `<option value="${(t.name || '').replace(/"/g, '&quot;')}"></option>`).join('');
     }
 
-    function getTeamsForDropdown() {
+    function getTeamsForDropdown(side) {
         const sportId = getSelectedSportId();
-        return sportId ? ALL_TEAMS.filter(t => entitySportIdMatches(t.sport_id, sportId)) : [];
+        const base = sportId ? ALL_TEAMS.filter(t => entitySportIdMatches(t.sport_id, sportId)) : [];
+        const s = side === 'away' ? 'away' : (side === 'home' ? 'home' : null);
+        if (!s) return base;
+        return base.filter(t => teamUnderageMatches(t, underageValForSide(s)));
     }
     function renderTeamDropdown(dropdownId, filter, inputId) {
         const dd = document.getElementById(dropdownId);
         if (!dd) return;
         const q = (filter || '').trim().toLowerCase();
-        const teams = getTeamsForDropdown();
+        const side = inputId === 'input-away' ? 'away' : 'home';
+        const teams = getTeamsForDropdown(side);
         const filtered = q ? teams.filter(t => {
             const name = (t.name || '').toLowerCase();
             return name.includes(q) || normalizeMatchName(t.name).includes(normalizeMatchName(q));
@@ -861,13 +889,13 @@
             const awayOK = fieldOK('input-away', 'dl-teams-away', 'new_away');
             // Sync new_home_id/new_away_id when value matches a team (e.g. typed without dropdown click)
             if (!lockedValue('new_home_id')) {
-                const teams = getTeamsForDropdown();
+                const teams = getTeamsForDropdown('home');
                 const homeVal = (document.getElementById('input-home')?.value || '').trim();
                 const t = homeVal ? findTeamByName(teams, homeVal) : null;
                 setHiddenInput('new_home_id', t ? String(t.domain_id) : '');
             }
             if (!lockedValue('new_away_id')) {
-                const teams = getTeamsForDropdown();
+                const teams = getTeamsForDropdown('away');
                 const awayVal = (document.getElementById('input-away')?.value || '').trim();
                 const t = awayVal ? findTeamByName(teams, awayVal) : null;
                 setHiddenInput('new_away_id', t ? String(t.domain_id) : '');
@@ -885,19 +913,19 @@
             if (mapComp && createComp) {
                 mapComp.style.display = compOK ? 'inline-block' : 'none';
                 createComp.style.display = compOK ? 'none' : 'inline-block';
-                if (compOK) mapComp.disabled = (document.getElementById('status-competition')?.innerHTML || '').includes('Mapped');
+                if (compOK) mapComp.disabled = /Mapped|fa-circle-check/.test(document.getElementById('status-competition')?.innerHTML || '');
                 else { const s = document.getElementById('status-competition'); if (s) s.innerHTML = ''; }
             }
             if (mapHome && createHome) {
                 mapHome.style.display = homeOK ? 'inline-block' : 'none';
                 createHome.style.display = homeOK ? 'none' : 'inline-block';
-                if (homeOK) mapHome.disabled = (document.getElementById('status-home')?.innerHTML || '').includes('Mapped');
+                if (homeOK) mapHome.disabled = /Mapped|fa-circle-check/.test(document.getElementById('status-home')?.innerHTML || '');
                 else { const s = document.getElementById('status-home'); if (s) s.innerHTML = ''; }
             }
             if (mapAway && createAway) {
                 mapAway.style.display = awayOK ? 'inline-block' : 'none';
                 createAway.style.display = awayOK ? 'none' : 'inline-block';
-                if (awayOK) mapAway.disabled = (document.getElementById('status-away')?.innerHTML || '').includes('Mapped');
+                if (awayOK) mapAway.disabled = /Mapped|fa-circle-check/.test(document.getElementById('status-away')?.innerHTML || '');
                 else { const s = document.getElementById('status-away'); if (s) s.innerHTML = ''; }
             }
 
@@ -1093,6 +1121,14 @@
             hideTeamDropdown('away-team-dropdown');
             if (window.validateReadyToMap) window.validateReadyToMap();
         });
+        ['home-underage', 'away-underage'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('change', () => {
+                filterTeams();
+                if (window.validateReadyToMap) window.validateReadyToMap();
+            });
+        });
         document.addEventListener('click', (e) => {
             const inCategory = (categoryExceptionWrap && categoryExceptionWrap.contains(e.target)) || (categoryCountrySelForClick && categoryCountrySelForClick.contains(e.target));
             if (!inCategory) hideCategoryDropdown();
@@ -1106,6 +1142,12 @@
     // Feed provider ID and raw sport name for this event
     const FEED_PROVIDER_ID = {{ feeds | selectattr('code', 'equalto', event.feed_provider) | map(attribute = 'domain_id') | first | default ('null') }};
     const FEED_SPORT = {{ event.sport | tojson }};
+    const FEED_SPORT_ID = {{ (event.sport_id if event.sport_id is not none else '') | tojson }};
+    window.MAP_FEED_IDS = {
+        competition: {{ (event.raw_league_id or event.raw_league_name or '') | tojson }},
+        home: {{ (event.raw_home_id or event.raw_home_name or '') | tojson }},
+        away: {{ (event.raw_away_id or event.raw_away_name or '') | tojson }}
+    };
 
     async function createEntityFromModal(entityType, feedId, inputId, statusId) {
         const nameEl = document.getElementById(inputId);
@@ -1156,6 +1198,9 @@
             country: countryCode,
             participant_type_id: participantTypeId
         };
+        if (FEED_SPORT_ID !== null && FEED_SPORT_ID !== undefined && String(FEED_SPORT_ID).trim() !== '') {
+            payload.feed_sport_id = String(FEED_SPORT_ID).trim();
+        }
         if (entityType === 'categories') {
             payload.name = catVal || name;
         }

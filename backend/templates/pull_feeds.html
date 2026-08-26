@@ -260,6 +260,120 @@
             {% endif %}
         </div>
 
+        <!-- Pinnacle (file ingest — all sports; live API later) -->
+        <div class="border border-gmp-border/50 rounded-lg overflow-hidden">
+            <div class="bg-gmp-surface-raised/60 px-4 py-2.5 border-b border-gmp-border/50 flex flex-wrap items-center gap-4">
+                <span class="font-medium text-gmp-text-heading">Pinnacle</span>
+                <span class="text-gmp-text-muted text-sm">File ingest — all sports; teams use synthetic name keys</span>
+                <span id="pull-result-pinnacle" class="pull-result text-sm hidden"></span>
+                <button type="button" id="pinnacle-ingest-all-btn"
+                        class="inline-flex items-center px-3 py-1.5 bg-primaryHover/30 hover:bg-primaryHover/50 text-success border border-success/50 rounded text-sm font-medium transition-colors">
+                    <i class="fa-solid fa-file-import mr-1.5"></i> Ingest all sports
+                </button>
+                <label class="flex items-center gap-2 text-sm text-gmp-text-muted ml-auto">
+                    <input type="checkbox" id="pinnacle-replace" class="rounded border-gmp-border">
+                    Replace stored events
+                </label>
+            </div>
+            <div class="px-4 py-3 text-sm text-gmp-text-muted space-y-1 border-b border-gmp-border/50">
+                <p>Put your real native JSON array at <code class="text-[11px] text-gmp-text-faint">backend/data/feed_data/pinnacle_raw.json</code> (same shape as the sample: <code class="text-[11px]">sport_id</code>, <code class="text-[11px]">league_id</code>, <code class="text-[11px]">event_id</code>, <code class="text-[11px]">runner_home</code>, …).</p>
+                <p class="text-gmp-text-faint text-xs">Ingest normalizes all sports in the file, upserts missing rows into <code class="text-[11px]">feed_sports</code>, merges into <code class="text-[11px]">pinnacle.json</code>. Does not auto-map or auto-create. Tick <strong>Replace</strong> to clear stored events before ingest (use when switching from sample to full dump).</p>
+                <p class="text-gmp-text-faint text-xs">Last ingest (all): <span id="last-pull-pinnacle">{{ pinnacle_last_ingest or '—' }}</span></p>
+            </div>
+            <div class="divide-y divide-gmp-border/50">
+                {% for sport in pinnacle_sports %}
+                <div class="flex items-center justify-between gap-4 px-4 py-3" data-sport-id="{{ sport.feed_sport_id }}" data-sport-name="{{ sport.feed_sport_name }}">
+                    <div class="flex items-center gap-3">
+                        <span class="text-gmp-text-heading font-medium">{{ sport.feed_sport_name }}</span>
+                        <span class="text-gmp-text-faint text-sm">sport_id: {{ sport.feed_sport_id }}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="last-pull-pinnacle-{{ sport.feed_sport_id }}" class="text-gmp-text-faint text-sm whitespace-nowrap">Last: {{ sport.last_pull }}</span>
+                        <span id="pull-result-pinnacle-{{ sport.feed_sport_id }}" class="pull-result text-sm hidden"></span>
+                        <button type="button"
+                                class="pinnacle-ingest-sport-btn inline-flex items-center px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded-lg text-sm font-medium transition-colors"
+                                data-sport-id="{{ sport.feed_sport_id }}"
+                                data-sport-name="{{ sport.feed_sport_name }}">
+                            <i class="fa-solid fa-file-import mr-2"></i> Ingest
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if not pinnacle_sports %}
+            <div class="px-4 py-4 text-gmp-text-faint text-sm">
+                No Pinnacle sports in feed_sports.csv yet. Ingest a dump to auto-add them, or add rows with feed_provider <code class="text-[11px]">pinnacle</code>.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- API-Football (fixtures + odds catalogs) -->
+        <div class="border border-gmp-border/50 rounded-lg overflow-hidden">
+            <div class="bg-gmp-surface-raised/60 px-4 py-2.5 border-b border-gmp-border/50 flex flex-wrap items-center gap-4">
+                <span class="font-medium text-gmp-text-heading">API-Football</span>
+                <span class="text-gmp-text-muted text-sm">Fixtures + odds catalogs (markets map once for whole feed)</span>
+                <span id="pull-result-api-football" class="pull-result text-sm hidden"></span>
+                <label class="flex items-center gap-2 ml-auto">
+                    <span class="text-gmp-text-muted text-sm whitespace-nowrap">API key</span>
+                    <input type="password"
+                           id="api-football-api-key"
+                           name="api_token"
+                           placeholder="{% if api_football_key_configured %}Using .env key{% else %}Enter key to pull{% endif %}"
+                           autocomplete="off"
+                           class="w-48 px-3 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-gmp-text-heading placeholder-gmp-text-faint focus:border-primary focus:outline-none">
+                </label>
+            </div>
+            <div class="px-4 py-3 text-sm text-gmp-text-muted space-y-3">
+                <p>Pull <strong>all upcoming</strong> soccer fixtures from <strong>today (UTC)</strong> through the horizon below (default 365 days). Uses <code class="text-[11px]">/fixtures?from=&amp;to=</code> in chunks. Set <code class="text-[11px]">API_FOOTBALL_KEY</code> in <code class="text-[11px]">.env</code> or paste a key above.</p>
+                <div class="flex flex-wrap items-end gap-3">
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs text-gmp-text-faint">Days ahead (from today)</span>
+                        <input type="number" id="api-football-days" value="365" min="1" max="730"
+                               class="w-28 px-2 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-gmp-text-heading">
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs text-gmp-text-faint">League id (optional)</span>
+                        <input type="text" id="api-football-league" placeholder="e.g. 39"
+                               class="w-28 px-2 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-gmp-text-heading placeholder-gmp-text-faint">
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-xs text-gmp-text-faint">Season (with league)</span>
+                        <input type="text" id="api-football-season" placeholder="e.g. 2025"
+                               class="w-28 px-2 py-1.5 bg-gmp-surface-raised border border-gmp-border rounded text-sm text-gmp-text-heading placeholder-gmp-text-faint">
+                    </label>
+                    <label class="flex items-center gap-2 text-sm self-center pb-1">
+                        <input type="checkbox" id="api-football-replace" class="rounded border-gmp-border">
+                        Replace stored
+                    </label>
+                    <button type="button" id="api-football-pull-btn"
+                            class="inline-flex items-center px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded text-sm font-medium transition-colors">
+                        <i class="fa-solid fa-download mr-1.5"></i> Pull all upcoming
+                    </button>
+                    <button type="button" id="api-football-ingest-btn"
+                            class="inline-flex items-center px-3 py-1.5 bg-gmp-surface-raised hover:bg-gmp-hover/20 text-gmp-text-muted border border-gmp-border rounded text-sm font-medium transition-colors">
+                        <i class="fa-solid fa-file-import mr-1.5"></i> Ingest from file
+                    </button>
+                </div>
+                <p class="text-gmp-text-faint text-xs">A true “all future forever” single call does not exist on API-Football; we walk from today through the horizon. Optional league+season limits to one competition. ~26 API calls for 365 days (14-day chunks). File ingest: <code class="text-[11px]">backend/data/feed_data/api_football_raw.json</code>.</p>
+                <p class="text-gmp-text-faint text-xs">Last fixtures pull: <span id="last-pull-api-football">{{ api_football_last_pull or '—' }}</span></p>
+
+                <div class="border-t border-gmp-border/40 pt-3 space-y-2">
+                    <p><strong>Odds catalogs (Phase 2)</strong> — pull <code class="text-[11px]">/odds/bets</code> (markets for Entities mapper) and <code class="text-[11px]">/odds/bookmakers</code> (labels only). Map Match Winner once for the feed; bookmakers share the same bet ids.</p>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" id="api-football-catalogs-btn"
+                                class="inline-flex items-center px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 rounded text-sm font-medium transition-colors">
+                            <i class="fa-solid fa-list mr-1.5"></i> Pull odds catalogs
+                        </button>
+                        <span class="text-xs text-gmp-text-faint">
+                            Stored: <span id="api-football-bets-count">{{ api_football_bets_count or 0 }}</span> bets,
+                            <span id="api-football-bookmakers-count">{{ api_football_bookmakers_count or 0 }}</span> bookmakers
+                            · Last: <span id="last-pull-api-football-catalogs">{{ api_football_catalogs_last_pull or '—' }}</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <p class="text-gmp-text-faint text-xs italic">
             Bwin and Bwin L2 are separate feeds: own <code class="text-[11px]">feed_sports</code> rows, own stored JSON, own Entities → Feeds row for mappings. Same BetsAPI prematch URL under the hood; you can paste the same token into both key fields if you use one account.
         </p>
@@ -395,6 +509,166 @@
             resultEl.classList.add('text-danger');
         });
     });
+
+    function pinnacleIngest(sportId, resultEl, lastPullEl) {
+        if (resultEl) {
+            resultEl.textContent = 'Ingesting…';
+            resultEl.classList.remove('hidden', 'text-danger', 'text-success');
+            resultEl.classList.add('text-gmp-text-muted');
+        }
+        var form = new FormData();
+        if (sportId) form.append('feed_sport_id', sportId);
+        var replaceEl = document.getElementById('pinnacle-replace');
+        if (replaceEl && replaceEl.checked) form.append('replace', '1');
+        fetch('/api/pinnacle/ingest', {
+            method: 'POST',
+            body: form,
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!resultEl) return;
+            resultEl.classList.remove('text-gmp-text-muted');
+            if (data.error || !data.ok) {
+                resultEl.textContent = 'Error: ' + (data.error || 'Ingest failed');
+                resultEl.classList.add('text-danger');
+            } else {
+                var msg = 'Added: ' + (data.added || 0) + ', Skipped: ' + (data.skipped || 0);
+                if (data.total != null) msg += ' (in scope: ' + data.total + ')';
+                if (data.sports_count) msg += ' · Sports in file: ' + data.sports_count;
+                if (data.feed_sports_added) msg += ' · New feed_sports: ' + data.feed_sports_added;
+                if (data.replaced) msg += ' · Replaced';
+                resultEl.textContent = msg;
+                resultEl.classList.add('text-success');
+                if (data.last_pull_display) {
+                    if (lastPullEl) lastPullEl.textContent = 'Last: ' + data.last_pull_display;
+                    var lpAll = document.getElementById('last-pull-pinnacle');
+                    if (lpAll && !sportId) lpAll.textContent = data.last_pull_display;
+                }
+            }
+        })
+        .catch(function(err) {
+            if (!resultEl) return;
+            resultEl.textContent = 'Error: ' + (err.message || 'Request failed');
+            resultEl.classList.remove('text-gmp-text-muted', 'text-success');
+            resultEl.classList.add('text-danger');
+        });
+    }
+
+    var pinnacleAllBtn = document.getElementById('pinnacle-ingest-all-btn');
+    if (pinnacleAllBtn) {
+        pinnacleAllBtn.addEventListener('click', function() {
+            pinnacleIngest('', document.getElementById('pull-result-pinnacle'), null);
+        });
+    }
+    document.querySelectorAll('.pinnacle-ingest-sport-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var sid = btn.getAttribute('data-sport-id') || '';
+            pinnacleIngest(
+                sid,
+                document.getElementById('pull-result-pinnacle-' + sid),
+                document.getElementById('last-pull-pinnacle-' + sid)
+            );
+        });
+    });
+
+    function apiFootballResultMsg(data) {
+        if (data.mode === 'odds catalogs' || (data.bets_count != null && data.bookmakers_count != null && data.added == null)) {
+            var cmsg = 'Catalogs: ' + (data.bets_count || 0) + ' bets, ' + (data.bookmakers_count || 0) + ' bookmakers';
+            if (data.requests_used) cmsg += ' · API calls: ' + data.requests_used;
+            return cmsg;
+        }
+        var msg = 'Added: ' + (data.added || 0) + ', Skipped: ' + (data.skipped || 0);
+        if (data.total != null) msg += ' (fixtures: ' + data.total + ')';
+        if (data.from_date && data.to_date) msg += ' · ' + data.from_date + ' → ' + data.to_date;
+        else if (data.mode) msg += ' · ' + data.mode;
+        if (data.requests_used) msg += ' · API calls: ' + data.requests_used;
+        if (data.replaced) msg += ' · Replaced';
+        return msg;
+    }
+    function runApiFootball(url, form, resultEl, opts) {
+        opts = opts || {};
+        if (resultEl) {
+            resultEl.textContent = opts.workingText || 'Working… (may take a minute for a full year)';
+            resultEl.classList.remove('hidden', 'text-danger', 'text-success');
+            resultEl.classList.add('text-gmp-text-muted');
+        }
+        fetch(url, { method: 'POST', body: form, headers: { 'Accept': 'application/json' } })
+            .then(function(r) {
+                return r.json().then(function(data) {
+                    return { status: r.status, okHttp: r.ok, data: data };
+                });
+            })
+            .then(function(res) {
+                if (!resultEl) return;
+                resultEl.classList.remove('text-gmp-text-muted');
+                var data = res.data || {};
+                if (!res.okHttp || data.error || !data.ok) {
+                    var msg = data.error || data.detail || ('HTTP ' + res.status + ' Request failed');
+                    resultEl.textContent = 'Error: ' + msg;
+                    resultEl.classList.add('text-danger');
+                } else {
+                    resultEl.textContent = apiFootballResultMsg(data);
+                    resultEl.classList.add('text-success');
+                    if (data.last_pull_display) {
+                        var lpId = opts.lastPullElId || 'last-pull-api-football';
+                        var lp = document.getElementById(lpId);
+                        if (lp) lp.textContent = data.last_pull_display;
+                    }
+                    if (data.bets_count != null) {
+                        var bc = document.getElementById('api-football-bets-count');
+                        if (bc) bc.textContent = String(data.bets_count);
+                    }
+                    if (data.bookmakers_count != null) {
+                        var bk = document.getElementById('api-football-bookmakers-count');
+                        if (bk) bk.textContent = String(data.bookmakers_count);
+                    }
+                }
+            })
+            .catch(function(err) {
+                if (!resultEl) return;
+                resultEl.textContent = 'Error: ' + (err.message || 'Request failed');
+                resultEl.classList.remove('text-gmp-text-muted', 'text-success');
+                resultEl.classList.add('text-danger');
+            });
+    }
+    var afPullBtn = document.getElementById('api-football-pull-btn');
+    if (afPullBtn) {
+        afPullBtn.addEventListener('click', function() {
+            var form = new FormData();
+            var keyInput = document.getElementById('api-football-api-key');
+            form.append('api_token', keyInput ? (keyInput.value || '').trim() : '');
+            form.append('days_ahead', (document.getElementById('api-football-days') || {}).value || '365');
+            form.append('league_id', (document.getElementById('api-football-league') || {}).value || '');
+            form.append('season', (document.getElementById('api-football-season') || {}).value || '');
+            var rep = document.getElementById('api-football-replace');
+            if (rep && rep.checked) form.append('replace', '1');
+            runApiFootball('/api/api-football/pull', form, document.getElementById('pull-result-api-football'));
+        });
+    }
+    var afIngestBtn = document.getElementById('api-football-ingest-btn');
+    if (afIngestBtn) {
+        afIngestBtn.addEventListener('click', function() {
+            var form = new FormData();
+            var rep = document.getElementById('api-football-replace');
+            if (rep && rep.checked) form.append('replace', '1');
+            runApiFootball('/api/api-football/ingest', form, document.getElementById('pull-result-api-football'), {
+                workingText: 'Ingesting…'
+            });
+        });
+    }
+    var afCatalogsBtn = document.getElementById('api-football-catalogs-btn');
+    if (afCatalogsBtn) {
+        afCatalogsBtn.addEventListener('click', function() {
+            var form = new FormData();
+            var keyInput = document.getElementById('api-football-api-key');
+            form.append('api_token', keyInput ? (keyInput.value || '').trim() : '');
+            runApiFootball('/api/api-football/pull-catalogs', form, document.getElementById('pull-result-api-football'), {
+                workingText: 'Pulling bets + bookmakers…',
+                lastPullElId: 'last-pull-api-football-catalogs'
+            });
+        });
+    }
 })();
 </script>
 {% endblock %}

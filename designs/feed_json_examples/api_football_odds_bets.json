@@ -1,0 +1,15 @@
+{
+  "get": "bets",
+  "response": [
+    { "id": 1, "name": "Match Winner" },
+    { "id": 2, "name": "Home/Away" },
+    { "id": 3, "name": "Second Half Winner" },
+    { "id": 4, "name": "Asian Handicap" },
+    { "id": 5, "name": "Goals Over/Under" },
+    { "id": 6, "name": "Goals Over/Under First Half" },
+    { "id": 7, "name": "HT/FT Double" },
+    { "id": 8, "name": "Both Teams Score" },
+    { "id": 12, "name": "Double Chance" },
+    { "id": 13, "name": "First Half Winner" }
+  ]
+}

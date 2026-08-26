@@ -526,5 +526,35 @@ def load_all_mock_data():
         if (MOCK_DIR / "1xbet.json").exists():
             all_events.extend(parse_unified(MOCK_DIR / "1xbet.json", "1xbet"))
 
+    # Pinnacle: feed_data/pinnacle.json (normalized). Re-normalize if file still has native rows.
+    if FEED_DATA_DIR and (FEED_DATA_DIR / "pinnacle.json").exists():
+        try:
+            with open(FEED_DATA_DIR / "pinnacle.json", "r", encoding="utf-8") as f:
+                pin_stored = json.load(f)
+            if isinstance(pin_stored, list):
+                from backend.pinnacle_feed import is_raw_pinnacle_item, normalize_pinnacle_events
+
+                if pin_stored and any(is_raw_pinnacle_item(e) for e in pin_stored if isinstance(e, dict)):
+                    all_events.extend(normalize_pinnacle_events(pin_stored))
+                else:
+                    all_events.extend(pin_stored)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # API-Football: feed_data/api_football.json (fixtures Phase 1). Re-normalize if still native.
+    if FEED_DATA_DIR and (FEED_DATA_DIR / "api_football.json").exists():
+        try:
+            with open(FEED_DATA_DIR / "api_football.json", "r", encoding="utf-8") as f:
+                af_stored = json.load(f)
+            if isinstance(af_stored, list):
+                from backend.api_football_feed import is_raw_api_football_item, normalize_api_football_events
+
+                if af_stored and any(is_raw_api_football_item(e) for e in af_stored if isinstance(e, dict)):
+                    all_events.extend(normalize_api_football_events(af_stored))
+                else:
+                    all_events.extend(af_stored)
+        except (json.JSONDecodeError, OSError):
+            pass
+
     _clear_synthetic_feed_categories(all_events)
     return all_events

@@ -69,3 +69,40 @@ bwin_l2,22,Cricket
 bwin_l2,34,Darts
 bwin_l2,32,Rugby Union
 bwin_l2,31,Rugby League
+pinnacle,1,Badminton
+pinnacle,2,Bandy
+pinnacle,3,Baseball
+pinnacle,4,Basketball
+pinnacle,5,Beach Volleyball
+pinnacle,6,Boxing
+pinnacle,8,Cricket
+pinnacle,9,Curling
+pinnacle,10,Darts
+pinnacle,12,E Sports
+pinnacle,13,Field Hockey
+pinnacle,14,Floorball
+pinnacle,15,Football
+pinnacle,16,Futsal
+pinnacle,17,Golf
+pinnacle,18,Handball
+pinnacle,19,Hockey
+pinnacle,20,Horse Racing
+pinnacle,22,Mixed Martial Arts
+pinnacle,26,Rugby League
+pinnacle,27,Rugby Union
+pinnacle,28,Snooker
+pinnacle,29,Soccer
+pinnacle,30,Softball
+pinnacle,31,Squash
+pinnacle,32,Table Tennis
+pinnacle,33,Tennis
+pinnacle,34,Volleyball
+pinnacle,35,Water Polo
+pinnacle,36,Aussie Rules
+pinnacle,37,Alpine Skiing
+pinnacle,39,Biathlon
+pinnacle,40,Cycling
+pinnacle,41,Formula 1
+pinnacle,44,Chess
+pinnacle,45,Entertainment
+api_football,1,Football

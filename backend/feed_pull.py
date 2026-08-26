@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
 import httpx
@@ -693,3 +693,551 @@ async def pull_feed_all_sports_async(
         "results": out,
         "error": first_error,
     }
+
+
+def ingest_pinnacle_raw_events(
+    raw_events: list,
+    *,
+    sport_id_filter: str | None = None,
+    replace: bool = False,
+) -> dict:
+    """
+    Normalize native Pinnacle rows and merge into feed_data/pinnacle.json by valid_id.
+    Existing ids are skipped unless replace=True (then stored events for the filter scope are cleared first).
+    Optional sport_id_filter limits which rows are considered (e.g. \"29\").
+    Does not call APIs. Callers should upsert feed_sports from returned sports_seen.
+    """
+    global FEED_DATA_DIR
+    from backend.pinnacle_feed import FEED_CODE, collect_sports_from_events, normalize_pinnacle_events
+    from backend import config as _cfg
+
+    if not FEED_DATA_DIR:
+        FEED_DATA_DIR = getattr(_cfg, "FEED_DATA_DIR", None)
+
+    sports_seen = collect_sports_from_events(raw_events)
+    normalized = normalize_pinnacle_events(raw_events)
+    if sport_id_filter is not None and str(sport_id_filter).strip():
+        want = str(sport_id_filter).strip()
+        try:
+            want = str(int(float(want)))
+        except (TypeError, ValueError):
+            pass
+        normalized = [e for e in normalized if str(e.get("sport_id") or "").strip() == want]
+        sports_seen = {k: v for k, v in sports_seen.items() if k == want}
+
+    existing = load_stored_feed_events(FEED_CODE)
+    if replace:
+        if sport_id_filter is not None and str(sport_id_filter).strip():
+            want = str(sport_id_filter).strip()
+            try:
+                want = str(int(float(want)))
+            except (TypeError, ValueError):
+                pass
+            existing = [e for e in existing if str(e.get("sport_id") or "").strip() != want]
+        else:
+            existing = []
+        save_stored_feed_events(FEED_CODE, existing)
+
+    existing_ids = {str(e.get("valid_id") or "").strip() for e in existing if (e.get("valid_id") or "").strip()}
+    added = 0
+    skipped = 0
+    new_rows: list[dict] = []
+    for ev in normalized:
+        vid = str(ev.get("valid_id") or "").strip()
+        if not vid:
+            continue
+        if vid in existing_ids:
+            skipped += 1
+            continue
+        new_rows.append(ev)
+        existing_ids.add(vid)
+        added += 1
+    if new_rows:
+        merged = list(existing) + new_rows
+        save_stored_feed_events(FEED_CODE, merged)
+    return {
+        "ok": True,
+        "added": added,
+        "skipped": skipped,
+        "total": len(normalized),
+        "error": None,
+        "feed_provider": FEED_CODE,
+        "sports_seen": sports_seen,
+        "replaced": bool(replace),
+    }
+
+
+def load_pinnacle_raw_file() -> list:
+    """
+    Load native Pinnacle JSON for ingest.
+    Prefers feed_data/pinnacle_raw.json, else designs/feed_json_examples/pinnacle_raw.json.
+    """
+    from backend import config
+
+    candidates = []
+    feed_data = getattr(config, "FEED_DATA_DIR", None)
+    if feed_data:
+        candidates.append(Path(feed_data) / "pinnacle_raw.json")
+    # Project designs examples (same layout as other feed samples)
+    candidates.append(Path(__file__).resolve().parent.parent / "designs" / "feed_json_examples" / "pinnacle_raw.json")
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict) and isinstance(data.get("events"), list):
+                return data["events"]
+            if isinstance(data, dict) and isinstance(data.get("results"), list):
+                return data["results"]
+        except (json.JSONDecodeError, OSError):
+            continue
+    return []
+
+
+# ── API-Football (fixtures Phase 1) ─────────────────────────────────────────
+
+API_FOOTBALL_DEFAULT_DAYS_AHEAD = 365
+API_FOOTBALL_DATE_CHUNK_DAYS = 14  # from/to window size per request (quota-friendly)
+
+
+async def _fetch_api_football_json(
+    path: str,
+    api_key: str,
+    params: dict | None = None,
+    *,
+    base_url: str | None = None,
+    timeout: float = 60.0,
+) -> tuple[Optional[dict], Optional[str]]:
+    """GET path on API-Football with x-apisports-key. Returns (data, error)."""
+    from backend import config as _cfg
+
+    key = (api_key or "").strip()
+    if not key:
+        return (None, "API_FOOTBALL_KEY not set")
+    root = (base_url or getattr(_cfg, "API_FOOTBALL_BASE_URL", None) or "https://v3.football.api-sports.io").rstrip("/")
+    url = f"{root}/{path.lstrip('/')}"
+    headers = {
+        "x-apisports-key": key,
+        "User-Agent": "PTC-Global-Mapper/1.0",
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, params=params or {}, headers=headers, timeout=timeout)
+            resp.raise_for_status()
+            data = resp.json()
+            return (data, None)
+    except httpx.HTTPStatusError as e:
+        body = (e.response.text or "")[:500]
+        return (None, f"HTTP {e.response.status_code}: {body}")
+    except (httpx.RequestError, json.JSONDecodeError, OSError) as e:
+        return (None, str(e))
+
+
+def _api_football_errors_message(data: dict) -> str | None:
+    errs = data.get("errors")
+    if not errs:
+        return None
+    if isinstance(errs, dict) and errs:
+        parts = [f"{k}: {v}" for k, v in errs.items()]
+        return "; ".join(parts)
+    if isinstance(errs, list) and errs:
+        return "; ".join(str(x) for x in errs)
+    return None
+
+
+async def _api_football_fetch_all_pages(
+    api_key: str, params: dict, *, max_pages: int = 50
+) -> tuple[list, Optional[str], int]:
+    """Fetch /fixtures for one param set, following paging. Returns (raw items, error, request_count)."""
+    raw_items: list = []
+    page = 1
+    total_pages = 1
+    request_count = 0
+    while page <= total_pages and page <= max_pages:
+        page_params = dict(params)
+        if page > 1:
+            page_params["page"] = page
+        data, err = await _fetch_api_football_json("fixtures", api_key, page_params)
+        request_count += 1
+        if err:
+            return ([], err, request_count)
+        if not isinstance(data, dict):
+            return ([], "Invalid API response", request_count)
+        msg = _api_football_errors_message(data)
+        if msg:
+            return ([], msg, request_count)
+        batch = data.get("response") or []
+        if isinstance(batch, list):
+            raw_items.extend(batch)
+        paging = data.get("paging") or {}
+        try:
+            total_pages = max(1, int(paging.get("total") or 1))
+        except (TypeError, ValueError):
+            total_pages = 1
+        if not batch:
+            break
+        page += 1
+    return (raw_items, None, request_count)
+
+
+def _api_football_fixture_is_upcoming(item: dict, *, not_before_date: str) -> bool:
+    """Keep fixtures on/after YYYY-MM-DD (UTC date from fixture.date or timestamp)."""
+    fixture = item.get("fixture") if isinstance(item.get("fixture"), dict) else {}
+    date_s = (fixture.get("date") or "").strip()
+    day = ""
+    if date_s:
+        day = date_s[:10]
+    else:
+        ts = fixture.get("timestamp")
+        if ts is not None:
+            try:
+                day = datetime.fromtimestamp(int(ts), tz=timezone.utc).strftime("%Y-%m-%d")
+            except (TypeError, ValueError, OSError):
+                day = ""
+    if not day:
+        return True
+    return day >= not_before_date
+
+
+async def pull_api_football_fixtures(
+    api_key: str,
+    *,
+    days_ahead: int | None = None,
+    league_id: str | None = None,
+    season: str | None = None,
+    replace: bool = False,
+) -> dict:
+    """
+    Pull fixtures from API-Football /fixtures and merge into feed_data/api_football.json.
+
+    Default (no league): from **today (UTC)** through **today + days_ahead** (default 365),
+    walking the calendar in from/to chunks so you get all offered future fixtures in that window.
+
+    Optional: league_id + season → that competition season, filtered to from today onward.
+
+    Does not fetch odds. Skips existing valid_ids unless replace=True.
+    """
+    global FEED_DATA_DIR
+    from backend.api_football_feed import FEED_CODE, normalize_api_football_events
+    from backend import config as _cfg
+
+    if not FEED_DATA_DIR:
+        FEED_DATA_DIR = getattr(_cfg, "FEED_DATA_DIR", None)
+
+    key = (api_key or "").strip()
+    if not key:
+        return {"ok": False, "added": 0, "skipped": 0, "total": 0, "error": "Please enter API key (or set API_FOOTBALL_KEY in .env)"}
+
+    lid = (league_id or "").strip()
+    seas = (season or "").strip()
+    today = datetime.now(timezone.utc).date()
+    today_s = today.isoformat()
+
+    try:
+        horizon = int(days_ahead) if days_ahead is not None else API_FOOTBALL_DEFAULT_DAYS_AHEAD
+    except (TypeError, ValueError):
+        horizon = API_FOOTBALL_DEFAULT_DAYS_AHEAD
+    horizon = max(1, min(horizon, 730))
+
+    raw_items: list = []
+    mode = "upcoming"
+    requests_used = 0
+
+    if lid and seas:
+        mode = "league+season"
+        end_s = (today + timedelta(days=horizon)).isoformat()
+        params = {"league": lid, "season": seas, "from": today_s, "to": end_s}
+        batch, err, n_req = await _api_football_fetch_all_pages(key, params)
+        requests_used += n_req
+        if err:
+            # Some plans reject from/to with league — fall back to full season, filter client-side
+            batch, err2, n_req2 = await _api_football_fetch_all_pages(key, {"league": lid, "season": seas})
+            requests_used += n_req2
+            if err2:
+                return {"ok": False, "added": 0, "skipped": 0, "total": 0, "error": err2 or err, "requests_used": requests_used}
+            batch = [x for x in batch if isinstance(x, dict) and _api_football_fixture_is_upcoming(x, not_before_date=today_s)]
+        raw_items.extend(batch)
+    else:
+        mode = f"upcoming ({horizon}d)"
+        end = today + timedelta(days=horizon)
+        chunk = timedelta(days=API_FOOTBALL_DATE_CHUNK_DAYS - 1)
+        cursor = today
+        while cursor <= end:
+            chunk_end = min(cursor + chunk, end)
+            params = {"from": cursor.isoformat(), "to": chunk_end.isoformat()}
+            batch, err, n_req = await _api_football_fetch_all_pages(key, params)
+            requests_used += n_req
+            if err:
+                # Fallback: day-by-day for this chunk if from/to rejected
+                day = cursor
+                while day <= chunk_end:
+                    day_batch, day_err, n_day = await _api_football_fetch_all_pages(key, {"date": day.isoformat()})
+                    requests_used += n_day
+                    if day_err:
+                        return {
+                            "ok": False,
+                            "added": 0,
+                            "skipped": 0,
+                            "total": 0,
+                            "error": f"{day_err} (while fetching {day.isoformat()}; earlier: {err})",
+                            "requests_used": requests_used,
+                        }
+                    raw_items.extend(day_batch)
+                    day += timedelta(days=1)
+            else:
+                raw_items.extend(batch)
+            cursor = chunk_end + timedelta(days=1)
+
+        raw_items = [
+            x for x in raw_items
+            if isinstance(x, dict) and _api_football_fixture_is_upcoming(x, not_before_date=today_s)
+        ]
+
+    normalized = normalize_api_football_events(raw_items)
+    existing = load_stored_feed_events(FEED_CODE)
+    if replace:
+        existing = []
+        save_stored_feed_events(FEED_CODE, existing)
+
+    existing_ids = {str(e.get("valid_id") or "").strip() for e in existing if (e.get("valid_id") or "").strip()}
+    added = 0
+    skipped = 0
+    new_rows: list[dict] = []
+    for ev in normalized:
+        vid = str(ev.get("valid_id") or "").strip()
+        if not vid:
+            continue
+        if vid in existing_ids:
+            skipped += 1
+            continue
+        new_rows.append(ev)
+        existing_ids.add(vid)
+        added += 1
+
+    if new_rows:
+        async with _feed_lock(FEED_CODE):
+            current = load_stored_feed_events(FEED_CODE)
+            if replace:
+                current = []
+            current_ids = {str(e.get("valid_id") or "").strip() for e in current}
+            for ev in new_rows:
+                eid = str(ev.get("valid_id") or "").strip()
+                if eid and eid not in current_ids:
+                    current.append(ev)
+                    current_ids.add(eid)
+            save_stored_feed_events(FEED_CODE, current)
+
+    to_date = (today + timedelta(days=horizon)).isoformat()
+    return {
+        "ok": True,
+        "added": added,
+        "skipped": skipped,
+        "total": len(normalized),
+        "error": None,
+        "feed_provider": FEED_CODE,
+        "mode": mode,
+        "replaced": bool(replace),
+        "from_date": today_s,
+        "to_date": to_date,
+        "requests_used": requests_used,
+        "days_ahead": horizon,
+    }
+
+
+def load_api_football_raw_file() -> list:
+    """Load native fixtures JSON for offline ingest (array or {response: []})."""
+    from backend import config
+
+    candidates = []
+    feed_data = getattr(config, "FEED_DATA_DIR", None)
+    if feed_data:
+        candidates.append(Path(feed_data) / "api_football_raw.json")
+    candidates.append(
+        Path(__file__).resolve().parent.parent / "designs" / "feed_json_examples" / "api_football_fixtures.json"
+    )
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict) and isinstance(data.get("response"), list):
+                return data["response"]
+            if isinstance(data, dict) and isinstance(data.get("results"), list):
+                return data["results"]
+        except (json.JSONDecodeError, OSError):
+            continue
+    return []
+
+
+def ingest_api_football_raw_events(raw_events: list, *, replace: bool = False) -> dict:
+    """Normalize offline fixtures dump into feed_data/api_football.json (no HTTP)."""
+    global FEED_DATA_DIR
+    from backend.api_football_feed import FEED_CODE, normalize_api_football_events
+    from backend import config as _cfg
+
+    if not FEED_DATA_DIR:
+        FEED_DATA_DIR = getattr(_cfg, "FEED_DATA_DIR", None)
+
+    normalized = normalize_api_football_events(raw_events)
+    existing = load_stored_feed_events(FEED_CODE)
+    if replace:
+        existing = []
+        save_stored_feed_events(FEED_CODE, existing)
+    existing_ids = {str(e.get("valid_id") or "").strip() for e in existing if (e.get("valid_id") or "").strip()}
+    added = 0
+    skipped = 0
+    new_rows: list[dict] = []
+    for ev in normalized:
+        vid = str(ev.get("valid_id") or "").strip()
+        if not vid:
+            continue
+        if vid in existing_ids:
+            skipped += 1
+            continue
+        new_rows.append(ev)
+        existing_ids.add(vid)
+        added += 1
+    if new_rows:
+        merged = list(existing) + new_rows
+        save_stored_feed_events(FEED_CODE, merged)
+    return {
+        "ok": True,
+        "added": added,
+        "skipped": skipped,
+        "total": len(normalized),
+        "error": None,
+        "feed_provider": FEED_CODE,
+        "replaced": bool(replace),
+    }
+
+
+async def pull_api_football_odds_catalogs(api_key: str) -> dict:
+    """
+    Phase 2: pull /odds/bets and /odds/bookmakers into feed_data catalogs.
+
+    Bets → market mapper (feed_market_id = bet.id, once for whole feed).
+    Bookmakers → reference labels for nested odds later (not separate feeds).
+    """
+    from backend.api_football_feed import (
+        FEED_CODE,
+        normalize_odds_id_name_list,
+        save_odds_catalog,
+    )
+
+    key = (api_key or "").strip()
+    if not key:
+        return {
+            "ok": False,
+            "error": "Please enter API key (or set API_FOOTBALL_KEY in .env)",
+            "bets_count": 0,
+            "bookmakers_count": 0,
+            "requests_used": 0,
+        }
+
+    requests_used = 0
+    bets_data, bets_err = await _fetch_api_football_json("odds/bets", key)
+    requests_used += 1
+    if bets_err:
+        return {
+            "ok": False,
+            "error": f"odds/bets: {bets_err}",
+            "bets_count": 0,
+            "bookmakers_count": 0,
+            "requests_used": requests_used,
+        }
+    if isinstance(bets_data, dict):
+        msg = _api_football_errors_message(bets_data)
+        if msg:
+            return {
+                "ok": False,
+                "error": f"odds/bets: {msg}",
+                "bets_count": 0,
+                "bookmakers_count": 0,
+                "requests_used": requests_used,
+            }
+
+    books_data, books_err = await _fetch_api_football_json("odds/bookmakers", key)
+    requests_used += 1
+    if books_err:
+        return {
+            "ok": False,
+            "error": f"odds/bookmakers: {books_err}",
+            "bets_count": 0,
+            "bookmakers_count": 0,
+            "requests_used": requests_used,
+        }
+    if isinstance(books_data, dict):
+        msg = _api_football_errors_message(books_data)
+        if msg:
+            return {
+                "ok": False,
+                "error": f"odds/bookmakers: {msg}",
+                "bets_count": 0,
+                "bookmakers_count": 0,
+                "requests_used": requests_used,
+            }
+
+    bets = normalize_odds_id_name_list(bets_data if isinstance(bets_data, (dict, list)) else [])
+    books = normalize_odds_id_name_list(books_data if isinstance(books_data, (dict, list)) else [])
+    if not bets:
+        return {
+            "ok": False,
+            "error": "odds/bets returned no markets",
+            "bets_count": 0,
+            "bookmakers_count": len(books),
+            "requests_used": requests_used,
+        }
+
+    save_odds_catalog("bets", bets)
+    save_odds_catalog("bookmakers", books)
+    return {
+        "ok": True,
+        "error": None,
+        "feed_provider": FEED_CODE,
+        "bets_count": len(bets),
+        "bookmakers_count": len(books),
+        "requests_used": requests_used,
+        "mode": "odds catalogs",
+    }
+
+
+async def fetch_api_football_fixture_odds(api_key: str, fixture_id: str) -> Optional[dict]:
+    """
+    GET /odds?fixture={id} — nested bookmakers → bets → values.
+    Returns full API JSON on success, else None. Prefer fetch_api_football_fixture_odds_result for errors.
+    """
+    data, err = await fetch_api_football_fixture_odds_result(api_key, fixture_id)
+    return data if not err else None
+
+
+async def fetch_api_football_fixture_odds_result(api_key: str, fixture_id: str) -> tuple[Optional[dict], Optional[str]]:
+    """GET /odds?fixture={id}. Returns (data, error_message)."""
+    key = (api_key or "").strip()
+    fid = str(fixture_id or "").strip()
+    if not key:
+        return (None, "API_FOOTBALL_KEY not set (add to .env or pass api_token)")
+    if not fid:
+        return (None, "fixture id missing")
+    data, err = await _fetch_api_football_json("odds", key, {"fixture": fid})
+    if err:
+        return (None, err)
+    if not isinstance(data, dict):
+        return (None, "Invalid API response")
+    msg = _api_football_errors_message(data)
+    if msg:
+        return (None, msg)
+    resp = data.get("response")
+    if not isinstance(resp, list) or not resp:
+        return (None, "API returned no odds for this fixture (may not be published yet)")
+    books = (resp[0] or {}).get("bookmakers") if isinstance(resp[0], dict) else None
+    if not books:
+        return (None, "API returned no bookmakers for this fixture (may not be published yet)")
+    return (data, None)
+
+

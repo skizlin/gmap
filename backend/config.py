@@ -23,6 +23,10 @@ except ImportError:
 # API token for event-details (BetsAPI/b365api). Used when creating/mapping domain events. Set in .env.
 BETSAPI_TOKEN = (os.environ.get("BETSAPI_TOKEN") or "").strip()
 
+# API-Football / API-Sports (v3.football.api-sports.io). Fixtures Phase 1. Set in .env; never commit the key.
+API_FOOTBALL_KEY = (os.environ.get("API_FOOTBALL_KEY") or os.environ.get("APISPORTS_KEY") or "").strip()
+API_FOOTBALL_BASE_URL = (os.environ.get("API_FOOTBALL_BASE_URL") or "https://v3.football.api-sports.io").strip().rstrip("/")
+
 
 def _env_truthy(name: str, default: bool = False) -> bool:
     v = (os.environ.get(name) or "").strip().lower()
